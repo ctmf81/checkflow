@@ -1,82 +1,91 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, MoreVertical, Sun, FileText, Users } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { NovoGrupoModal } from './NovoGrupoModal'
+import { createClient } from '@/lib/supabase'
 
 interface Grupo {
   id: string
   nome: string
-  totalAreas: number
+  display_name: string | null
+  totalSubgrupos: number
   totalChecklists: number
   totalUsuarios: number
 }
 
-const mock: Grupo[] = [
-  { id: '1', nome: 'CQPA',       totalAreas: 3, totalChecklists: 4,  totalUsuarios: 37 },
-  { id: '2', nome: 'Digital',    totalAreas: 1, totalChecklists: 7,  totalUsuarios: 1  },
-  { id: '3', nome: 'Esmaltação', totalAreas: 5, totalChecklists: 4,  totalUsuarios: 2  },
-  { id: '4', nome: 'Logística',  totalAreas: 5, totalChecklists: 3,  totalUsuarios: 22 },
-  { id: '5', nome: 'Moagem',     totalAreas: 3, totalChecklists: 4,  totalUsuarios: 6  },
-  { id: '6', nome: 'Prensa',     totalAreas: 4, totalChecklists: 0,  totalUsuarios: 4  },
-]
-
 export default function GruposPage() {
+  const [grupos, setGrupos] = useState<Grupo[]>([])
   const [modal, setModal] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  async function carregar() {
+    setLoading(true)
+    const supabase = createClient()
+    const { data } = await supabase.from('grupos').select('id, nome, display_name').order('nome')
+    if (data) {
+      const comContagens = await Promise.all(data.map(async g => {
+        const { count: subs } = await supabase.from('subgrupos').select('id', { count: 'exact', head: true }).eq('grupo_id', g.id)
+        const { count: users } = await supabase.from('usuario_grupo').select('usuario_id', { count: 'exact', head: true }).eq('grupo_id', g.id)
+        return { ...g, totalSubgrupos: subs ?? 0, totalChecklists: 0, totalUsuarios: users ?? 0 }
+      }))
+      setGrupos(comContagens)
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => { carregar() }, [])
 
   return (
     <>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold text-gray-800">Grupos</h1>
-        <Button onClick={() => setModal(true)}>
-          <Plus size={16} />
-          Criar novo grupo
-        </Button>
+        <Button onClick={() => setModal(true)}><Plus size={16} />Criar novo grupo</Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {mock.map(grupo => (
-          <Link
-            key={grupo.id}
-            href={`/gestao/grupos/${grupo.id}/subgrupos`}
-            className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-shadow block"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-gray-800">{grupo.nome}</h2>
-              <button
-                className="text-gray-400 hover:text-gray-600 p-1"
-                onClick={e => e.preventDefault()}
-              >
-                <MoreVertical size={16} />
-              </button>
-            </div>
-
-            <div className="flex gap-2">
-              <div className="flex items-center gap-1.5 bg-orange-50 px-3 py-2 rounded-lg flex-1">
-                <Sun size={14} className="text-orange-400" />
-                <span className="text-orange-500 font-bold text-sm">{grupo.totalAreas}</span>
-                <span className="text-gray-500 text-xs">Áreas</span>
+      {loading ? (
+        <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
+      ) : grupos.length === 0 ? (
+        <div className="py-16 text-center">
+          <p className="text-sm text-gray-500">Nenhum grupo cadastrado.</p>
+          <p className="text-xs text-gray-400 mt-1">Clique em &quot;Criar novo grupo&quot; para começar.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {grupos.map(grupo => (
+            <Link key={grupo.id} href={`/gestao/grupos/${grupo.id}/subgrupos`}
+              className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-shadow block">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-gray-800">{grupo.display_name || grupo.nome}</h2>
+                <button className="text-gray-400 hover:text-gray-600 p-1" onClick={e => e.preventDefault()}>
+                  <MoreVertical size={16} />
+                </button>
               </div>
-
-              <div className="flex items-center gap-1.5 bg-blue-50 px-3 py-2 rounded-lg flex-1">
-                <FileText size={14} className="text-blue-400" />
-                <span className="text-blue-500 font-bold text-sm">{grupo.totalChecklists}</span>
-                <span className="text-gray-500 text-xs">Checklists</span>
+              <div className="flex gap-2">
+                <div className="flex items-center gap-1.5 bg-orange-50 px-3 py-2 rounded-lg flex-1">
+                  <Sun size={14} className="text-orange-400" />
+                  <span className="text-orange-500 font-bold text-sm">{grupo.totalSubgrupos}</span>
+                  <span className="text-gray-500 text-xs">Áreas</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-blue-50 px-3 py-2 rounded-lg flex-1">
+                  <FileText size={14} className="text-blue-400" />
+                  <span className="text-blue-500 font-bold text-sm">{grupo.totalChecklists}</span>
+                  <span className="text-gray-500 text-xs">Checklists</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-green-50 px-3 py-2 rounded-lg flex-1">
+                  <Users size={14} className="text-green-400" />
+                  <span className="text-green-500 font-bold text-sm">{grupo.totalUsuarios}</span>
+                  <span className="text-gray-500 text-xs">Usuários</span>
+                </div>
               </div>
+            </Link>
+          ))}
+        </div>
+      )}
 
-              <div className="flex items-center gap-1.5 bg-green-50 px-3 py-2 rounded-lg flex-1">
-                <Users size={14} className="text-green-400" />
-                <span className="text-green-500 font-bold text-sm">{grupo.totalUsuarios}</span>
-                <span className="text-gray-500 text-xs">Usuários</span>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
-
-      {modal && <NovoGrupoModal onClose={() => setModal(false)} />}
+      {modal && <NovoGrupoModal onClose={() => { setModal(false); carregar() }} />}
     </>
   )
 }
