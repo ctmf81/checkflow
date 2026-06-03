@@ -1,42 +1,34 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
+const AUTH_ROUTES = ['/login', '/recuperar-senha', '/nova-senha']
+const PUBLIC_PREFIXES = ['/_next', '/favicon', '/public']
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
-
-  const { data: { user } } = await supabase.auth.getUser()
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  const isAuthRoute = pathname.startsWith('/login') ||
-                      pathname.startsWith('/recuperar-senha') ||
-                      pathname.startsWith('/nova-senha')
+  if (PUBLIC_PREFIXES.some(p => pathname.startsWith(p))) {
+    return NextResponse.next()
+  }
 
-  if (!user && !isAuthRoute) {
+  const isAuthRoute = AUTH_ROUTES.some(r => pathname.startsWith(r))
+
+  // Supabase armazena a sessão neste cookie
+  const projectRef = 'pswdjdlirylxgscohcfi'
+  const sessionCookie =
+    request.cookies.get(`sb-${projectRef}-auth-token`) ??
+    request.cookies.get(`sb-${projectRef}-auth-token.0`)
+
+  const isLoggedIn = !!sessionCookie
+
+  if (!isLoggedIn && !isAuthRoute) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  if (user && pathname === '/login') {
+  if (isLoggedIn && pathname === '/login') {
     return NextResponse.redirect(new URL('/gestao/empresas', request.url))
   }
 
-  return supabaseResponse
+  return NextResponse.next()
 }
 
 export const config = {
