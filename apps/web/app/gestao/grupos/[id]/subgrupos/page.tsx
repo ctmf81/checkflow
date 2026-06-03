@@ -17,7 +17,7 @@ interface Subgrupo {
 export default function SubgruposPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [modal, setModal] = useState(false)
-  const [grupo, setGrupo] = useState<{ nome: string } | null>(null)
+  const [grupo, setGrupo] = useState<{ nome: string; subgrupo_label?: string } | null>(null)
   const [subgrupos, setSubgrupos] = useState<Subgrupo[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -25,7 +25,7 @@ export default function SubgruposPage({ params }: { params: Promise<{ id: string
     setLoading(true)
     const supabase = createClient()
 
-    const { data: g } = await supabase.from('grupos').select('nome').eq('id', id).single()
+    const { data: g } = await supabase.from('grupos').select('nome, subgrupo_label').eq('id', id).single()
     if (g) setGrupo(g)
 
     const { data: subs } = await supabase.from('subgrupos').select('id, nome').eq('grupo_id', id).order('nome')
@@ -54,7 +54,7 @@ export default function SubgruposPage({ params }: { params: Promise<{ id: string
         </div>
         <Button onClick={() => setModal(true)}>
           <Plus size={16} />
-          Criar nova área
+          Criar novo {(grupo?.subgrupo_label ?? 'subgrupo').toLowerCase()}
         </Button>
       </div>
 
@@ -96,6 +96,7 @@ export default function SubgruposPage({ params }: { params: Promise<{ id: string
       {modal && (
         <NovoSubgrupoModal
           grupoId={id}
+          subgrupoLabel={grupo?.subgrupo_label ?? 'Subgrupo'}
           onClose={() => setModal(false)}
           onCriado={() => { setModal(false); carregar() }}
         />
