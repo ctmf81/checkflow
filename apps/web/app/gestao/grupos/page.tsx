@@ -28,11 +28,30 @@ export default function GruposPage() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
     setLoading(true)
     const supabase = createClient()
-    const { data } = await supabase
+    const { data, error: qErr } = await supabase
       .from('grupos')
       .select('id, nome, display_name, grupo_label, subgrupo_label')
       .eq('unidade_id', unidadeAtiva.id)
       .order('nome')
+
+    if (qErr) {
+      // Fallback sem as colunas novas (antes da migration 6)
+      const { data: d2 } = await supabase
+        .from('grupos')
+        .select('id, nome, display_name')
+        .eq('unidade_id', unidadeAtiva.id)
+        .order('nome')
+      if (d2) {
+        const comContagens = await Promise.all(d2.map(async g => {
+          const { count: subs } = await supabase.from('subgrupos').select('id', { count: 'exact', head: true }).eq('grupo_id', g.id)
+          const { count: users } = await supabase.from('usuario_grupo').select('usuario_id', { count: 'exact', head: true }).eq('grupo_id', g.id)
+          return { ...g, grupo_label: null, subgrupo_label: null, totalSubgrupos: subs ?? 0, totalUsuarios: users ?? 0 }
+        }))
+        setGrupos(comContagens)
+      }
+      setLoading(false)
+      return
+    }
 
     if (data) {
       const comContagens = await Promise.all(data.map(async g => {
