@@ -77,16 +77,26 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           if (emp) {
             setEmpresaAtivaState(emp)
             if (isAdmin) setModoEmpresa(true)
-            // Carrega unidades dessa empresa
-            await carregarUnidades(sessao.ultima_empresa_id, user.id, isAdmin)
+            const lista = await carregarUnidades(sessao.ultima_empresa_id, user.id, isAdmin)
+
+            // Restaura unidade da sessão, ou pega a primeira disponível
+            if (sessao.ultima_unidade_id) {
+              const uni = lista.find(u => u.id === sessao.ultima_unidade_id)
+              if (uni) {
+                setUnidadeAtivaState(uni)
+              } else if (lista.length > 0) {
+                setUnidadeAtivaState(lista[0])
+                salvarSessao({ ultima_unidade_id: lista[0].id })
+              }
+            } else if (lista.length > 0) {
+              setUnidadeAtivaState(lista[0])
+              salvarSessao({ ultima_unidade_id: lista[0].id })
+            }
           }
         }
-
-        if (sessao.ultima_unidade_id) {
-          const { data: uni } = await supabase
-            .from('unidades').select('id, nome').eq('id', sessao.ultima_unidade_id).single()
-          if (uni) setUnidadeAtivaState(uni)
-        }
+      } else {
+        // Sem sessão salva: admin vai para sistema sem unidade,
+        // outros usuários precisam ter empresa/unidade definidas pelo admin
       }
     }
 

@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, MoreVertical, Sun, FileText, Users } from 'lucide-react'
+import { Plus, MoreVertical, Sun, FileText, Users, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { NovoGrupoModal } from './NovoGrupoModal'
 import { createClient } from '@/lib/supabase'
+import { useSession } from '@/contexts/SessionContext'
 
 interface Grupo {
   id: string
@@ -17,14 +18,20 @@ interface Grupo {
 }
 
 export default function GruposPage() {
+  const { unidadeAtiva } = useSession()
   const [grupos, setGrupos] = useState<Grupo[]>([])
   const [modal, setModal] = useState(false)
   const [loading, setLoading] = useState(true)
 
   async function carregar() {
+    if (!unidadeAtiva?.id) { setLoading(false); return }
     setLoading(true)
     const supabase = createClient()
-    const { data } = await supabase.from('grupos').select('id, nome, display_name').order('nome')
+    const { data } = await supabase
+      .from('grupos')
+      .select('id, nome, display_name')
+      .eq('unidade_id', unidadeAtiva.id)
+      .order('nome')
     if (data) {
       const comContagens = await Promise.all(data.map(async g => {
         const { count: subs } = await supabase.from('subgrupos').select('id', { count: 'exact', head: true }).eq('grupo_id', g.id)
@@ -36,12 +43,23 @@ export default function GruposPage() {
     setLoading(false)
   }
 
-  useEffect(() => { carregar() }, [])
+  useEffect(() => { carregar() }, [unidadeAtiva?.id])
+
+  if (!unidadeAtiva) return (
+    <div className="py-16 text-center">
+      <AlertCircle size={40} className="text-amber-300 mx-auto mb-3" />
+      <p className="text-sm text-gray-600 font-medium">Nenhuma unidade selecionada</p>
+      <p className="text-xs text-gray-400 mt-1">Selecione uma unidade no seletor do cabeçalho para continuar.</p>
+    </div>
+  )
 
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold text-gray-800">Grupos</h1>
+        <div>
+          <h1 className="text-xl font-semibold text-gray-800">Grupos</h1>
+          <p className="text-xs text-gray-400 mt-0.5">Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
+        </div>
         <Button onClick={() => setModal(true)}><Plus size={16} />Criar novo grupo</Button>
       </div>
 
@@ -49,7 +67,7 @@ export default function GruposPage() {
         <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
       ) : grupos.length === 0 ? (
         <div className="py-16 text-center">
-          <p className="text-sm text-gray-500">Nenhum grupo cadastrado.</p>
+          <p className="text-sm text-gray-500">Nenhum grupo cadastrado nesta unidade.</p>
           <p className="text-xs text-gray-400 mt-1">Clique em &quot;Criar novo grupo&quot; para começar.</p>
         </div>
       ) : (
