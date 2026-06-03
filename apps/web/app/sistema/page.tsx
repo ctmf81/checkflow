@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { NovaEmpresaModal } from '@/components/modals/NovaEmpresaModal'
 
 type StatusEmpresa = 'ativo' | 'inativo' | 'pendente' | 'bloqueada'
 
@@ -29,6 +30,7 @@ export default function SistemaPage() {
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<string>('todos')
   const [loading, setLoading] = useState(true)
+  const [modal, setModal] = useState(false)
 
   useEffect(() => {
     async function carregar() {
@@ -67,7 +69,7 @@ export default function SistemaPage() {
           <h1 className="text-xl font-bold text-gray-800">Painel de sistema</h1>
           <p className="text-sm text-gray-500 mt-0.5">Gestão global de empresas na plataforma</p>
         </div>
-        <Button onClick={() => router.push('/gestao/empresas')}>
+        <Button onClick={() => setModal(true)}>
           <Plus size={16} />
           Nova empresa
         </Button>
@@ -152,6 +154,30 @@ export default function SistemaPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {modal && (
+        <NovaEmpresaModal
+          onClose={() => setModal(false)}
+          onCriada={() => {
+            setModal(false)
+            // Recarrega a lista
+            setLoading(true)
+            const supabase = createClient()
+            supabase.from('empresas').select('id, nome, cnpj, status, criado_em').order('nome')
+              .then(async ({ data }) => {
+                if (data) {
+                  const comContagens = await Promise.all(data.map(async e => {
+                    const { count: unis } = await supabase.from('unidades').select('id', { count: 'exact', head: true }).eq('empresa_id', e.id)
+                    const { count: users } = await supabase.from('usuario_empresa').select('usuario_id', { count: 'exact', head: true }).eq('empresa_id', e.id)
+                    return { ...e, totalUnidades: unis ?? 0, totalUsuarios: users ?? 0 }
+                  }))
+                  setEmpresas(comContagens)
+                }
+                setLoading(false)
+              })
+          }}
+        />
       )}
     </>
   )
