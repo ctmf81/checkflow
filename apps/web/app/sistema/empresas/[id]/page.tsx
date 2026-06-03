@@ -2,11 +2,12 @@
 
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ExternalLink } from 'lucide-react'
+import { ChevronLeft, ExternalLink, UserPlus } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { UsuarioModal } from '@/app/gestao/acessos/usuarios/UsuarioModal'
 
 type Aba = 'administrador' | 'pagamento' | 'configuracoes'
 
@@ -19,6 +20,16 @@ interface Empresa {
   criado_em: string
 }
 
+interface Usuario {
+  id: string
+  nome: string
+  email: string
+  cpf: string
+  telefone: string
+  perfil: string
+  unidades: { id: string; nome: string }[]
+}
+
 export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
@@ -27,6 +38,7 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
   const [aba, setAba] = useState<Aba>('administrador')
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
+  const [modalUsuario, setModalUsuario] = useState(false)
 
   // Pagamento
   const [plano, setPlano] = useState('')
@@ -43,6 +55,12 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
   const [adminId, setAdminId] = useState('')
   const [usuarios, setUsuarios] = useState<{ id: string; nome: string; email: string }[]>([])
 
+  async function carregarUsuarios() {
+    const supabase = createClient()
+    const { data } = await supabase.from('usuarios').select('id, nome, email').order('nome')
+    if (data) setUsuarios(data)
+  }
+
   useEffect(() => {
     async function carregar() {
       const supabase = createClient()
@@ -53,8 +71,7 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
         setCnpj(emp.cnpj ?? '')
         setStatusEmp(emp.status)
       }
-      const { data: users } = await supabase.from('usuarios').select('id, nome, email').order('nome')
-      if (users) setUsuarios(users)
+      await carregarUsuarios()
       setLoading(false)
     }
     carregar()
@@ -64,13 +81,16 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
     if (!empresa) return
     await setEmpresaAtiva({ id: empresa.id, nome: empresa.nome })
     setAmbiente('gestao')
-    router.push('/gestao/empresas')
+    router.push('/gestao')
   }
 
   async function salvarConfig() {
     setSalvando(true)
     const supabase = createClient()
-    await supabase.from('empresas').update({ nome: nomeEmp, cnpj, status: statusEmp, atualizado_em: new Date().toISOString() }).eq('id', id)
+    await supabase.from('empresas').update({
+      nome: nomeEmp, cnpj, status: statusEmp,
+      atualizado_em: new Date().toISOString()
+    }).eq('id', id)
     setSalvando(false)
   }
 
@@ -85,7 +105,6 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
 
   return (
     <>
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <button onClick={() => router.push('/sistema')} className="text-gray-400 hover:text-orange-500 transition-colors">
@@ -105,7 +124,6 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
         </Button>
       </div>
 
-      {/* Abas */}
       <div className="flex gap-1 mb-6 border-b border-gray-200">
         {abas.map(a => (
           <button key={a.key} onClick={() => setAba(a.key)}
@@ -117,13 +135,13 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
         ))}
       </div>
 
-      {/* Conteúdo das abas */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-xl">
 
         {aba === 'administrador' && (
           <div className="space-y-4">
-            <h2 className="font-semibold text-gray-700 mb-4">Administrador da empresa</h2>
+            <h2 className="font-semibold text-gray-700">Administrador da empresa</h2>
             <p className="text-sm text-gray-500">Selecione o usuário que será o administrador desta empresa.</p>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Usuário administrador</label>
               <select value={adminId} onChange={e => setAdminId(e.target.value)}
@@ -134,6 +152,22 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
                 ))}
               </select>
             </div>
+
+            {/* Cadastrar novo usuário */}
+            <div className="flex items-center gap-2 pt-1">
+              <div className="flex-1 border-t border-gray-100" />
+              <span className="text-xs text-gray-400">ou</span>
+              <div className="flex-1 border-t border-gray-100" />
+            </div>
+
+            <button
+              onClick={() => setModalUsuario(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-dashed border-gray-200 rounded-lg text-gray-500 hover:border-orange-300 hover:text-orange-500 transition-colors"
+            >
+              <UserPlus size={16} />
+              Cadastrar novo usuário
+            </button>
+
             <div className="flex justify-end pt-2">
               <Button disabled={!adminId}>Salvar administrador</Button>
             </div>
@@ -206,11 +240,23 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
               </select>
             </div>
             <div className="flex justify-end pt-2">
-              <Button onClick={salvarConfig} disabled={salvando}>{salvando ? 'Salvando...' : 'Salvar configurações'}</Button>
+              <Button onClick={salvarConfig} disabled={salvando}>
+                {salvando ? 'Salvando...' : 'Salvar configurações'}
+              </Button>
             </div>
           </div>
         )}
       </div>
+
+      {/* Modal de cadastro de novo usuário */}
+      {modalUsuario && (
+        <UsuarioModal
+          onClose={() => {
+            setModalUsuario(false)
+            carregarUsuarios() // recarrega lista após cadastro
+          }}
+        />
+      )}
     </>
   )
 }
