@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
+import { EmConstrucao } from '@/components/ui/EmConstrucao'
 
-export default function GestaoPage() {
-  redirect('/gestao/grupos')
+export default function GestaoHomePage() {
+  return <EmConstrucao titulo="Home" />
 }
