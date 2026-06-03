@@ -1,29 +1,36 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, LogOut, UserCircle } from 'lucide-react'
+import { ChevronDown, LogOut, UserCircle, Building2, LayoutDashboard, Settings } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { useSession } from '@/contexts/SessionContext'
 
 export function Header() {
   const router = useRouter()
+  const { unidades, unidadeAtiva, setUnidadeAtiva, setAmbiente, setEmpresaAtiva } = useSession()
   const [nome, setNome] = useState('')
-  const [perfil, setPerfil] = useState('Admin de sistema')
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [dropUnidade, setDropUnidade] = useState(false)
+  const [dropUsuario, setDropUsuario] = useState(false)
+  const refUnidade = useRef<HTMLDivElement>(null)
+  const refUsuario = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        supabase
-          .from('usuarios')
-          .select('nome')
-          .eq('id', user.id)
-          .single()
-          .then(({ data }) => {
-            if (data?.nome) setNome(data.nome)
-          })
-      }
+      if (!user) return
+      setIsAdmin(user.user_metadata?.role === 'admin_sistema')
+      supabase.from('usuarios').select('nome').eq('id', user.id).single()
+        .then(({ data }) => { if (data?.nome) setNome(data.nome) })
     })
+
+    function handleClick(e: MouseEvent) {
+      if (refUnidade.current && !refUnidade.current.contains(e.target as Node)) setDropUnidade(false)
+      if (refUsuario.current && !refUsuario.current.contains(e.target as Node)) setDropUsuario(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
   async function handleLogout() {
@@ -33,27 +40,98 @@ export function Header() {
     router.refresh()
   }
 
+  function irPara(ambiente: 'gestao' | 'operacao' | 'sistema') {
+    setDropUsuario(false)
+    if (ambiente === 'sistema') {
+      setAmbiente('sistema')
+      router.push('/sistema')
+    } else {
+      setAmbiente(ambiente)
+      router.push(ambiente === 'gestao' ? '/gestao/empresas' : '/operacao')
+    }
+  }
+
   return (
-    <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-end px-6 gap-4">
-      <button className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900">
-        <span className="font-medium">Unidade</span>
-        <ChevronDown size={14} className="text-orange-500" />
-      </button>
+    <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-end px-6 gap-4 relative z-40">
+
+      {/* Seletor de unidade */}
+      <div ref={refUnidade} className="relative">
+        <button
+          onClick={() => setDropUnidade(!dropUnidade)}
+          className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900"
+        >
+          <span className="font-medium">{unidadeAtiva?.nome ?? 'Unidade'}</span>
+          <ChevronDown size={14} className="text-orange-500" />
+        </button>
+
+        {dropUnidade && (
+          <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+            <p className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">Unidades</p>
+            {unidades.length === 0 ? (
+              <p className="px-4 py-3 text-sm text-gray-400">Nenhuma unidade</p>
+            ) : unidades.map(u => (
+              <button
+                key={u.id}
+                onClick={() => { setUnidadeAtiva(u); setDropUnidade(false) }}
+                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${unidadeAtiva?.id === u.id ? 'text-orange-500 font-medium bg-orange-50' : 'text-gray-700 hover:bg-gray-50'}`}
+              >
+                {u.nome}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="w-px h-6 bg-gray-200" />
 
-      <button className="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900">
-        <UserCircle size={28} className="text-orange-400" />
-        <div className="text-left">
-          <p className="font-medium leading-tight">{nome || 'Carregando...'}</p>
-          <p className="text-xs text-gray-500 leading-tight">{perfil}</p>
-        </div>
-        <ChevronDown size={14} className="text-orange-500" />
-      </button>
+      {/* Seletor de usuário */}
+      <div ref={refUsuario} className="relative">
+        <button
+          onClick={() => setDropUsuario(!dropUsuario)}
+          className="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900"
+        >
+          <UserCircle size={28} className="text-orange-400" />
+          <div className="text-left">
+            <p className="font-medium leading-tight">{nome || '...'}</p>
+            <p className="text-xs text-gray-500 leading-tight">{isAdmin ? 'Admin de sistema' : 'Usuário'}</p>
+          </div>
+          <ChevronDown size={14} className="text-orange-500" />
+        </button>
 
-      <button onClick={handleLogout} className="ml-1 text-gray-400 hover:text-gray-600" title="Sair">
-        <LogOut size={18} />
-      </button>
+        {dropUsuario && (
+          <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+            <p className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">Alterar módulo</p>
+
+            <button onClick={() => irPara('gestao')}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors">
+              <LayoutDashboard size={16} className="text-orange-400" />
+              Gestão
+            </button>
+
+            <button onClick={() => irPara('operacao')}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors">
+              <Settings size={16} className="text-orange-400" />
+              Operação
+            </button>
+
+            {isAdmin && (
+              <button onClick={() => irPara('sistema')}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors">
+                <Building2 size={16} className="text-orange-400" />
+                Painel de sistema
+              </button>
+            )}
+
+            <div className="border-t border-gray-100 mt-1">
+              <button onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors">
+                <LogOut size={16} />
+                Sair
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </header>
   )
 }
