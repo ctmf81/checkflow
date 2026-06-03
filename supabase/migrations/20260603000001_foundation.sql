@@ -1,142 +1,215 @@
 -- ============================================================
--- CheckFlow — Foundation Schema
--- Multi-tenant, event sourcing, typed response origin
+-- CheckFlow — Foundation Schema v1
 -- ============================================================
 
--- Extensions
 create extension if not exists "uuid-ossp";
 
 -- ============================================================
--- TENANTS (empresas)
+-- ENUMS
 -- ============================================================
-create table tenants (
-  id          uuid primary key default uuid_generate_v4(),
-  name        text not null,
-  slug        text not null unique,
-  created_at  timestamptz not null default now()
-);
+create type status_empresa as enum ('ativo', 'inativo', 'pendente', 'bloqueada');
+create type status_geral   as enum ('ativo', 'inativo');
+create type ambiente_tipo  as enum ('gestao', 'operacao');
 
 -- ============================================================
--- USERS (profiles vinculados ao Supabase Auth)
+-- EMPRESAS
 -- ============================================================
-create type user_role as enum ('admin', 'manager', 'operator', 'viewer');
-
-create table profiles (
-  id          uuid primary key references auth.users(id) on delete cascade,
-  tenant_id   uuid not null references tenants(id) on delete cascade,
-  name        text not null,
-  role        user_role not null default 'operator',
-  created_at  timestamptz not null default now()
-);
-
--- ============================================================
--- CHECKLISTS (templates configuráveis)
--- ============================================================
-create table checklists (
-  id          uuid primary key default uuid_generate_v4(),
-  tenant_id   uuid not null references tenants(id) on delete cascade,
-  name        text not null,
-  description text,
-  version     integer not null default 1,
-  is_active   boolean not null default true,
-  created_by  uuid not null references profiles(id),
-  created_at  timestamptz not null default now()
-);
-
--- ============================================================
--- CHECKLIST ITEMS (perguntas/itens do checklist)
--- ============================================================
-create type item_type as enum (
-  'boolean',      -- sim/não
-  'number',       -- valor numérico com intervalo
-  'text',         -- texto livre
-  'photo',        -- foto/evidência
-  'signature',    -- assinatura
-  'select'        -- opção de lista
-);
-
-create table checklist_items (
-  id              uuid primary key default uuid_generate_v4(),
-  checklist_id    uuid not null references checklists(id) on delete cascade,
-  order_index     integer not null,
-  label           text not null,
-  type            item_type not null,
-  required        boolean not null default true,
-  config          jsonb not null default '{}', -- min, max, options, conditions etc.
-  created_at      timestamptz not null default now()
-);
-
--- ============================================================
--- EXECUTIONS (instâncias de checklist em execução)
--- ============================================================
-create type execution_status as enum ('in_progress', 'completed', 'cancelled');
-
-create table executions (
+create table empresas (
   id            uuid primary key default uuid_generate_v4(),
-  tenant_id     uuid not null references tenants(id) on delete cascade,
-  checklist_id  uuid not null references checklists(id),
-  started_by    uuid not null references profiles(id),
-  status        execution_status not null default 'in_progress',
-  started_at    timestamptz not null default now(),
-  completed_at  timestamptz
+  nome          text not null,
+  cnpj          text unique,
+  logo_url      text,
+  status        status_empresa not null default 'pendente',
+  criado_em     timestamptz not null default now(),
+  criado_por    uuid,
+  atualizado_em timestamptz not null default now(),
+  atualizado_por uuid
 );
 
 -- ============================================================
--- RESPONSE EVENTS (event sourcing — imutável)
--- Decisão de fundação: cada resposta é um evento novo,
--- nunca sobrescreve. origin_type identifica humano, sensor ou IA.
+-- UNIDADES
 -- ============================================================
-create type response_origin as enum ('human', 'sensor', 'ai');
+create table unidades (
+  id            uuid primary key default uuid_generate_v4(),
+  empresa_id    uuid not null references empresas(id) on delete cascade,
+  nome          text not null,
+  status        status_geral not null default 'ativo',
+  criado_em     timestamptz not null default now(),
+  criado_por    uuid,
+  atualizado_em timestamptz not null default now(),
+  atualizado_por uuid
+);
 
-create table response_events (
-  id              uuid primary key default uuid_generate_v4(),
-  tenant_id       uuid not null references tenants(id) on delete cascade,
-  execution_id    uuid not null references executions(id) on delete cascade,
-  item_id         uuid not null references checklist_items(id),
-  origin_type     response_origin not null default 'human',
-  origin_id       uuid,         -- profile_id, sensor_id ou ai_model_id
-  value           jsonb not null,
-  file_url        text,         -- foto ou assinatura
-  recorded_at     timestamptz not null default now(),
-  synced_at       timestamptz   -- null = registrado offline, preenchido ao sincronizar
+-- ============================================================
+-- GRUPOS
+-- ============================================================
+create table grupos (
+  id            uuid primary key default uuid_generate_v4(),
+  unidade_id    uuid not null references unidades(id) on delete cascade,
+  nome          text not null,
+  display_name  text,        -- nome customizado na tela (setor, distrito, etc.)
+  descricao     text,
+  status        status_geral not null default 'ativo',
+  criado_em     timestamptz not null default now(),
+  criado_por    uuid,
+  atualizado_em timestamptz not null default now(),
+  atualizado_por uuid
+);
+
+-- ============================================================
+-- SUBGRUPOS
+-- ============================================================
+create table subgrupos (
+  id            uuid primary key default uuid_generate_v4(),
+  grupo_id      uuid not null references grupos(id) on delete cascade,
+  nome          text not null,
+  display_name  text,        -- nome customizado na tela (área, loja, etc.)
+  descricao     text,
+  status        status_geral not null default 'ativo',
+  criado_em     timestamptz not null default now(),
+  criado_por    uuid,
+  atualizado_em timestamptz not null default now(),
+  atualizado_por uuid
+);
+
+-- ============================================================
+-- USUARIOS (profile vinculado ao Supabase Auth)
+-- ============================================================
+create table usuarios (
+  id              uuid primary key references auth.users(id) on delete cascade,
+  nome            text not null,
+  email           text not null unique,
+  cpf             text unique,
+  telefone        text,
+  foto_url        text,
+  status          status_geral not null default 'ativo',
+  primeiro_acesso boolean not null default true,
+  criado_em       timestamptz not null default now()
+);
+
+-- ============================================================
+-- PERFIS (por empresa; empresa_id null = plataforma)
+-- ============================================================
+create table perfis (
+  id          uuid primary key default uuid_generate_v4(),
+  empresa_id  uuid references empresas(id) on delete cascade,
+  nome        text not null,
+  descricao   text,
+  is_system   boolean not null default false, -- perfis padrão não podem ser deletados
+  criado_em   timestamptz not null default now()
+);
+
+-- Perfis padrão da plataforma
+insert into perfis (id, empresa_id, nome, descricao, is_system) values
+  ('00000000-0000-0000-0000-000000000001', null, 'Admin de sistema', 'Acesso total à plataforma', true),
+  ('00000000-0000-0000-0000-000000000002', null, 'Admin da empresa',  'Acesso total dentro de uma empresa', true),
+  ('00000000-0000-0000-0000-000000000003', null, 'Operação',          'Acesso apenas ao ambiente de operação', true);
+
+-- ============================================================
+-- PERMISSOES (cresce conforme novas telas/funções são criadas)
+-- ============================================================
+create table permissoes (
+  id        uuid primary key default uuid_generate_v4(),
+  recurso   text not null,  -- ex: 'empresas', 'grupos', 'checklists'
+  acao      text not null,  -- ex: 'ver', 'criar', 'editar', 'deletar'
+  descricao text,
+  unique (recurso, acao)
+);
+
+-- Permissões iniciais
+insert into permissoes (recurso, acao, descricao) values
+  ('empresas',  'ver',     'Visualizar empresas'),
+  ('empresas',  'criar',   'Criar empresas'),
+  ('empresas',  'editar',  'Editar empresas'),
+  ('empresas',  'deletar', 'Deletar empresas'),
+  ('unidades',  'ver',     'Visualizar unidades'),
+  ('unidades',  'criar',   'Criar unidades'),
+  ('unidades',  'editar',  'Editar unidades'),
+  ('unidades',  'deletar', 'Deletar unidades'),
+  ('grupos',    'ver',     'Visualizar grupos'),
+  ('grupos',    'criar',   'Criar grupos'),
+  ('grupos',    'editar',  'Editar grupos'),
+  ('grupos',    'deletar', 'Deletar grupos'),
+  ('subgrupos', 'ver',     'Visualizar subgrupos'),
+  ('subgrupos', 'criar',   'Criar subgrupos'),
+  ('subgrupos', 'editar',  'Editar subgrupos'),
+  ('subgrupos', 'deletar', 'Deletar subgrupos'),
+  ('usuarios',  'ver',     'Visualizar usuários'),
+  ('usuarios',  'criar',   'Criar usuários'),
+  ('usuarios',  'editar',  'Editar usuários'),
+  ('usuarios',  'deletar', 'Deletar usuários'),
+  ('perfis',    'ver',     'Visualizar perfis'),
+  ('perfis',    'criar',   'Criar perfis'),
+  ('perfis',    'editar',  'Editar perfis'),
+  ('perfis',    'deletar', 'Deletar perfis');
+
+-- ============================================================
+-- PERFIL_PERMISSOES
+-- ============================================================
+create table perfil_permissoes (
+  perfil_id    uuid not null references perfis(id) on delete cascade,
+  permissao_id uuid not null references permissoes(id) on delete cascade,
+  primary key (perfil_id, permissao_id)
+);
+
+-- ============================================================
+-- USUARIO_EMPRESA (usuário ↔ empresa com perfil)
+-- ============================================================
+create table usuario_empresa (
+  usuario_id uuid not null references usuarios(id) on delete cascade,
+  empresa_id uuid not null references empresas(id) on delete cascade,
+  perfil_id  uuid not null references perfis(id),
+  criado_em  timestamptz not null default now(),
+  primary key (usuario_id, empresa_id)
+);
+
+-- ============================================================
+-- USUARIO_UNIDADE
+-- ============================================================
+create table usuario_unidade (
+  usuario_id uuid not null references usuarios(id) on delete cascade,
+  unidade_id uuid not null references unidades(id) on delete cascade,
+  primary key (usuario_id, unidade_id)
+);
+
+-- ============================================================
+-- USUARIO_GRUPO
+-- ============================================================
+create table usuario_grupo (
+  usuario_id uuid not null references usuarios(id) on delete cascade,
+  grupo_id   uuid not null references grupos(id) on delete cascade,
+  primary key (usuario_id, grupo_id)
+);
+
+-- ============================================================
+-- USUARIO_SUBGRUPO
+-- ============================================================
+create table usuario_subgrupo (
+  usuario_id  uuid not null references usuarios(id) on delete cascade,
+  subgrupo_id uuid not null references subgrupos(id) on delete cascade,
+  primary key (usuario_id, subgrupo_id)
+);
+
+-- ============================================================
+-- SESSAO_USUARIO (última sessão para restaurar no login)
+-- ============================================================
+create table sessao_usuario (
+  usuario_id        uuid primary key references usuarios(id) on delete cascade,
+  ultimo_ambiente   ambiente_tipo not null default 'gestao',
+  ultima_empresa_id uuid references empresas(id) on delete set null,
+  ultima_unidade_id uuid references unidades(id) on delete set null,
+  atualizado_em     timestamptz not null default now()
 );
 
 -- ============================================================
 -- INDEXES
 -- ============================================================
-create index on profiles(tenant_id);
-create index on checklists(tenant_id);
-create index on executions(tenant_id);
-create index on executions(checklist_id);
-create index on response_events(execution_id);
-create index on response_events(tenant_id);
-create index on response_events(item_id);
-
--- ============================================================
--- ROW LEVEL SECURITY (isolamento multi-tenant)
--- ============================================================
-alter table tenants          enable row level security;
-alter table profiles         enable row level security;
-alter table checklists       enable row level security;
-alter table checklist_items  enable row level security;
-alter table executions       enable row level security;
-alter table response_events  enable row level security;
-
--- Usuário só acessa dados do próprio tenant
-create policy "tenant_isolation" on profiles
-  using (tenant_id = (select tenant_id from profiles where id = auth.uid()));
-
-create policy "tenant_isolation" on checklists
-  using (tenant_id = (select tenant_id from profiles where id = auth.uid()));
-
-create policy "tenant_isolation" on checklist_items
-  using (checklist_id in (
-    select id from checklists
-    where tenant_id = (select tenant_id from profiles where id = auth.uid())
-  ));
-
-create policy "tenant_isolation" on executions
-  using (tenant_id = (select tenant_id from profiles where id = auth.uid()));
-
-create policy "tenant_isolation" on response_events
-  using (tenant_id = (select tenant_id from profiles where id = auth.uid()));
+create index on unidades(empresa_id);
+create index on grupos(unidade_id);
+create index on subgrupos(grupo_id);
+create index on perfis(empresa_id);
+create index on usuario_empresa(usuario_id);
+create index on usuario_empresa(empresa_id);
+create index on usuario_unidade(usuario_id);
+create index on usuario_grupo(usuario_id);
+create index on usuario_subgrupo(usuario_id);
