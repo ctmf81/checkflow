@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { CheckCircle2, Circle } from 'lucide-react'
 import { CheckFlowLogo } from '@/components/auth/CheckFlowLogo'
+import { createClient } from '@/lib/supabase'
 
 type LoginMode = 'cpf' | 'email'
 
@@ -18,9 +19,7 @@ export default function LoginPage() {
   const [erro, setErro] = useState('')
 
   function formatCPF(value: string) {
-    return value
-      .replace(/\D/g, '')
-      .slice(0, 11)
+    return value.replace(/\D/g, '').slice(0, 11)
       .replace(/(\d{3})(\d)/, '$1.$2')
       .replace(/(\d{3})(\d)/, '$1.$2')
       .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
@@ -31,14 +30,47 @@ export default function LoginPage() {
     setIdentificador(mode === 'cpf' ? formatCPF(v) : v)
   }
 
+  async function resolverEmail(): Promise<string | null> {
+    if (mode === 'email') return identificador
+
+    // Busca email pelo CPF na tabela usuarios
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('usuarios')
+      .select('email')
+      .eq('cpf', identificador)
+      .single()
+    return data?.email ?? null
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErro('')
     setLoading(true)
-    // integração com Supabase Auth vem aqui
-    await new Promise(r => setTimeout(r, 800))
-    setLoading(false)
-    router.push('/gestao/empresas')
+
+    try {
+      const email = await resolverEmail()
+      if (!email) {
+        setErro('CPF não encontrado.')
+        setLoading(false)
+        return
+      }
+
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
+
+      if (error) {
+        setErro('E-mail, CPF ou senha incorretos.')
+        setLoading(false)
+        return
+      }
+
+      router.push('/gestao/empresas')
+      router.refresh()
+    } catch {
+      setErro('Erro ao conectar. Tente novamente.')
+      setLoading(false)
+    }
   }
 
   return (
@@ -50,26 +82,13 @@ export default function LoginPage() {
         Acesse sua conta fornecendo suas credenciais de acesso
       </p>
 
-      {/* Toggle CPF / E-mail */}
       <div className="flex gap-4 mb-5">
-        <button
-          type="button"
-          onClick={() => { setMode('cpf'); setIdentificador('') }}
-          className="flex items-center gap-1.5 text-sm font-medium"
-        >
-          {mode === 'cpf'
-            ? <CheckCircle2 size={18} className="text-orange-500" />
-            : <Circle size={18} className="text-gray-300" />}
+        <button type="button" onClick={() => { setMode('cpf'); setIdentificador('') }} className="flex items-center gap-1.5 text-sm font-medium">
+          {mode === 'cpf' ? <CheckCircle2 size={18} className="text-orange-500" /> : <Circle size={18} className="text-gray-300" />}
           <span className={mode === 'cpf' ? 'text-gray-800' : 'text-gray-400'}>CPF</span>
         </button>
-        <button
-          type="button"
-          onClick={() => { setMode('email'); setIdentificador('') }}
-          className="flex items-center gap-1.5 text-sm font-medium"
-        >
-          {mode === 'email'
-            ? <CheckCircle2 size={18} className="text-orange-500" />
-            : <Circle size={18} className="text-gray-300" />}
+        <button type="button" onClick={() => { setMode('email'); setIdentificador('') }} className="flex items-center gap-1.5 text-sm font-medium">
+          {mode === 'email' ? <CheckCircle2 size={18} className="text-orange-500" /> : <Circle size={18} className="text-gray-300" />}
           <span className={mode === 'email' ? 'text-gray-800' : 'text-gray-400'}>E-mail</span>
         </button>
       </div>
@@ -83,7 +102,7 @@ export default function LoginPage() {
             type={mode === 'email' ? 'email' : 'text'}
             value={identificador}
             onChange={handleIdentificador}
-            placeholder={mode === 'cpf' ? 'Digite seu cpf' : 'Digite seu e-mail'}
+            placeholder={mode === 'cpf' ? 'Digite seu CPF' : 'Digite seu e-mail'}
             className="w-full px-4 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200"
             required
           />
@@ -101,17 +120,11 @@ export default function LoginPage() {
           />
         </div>
 
-        {erro && <p className="text-xs text-red-500">{erro}</p>}
+        {erro && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{erro}</p>}
 
         <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => setManter(!manter)}
-            className="flex items-center gap-1.5 text-sm text-gray-600"
-          >
-            {manter
-              ? <CheckCircle2 size={18} className="text-orange-500" />
-              : <Circle size={18} className="text-gray-300" />}
+          <button type="button" onClick={() => setManter(!manter)} className="flex items-center gap-1.5 text-sm text-gray-600">
+            {manter ? <CheckCircle2 size={18} className="text-orange-500" /> : <Circle size={18} className="text-gray-300" />}
             Manter conectado
           </button>
           <Link href="/recuperar-senha" className="text-sm text-gray-500 hover:text-orange-500 transition-colors">

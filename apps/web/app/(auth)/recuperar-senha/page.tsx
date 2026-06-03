@@ -4,18 +4,27 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { CheckFlowLogo } from '@/components/auth/CheckFlowLogo'
+import { createClient } from '@/lib/supabase'
 
 export default function RecuperarSenhaPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [enviado, setEnviado] = useState(false)
+  const [erro, setErro] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setErro('')
     setLoading(true)
-    // integração com Supabase Auth (resetPasswordForEmail) vem aqui
-    await new Promise(r => setTimeout(r, 800))
+    const supabase = createClient()
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/nova-senha`,
+    })
     setLoading(false)
+    if (error) {
+      setErro('Não foi possível enviar o e-mail. Verifique o endereço.')
+      return
+    }
     setEnviado(true)
   }
 
@@ -29,7 +38,6 @@ export default function RecuperarSenhaPage() {
           <p className="text-center text-sm text-gray-500 mb-6">
             Informe seu e-mail e enviaremos um link para redefinir sua senha
           </p>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
@@ -42,12 +50,9 @@ export default function RecuperarSenhaPage() {
                 required
               />
             </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-semibold py-3 rounded-xl transition-colors"
-            >
+            {erro && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{erro}</p>}
+            <button type="submit" disabled={loading}
+              className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-semibold py-3 rounded-xl transition-colors">
               {loading ? 'Enviando...' : 'Enviar link de recuperação'}
             </button>
           </form>
@@ -61,15 +66,12 @@ export default function RecuperarSenhaPage() {
           </div>
           <h2 className="text-lg font-bold text-gray-800 mb-2">E-mail enviado!</h2>
           <p className="text-sm text-gray-500 mb-6">
-            Verifique sua caixa de entrada em <span className="font-medium text-gray-700">{email}</span> e siga as instruções para redefinir sua senha.
+            Verifique sua caixa de entrada em <span className="font-medium text-gray-700">{email}</span> e siga as instruções.
           </p>
         </div>
       )}
 
-      <Link
-        href="/login"
-        className="flex items-center justify-center gap-1.5 text-sm text-gray-500 hover:text-orange-500 transition-colors mt-4"
-      >
+      <Link href="/login" className="flex items-center justify-center gap-1.5 text-sm text-gray-500 hover:text-orange-500 transition-colors mt-4">
         <ArrowLeft size={14} />
         Voltar para o login
       </Link>
