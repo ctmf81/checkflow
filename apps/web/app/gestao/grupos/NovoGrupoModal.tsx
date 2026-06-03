@@ -14,8 +14,7 @@ interface Props {
 export function NovoGrupoModal({ onClose, onCriado }: Props) {
   const { unidadeAtiva } = useSession()
   const [nome, setNome] = useState('')
-  const [grupoLabel, setGrupoLabel] = useState('')       // como este grupo é chamado (ex: Setor)
-  const [subgrupoLabel, setSubgrupoLabel] = useState('') // como os subgrupos são chamados (ex: Área)
+  const [grupoLabel, setGrupoLabel] = useState('')
   const [descricao, setDescricao] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
@@ -30,7 +29,6 @@ export function NovoGrupoModal({ onClose, onCriado }: Props) {
       nome,
       display_name: grupoLabel || null,
       grupo_label: grupoLabel || null,
-      subgrupo_label: subgrupoLabel || null,
       descricao: descricao || null,
       unidade_id: unidadeAtiva.id,
       status: 'ativo',
@@ -66,25 +64,14 @@ export function NovoGrupoModal({ onClose, onCriado }: Props) {
                   required />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Como chamar o grupo
-                    <span className="text-gray-400 font-normal ml-1">(opcional)</span>
-                  </label>
-                  <input value={grupoLabel} onChange={e => setGrupoLabel(e.target.value)}
-                    placeholder="ex: Setor, Área..."
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Como chamar os subgrupos
-                    <span className="text-gray-400 font-normal ml-1">(opcional)</span>
-                  </label>
-                  <input value={subgrupoLabel} onChange={e => setSubgrupoLabel(e.target.value)}
-                    placeholder="ex: Área, Loja..."
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Como chamar o grupo
+                  <span className="text-gray-400 font-normal ml-1">(opcional)</span>
+                </label>
+                <input value={grupoLabel} onChange={e => setGrupoLabel(e.target.value)}
+                  placeholder="ex: Setor, Distrito..."
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
               </div>
 
               <div>
