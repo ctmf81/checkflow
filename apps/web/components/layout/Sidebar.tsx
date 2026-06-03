@@ -2,13 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { clsx } from 'clsx'
 import {
   Home, Users, CheckSquare, BarChart2, Settings,
   ChevronDown, ChevronUp, ClipboardList, Layers,
   Network, UserCircle
 } from 'lucide-react'
+import { useSession } from '@/contexts/SessionContext'
+import { createClient } from '@/lib/supabase'
 
 interface NavItem {
   label: string
@@ -59,7 +61,16 @@ const nav: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const { empresaAtiva } = useSession()
   const [open, setOpen] = useState<string[]>([])
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!empresaAtiva?.id) { setLogoUrl(null); return }
+    createClient()
+      .from('empresas').select('logo_url').eq('id', empresaAtiva.id).single()
+      .then(({ data }) => setLogoUrl(data?.logo_url ?? null))
+  }, [empresaAtiva?.id])
 
   function toggle(label: string) {
     setOpen(prev =>
@@ -77,8 +88,13 @@ export function Sidebar() {
 
   return (
     <aside className="w-56 min-h-screen bg-white border-r border-gray-200 flex flex-col py-4">
-      <div className="px-4 mb-6">
-        <span className="text-xl font-bold text-orange-500 tracking-tight">CheckFlow</span>
+      <div className="px-4 mb-6 h-10 flex items-center">
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logoUrl} alt="Logo" className="max-h-8 max-w-[180px] object-contain" />
+        ) : (
+          <span className="text-xl font-bold text-orange-500 tracking-tight">CheckFlow</span>
+        )}
       </div>
 
       <nav className="flex-1 px-2 space-y-0.5 overflow-y-auto">
