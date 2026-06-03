@@ -12,20 +12,15 @@ export function middleware(request: NextRequest) {
 
   const isAuthRoute = AUTH_ROUTES.some(r => pathname.startsWith(r))
 
-  // Supabase armazena a sessão neste cookie
-  const projectRef = 'pswdjdlirylxgscohcfi'
-  const sessionCookie =
-    request.cookies.get(`sb-${projectRef}-auth-token`) ??
-    request.cookies.get(`sb-${projectRef}-auth-token.0`)
-
-  const isLoggedIn = !!sessionCookie
+  // Busca qualquer cookie de sessão do Supabase
+  const allCookies = request.cookies.getAll()
+  const isLoggedIn = allCookies.some(
+    c => c.name.startsWith('sb-') && c.name.includes('-auth-token')
+  )
 
   if (!isLoggedIn && !isAuthRoute) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
-
-  // Se já logado e tentar acessar /login, deixa o login redirecionar pelo perfil
-  // (o redirect acontece no próprio handleSubmit da página de login)
 
   return NextResponse.next()
 }
