@@ -84,22 +84,31 @@ export function NovaEmpresaModal({ onClose, onCriada }: Props) {
       logo_url = data.publicUrl
     }
 
-    const { error } = await supabase.from('empresas').insert({
+    const { data: novaEmpresa, error } = await supabase.from('empresas').insert({
       nome,
       cnpj: cnpj || null,
       logo_url,
       status: 'ativo',
       criado_por: user?.id ?? null,
       atualizado_por: user?.id ?? null,
-    })
+    }).select('id').single()
 
-    setSalvando(false)
-
-    if (error) {
+    if (error || !novaEmpresa) {
       setErro('Erro ao criar empresa. Verifique os dados e tente novamente.')
+      setSalvando(false)
       return
     }
 
+    // Cria unidade padrão automaticamente
+    await supabase.from('unidades').insert({
+      nome: 'Unidade padrão',
+      empresa_id: novaEmpresa.id,
+      status: 'ativo',
+      criado_por: user?.id ?? null,
+      atualizado_por: user?.id ?? null,
+    })
+
+    setSalvando(false)
     onCriada?.()
     onClose()
   }

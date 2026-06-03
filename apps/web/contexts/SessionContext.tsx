@@ -93,18 +93,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     init()
   }, [])
 
-  async function carregarUnidades(empresaId: string, userId: string, isAdmin: boolean) {
+  async function carregarUnidades(empresaId: string, userId: string, isAdmin: boolean): Promise<Unidade[]> {
     const supabase = createClient()
+    let lista: Unidade[] = []
     if (isAdmin) {
       const { data } = await supabase.from('unidades').select('id, nome').eq('empresa_id', empresaId).order('nome')
-      if (data) setUnidades(data)
+      lista = data ?? []
     } else {
       const { data } = await supabase
         .from('usuario_unidade')
         .select('unidade:unidade_id(id, nome)')
         .eq('usuario_id', userId)
-      if (data) setUnidades(data.map((r: any) => r.unidade).filter(Boolean))
+      lista = (data ?? []).map((r: any) => r.unidade).filter(Boolean)
     }
+    setUnidades(lista)
+    return lista
   }
 
   async function salvarSessao(updates: Partial<{ ultimo_ambiente: string; ultima_empresa_id: string | null; ultima_unidade_id: string | null }>) {
@@ -130,7 +133,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       if (user) {
         const isAdmin = user.user_metadata?.role === 'admin_sistema'
         setModoEmpresa(isAdmin)
-        await carregarUnidades(e.id, user.id, isAdmin)
+        const lista = await carregarUnidades(e.id, user.id, isAdmin)
+        // Auto-seleciona a primeira unidade (padrão)
+        if (lista.length > 0) {
+          setUnidadeAtivaState(lista[0])
+          salvarSessao({ ultima_empresa_id: e.id, ultima_unidade_id: lista[0].id })
+        }
       }
     } else {
       setModoEmpresa(false)
