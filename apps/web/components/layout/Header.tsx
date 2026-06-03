@@ -1,13 +1,15 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { ChevronDown, LogOut, UserCircle, Building2, LayoutDashboard, Settings } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 
 export function Header() {
   const router = useRouter()
+  const pathname = usePathname()
+  const isSistema = pathname.startsWith('/sistema')
   const { unidades, unidadeAtiva, setUnidadeAtiva, setAmbiente, setEmpresaAtiva } = useSession()
   const [nome, setNome] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
@@ -54,8 +56,8 @@ export function Header() {
   return (
     <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-end px-6 gap-4 relative z-40">
 
-      {/* Seletor de unidade */}
-      <div ref={refUnidade} className="relative">
+      {/* Seletor de unidade — oculto no painel de sistema */}
+      {!isSistema && <div ref={refUnidade} className="relative">
         <button
           onClick={() => setDropUnidade(!dropUnidade)}
           className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900"
@@ -80,14 +82,14 @@ export function Header() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
-      <div className="w-px h-6 bg-gray-200" />
+      {!isSistema && <div className="w-px h-6 bg-gray-200" />}
 
-      {/* Seletor de usuário */}
+      {/* Seletor de usuário — no /sistema mostra só nome + logout sem dropdown */}
       <div ref={refUsuario} className="relative">
         <button
-          onClick={() => setDropUsuario(!dropUsuario)}
+          onClick={() => !isSistema && setDropUsuario(!dropUsuario)}
           className="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900"
         >
           <UserCircle size={28} className="text-orange-400" />
@@ -95,10 +97,10 @@ export function Header() {
             <p className="font-medium leading-tight">{nome || '...'}</p>
             <p className="text-xs text-gray-500 leading-tight">{isAdmin ? 'Admin de sistema' : 'Usuário'}</p>
           </div>
-          <ChevronDown size={14} className="text-orange-500" />
+          {!isSistema && <ChevronDown size={14} className="text-orange-500" />}
         </button>
 
-        {dropUsuario && (
+        {dropUsuario && !isSistema && (
           <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
             <p className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">Alterar módulo</p>
 
@@ -132,6 +134,13 @@ export function Header() {
           </div>
         )}
       </div>
+
+      {/* Logout direto no /sistema */}
+      {isSistema && (
+        <button onClick={handleLogout} className="ml-2 text-gray-400 hover:text-red-500 transition-colors" title="Sair">
+          <LogOut size={18} />
+        </button>
+      )}
     </header>
   )
 }
