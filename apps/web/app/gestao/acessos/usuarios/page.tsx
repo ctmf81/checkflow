@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Search, UserCircle } from 'lucide-react'
+import { Plus, Trash2, Search, UserCircle, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { UsuarioModal } from './UsuarioModal'
 import { createClient } from '@/lib/supabase'
+import { useSession } from '@/contexts/SessionContext'
 
 interface Usuario {
   id: string
@@ -17,6 +18,7 @@ interface Usuario {
 }
 
 export default function UsuariosPage() {
+  const { empresaAtiva } = useSession()
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [busca, setBusca] = useState('')
   const [modalAberto, setModalAberto] = useState(false)
@@ -24,16 +26,31 @@ export default function UsuariosPage() {
   const [loading, setLoading] = useState(true)
 
   async function carregar() {
+    if (!empresaAtiva?.id) { setLoading(false); return }
     setLoading(true)
     const supabase = createClient()
-    const { data } = await supabase.from('usuarios').select('id, nome, email, cpf, telefone').order('nome')
-    if (data) {
-      setUsuarios(data.map(u => ({ ...u, perfil: '', unidades: [] })))
+
+    // Busca usuários vinculados à empresa via usuario_empresa
+    const { data: ue } = await supabase
+      .from('usuario_empresa')
+      .select('usuario:usuario_id(id, nome, email, cpf, telefone), perfil:perfil_id(nome)')
+      .eq('empresa_id', empresaAtiva.id)
+
+    if (ue) {
+      setUsuarios(ue.map((r: any) => ({
+        id: r.usuario.id,
+        nome: r.usuario.nome,
+        email: r.usuario.email,
+        cpf: r.usuario.cpf,
+        telefone: r.usuario.telefone,
+        perfil: r.perfil?.nome ?? '',
+        unidades: [],
+      })))
     }
     setLoading(false)
   }
 
-  useEffect(() => { carregar() }, [])
+  useEffect(() => { carregar() }, [empresaAtiva?.id])
 
   const filtrados = usuarios.filter(u =>
     u.nome.toLowerCase().includes(busca.toLowerCase()) ||
@@ -41,11 +58,22 @@ export default function UsuariosPage() {
     (u.cpf ?? '').includes(busca)
   )
 
+  if (!empresaAtiva) return (
+    <div className="py-16 text-center">
+      <AlertCircle size={40} className="text-amber-300 mx-auto mb-3" />
+      <p className="text-sm text-gray-600 font-medium">Nenhuma empresa selecionada</p>
+      <p className="text-xs text-gray-400 mt-1">Acesse uma empresa pelo Painel de sistema.</p>
+    </div>
+  )
+
   return (
     <>
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Usuários</span>
+          <div>
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Usuários</span>
+            <p className="text-xs text-gray-400 mt-0.5">Empresa: <span className="text-orange-500 font-medium">{empresaAtiva.nome}</span></p>
+          </div>
           <Button onClick={() => { setUsuarioEditando(undefined); setModalAberto(true) }}>
             <Plus size={16} />Adicionar usuário
           </Button>
@@ -65,7 +93,7 @@ export default function UsuariosPage() {
         ) : filtrados.length === 0 ? (
           <div className="py-16 text-center">
             <UserCircle size={40} className="text-gray-200 mx-auto mb-3" />
-            <p className="text-sm text-gray-500">Nenhum usuário cadastrado.</p>
+            <p className="text-sm text-gray-500">Nenhum usuário nesta empresa.</p>
           </div>
         ) : filtrados.map(usuario => (
           <div key={usuario.id} className="flex items-center px-6 py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
@@ -79,7 +107,8 @@ export default function UsuariosPage() {
               </button>
               <p className="text-xs text-gray-500 truncate">{usuario.email}</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
+              {usuario.perfil && <span className="text-sm text-gray-400 hidden sm:block">{usuario.perfil}</span>}
               <button className="text-gray-300 hover:text-red-400 transition-colors p-1"><Trash2 size={15} /></button>
               <button className="text-gray-300 hover:text-orange-400 transition-colors p-1 font-bold text-sm" title="Resetar senha">|**</button>
             </div>
@@ -88,7 +117,11 @@ export default function UsuariosPage() {
       </div>
 
       {modalAberto && (
-        <UsuarioModal usuario={usuarioEditando} onClose={() => { setModalAberto(false); carregar() }} />
+        <UsuarioModal
+          usuario={usuarioEditando}
+          empresaId={empresaAtiva.id}
+          onClose={() => { setModalAberto(false); carregar() }}
+        />
       )}
     </>
   )

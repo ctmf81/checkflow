@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, UserCircle } from 'lucide-react'
+import { Plus, Trash2, UserCircle, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { PerfilModal } from './PerfilModal'
 import { createClient } from '@/lib/supabase'
+import { useSession } from '@/contexts/SessionContext'
 
 interface Perfil {
   id: string
@@ -35,18 +36,31 @@ function AvatarStack({ total }: { total: number }) {
 }
 
 export default function PerfisPage() {
+  const { empresaAtiva } = useSession()
   const [perfis, setPerfis] = useState<Perfil[]>([])
   const [loading, setLoading] = useState(true)
   const [modalAberto, setModalAberto] = useState(false)
   const [perfilEditando, setPerfilEditando] = useState<Perfil | undefined>()
 
   async function carregar() {
+    if (!empresaAtiva?.id) { setLoading(false); return }
     setLoading(true)
     const supabase = createClient()
-    const { data } = await supabase.from('perfis').select('id, nome, is_system').order('nome')
+
+    // Perfis da empresa + perfis de sistema (empresa_id null)
+    const { data } = await supabase
+      .from('perfis')
+      .select('id, nome, is_system')
+      .or(`empresa_id.eq.${empresaAtiva.id},empresa_id.is.null`)
+      .order('nome')
+
     if (data) {
       const comContagens = await Promise.all(data.map(async p => {
-        const { count } = await supabase.from('usuario_empresa').select('usuario_id', { count: 'exact', head: true }).eq('perfil_id', p.id)
+        const { count } = await supabase
+          .from('usuario_empresa')
+          .select('usuario_id', { count: 'exact', head: true })
+          .eq('perfil_id', p.id)
+          .eq('empresa_id', empresaAtiva.id)
         return { ...p, publico: false, permissoes: [], totalUsuarios: count ?? 0 }
       }))
       setPerfis(comContagens)
@@ -54,13 +68,24 @@ export default function PerfisPage() {
     setLoading(false)
   }
 
-  useEffect(() => { carregar() }, [])
+  useEffect(() => { carregar() }, [empresaAtiva?.id])
+
+  if (!empresaAtiva) return (
+    <div className="py-16 text-center">
+      <AlertCircle size={40} className="text-amber-300 mx-auto mb-3" />
+      <p className="text-sm text-gray-600 font-medium">Nenhuma empresa selecionada</p>
+      <p className="text-xs text-gray-400 mt-1">Acesse uma empresa pelo Painel de sistema.</p>
+    </div>
+  )
 
   return (
     <>
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Perfis criados</span>
+          <div>
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Perfis criados</span>
+            <p className="text-xs text-gray-400 mt-0.5">Empresa: <span className="text-orange-500 font-medium">{empresaAtiva.nome}</span></p>
+          </div>
           <Button onClick={() => { setPerfilEditando(undefined); setModalAberto(true) }}>
             <Plus size={16} />Criar novo perfil
           </Button>
@@ -72,10 +97,15 @@ export default function PerfisPage() {
           <div className="py-16 text-center text-sm text-gray-500">Nenhum perfil cadastrado.</div>
         ) : perfis.map(perfil => (
           <div key={perfil.id} className="flex items-center justify-between px-6 py-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-            <button onClick={() => { setPerfilEditando(perfil); setModalAberto(true) }}
-              className="text-sm font-medium text-gray-800 hover:text-orange-500 transition-colors text-left">
-              {perfil.nome}
-            </button>
+            <div>
+              <button onClick={() => { setPerfilEditando(perfil); setModalAberto(true) }}
+                className="text-sm font-medium text-gray-800 hover:text-orange-500 transition-colors text-left">
+                {perfil.nome}
+              </button>
+              {perfil.is_system && (
+                <span className="ml-2 text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">sistema</span>
+              )}
+            </div>
             <div className="flex items-center gap-3">
               <AvatarStack total={perfil.totalUsuarios} />
               {!perfil.is_system && (
@@ -89,7 +119,11 @@ export default function PerfisPage() {
       </div>
 
       {modalAberto && (
-        <PerfilModal perfil={perfilEditando} onClose={() => { setModalAberto(false); carregar() }} />
+        <PerfilModal
+          perfil={perfilEditando}
+          empresaId={empresaAtiva.id}
+          onClose={() => { setModalAberto(false); carregar() }}
+        />
       )}
     </>
   )

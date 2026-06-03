@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { X, Plus, Minus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { recursos, Recurso } from './permissoes'
+import { createClient } from '@/lib/supabase'
 
 interface Perfil {
   id: string
@@ -14,6 +15,7 @@ interface Perfil {
 
 interface Props {
   perfil?: Perfil
+  empresaId: string
   onClose: () => void
 }
 
@@ -21,12 +23,14 @@ function permKey(recurso: string, acao?: string) {
   return acao ? `${recurso}.${acao}` : recurso
 }
 
-export function PerfilModal({ perfil, onClose }: Props) {
+export function PerfilModal({ perfil, empresaId, onClose }: Props) {
   const isEdicao = !!perfil
   const [nome, setNome] = useState(perfil?.nome ?? '')
   const [publico, setPublico] = useState(perfil?.publico ?? false)
   const [perms, setPerms] = useState<Set<string>>(new Set(perfil?.permissoes ?? []))
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set())
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
 
   function toggleExpand(key: string) {
     setExpandidos(prev => {
@@ -72,8 +76,33 @@ export function PerfilModal({ perfil, onClose }: Props) {
     })
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setErro('')
+    setSalvando(true)
+    const supabase = createClient()
+
+    if (isEdicao) {
+      const { error } = await supabase.from('perfis').update({ nome }).eq('id', perfil.id)
+      if (error) { setErro('Erro ao salvar perfil.'); setSalvando(false); return }
+    } else {
+      const { data: novoPerfil, error } = await supabase
+        .from('perfis').insert({ nome, empresa_id: empresaId, is_system: false }).select('id').single()
+      if (error || !novoPerfil) { setErro('Erro ao criar perfil.'); setSalvando(false); return }
+
+      // Salva permissões
+      if (perms.size > 0) {
+        const { data: permsDb } = await supabase.from('permissoes').select('id, recurso, acao')
+        if (permsDb) {
+          const inserts = permsDb
+            .filter(p => perms.has(`${p.recurso}.${p.acao}`) || perms.has(p.recurso))
+            .map(p => ({ perfil_id: novoPerfil.id, permissao_id: p.id }))
+          if (inserts.length > 0) await supabase.from('perfil_permissoes').insert(inserts)
+        }
+      }
+    }
+
+    setSalvando(false)
     onClose()
   }
 
@@ -200,12 +229,13 @@ export function PerfilModal({ perfil, onClose }: Props) {
             })}
           </div>
 
+          {erro && <p className="px-6 pb-2 text-xs text-red-500">{erro}</p>}
           <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
             <button type="button" onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">
               Cancelar
             </button>
-            <Button type="submit">
-              {isEdicao ? 'Salvar alterações' : 'Criar perfil'}
+            <Button type="submit" disabled={salvando}>
+              {salvando ? 'Salvando...' : isEdicao ? 'Salvar alterações' : 'Criar perfil'}
             </Button>
           </div>
         </form>
