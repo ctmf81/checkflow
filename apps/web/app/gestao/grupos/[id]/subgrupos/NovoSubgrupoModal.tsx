@@ -3,17 +3,40 @@
 import { useState } from 'react'
 import { X, LayoutTemplate } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { createClient } from '@/lib/supabase'
 
 interface Props {
+  grupoId: string
   onClose: () => void
+  onCriado?: () => void
 }
 
-export function NovoSubgrupoModal({ onClose }: Props) {
+export function NovoSubgrupoModal({ grupoId, onClose, onCriado }: Props) {
   const [nome, setNome] = useState('')
   const [descricao, setDescricao] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setErro('')
+    setSalvando(true)
+
+    const { error } = await createClient().from('subgrupos').insert({
+      nome,
+      descricao: descricao || null,
+      grupo_id: grupoId,
+      status: 'ativo',
+    })
+
+    setSalvando(false)
+
+    if (error) {
+      setErro('Erro ao criar área. Tente novamente.')
+      return
+    }
+
+    onCriado?.()
     onClose()
   }
 
@@ -32,23 +55,15 @@ export function NovoSubgrupoModal({ onClose }: Props) {
             <div className="flex-1 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nome da área</label>
-                <input
-                  value={nome}
-                  onChange={e => setNome(e.target.value)}
-                  placeholder="Nome da área"
+                <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome da área"
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200"
-                  required
-                />
+                  required />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Descrição da área</label>
-                <textarea
-                  value={descricao}
-                  onChange={e => setDescricao(e.target.value)}
-                  placeholder="Descrição da área"
-                  rows={3}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+                <textarea value={descricao} onChange={e => setDescricao(e.target.value)}
+                  placeholder="Descrição da área" rows={3}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none" />
               </div>
             </div>
 
@@ -62,11 +77,15 @@ export function NovoSubgrupoModal({ onClose }: Props) {
             </div>
           </div>
 
+          {erro && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{erro}</p>}
+
           <div className="flex items-center justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">
               Cancelar
             </button>
-            <Button type="submit">Criar área</Button>
+            <Button type="submit" disabled={salvando}>
+              {salvando ? 'Criando...' : 'Criar área'}
+            </Button>
           </div>
         </form>
       </div>
