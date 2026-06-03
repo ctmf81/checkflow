@@ -3,14 +3,15 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { clsx } from 'clsx'
-import { Home, Users, CheckSquare, BarChart2, Settings, Building2, ChevronDown } from 'lucide-react'
+import { Home, Users, CheckSquare, BarChart2, Settings, Building2, ChevronDown, Layers } from 'lucide-react'
 
 const nav = [
-  { label: 'Home',          href: '/gestao',           icon: Home },
-  { label: 'Empresas',      href: '/gestao/empresas',  icon: Building2 },
+  { label: 'Home',          href: '/gestao',            icon: Home },
+  { label: 'Empresas',      href: '/gestao/empresas',   icon: Building2 },
+  { label: 'Grupos',        href: '/gestao/grupos',     icon: Layers },
   { label: 'Checklists',    href: '/gestao/checklists', icon: CheckSquare },
   { label: 'Indicadores',   href: '/gestao/indicadores', icon: BarChart2 },
-  { label: 'Acessos',       href: '/gestao/acessos',   icon: Users, children: true },
+  { label: 'Acessos',       href: '/gestao/acessos',    icon: Users, children: true },
   { label: 'Configurações', href: '/gestao/configuracoes', icon: Settings, children: true },
 ]
 
