@@ -65,8 +65,29 @@ export default function LoginPage() {
         return
       }
 
-      const isAdmin = data.user?.user_metadata?.role === 'admin_sistema'
-      router.push(isAdmin ? '/sistema' : '/gestao')
+      const user = data.user!
+      const isAdmin = user.user_metadata?.role === 'admin_sistema'
+
+      // Busca última sessão
+      const { data: sessao } = await supabase
+        .from('sessao_usuario')
+        .select('ultimo_ambiente')
+        .eq('usuario_id', user.id)
+        .single()
+
+      let destino = '/gestao'
+      if (sessao?.ultimo_ambiente === 'sistema' && isAdmin) {
+        destino = '/sistema'
+      } else if (sessao?.ultimo_ambiente === 'operacao') {
+        destino = '/operacao'
+      } else if (sessao?.ultimo_ambiente === 'gestao') {
+        destino = '/gestao'
+      } else {
+        // Primeira vez: admin vai para /sistema, outros para /gestao
+        destino = isAdmin ? '/sistema' : '/gestao'
+      }
+
+      router.push(destino)
       router.refresh()
     } catch {
       setErro('Erro ao conectar. Tente novamente.')
