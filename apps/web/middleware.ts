@@ -24,9 +24,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  if (isLoggedIn && pathname === '/login') {
-    return NextResponse.redirect(new URL('/gestao/empresas', request.url))
-  }
+  // Se já logado e tentar acessar /login, deixa o login redirecionar pelo perfil
+  // (o redirect acontece no próprio handleSubmit da página de login)
 
   return NextResponse.next()
 }

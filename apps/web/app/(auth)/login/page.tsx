@@ -57,7 +57,7 @@ export default function LoginPage() {
       }
 
       const supabase = createClient()
-      const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha })
 
       if (error) {
         setErro('E-mail, CPF ou senha incorretos.')
@@ -65,7 +65,8 @@ export default function LoginPage() {
         return
       }
 
-      router.push('/gestao/empresas')
+      const isAdmin = data.user?.user_metadata?.role === 'admin_sistema'
+      router.push(isAdmin ? '/sistema' : '/gestao')
       router.refresh()
     } catch {
       setErro('Erro ao conectar. Tente novamente.')
