@@ -1,0 +1,132 @@
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { CheckCircle2, Circle } from 'lucide-react'
+import { CheckFlowLogo } from '@/components/auth/CheckFlowLogo'
+
+type LoginMode = 'cpf' | 'email'
+
+export default function LoginPage() {
+  const router = useRouter()
+  const [mode, setMode] = useState<LoginMode>('cpf')
+  const [identificador, setIdentificador] = useState('')
+  const [senha, setSenha] = useState('')
+  const [manter, setManter] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [erro, setErro] = useState('')
+
+  function formatCPF(value: string) {
+    return value
+      .replace(/\D/g, '')
+      .slice(0, 11)
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+  }
+
+  function handleIdentificador(e: React.ChangeEvent<HTMLInputElement>) {
+    const v = e.target.value
+    setIdentificador(mode === 'cpf' ? formatCPF(v) : v)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setErro('')
+    setLoading(true)
+    // integração com Supabase Auth vem aqui
+    await new Promise(r => setTimeout(r, 800))
+    setLoading(false)
+    router.push('/gestao/empresas')
+  }
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 w-full max-w-sm px-8 py-10">
+      <CheckFlowLogo />
+
+      <h1 className="text-center text-xl font-bold text-gray-800 mb-1">Login</h1>
+      <p className="text-center text-sm text-gray-500 mb-6">
+        Acesse sua conta fornecendo suas credenciais de acesso
+      </p>
+
+      {/* Toggle CPF / E-mail */}
+      <div className="flex gap-4 mb-5">
+        <button
+          type="button"
+          onClick={() => { setMode('cpf'); setIdentificador('') }}
+          className="flex items-center gap-1.5 text-sm font-medium"
+        >
+          {mode === 'cpf'
+            ? <CheckCircle2 size={18} className="text-orange-500" />
+            : <Circle size={18} className="text-gray-300" />}
+          <span className={mode === 'cpf' ? 'text-gray-800' : 'text-gray-400'}>CPF</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => { setMode('email'); setIdentificador('') }}
+          className="flex items-center gap-1.5 text-sm font-medium"
+        >
+          {mode === 'email'
+            ? <CheckCircle2 size={18} className="text-orange-500" />
+            : <Circle size={18} className="text-gray-300" />}
+          <span className={mode === 'email' ? 'text-gray-800' : 'text-gray-400'}>E-mail</span>
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {mode === 'cpf' ? 'CPF' : 'E-mail'}
+          </label>
+          <input
+            type={mode === 'email' ? 'email' : 'text'}
+            value={identificador}
+            onChange={handleIdentificador}
+            placeholder={mode === 'cpf' ? 'Digite seu cpf' : 'Digite seu e-mail'}
+            className="w-full px-4 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+          <input
+            type="password"
+            value={senha}
+            onChange={e => setSenha(e.target.value)}
+            placeholder="Digite sua senha"
+            className="w-full px-4 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200"
+            required
+          />
+        </div>
+
+        {erro && <p className="text-xs text-red-500">{erro}</p>}
+
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setManter(!manter)}
+            className="flex items-center gap-1.5 text-sm text-gray-600"
+          >
+            {manter
+              ? <CheckCircle2 size={18} className="text-orange-500" />
+              : <Circle size={18} className="text-gray-300" />}
+            Manter conectado
+          </button>
+          <Link href="/recuperar-senha" className="text-sm text-gray-500 hover:text-orange-500 transition-colors">
+            Esqueceu sua senha?
+          </Link>
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-semibold py-3 rounded-xl transition-colors mt-2"
+        >
+          {loading ? 'Entrando...' : 'Login'}
+        </button>
+      </form>
+    </div>
+  )
+}
