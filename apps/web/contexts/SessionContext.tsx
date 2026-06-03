@@ -14,7 +14,9 @@ interface SessionState {
   unidadeAtiva: Unidade | null
   unidades: Unidade[]
   empresas: Empresa[]
-  modoEmpresa: boolean // admin de sistema acessando empresa específica
+  modoEmpresa: boolean
+  grupoLabel: string    // ex: "Grupo", "Setor", "Departamento"
+  subgrupoLabel: string // ex: "Subgrupo", "Área", "Loja"
   setAmbiente: (a: Ambiente) => void
   setEmpresaAtiva: (e: Empresa | null) => void
   setUnidadeAtiva: (u: Unidade | null) => void
@@ -27,6 +29,8 @@ const SessionContext = createContext<SessionState>({
   unidades: [],
   empresas: [],
   modoEmpresa: false,
+  grupoLabel: 'Grupo',
+  subgrupoLabel: 'Subgrupo',
   setAmbiente: () => {},
   setEmpresaAtiva: () => {},
   setUnidadeAtiva: () => {},
@@ -39,6 +43,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [unidades, setUnidades] = useState<Unidade[]>([])
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [modoEmpresa, setModoEmpresa] = useState(false)
+  const [grupoLabel, setGrupoLabel] = useState('Grupo')
+  const [subgrupoLabel, setSubgrupoLabel] = useState('Subgrupo')
 
   useEffect(() => {
     const supabase = createClient()
@@ -84,12 +90,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
               const uni = lista.find(u => u.id === sessao.ultima_unidade_id)
               if (uni) {
                 setUnidadeAtivaState(uni)
+                carregarLabels(uni.id)
               } else if (lista.length > 0) {
                 setUnidadeAtivaState(lista[0])
+                carregarLabels(lista[0].id)
                 salvarSessao({ ultima_unidade_id: lista[0].id })
               }
             } else if (lista.length > 0) {
               setUnidadeAtivaState(lista[0])
+              carregarLabels(lista[0].id)
               salvarSessao({ ultima_unidade_id: lista[0].id })
             }
           }
@@ -118,6 +127,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     setUnidades(lista)
     return lista
+  }
+
+  async function carregarLabels(unidadeId: string) {
+    const { data } = await createClient()
+      .from('unidades')
+      .select('grupo_label, subgrupo_label')
+      .eq('id', unidadeId)
+      .single()
+    if (data) {
+      setGrupoLabel(data.grupo_label || 'Grupo')
+      setSubgrupoLabel(data.subgrupo_label || 'Subgrupo')
+    }
   }
 
   async function salvarSessao(updates: Partial<{ ultimo_ambiente: string; ultima_empresa_id: string | null; ultima_unidade_id: string | null }>) {
@@ -158,12 +179,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const setUnidadeAtiva = useCallback((u: Unidade | null) => {
     setUnidadeAtivaState(u)
     salvarSessao({ ultima_unidade_id: u?.id ?? null })
+    if (u?.id) carregarLabels(u.id)
+    else { setGrupoLabel('Grupo'); setSubgrupoLabel('Subgrupo') }
   }, [])
 
   return (
     <SessionContext.Provider value={{
       ambiente, empresaAtiva, unidadeAtiva, unidades, empresas,
-      modoEmpresa, setAmbiente, setEmpresaAtiva, setUnidadeAtiva,
+      modoEmpresa, grupoLabel, subgrupoLabel,
+      setAmbiente, setEmpresaAtiva, setUnidadeAtiva,
     }}>
       {children}
     </SessionContext.Provider>

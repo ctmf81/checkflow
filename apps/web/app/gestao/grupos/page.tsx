@@ -19,7 +19,7 @@ interface Grupo {
 }
 
 export default function GruposPage() {
-  const { unidadeAtiva } = useSession()
+  const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
   const [grupos, setGrupos] = useState<Grupo[]>([])
   const [modal, setModal] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -78,10 +78,10 @@ export default function GruposPage() {
     <>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-gray-800">Grupos</h1>
+          <h1 className="text-xl font-semibold text-gray-800">{grupoLabel}s</h1>
           <p className="text-xs text-gray-400 mt-0.5">Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
-        <Button onClick={() => setModal(true)}><Plus size={16} />Criar novo grupo</Button>
+        <Button onClick={() => setModal(true)}><Plus size={16} />Criar novo {grupoLabel.toLowerCase()}</Button>
       </div>
 
       {loading ? (
@@ -94,7 +94,7 @@ export default function GruposPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {grupos.map(grupo => {
-            const subLabel = grupo.subgrupo_label || 'Subgrupos'
+            const subLabel = subgrupoLabel + 's'
             return (
               <Link
                 key={grupo.id}

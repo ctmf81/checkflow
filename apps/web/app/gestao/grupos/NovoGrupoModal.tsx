@@ -14,7 +14,6 @@ interface Props {
 export function NovoGrupoModal({ onClose, onCriado }: Props) {
   const { unidadeAtiva } = useSession()
   const [nome, setNome] = useState('')
-  const [grupoLabel, setGrupoLabel] = useState('')
   const [descricao, setDescricao] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
@@ -27,8 +26,6 @@ export function NovoGrupoModal({ onClose, onCriado }: Props) {
 
     const { error } = await createClient().from('grupos').insert({
       nome,
-      display_name: grupoLabel || null,
-      grupo_label: grupoLabel || null,
       descricao: descricao || null,
       unidade_id: unidadeAtiva.id,
       status: 'ativo',
@@ -64,15 +61,6 @@ export function NovoGrupoModal({ onClose, onCriado }: Props) {
                   required />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Como chamar o grupo
-                  <span className="text-gray-400 font-normal ml-1">(opcional)</span>
-                </label>
-                <input value={grupoLabel} onChange={e => setGrupoLabel(e.target.value)}
-                  placeholder="ex: Setor, Distrito..."
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
-              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
