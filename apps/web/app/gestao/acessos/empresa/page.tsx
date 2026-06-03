@@ -22,10 +22,6 @@ interface Unidade {
   status: 'ativo' | 'inativo'
 }
 
-type PagStatus = 'em_dia' | 'pendente' | 'inadimplente' | 'cancelado' | ''
-const PAG_LABELS: Record<string, string> = {
-  em_dia: 'Em dia', pendente: 'Pendente', inadimplente: 'Inadimplente', cancelado: 'Cancelado'
-}
 
 export default function EmpresaPage() {
   const { empresaAtiva } = useSession()
@@ -38,12 +34,6 @@ export default function EmpresaPage() {
   const [editando, setEditando] = useState(false)
   const [nome, setNome] = useState('')
   const [cnpj, setCnpj] = useState('')
-
-  // Pagamento (mock por ora)
-  const [plano, setPlano] = useState('')
-  const [valor, setValor] = useState('')
-  const [vencimento, setVencimento] = useState('')
-  const [statusPag, setStatusPag] = useState<PagStatus>('')
 
   // Modal unidade
   const [modalUnidade, setModalUnidade] = useState(false)
@@ -152,48 +142,6 @@ export default function EmpresaPage() {
                 </Button>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Card pagamento */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Pagamento</span>
-          </div>
-          <div className="px-6 py-5">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Plano</label>
-                <select value={plano} onChange={e => setPlano(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
-                  <option value="">Selecione</option>
-                  <option value="validacao">Validação (~US$ 10/mês)</option>
-                  <option value="tracao">Tração (~US$ 60/mês)</option>
-                  <option value="escala">Escala (US$ 300+/mês)</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
-                <select value={statusPag} onChange={e => setStatusPag(e.target.value as PagStatus)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
-                  <option value="">Selecione</option>
-                  {Object.entries(PAG_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Valor (R$)</label>
-                <input value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Vencimento</label>
-                <input type="date" value={vencimento} onChange={e => setVencimento(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
-              </div>
-            </div>
-            <div className="flex justify-end mt-4">
-              <Button size="sm">Salvar pagamento</Button>
-            </div>
           </div>
         </div>
 
