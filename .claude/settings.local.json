@@ -20,7 +20,8 @@
       "Bash(xargs grep -l -i middleware)",
       "Bash(xargs grep -l \"middleware\")",
       "Bash(git commit *)",
-      "Bash(mkdir -p \"C:\\\\Users\\\\t.mesha92\\\\Desktop\\\\projeto\\\\checkFlow\\\\apps\\\\web\\\\app\\\\gestao\\\\[...slug]\" \"C:\\\\Users\\\\t.mesha92\\\\Desktop\\\\projeto\\\\checkFlow\\\\apps\\\\web\\\\app\\\\operacao\")"
+      "Bash(mkdir -p \"C:\\\\Users\\\\t.mesha92\\\\Desktop\\\\projeto\\\\checkFlow\\\\apps\\\\web\\\\app\\\\gestao\\\\[...slug]\" \"C:\\\\Users\\\\t.mesha92\\\\Desktop\\\\projeto\\\\checkFlow\\\\apps\\\\web\\\\app\\\\operacao\")",
+      "Bash(curl -v \"http://localhost:3000/sistema/empresas/00000000-0000-0000-0000-000000000001\")"
     ]
   }
 }

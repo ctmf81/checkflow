@@ -22,6 +22,7 @@ interface Perfil { id: string; nome: string }
 interface Props {
   usuario?: Usuario
   onClose: () => void
+  perfilFixo?: string // se informado, só mostra este perfil (ex: 'Admin da empresa')
 }
 
 function formatCPF(v: string) {
@@ -37,7 +38,7 @@ function formatTelefone(v: string) {
     .replace(/(\d{1})(\d{4})(\d{4})$/, '$1 $2-$3')
 }
 
-export function UsuarioModal({ usuario, onClose }: Props) {
+export function UsuarioModal({ usuario, onClose, perfilFixo }: Props) {
   const isEdicao = !!usuario
   const [nome, setNome] = useState(usuario?.nome ?? '')
   const [email, setEmail] = useState(usuario?.email ?? '')
@@ -52,9 +53,11 @@ export function UsuarioModal({ usuario, onClose }: Props) {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.from('perfis').select('id, nome').order('nome').then(({ data }) => { if (data) setPerfis(data) })
+    let q = supabase.from('perfis').select('id, nome').order('nome')
+    if (perfilFixo) q = q.eq('nome', perfilFixo) as typeof q
+    q.then(({ data }) => { if (data) setPerfis(data) })
     supabase.from('unidades').select('id, nome').order('nome').then(({ data }) => { if (data) setUnidades(data) })
-  }, [])
+  }, [perfilFixo])
 
   function toggleUnidade(u: Unidade) {
     setUnidadesSel(prev =>

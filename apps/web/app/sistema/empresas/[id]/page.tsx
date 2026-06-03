@@ -248,12 +248,13 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
         )}
       </div>
 
-      {/* Modal de cadastro de novo usuário */}
+      {/* Modal de cadastro de novo usuário — restrito ao perfil Admin da empresa */}
       {modalUsuario && (
         <UsuarioModal
+          perfilFixo="Admin da empresa"
           onClose={() => {
             setModalUsuario(false)
-            carregarUsuarios() // recarrega lista após cadastro
+            carregarUsuarios()
           }}
         />
       )}
