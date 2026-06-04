@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { X, Plus, Trash2, ChevronRight, ImagePlus, Video } from 'lucide-react'
+import { X, Plus, Trash2, ChevronRight, ImagePlus, Video, Eye, EyeOff, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { ImageCropModal } from '@/components/ui/ImageCropModal'
@@ -26,6 +26,9 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
   const [etapaAtiva, setEtapaAtiva] = useState<Etapa | null>(null)
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
+  const [preview, setPreview] = useState(false)
+  const [imagensEtapas, setImagensEtapas] = useState<Record<string, { id: string; url: string }[]>>({})
+  const [carrosselIdx, setCarrosselIdx] = useState<Record<string, number>>({})
 
   // Form da etapa ativa
   const [titulo, setTitulo] = useState('')
@@ -38,10 +41,20 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
   const [cropSrc, setCropSrc] = useState<string | null>(null)
 
   async function carregarEtapas() {
-    const { data } = await createClient().from('documento_etapas')
+    const supabase = createClient()
+    const { data } = await supabase.from('documento_etapas')
       .select('id, titulo, conteudo, video_id, ordem')
       .eq('documento_id', documentoId).order('ordem')
-    if (data) setEtapas(data)
+    if (data) {
+      setEtapas(data)
+      // Carrega imagens de todas as etapas
+      const imgs: Record<string, { id: string; url: string }[]> = {}
+      await Promise.all(data.map(async e => {
+        const { data: ei } = await supabase.from('etapa_imagens').select('id, url, ordem').eq('etapa_id', e.id).order('ordem')
+        if (ei) imgs[e.id] = ei
+      }))
+      setImagensEtapas(imgs)
+    }
     setLoading(false)
   }
 
@@ -130,11 +143,75 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
       <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl max-h-[90vh] flex flex-col">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-            <h2 className="font-semibold text-gray-800 truncate">{etapaAtiva ? `${documentoNome}` : documentoNome}</h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 flex-shrink-0"><X size={18} /></button>
+            <h2 className="font-semibold text-gray-800 truncate">{documentoNome}</h2>
+            <div className="flex items-center gap-2">
+              {!etapaAtiva && (
+                <button onClick={() => setPreview(!preview)}
+                  className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-orange-500 transition-colors px-2 py-1 rounded-lg hover:bg-orange-50">
+                  {preview ? <EyeOff size={15} /> : <Eye size={15} />}
+                  {preview ? 'Editar' : 'Preview'}
+                </button>
+              )}
+              <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            </div>
           </div>
 
-          {!etapaAtiva ? (
+          {!etapaAtiva && preview ? (
+            /* MODO PREVIEW — todas as etapas empilhadas */
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-8">
+              {etapas.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">Nenhuma etapa cadastrada.</p>
+              ) : etapas.map((etapa, idx) => {
+                const imgs = imagensEtapas[etapa.id] ?? []
+                const carIdx = carrosselIdx[etapa.id] ?? 0
+                return (
+                  <div key={etapa.id} className="border border-gray-100 rounded-xl p-5 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-orange-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0">{idx + 1}</span>
+                      {etapa.titulo && <h3 className="font-semibold text-gray-800">{etapa.titulo}</h3>}
+                    </div>
+
+                    {etapa.conteudo && (
+                      <p className="text-sm text-gray-600 whitespace-pre-wrap">{etapa.conteudo}</p>
+                    )}
+
+                    {etapa.video_id && etapa.video_id.length === 11 && (
+                      <div className="rounded-lg overflow-hidden aspect-video">
+                        <iframe src={`https://www.youtube.com/embed/${etapa.video_id}`}
+                          title={etapa.titulo ?? `Etapa ${idx + 1}`}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen className="w-full h-full" />
+                      </div>
+                    )}
+
+                    {imgs.length > 0 && (
+                      <div className="relative">
+                        <div className="rounded-lg overflow-hidden border border-gray-100">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={imgs[carIdx].url} alt="" className="w-full object-contain max-h-64" />
+                        </div>
+                        {imgs.length > 1 && (
+                          <div className="flex items-center justify-between mt-2">
+                            <button onClick={() => setCarrosselIdx(p => ({ ...p, [etapa.id]: Math.max(0, carIdx - 1) }))}
+                              disabled={carIdx === 0}
+                              className="p-1 rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-30 transition-colors">
+                              <ChevronLeft size={16} />
+                            </button>
+                            <span className="text-xs text-gray-400">{carIdx + 1} / {imgs.length}</span>
+                            <button onClick={() => setCarrosselIdx(p => ({ ...p, [etapa.id]: Math.min(imgs.length - 1, carIdx + 1) }))}
+                              disabled={carIdx === imgs.length - 1}
+                              className="p-1 rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-30 transition-colors">
+                              <ChevronRightIcon size={16} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ) : !etapaAtiva ? (
             /* Lista de etapas */
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
               <div className="flex items-center gap-3">
@@ -172,7 +249,7 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
                 </div>
               )}
             </div>
-          ) : (
+          ) : etapaAtiva ? (
             /* Editor da etapa */
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
               <button onClick={() => setEtapaAtiva(null)} className="text-sm text-orange-500 hover:underline">
@@ -253,7 +330,7 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
                 <Button onClick={salvarEtapa} disabled={salvando}>{salvando ? 'Salvando...' : 'Salvar'}</Button>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
