@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { X, Plus, Trash2, ChevronRight, ImagePlus, Youtube } from 'lucide-react'
+import { X, Plus, Trash2, ChevronRight, ImagePlus, Video } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { ImageCropModal } from '@/components/ui/ImageCropModal'
@@ -193,7 +193,7 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
 
               <div>
                 <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1">
-                  <Youtube size={15} className="text-red-500" />Link de Vídeo
+                  <Video size={15} className="text-red-500" />Link de Vídeo
                 </label>
                 <input value={videoId} onChange={e => setVideoId(e.target.value)} placeholder="digite o ID do link"
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
