@@ -186,9 +186,9 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
 
                     {imgs.length > 0 && (
                       <div className="relative">
-                        <div className="rounded-lg overflow-hidden border border-gray-100">
+                        <div className="rounded-lg overflow-hidden border border-gray-100 aspect-square w-full max-w-xs mx-auto">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={imgs[carIdx].url} alt="" className="w-full object-contain max-h-64" />
+                          <img src={imgs[carIdx].url} alt="" className="w-full h-full object-cover" />
                         </div>
                         {imgs.length > 1 && (
                           <div className="flex items-center justify-between mt-2">
@@ -309,7 +309,7 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
                 <input ref={inputImgRef} type="file" accept="image/*" className="hidden" onChange={handleFileImagem} />
                 <div className="flex gap-2 flex-wrap">
                   {imagens.map((img, idx) => (
-                    <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200 group">
+                    <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200 group flex-shrink-0">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={img.url} alt="" className="w-full h-full object-cover" />
                       <button onClick={() => removerImagem(idx)}
@@ -337,6 +337,7 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
       {cropSrc && (
         <ImageCropModal
           imageSrc={cropSrc}
+          aspect={1}
           onConfirm={blob => {
             setImagens(prev => [...prev, { url: URL.createObjectURL(blob), blob }])
             setCropSrc(null)
