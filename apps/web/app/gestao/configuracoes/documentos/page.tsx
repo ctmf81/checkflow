@@ -120,7 +120,13 @@ export default function DocumentosPage() {
     setLoading(false)
   }
 
-  useEffect(() => { carregar() }, [unidadeAtiva?.id])
+  useEffect(() => {
+    setFiltroGrupo('')
+    setFiltroSubgrupo('')
+    setFiltroTipo('')
+    setBusca('')
+    carregar()
+  }, [unidadeAtiva?.id])
 
   useEffect(() => {
     setFiltroSubgrupo('')
