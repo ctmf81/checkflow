@@ -9,6 +9,7 @@ import { useSession } from '@/contexts/SessionContext'
 interface Motivo {
   id: string
   descricao: string
+  tipo: 'checklist' | 'atividade'
   grupo_id: string | null
   subgrupo_id: string | null
 }
@@ -27,6 +28,7 @@ export function MotivoModal({ motivo, onClose, onSalvo }: Props) {
   const isEdicao = !!motivo
 
   const [descricao, setDescricao] = useState(motivo?.descricao ?? '')
+  const [tipo, setTipo] = useState<'checklist' | 'atividade'>(motivo?.tipo ?? 'checklist')
   const [grupoId, setGrupoId] = useState(motivo?.grupo_id ?? '')
   const [subgrupoId, setSubgrupoId] = useState(motivo?.subgrupo_id ?? '')
   const [grupos, setGrupos] = useState<Grupo[]>([])
@@ -58,6 +60,7 @@ export function MotivoModal({ motivo, onClose, onSalvo }: Props) {
     if (isEdicao) {
       const { error } = await supabase.from('nao_execucao_motivos').update({
         descricao: descricao.trim(),
+        tipo,
         grupo_id: grupoId || null,
         subgrupo_id: subgrupoId || null,
         atualizado_em: new Date().toISOString(),
@@ -66,6 +69,7 @@ export function MotivoModal({ motivo, onClose, onSalvo }: Props) {
     } else {
       const { error } = await supabase.from('nao_execucao_motivos').insert({
         descricao: descricao.trim(),
+        tipo,
         grupo_id: grupoId || null,
         subgrupo_id: subgrupoId || null,
         unidade_id: unidadeAtiva?.id ?? null,
@@ -100,6 +104,32 @@ export function MotivoModal({ motivo, onClose, onSalvo }: Props) {
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none"
               autoFocus
             />
+          </div>
+
+          {/* Tipo */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de não execução</label>
+            <div className="flex gap-3">
+              {(['checklist', 'atividade'] as const).map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTipo(t)}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium border-2 transition-colors ${
+                    tipo === t
+                      ? 'border-orange-500 bg-orange-50 text-orange-600'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  {t === 'checklist' ? '📋 Checklist' : '✅ Atividade'}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 mt-1.5">
+              {tipo === 'checklist'
+                ? 'Motivo para não executar o checklist inteiro.'
+                : 'Motivo para não executar uma atividade específica do checklist.'}
+            </p>
           </div>
 
           <div>

@@ -10,6 +10,7 @@ import { MotivoModal } from './MotivoModal'
 interface Motivo {
   id: string
   descricao: string
+  tipo: 'checklist' | 'atividade'
   grupo_id: string | null
   subgrupo_id: string | null
   grupo_nome?: string
@@ -30,7 +31,7 @@ export default function NaoExecucaoPage() {
     const { data } = await supabase
       .from('nao_execucao_motivos')
       .select(`
-        id, descricao, grupo_id, subgrupo_id,
+        id, descricao, tipo, grupo_id, subgrupo_id,
         grupo:grupo_id(nome, display_name),
         subgrupo:subgrupo_id(nome)
       `)
@@ -42,6 +43,7 @@ export default function NaoExecucaoPage() {
       setMotivos(data.map((m: any) => ({
         id: m.id,
         descricao: m.descricao,
+        tipo: m.tipo ?? 'checklist',
         grupo_id: m.grupo_id,
         subgrupo_id: m.subgrupo_id,
         grupo_nome: m.grupo ? (m.grupo.display_name || m.grupo.nome) : null,
@@ -95,7 +97,16 @@ export default function NaoExecucaoPage() {
               <Ban size={16} className="text-gray-300 flex-shrink-0" />
 
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-800">{motivo.descricao}</p>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <p className="text-sm font-medium text-gray-800">{motivo.descricao}</p>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                    motivo.tipo === 'atividade'
+                      ? 'bg-purple-50 text-purple-600'
+                      : 'bg-blue-50 text-blue-600'
+                  }`}>
+                    {motivo.tipo === 'atividade' ? 'Atividade' : 'Checklist'}
+                  </span>
+                </div>
                 {(motivo.grupo_nome || motivo.subgrupo_nome) && (
                   <div className="flex items-center gap-1.5 mt-0.5">
                     {motivo.grupo_nome && (
