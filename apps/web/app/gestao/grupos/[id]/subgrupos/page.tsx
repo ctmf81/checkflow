@@ -61,7 +61,6 @@ function EditarSubgrupoModal({ subgrupo, onClose, onSalvo }: {
   onSalvo: () => void
 }) {
   const [nome, setNome] = useState(subgrupo.nome)
-  const [descricao, setDescricao] = useState(subgrupo.descricao ?? '')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
 
@@ -69,7 +68,7 @@ function EditarSubgrupoModal({ subgrupo, onClose, onSalvo }: {
     e.preventDefault()
     setSalvando(true)
     const { error } = await createClient().from('subgrupos').update({
-      nome, descricao: descricao || null, atualizado_em: new Date().toISOString()
+      nome, atualizado_em: new Date().toISOString()
     }).eq('id', subgrupo.id)
     setSalvando(false)
     if (error) { setErro('Erro ao salvar.'); return }
@@ -90,11 +89,6 @@ function EditarSubgrupoModal({ subgrupo, onClose, onSalvo }: {
             <input value={nome} onChange={e => setNome(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200"
               required />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-            <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={3}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none" />
           </div>
           {erro && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{erro}</p>}
           <div className="flex justify-end gap-3 pt-2">
