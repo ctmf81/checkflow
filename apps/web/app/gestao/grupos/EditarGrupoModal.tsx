@@ -60,16 +60,6 @@ export function EditarGrupoModal({ grupo, onClose, onSalvo }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nome de exibição
-              <span className="text-gray-400 font-normal ml-1">(opcional)</span>
-            </label>
-            <input value={displayName} onChange={e => setDisplayName(e.target.value)}
-              placeholder="Como aparece na tela"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
-          </div>
-
-          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
             <textarea value={descricao} onChange={e => setDescricao(e.target.value)}
               rows={3} placeholder="Descrição do grupo"
