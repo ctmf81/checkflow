@@ -195,10 +195,18 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
                 <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1">
                   <Video size={15} className="text-red-500" />Link de Vídeo
                 </label>
-                <input value={videoId} onChange={e => setVideoId(e.target.value)} placeholder="digite o ID do link"
+                <input value={videoId} onChange={e => setVideoId(e.target.value)} placeholder="ID do vídeo (ex: dQw4w9WgXcQ)"
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
                 {videoId && (
-                  <p className="text-xs text-blue-500 mt-1">www.youtube.com/watch?v=<strong>{videoId}</strong></p>
+                  <div className="mt-2 rounded-lg overflow-hidden border border-gray-200 aspect-video">
+                    <iframe
+                      src={`https://www.youtube.com/embed/${videoId}`}
+                      title="Preview"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="w-full h-full"
+                    />
+                  </div>
                 )}
               </div>
 
