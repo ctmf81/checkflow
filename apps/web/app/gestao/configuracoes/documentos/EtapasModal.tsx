@@ -196,9 +196,20 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
                 <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1">
                   <Video size={15} className="text-red-500" />Link de Vídeo
                 </label>
-                <input value={videoId} onChange={e => setVideoId(e.target.value)} placeholder="ID do vídeo (ex: dQw4w9WgXcQ)"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
-                {videoId && (
+                <input
+                  value={videoId}
+                  onChange={e => {
+                    const v = e.target.value.trim()
+                    // Extrai o ID de qualquer formato de URL do YouTube
+                    const match =
+                      v.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/) ||
+                      v.match(/^([A-Za-z0-9_-]{11})$/)
+                    setVideoId(match ? match[1] : v)
+                  }}
+                  placeholder="Cole a URL ou o ID do vídeo"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                />
+                {videoId && videoId.length === 11 && (
                   <div className="mt-2 rounded-lg overflow-hidden border border-gray-200 aspect-video">
                     <iframe
                       src={`https://www.youtube.com/embed/${videoId}`}
@@ -208,6 +219,9 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
                       className="w-full h-full"
                     />
                   </div>
+                )}
+                {videoId && videoId.length !== 11 && (
+                  <p className="text-xs text-amber-600 mt-1">URL inválida. Cole o link completo do YouTube.</p>
                 )}
               </div>
 
