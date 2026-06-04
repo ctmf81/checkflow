@@ -14,7 +14,6 @@ interface Props {
 
 export function NovoSubgrupoModal({ grupoId, subgrupoLabel = 'Subgrupo', onClose, onCriado }: Props) {
   const [nome, setNome] = useState('')
-  const [displayLabel, setDisplayLabel] = useState('')
   const [descricao, setDescricao] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
@@ -26,8 +25,6 @@ export function NovoSubgrupoModal({ grupoId, subgrupoLabel = 'Subgrupo', onClose
 
     const { error } = await createClient().from('subgrupos').insert({
       nome,
-      display_name: displayLabel || null,
-      subgrupo_label: displayLabel || null,
       descricao: descricao || null,
       grupo_id: grupoId,
       status: 'ativo',
@@ -57,15 +54,6 @@ export function NovoSubgrupoModal({ grupoId, subgrupoLabel = 'Subgrupo', onClose
                   placeholder={`Nome do ${subgrupoLabel.toLowerCase()}`}
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200"
                   required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Como chamar este {subgrupoLabel.toLowerCase()}
-                  <span className="text-gray-400 font-normal ml-1">(opcional)</span>
-                </label>
-                <input value={displayLabel} onChange={e => setDisplayLabel(e.target.value)}
-                  placeholder="ex: Área, Loja, Célula..."
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
