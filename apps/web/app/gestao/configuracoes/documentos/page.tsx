@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Plus, FileText, Search, MoreVertical, AlertCircle, Pencil, Layers, PowerOff } from 'lucide-react'
+import { Plus, FileText, Search, MoreVertical, AlertCircle, Pencil, Layers, PowerOff, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { NovoDocumentoModal, DocumentoBase } from './NovoDocumentoModal'
 import { EditarDocumentoModal } from './EditarDocumentoModal'
+import { DuplicarDocumentoModal } from './DuplicarDocumentoModal'
 import { EtapasModal } from './EtapasModal'
 import { ConsultaInteligenteModal } from './ConsultaInteligenteModal'
 
@@ -31,10 +32,11 @@ const TIPO_COR: Record<string, string> = {
   consulta_inteligente: 'bg-green-50 text-green-600',
 }
 
-function DocMenu({ doc, onEditar, onEtapas, onExcluir }: {
+function DocMenu({ doc, onEditar, onEtapas, onDuplicar, onExcluir }: {
   doc: Documento
   onEditar: () => void
   onEtapas: () => void
+  onDuplicar: () => void
   onExcluir: () => void
 }) {
   const [aberto, setAberto] = useState(false)
@@ -70,6 +72,10 @@ function DocMenu({ doc, onEditar, onEtapas, onExcluir }: {
               <Pencil size={14} className="text-gray-400" />Editar conteúdo
             </button>
           )}
+          <button onClick={() => { setAberto(false); onDuplicar() }}
+            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+            <Copy size={14} className="text-gray-400" />Duplicar documento
+          </button>
           <div className="border-t border-gray-100 mt-1">
             <button onClick={() => { setAberto(false); onExcluir() }}
               className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50">
@@ -90,6 +96,7 @@ export default function DocumentosPage() {
   const [loading, setLoading] = useState(true)
   const [modalNovo, setModalNovo] = useState(false)
   const [docEditando, setDocEditando] = useState<Documento | null>(null)
+  const [docDuplicando, setDocDuplicando] = useState<Documento | null>(null)
   const [docEtapas, setDocEtapas] = useState<Documento | null>(null)
   const [docConsulta, setDocConsulta] = useState<Documento | null>(null)
 
@@ -183,6 +190,7 @@ export default function DocumentosPage() {
                 doc={doc}
                 onEditar={() => setDocEditando(doc)}
                 onEtapas={() => doc.tipo === 'consulta_inteligente' ? setDocConsulta(doc) : setDocEtapas(doc)}
+                onDuplicar={() => setDocDuplicando(doc)}
                 onExcluir={() => excluir(doc)}
               />
             </div>
@@ -191,6 +199,15 @@ export default function DocumentosPage() {
       )}
 
       {modalNovo && <NovoDocumentoModal onClose={() => setModalNovo(false)} onCriado={handleCriado} />}
+
+      {docDuplicando && (
+        <DuplicarDocumentoModal
+          documentoId={docDuplicando.id}
+          documentoNome={docDuplicando.nome}
+          onClose={() => setDocDuplicando(null)}
+          onDuplicado={() => { setDocDuplicando(null); carregar() }}
+        />
+      )}
 
       {docEditando && (
         <EditarDocumentoModal
