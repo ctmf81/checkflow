@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { X, Check } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { AutocompleteUsuario } from '@/components/ui/AutocompleteUsuario'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 
@@ -105,17 +106,12 @@ export function AdicionarUsuarioModal({ grupoId, grupoNome, subgrupoLabel, onClo
               {/* Seleção de usuário */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Usuário</label>
-                <select
+                <AutocompleteUsuario
+                  usuarios={usuarios}
                   value={usuarioId}
-                  onChange={e => setUsuarioId(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200"
-                  required
-                >
-                  <option value="">Selecione um usuário</option>
-                  {usuarios.map(u => (
-                    <option key={u.id} value={u.id}>{u.nome} — {u.email}</option>
-                  ))}
-                </select>
+                  onChange={setUsuarioId}
+                  placeholder="Buscar por nome ou e-mail..."
+                />
                 {usuarios.length === 0 && (
                   <p className="text-xs text-amber-600 mt-1">Nenhum usuário cadastrado na empresa.</p>
                 )}

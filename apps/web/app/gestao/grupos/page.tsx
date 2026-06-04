@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { NovoGrupoModal } from './NovoGrupoModal'
 import { GrupoMenu } from './GrupoMenu'
 import { AdicionarUsuarioModal } from './AdicionarUsuarioModal'
+import { EditarGrupoModal } from './EditarGrupoModal'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 
@@ -25,6 +26,7 @@ export default function GruposPage() {
   const [modal, setModal] = useState(false)
   const [loading, setLoading] = useState(true)
   const [grupoUsuario, setGrupoUsuario] = useState<Grupo | null>(null)
+  const [grupoEditando, setGrupoEditando] = useState<Grupo | null>(null)
 
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
@@ -94,7 +96,7 @@ export default function GruposPage() {
                 <GrupoMenu
                   grupoId={grupo.id}
                   grupoNome={grupo.display_name || grupo.nome}
-                  onEditar={() => {}}
+                  onEditar={() => setGrupoEditando(grupo)}
                   onAdicionarUsuario={() => setGrupoUsuario(grupo)}
                   onExcluir={() => desativarGrupo(grupo.id, grupo.display_name || grupo.nome)}
                 />
@@ -119,6 +121,14 @@ export default function GruposPage() {
 
       {modal && (
         <NovoGrupoModal onClose={() => setModal(false)} onCriado={() => { setModal(false); carregar() }} />
+      )}
+
+      {grupoEditando && (
+        <EditarGrupoModal
+          grupo={grupoEditando}
+          onClose={() => setGrupoEditando(null)}
+          onSalvo={() => { setGrupoEditando(null); carregar() }}
+        />
       )}
 
       {grupoUsuario && (
