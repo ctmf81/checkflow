@@ -89,10 +89,14 @@ function DocMenu({ doc, onEditar, onEtapas, onDuplicar, onExcluir }: {
 }
 
 export default function DocumentosPage() {
-  const { unidadeAtiva } = useSession()
+  const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
   const [documentos, setDocumentos] = useState<Documento[]>([])
+  const [grupos, setGrupos] = useState<{ id: string; nome: string; display_name: string | null }[]>([])
+  const [subgrupos, setSubgrupos] = useState<{ id: string; nome: string }[]>([])
   const [busca, setBusca] = useState('')
   const [filtroTipo, setFiltroTipo] = useState('')
+  const [filtroGrupo, setFiltroGrupo] = useState('')
+  const [filtroSubgrupo, setFiltroSubgrupo] = useState('')
   const [loading, setLoading] = useState(true)
   const [modalNovo, setModalNovo] = useState(false)
   const [docEditando, setDocEditando] = useState<Documento | null>(null)
@@ -103,15 +107,28 @@ export default function DocumentosPage() {
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
     setLoading(true)
-    const { data } = await createClient()
-      .from('documentos')
-      .select('id, nome, tipo, descricao, norma_referencia, arquivo_url, grupo_id, subgrupo_id, criado_em')
-      .eq('unidade_id', unidadeAtiva.id).eq('status', 'ativo').order('nome')
-    if (data) setDocumentos(data)
+    const supabase = createClient()
+    const [docsRes, gruposRes] = await Promise.all([
+      supabase.from('documentos')
+        .select('id, nome, tipo, descricao, norma_referencia, arquivo_url, grupo_id, subgrupo_id, criado_em')
+        .eq('unidade_id', unidadeAtiva.id).eq('status', 'ativo').order('nome'),
+      supabase.from('grupos').select('id, nome, display_name')
+        .eq('unidade_id', unidadeAtiva.id).eq('status', 'ativo').order('nome'),
+    ])
+    if (docsRes.data) setDocumentos(docsRes.data)
+    if (gruposRes.data) setGrupos(gruposRes.data)
     setLoading(false)
   }
 
   useEffect(() => { carregar() }, [unidadeAtiva?.id])
+
+  useEffect(() => {
+    setFiltroSubgrupo('')
+    if (!filtroGrupo) { setSubgrupos([]); return }
+    createClient().from('subgrupos').select('id, nome')
+      .eq('grupo_id', filtroGrupo).eq('status', 'ativo').order('nome')
+      .then(({ data }) => { if (data) setSubgrupos(data) })
+  }, [filtroGrupo])
 
   async function excluir(doc: Documento) {
     if (!confirm(`Excluir "${doc.nome}"?`)) return
@@ -132,7 +149,9 @@ export default function DocumentosPage() {
   const filtrados = documentos.filter(d => {
     const matchBusca = d.nome.toLowerCase().includes(busca.toLowerCase())
     const matchTipo = !filtroTipo || d.tipo === filtroTipo
-    return matchBusca && matchTipo
+    const matchGrupo = !filtroGrupo || d.grupo_id === filtroGrupo
+    const matchSubgrupo = !filtroSubgrupo || d.subgrupo_id === filtroSubgrupo
+    return matchBusca && matchTipo && matchGrupo && matchSubgrupo
   })
 
   if (!unidadeAtiva) return (
@@ -158,12 +177,33 @@ export default function DocumentosPage() {
           <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar documento"
             className="pl-8 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 w-52" />
         </div>
+
+        {/* Filtro tipo */}
         {['', 'pop', 'it', 'consulta_inteligente'].map(t => (
           <button key={t} onClick={() => setFiltroTipo(t)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filtroTipo === t ? 'bg-orange-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
             {t === '' ? 'Todos' : TIPO_LABEL[t]}
           </button>
         ))}
+
+        {/* Filtro grupo */}
+        {grupos.length > 0 && (
+          <select value={filtroGrupo} onChange={e => setFiltroGrupo(e.target.value)}
+            className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-200">
+            <option value="">Todos os {grupoLabel.toLowerCase()}s</option>
+            {grupos.map(g => <option key={g.id} value={g.id}>{g.display_name || g.nome}</option>)}
+          </select>
+        )}
+
+        {/* Filtro subgrupo */}
+        {filtroGrupo && subgrupos.length > 0 && (
+          <select value={filtroSubgrupo} onChange={e => setFiltroSubgrupo(e.target.value)}
+            className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-200">
+            <option value="">Todos os {subgrupoLabel.toLowerCase()}s</option>
+            {subgrupos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+          </select>
+        )}
+
         <span className="text-sm text-gray-500 ml-auto">{filtrados.length} documento{filtrados.length !== 1 ? 's' : ''}</span>
       </div>
 
