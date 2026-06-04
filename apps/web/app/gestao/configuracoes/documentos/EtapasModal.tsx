@@ -103,6 +103,7 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
       : e
     ))
     setSalvando(false)
+    setEtapaAtiva(null) // volta para a lista
   }
 
   async function removerImagem(idx: number) {
