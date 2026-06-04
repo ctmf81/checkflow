@@ -190,7 +190,7 @@ export default function DocumentosPage() {
         {grupos.length > 0 && (
           <select value={filtroGrupo} onChange={e => setFiltroGrupo(e.target.value)}
             className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-200">
-            <option value="">Todos os {grupoLabel.toLowerCase()}s</option>
+            <option value="">Todos os {grupoLabel.toLowerCase()}</option>
             {grupos.map(g => <option key={g.id} value={g.id}>{g.display_name || g.nome}</option>)}
           </select>
         )}
@@ -199,7 +199,7 @@ export default function DocumentosPage() {
         {filtroGrupo && subgrupos.length > 0 && (
           <select value={filtroSubgrupo} onChange={e => setFiltroSubgrupo(e.target.value)}
             className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-200">
-            <option value="">Todos os {subgrupoLabel.toLowerCase()}s</option>
+            <option value="">Todos os {subgrupoLabel.toLowerCase()}</option>
             {subgrupos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
           </select>
         )}
