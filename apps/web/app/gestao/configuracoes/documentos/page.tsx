@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Plus, FileText, Search, MoreVertical, AlertCircle } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Plus, FileText, Search, MoreVertical, AlertCircle, Pencil, Layers, PowerOff } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { NovoDocumentoModal, DocumentoBase } from './NovoDocumentoModal'
+import { EditarDocumentoModal } from './EditarDocumentoModal'
 import { EtapasModal } from './EtapasModal'
 import { ConsultaInteligenteModal } from './ConsultaInteligenteModal'
 
@@ -16,19 +17,69 @@ interface Documento {
   descricao: string | null
   norma_referencia: string | null
   arquivo_url: string | null
+  grupo_id: string | null
+  subgrupo_id: string | null
   criado_em: string
 }
 
 const TIPO_LABEL: Record<string, string> = {
-  pop: 'POP',
-  it: 'IT',
-  consulta_inteligente: 'Consulta Inteligente',
+  pop: 'POP', it: 'IT', consulta_inteligente: 'Consulta Inteligente',
 }
-
 const TIPO_COR: Record<string, string> = {
   pop: 'bg-blue-50 text-blue-600',
   it: 'bg-purple-50 text-purple-600',
   consulta_inteligente: 'bg-green-50 text-green-600',
+}
+
+function DocMenu({ doc, onEditar, onEtapas, onExcluir }: {
+  doc: Documento
+  onEditar: () => void
+  onEtapas: () => void
+  onExcluir: () => void
+}) {
+  const [aberto, setAberto] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function h(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setAberto(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  return (
+    <div ref={ref} className="relative">
+      <button onClick={() => setAberto(!aberto)} className="p-1 text-gray-400 hover:text-gray-600 rounded hover:bg-gray-100">
+        <MoreVertical size={16} />
+      </button>
+      {aberto && (
+        <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+          <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b border-gray-100 truncate">{doc.nome}</div>
+          <button onClick={() => { setAberto(false); onEditar() }}
+            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+            <Pencil size={14} className="text-gray-400" />Editar documento
+          </button>
+          {(doc.tipo === 'pop' || doc.tipo === 'it') && (
+            <button onClick={() => { setAberto(false); onEtapas() }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+              <Layers size={14} className="text-gray-400" />Editar etapas
+            </button>
+          )}
+          {doc.tipo === 'consulta_inteligente' && (
+            <button onClick={() => { setAberto(false); onEtapas() }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+              <Pencil size={14} className="text-gray-400" />Editar conteúdo
+            </button>
+          )}
+          <div className="border-t border-gray-100 mt-1">
+            <button onClick={() => { setAberto(false); onExcluir() }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50">
+              <PowerOff size={14} />Excluir documento
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function DocumentosPage() {
@@ -38,14 +89,16 @@ export default function DocumentosPage() {
   const [filtroTipo, setFiltroTipo] = useState('')
   const [loading, setLoading] = useState(true)
   const [modalNovo, setModalNovo] = useState(false)
-  const [docEtapas, setDocEtapas] = useState<DocumentoBase | null>(null)
+  const [docEditando, setDocEditando] = useState<Documento | null>(null)
+  const [docEtapas, setDocEtapas] = useState<Documento | null>(null)
   const [docConsulta, setDocConsulta] = useState<Documento | null>(null)
 
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
     setLoading(true)
     const { data } = await createClient()
-      .from('documentos').select('id, nome, tipo, descricao, norma_referencia, arquivo_url, criado_em')
+      .from('documentos')
+      .select('id, nome, tipo, descricao, norma_referencia, arquivo_url, grupo_id, subgrupo_id, criado_em')
       .eq('unidade_id', unidadeAtiva.id).eq('status', 'ativo').order('nome')
     if (data) setDocumentos(data)
     setLoading(false)
@@ -53,20 +106,20 @@ export default function DocumentosPage() {
 
   useEffect(() => { carregar() }, [unidadeAtiva?.id])
 
+  async function excluir(doc: Documento) {
+    if (!confirm(`Excluir "${doc.nome}"?`)) return
+    await createClient().from('documentos').update({ status: 'inativo' }).eq('id', doc.id)
+    carregar()
+  }
+
   function handleCriado(doc: DocumentoBase) {
     setModalNovo(false)
     carregar()
     if (doc.tipo === 'pop' || doc.tipo === 'it') {
-      setDocEtapas(doc)
+      setDocEtapas(doc as Documento)
     } else if (doc.tipo === 'consulta_inteligente') {
-      const docCompleto: Documento = { ...doc, descricao: null, norma_referencia: null, arquivo_url: null, criado_em: new Date().toISOString() }
-      setDocConsulta(docCompleto)
+      setDocConsulta(doc as Documento)
     }
-  }
-
-  function abrirDocumento(doc: Documento) {
-    if (doc.tipo === 'pop' || doc.tipo === 'it') setDocEtapas(doc)
-    else if (doc.tipo === 'consulta_inteligente') setDocConsulta(doc)
   }
 
   const filtrados = documentos.filter(d => {
@@ -92,7 +145,6 @@ export default function DocumentosPage() {
         <Button onClick={() => setModalNovo(true)}><Plus size={16} />Novo documento</Button>
       </div>
 
-      {/* Filtros */}
       <div className="flex items-center gap-3 mb-5 flex-wrap">
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -101,16 +153,13 @@ export default function DocumentosPage() {
         </div>
         {['', 'pop', 'it', 'consulta_inteligente'].map(t => (
           <button key={t} onClick={() => setFiltroTipo(t)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              filtroTipo === t ? 'bg-orange-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-            }`}>
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filtroTipo === t ? 'bg-orange-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
             {t === '' ? 'Todos' : TIPO_LABEL[t]}
           </button>
         ))}
         <span className="text-sm text-gray-500 ml-auto">{filtrados.length} documento{filtrados.length !== 1 ? 's' : ''}</span>
       </div>
 
-      {/* Lista */}
       {loading ? (
         <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
       ) : filtrados.length === 0 ? (
@@ -124,18 +173,18 @@ export default function DocumentosPage() {
             <div key={doc.id} className="flex items-center gap-4 px-6 py-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
               <FileText size={18} className="text-gray-300 flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <button
-                  onClick={() => abrirDocumento(doc)}
-                  className="font-medium text-sm text-gray-800 text-left hover:text-orange-500 cursor-pointer"
-                >
-                  {doc.nome}
-                </button>
+                <p className="font-medium text-sm text-gray-800 truncate">{doc.nome}</p>
                 {doc.descricao && <p className="text-xs text-gray-400 truncate mt-0.5">{doc.descricao}</p>}
               </div>
               <span className={`text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 ${TIPO_COR[doc.tipo] ?? 'bg-gray-100 text-gray-600'}`}>
                 {TIPO_LABEL[doc.tipo] ?? doc.tipo}
               </span>
-              <button className="text-gray-400 hover:text-gray-600 p-1 flex-shrink-0"><MoreVertical size={16} /></button>
+              <DocMenu
+                doc={doc}
+                onEditar={() => setDocEditando(doc)}
+                onEtapas={() => doc.tipo === 'consulta_inteligente' ? setDocConsulta(doc) : setDocEtapas(doc)}
+                onExcluir={() => excluir(doc)}
+              />
             </div>
           ))}
         </div>
@@ -143,20 +192,23 @@ export default function DocumentosPage() {
 
       {modalNovo && <NovoDocumentoModal onClose={() => setModalNovo(false)} onCriado={handleCriado} />}
 
-      {docEtapas && (
-        <EtapasModal
-          documentoId={docEtapas.id}
-          documentoNome={docEtapas.nome}
-          onClose={() => { setDocEtapas(null); carregar() }}
+      {docEditando && (
+        <EditarDocumentoModal
+          documento={docEditando}
+          onClose={() => setDocEditando(null)}
+          onSalvo={() => { setDocEditando(null); carregar() }}
         />
+      )}
+
+      {docEtapas && (
+        <EtapasModal documentoId={docEtapas.id} documentoNome={docEtapas.nome}
+          onClose={() => { setDocEtapas(null); carregar() }} />
       )}
 
       {docConsulta && (
         <ConsultaInteligenteModal
-          documentoId={docConsulta.id}
-          documentoNome={docConsulta.nome}
-          documentoDescricao={docConsulta.descricao}
-          arquivoUrl={docConsulta.arquivo_url}
+          documentoId={docConsulta.id} documentoNome={docConsulta.nome}
+          documentoDescricao={docConsulta.descricao} arquivoUrl={docConsulta.arquivo_url}
           criadoEm={docConsulta.criado_em}
           onClose={() => setDocConsulta(null)}
           onSalvo={() => { setDocConsulta(null); carregar() }}
