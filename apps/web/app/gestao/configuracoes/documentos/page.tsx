@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { NovoDocumentoModal, DocumentoBase } from './NovoDocumentoModal'
 import { EtapasModal } from './EtapasModal'
+import { ConsultaInteligenteModal } from './ConsultaInteligenteModal'
 
 interface Documento {
   id: string
@@ -14,6 +15,7 @@ interface Documento {
   tipo: string
   descricao: string | null
   norma_referencia: string | null
+  arquivo_url: string | null
   criado_em: string
 }
 
@@ -37,12 +39,13 @@ export default function DocumentosPage() {
   const [loading, setLoading] = useState(true)
   const [modalNovo, setModalNovo] = useState(false)
   const [docEtapas, setDocEtapas] = useState<DocumentoBase | null>(null)
+  const [docConsulta, setDocConsulta] = useState<Documento | null>(null)
 
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
     setLoading(true)
     const { data } = await createClient()
-      .from('documentos').select('id, nome, tipo, descricao, norma_referencia, criado_em')
+      .from('documentos').select('id, nome, tipo, descricao, norma_referencia, arquivo_url, criado_em')
       .eq('unidade_id', unidadeAtiva.id).eq('status', 'ativo').order('nome')
     if (data) setDocumentos(data)
     setLoading(false)
@@ -53,10 +56,17 @@ export default function DocumentosPage() {
   function handleCriado(doc: DocumentoBase) {
     setModalNovo(false)
     carregar()
-    // Para POP e IT, abre o modal de etapas
     if (doc.tipo === 'pop' || doc.tipo === 'it') {
       setDocEtapas(doc)
+    } else if (doc.tipo === 'consulta_inteligente') {
+      const docCompleto: Documento = { ...doc, descricao: null, norma_referencia: null, arquivo_url: null, criado_em: new Date().toISOString() }
+      setDocConsulta(docCompleto)
     }
+  }
+
+  function abrirDocumento(doc: Documento) {
+    if (doc.tipo === 'pop' || doc.tipo === 'it') setDocEtapas(doc)
+    else if (doc.tipo === 'consulta_inteligente') setDocConsulta(doc)
   }
 
   const filtrados = documentos.filter(d => {
@@ -115,8 +125,8 @@ export default function DocumentosPage() {
               <FileText size={18} className="text-gray-300 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <button
-                  onClick={() => (doc.tipo === 'pop' || doc.tipo === 'it') && setDocEtapas(doc)}
-                  className={`font-medium text-sm text-gray-800 text-left ${(doc.tipo === 'pop' || doc.tipo === 'it') ? 'hover:text-orange-500 cursor-pointer' : ''}`}
+                  onClick={() => abrirDocumento(doc)}
+                  className="font-medium text-sm text-gray-800 text-left hover:text-orange-500 cursor-pointer"
                 >
                   {doc.nome}
                 </button>
@@ -138,6 +148,18 @@ export default function DocumentosPage() {
           documentoId={docEtapas.id}
           documentoNome={docEtapas.nome}
           onClose={() => { setDocEtapas(null); carregar() }}
+        />
+      )}
+
+      {docConsulta && (
+        <ConsultaInteligenteModal
+          documentoId={docConsulta.id}
+          documentoNome={docConsulta.nome}
+          documentoDescricao={docConsulta.descricao}
+          arquivoUrl={docConsulta.arquivo_url}
+          criadoEm={docConsulta.criado_em}
+          onClose={() => setDocConsulta(null)}
+          onSalvo={() => { setDocConsulta(null); carregar() }}
         />
       )}
     </>
