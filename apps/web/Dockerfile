@@ -10,6 +10,7 @@ COPY . .
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Cache bust: 2026-06-05
 RUN npm run build
 
 EXPOSE 3000
