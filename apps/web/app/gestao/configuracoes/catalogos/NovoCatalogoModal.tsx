@@ -26,6 +26,8 @@ interface Props {
   onSalvo: (catalogo: Catalogo) => void
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api-production-5bce.up.railway.app'
+
 export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
   const { unidadeAtiva } = useSession()
   const isEdicao = !!catalogo
@@ -116,7 +118,7 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
       if (apiHeaders.trim()) {
         try { parsedHeaders = JSON.parse(apiHeaders) } catch { /* ignora */ }
       }
-      const res = await fetch('http://localhost:3001/catalogos/test-api', {
+      const res = await fetch(`${API_URL}/catalogos/test-api`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: apiUrl.trim(), headers: parsedHeaders }),
@@ -140,7 +142,7 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
     try {
       let parsedHeaders: Record<string, string> = {}
       if (apiHeaders.trim()) { try { parsedHeaders = JSON.parse(apiHeaders) } catch { /* */ } }
-      const res = await fetch('http://localhost:3001/catalogos/test-api', {
+      const res = await fetch(`${API_URL}/catalogos/test-api`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: apiUrl.trim(), headers: parsedHeaders }),
@@ -161,7 +163,7 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
     setSincronizando(true)
     setSyncMsg('')
     try {
-      const res = await fetch(`http://localhost:3001/catalogos/${catalogo.id}/sync`, { method: 'POST' })
+      const res = await fetch(`${API_URL}/catalogos/${catalogo.id}/sync`, { method: 'POST' })
       const json = await res.json()
       setSyncMsg(json.mensagem ?? json.error ?? 'Concluído.')
       setPreviewDados(null)
