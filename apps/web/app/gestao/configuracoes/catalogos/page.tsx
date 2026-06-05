@@ -69,7 +69,7 @@ export default function CatalogosPage() {
     setLoading(true)
     const supabase = createClient()
     const { data } = await supabase.from('catalogos')
-      .select('id, nome, descricao, campo_chave, atributo_1, atributo_2, atributo_3, atributo_4')
+      .select('id, nome, descricao, campo_chave, atributo_1, atributo_2, atributo_3, atributo_4, api_url, api_headers, api_mapeamento')
       .eq('unidade_id', unidadeAtiva.id).eq('status', 'ativo').order('nome')
 
     if (data) {
