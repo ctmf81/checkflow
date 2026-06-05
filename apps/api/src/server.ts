@@ -5,6 +5,7 @@ import helmet from '@fastify/helmet'
 import { healthRoutes } from './routes/health'
 import { catalogoRoutes } from './routes/catalogos'
 import { usuarioRoutes } from './routes/usuarios'
+import { whatsappRoutes } from './routes/whatsapp'
 
 const app = Fastify({ logger: true })
 
@@ -17,6 +18,7 @@ app.register(cors, {
 app.register(healthRoutes)
 app.register(catalogoRoutes)
 app.register(usuarioRoutes)
+app.register(whatsappRoutes)
 
 const port = Number(process.env.PORT) || 3001
 
