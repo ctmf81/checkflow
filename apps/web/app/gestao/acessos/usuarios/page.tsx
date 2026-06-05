@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Search, UserCircle, AlertCircle, Upload } from 'lucide-react'
+import { Plus, Search, UserCircle, AlertCircle, Upload, PowerOff, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { UsuarioModal } from './UsuarioModal'
 import { ImportarUsuariosModal } from './ImportarUsuariosModal'
@@ -18,38 +18,64 @@ interface Usuario {
   unidades: { id: string; nome: string }[]
 }
 
+interface Perfil { id: string; nome: string }
+
 export default function UsuariosPage() {
   const { empresaAtiva } = useSession()
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
+  const [perfis, setPerfis] = useState<Perfil[]>([])
   const [busca, setBusca] = useState('')
   const [modalAberto, setModalAberto] = useState(false)
   const [importarAberto, setImportarAberto] = useState(false)
   const [usuarioEditando, setUsuarioEditando] = useState<Usuario | undefined>()
   const [loading, setLoading] = useState(true)
+  const [perfilDropdown, setPerfilDropdown] = useState<string | null>(null)
 
   async function carregar() {
     if (!empresaAtiva?.id) { setLoading(false); return }
     setLoading(true)
     const supabase = createClient()
 
-    // Busca usuários vinculados à empresa via usuario_empresa
-    const { data: ue } = await supabase
-      .from('usuario_empresa')
-      .select('usuario:usuario_id(id, nome, email, cpf, telefone), perfil:perfil_id(nome)')
-      .eq('empresa_id', empresaAtiva.id)
+    const [ueRes, perfisRes] = await Promise.all([
+      supabase.from('usuario_empresa')
+        .select('usuario:usuario_id(id, nome, email, cpf, telefone, status), perfil:perfil_id(id, nome)')
+        .eq('empresa_id', empresaAtiva.id),
+      supabase.from('perfis').select('id, nome')
+        .or(`empresa_id.eq.${empresaAtiva.id},empresa_id.is.null`).order('nome'),
+    ])
 
-    if (ue) {
-      setUsuarios(ue.map((r: any) => ({
-        id: r.usuario.id,
-        nome: r.usuario.nome,
-        email: r.usuario.email,
-        cpf: r.usuario.cpf,
-        telefone: r.usuario.telefone,
-        perfil: r.perfil?.nome ?? '',
-        unidades: [],
-      })))
+    if (ueRes.data) {
+      setUsuarios(ueRes.data
+        .filter((r: any) => r.usuario?.status === 'ativo')
+        .map((r: any) => ({
+          id: r.usuario.id,
+          nome: r.usuario.nome,
+          email: r.usuario.email,
+          cpf: r.usuario.cpf,
+          telefone: r.usuario.telefone,
+          perfil: r.perfil?.nome ?? '',
+          perfilId: r.perfil?.id ?? '',
+          unidades: [],
+        })))
     }
+    if (perfisRes.data) setPerfis(perfisRes.data)
     setLoading(false)
+  }
+
+  async function inativar(usuarioId: string) {
+    if (!confirm('Inativar este usuário?')) return
+    await createClient().from('usuarios').update({ status: 'inativo' }).eq('id', usuarioId)
+    carregar()
+  }
+
+  async function alterarPerfil(usuarioId: string, perfilId: string) {
+    if (!empresaAtiva?.id) return
+    await createClient().from('usuario_empresa')
+      .update({ perfil_id: perfilId })
+      .eq('usuario_id', usuarioId)
+      .eq('empresa_id', empresaAtiva.id)
+    setPerfilDropdown(null)
+    carregar()
   }
 
   useEffect(() => { carregar() }, [empresaAtiva?.id])
@@ -115,10 +141,40 @@ export default function UsuariosPage() {
               </button>
               <p className="text-xs text-gray-500 truncate">{usuario.email}</p>
             </div>
-            <div className="flex items-center gap-4">
-              {usuario.perfil && <span className="text-sm text-gray-400 hidden sm:block">{usuario.perfil}</span>}
-              <button className="text-gray-300 hover:text-red-400 transition-colors p-1"><Trash2 size={15} /></button>
-              <button className="text-gray-300 hover:text-orange-400 transition-colors p-1 font-bold text-sm" title="Resetar senha">|**</button>
+            <div className="flex items-center gap-3">
+              {/* Perfil com dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setPerfilDropdown(perfilDropdown === usuario.id ? null : usuario.id)}
+                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-orange-500 border border-gray-200 hover:border-orange-300 px-2 py-1 rounded-lg transition-colors"
+                >
+                  {(usuario as any).perfilId ? usuario.perfil || 'Perfil' : 'Perfil'}
+                  <ChevronDown size={11} />
+                </button>
+                {perfilDropdown === usuario.id && (
+                  <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                    {perfis.map(p => (
+                      <button key={p.id} onClick={() => alterarPerfil(usuario.id, p.id)}
+                        className={`w-full text-left px-4 py-2 text-xs transition-colors ${
+                          (usuario as any).perfilId === p.id ? 'text-orange-500 font-medium bg-orange-50' : 'text-gray-700 hover:bg-gray-50'
+                        }`}>
+                        {p.nome}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Inativar */}
+              <button onClick={() => inativar(usuario.id)}
+                className="text-gray-300 hover:text-red-400 transition-colors p-1" title="Inativar usuário">
+                <PowerOff size={15} />
+              </button>
+
+              {/* Reset senha */}
+              <button className="text-gray-300 hover:text-orange-400 transition-colors p-1 font-bold text-sm" title="Resetar senha">
+                |**
+              </button>
             </div>
           </div>
         ))}
