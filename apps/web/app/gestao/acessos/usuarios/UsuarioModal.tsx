@@ -11,8 +11,8 @@ interface Usuario {
   id: string
   nome: string
   email: string
-  cpf: string
-  telefone: string
+  cpf: string | null
+  telefone: string | null
   perfil: string
   unidades: Unidade[]
 }
@@ -21,6 +21,7 @@ interface Perfil { id: string; nome: string }
 
 interface Props {
   usuario?: Usuario
+  empresaId?: string
   onClose: () => void
   perfilFixo?: string // se informado, só mostra este perfil (ex: 'Admin da empresa')
 }
