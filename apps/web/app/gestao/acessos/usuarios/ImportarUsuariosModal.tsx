@@ -1,8 +1,9 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X, Upload, Download, RefreshCw, Check, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { createClient } from '@/lib/supabase'
 
 interface UsuarioImport {
   nome: string
@@ -37,6 +38,35 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
   const [carregando, setCarregando] = useState(false)
   const [camposMsg, setCamposMsg] = useState('')
   const [previewApi, setPreviewApi] = useState<UsuarioImport[]>([])
+  const [salvandoConfig, setSalvandoConfig] = useState(false)
+  const [configSalva, setConfigSalva] = useState(false)
+
+  // Carrega config salva ao abrir
+  useEffect(() => {
+    if (!empresaId) return
+    createClient().from('empresas')
+      .select('importacao_api_url, importacao_api_headers, importacao_api_mapeamento')
+      .eq('id', empresaId).single()
+      .then(({ data }) => {
+        if (data?.importacao_api_url) setApiUrl(data.importacao_api_url)
+        if (data?.importacao_api_headers) setApiHeaders(JSON.stringify(data.importacao_api_headers, null, 2))
+        if (data?.importacao_api_mapeamento) setMapeamento({ nome: '', email: '', cpf: '', telefone: '', ...data.importacao_api_mapeamento })
+      })
+  }, [empresaId])
+
+  async function salvarConfig() {
+    setSalvandoConfig(true)
+    let parsedHeaders: Record<string, string> | null = null
+    if (apiHeaders.trim()) { try { parsedHeaders = JSON.parse(apiHeaders) } catch { /* */ } }
+    await createClient().from('empresas').update({
+      importacao_api_url: apiUrl.trim() || null,
+      importacao_api_headers: parsedHeaders,
+      importacao_api_mapeamento: mapeamento,
+    }).eq('id', empresaId)
+    setSalvandoConfig(false)
+    setConfigSalva(true)
+    setTimeout(() => setConfigSalva(false), 2000)
+  }
 
   // Importação
   const [importando, setImportando] = useState(false)
@@ -230,11 +260,18 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
                     </div>
                   )}
                   {camposApi.length > 0 && mapeamento.nome && mapeamento.email && (
-                    <button onClick={verPreviewApi} disabled={carregando}
-                      className="flex items-center gap-1.5 text-sm text-orange-500 hover:underline">
-                      <RefreshCw size={13} className={carregando ? 'animate-spin' : ''} />
-                      Ver prévia
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button onClick={verPreviewApi} disabled={carregando}
+                        className="flex items-center gap-1.5 text-sm text-orange-500 hover:underline">
+                        <RefreshCw size={13} className={carregando ? 'animate-spin' : ''} />
+                        Ver prévia
+                      </button>
+                      <button onClick={salvarConfig} disabled={salvandoConfig}
+                        className="flex items-center gap-1.5 text-sm border border-gray-200 text-gray-600 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors">
+                        {configSalva ? <Check size={13} className="text-green-500" /> : <RefreshCw size={13} className={salvandoConfig ? 'animate-spin' : ''} />}
+                        {configSalva ? 'Salvo!' : salvandoConfig ? 'Salvando...' : 'Salvar configuração'}
+                      </button>
+                    </div>
                   )}
                 </>
               )}
