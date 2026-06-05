@@ -4,7 +4,6 @@ import ws from 'ws'
 
 export async function usuarioRoutes(app: FastifyInstance) {
 
-  // POST /usuarios/sync-all — sincroniza usuários de todas as empresas com API configurada
   app.post('/usuarios/sync-all', async (req, reply) => {
     const supabase = createClient(
       process.env.SUPABASE_URL!,
@@ -12,18 +11,17 @@ export async function usuarioRoutes(app: FastifyInstance) {
       { realtime: { transport: ws as any } }
     )
 
-    // Busca empresas com API de importação configurada
+    // Busca empresas com API configurada
     const { data: empresas } = await supabase
       .from('empresas')
-      .select('id, nome, importacao_api_url, importacao_api_headers, importacao_api_mapeamento')
+      .select('id, nome, importacao_api_url, importacao_api_headers, importacao_api_mapeamento, importacao_campo_status, importacao_status_ativo, importacao_estrategia, importacao_sistema_nome')
       .not('importacao_api_url', 'is', null)
       .eq('status', 'ativo')
 
     if (!empresas?.length) {
-      return reply.send({ sincronizados: 0, mensagem: 'Nenhuma empresa com API de usuários configurada.' })
+      return reply.send({ total: 0, mensagem: 'Nenhuma empresa com API configurada.' })
     }
 
-    // Busca perfil Operação
     const { data: perfilOp } = await supabase
       .from('perfis').select('id').eq('nome', 'Operação').single()
 
@@ -31,115 +29,132 @@ export async function usuarioRoutes(app: FastifyInstance) {
 
     for (const empresa of empresas) {
       try {
+        const fonteSistema = empresa.importacao_sistema_nome ?? 'api'
+        const estrategia = empresa.importacao_estrategia ?? 'inativar'
+
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
           ...(empresa.importacao_api_headers ?? {}),
         }
 
-        // Busca dados da API externa
         const res = await fetch(empresa.importacao_api_url, { headers })
         if (!res.ok) {
           resultados.push({ empresa: empresa.nome, erro: `API retornou ${res.status}` })
           continue
         }
+
         const json: any = await res.json()
         const itens: any[] = Array.isArray(json) ? json : (json.data ?? json.items ?? json.results ?? [])
 
         if (!itens.length) {
-          resultados.push({ empresa: empresa.nome, sincronizados: 0, mensagem: 'Nenhum item retornado.' })
+          resultados.push({ empresa: empresa.nome, sincronizados: 0 })
           continue
         }
 
         const mapa: Record<string, string> = empresa.importacao_api_mapeamento ?? {}
-        const usuarios = itens
-          .map(item => ({
-            nome: mapa.nome ? String(item[mapa.nome] ?? '') : '',
-            email: mapa.email ? String(item[mapa.email] ?? '') : '',
-            cpf: mapa.cpf && item[mapa.cpf] ? String(item[mapa.cpf]) : null,
-            telefone: mapa.telefone && item[mapa.telefone] ? String(item[mapa.telefone]) : null,
-          }))
-          .filter(u => u.nome && u.email)
+        const campoStatus = empresa.importacao_campo_status
+        const valorAtivo = empresa.importacao_status_ativo
 
-        let criados = 0
-        let existentes = 0
-        const emailsImportados: string[] = []
+        let criados = 0, atualizados = 0, inativados = 0
+        const emailsAtivos: string[] = []
 
-        for (const u of usuarios) {
-          emailsImportados.push(u.email.toLowerCase())
+        for (const item of itens) {
+          const nome = mapa.nome ? String(item[mapa.nome] ?? '') : ''
+          const email = mapa.email ? String(item[mapa.email] ?? '') : ''
+          if (!nome || !email) continue
 
-          // Verifica se já existe na tabela usuarios
+          // Determina status pelo campo mapeado ou presença na lista
+          let statusExterno = 'ativo'
+          if (campoStatus && valorAtivo) {
+            const valorCampo = String(item[campoStatus] ?? '')
+            statusExterno = valorCampo === valorAtivo ? 'ativo' : 'inativo'
+          }
+
+          if (statusExterno === 'ativo') emailsAtivos.push(email.toLowerCase())
+
+          // Verifica se já existe
           const { data: existente } = await supabase
-            .from('usuarios').select('id').eq('email', u.email).single()
+            .from('usuarios').select('id, status').eq('email', email).single()
 
           if (existente) {
-            existentes++
-            // Garante vínculo com a empresa
-            if (perfilOp) {
+            // Atualiza status se mudou
+            if (existente.status !== statusExterno) {
+              await supabase.from('usuarios').update({ status: statusExterno }).eq('id', existente.id)
+              atualizados++
+            }
+            // Garante vínculo com fonte correta
+            if (perfilOp && statusExterno === 'ativo') {
               await supabase.from('usuario_empresa').upsert({
                 usuario_id: existente.id,
                 empresa_id: empresa.id,
                 perfil_id: perfilOp.id,
+                fonte: 'api',
+                fonte_sistema: fonteSistema,
               }, { onConflict: 'usuario_id,empresa_id' })
             }
             continue
           }
 
+          if (statusExterno !== 'ativo') continue // não cria usuários já inativos
+
           // Cria no Auth
           const senhaTemp = Math.random().toString(36).slice(-8) + 'A1!'
           const { data: authData, error: authErr } = await supabase.auth.admin.createUser({
-            email: u.email,
+            email,
             password: senhaTemp,
             email_confirm: true,
-            user_metadata: { nome: u.nome, role: 'usuario' },
+            user_metadata: { nome, role: 'usuario' },
           })
-
           if (authErr || !authData.user) continue
 
-          // Insere na tabela usuarios
           await supabase.from('usuarios').insert({
             id: authData.user.id,
-            nome: u.nome,
-            email: u.email,
-            cpf: u.cpf,
-            telefone: u.telefone,
+            nome,
+            email,
+            cpf: mapa.cpf ? (item[mapa.cpf] ?? null) : null,
+            telefone: mapa.telefone ? (item[mapa.telefone] ?? null) : null,
             status: 'ativo',
             primeiro_acesso: true,
           })
 
-          // Vincula à empresa
           if (perfilOp) {
             await supabase.from('usuario_empresa').upsert({
               usuario_id: authData.user.id,
               empresa_id: empresa.id,
               perfil_id: perfilOp.id,
+              fonte: 'api',
+              fonte_sistema: fonteSistema,
             }, { onConflict: 'usuario_id,empresa_id' })
           }
-
           criados++
         }
 
-        // Inativa usuários que não vieram mais na importação
-        const { data: usuariosEmpresa } = await supabase
-          .from('usuario_empresa')
-          .select('usuario:usuario_id(id, email)')
-          .eq('empresa_id', empresa.id)
+        // Inativa apenas usuários desta fonte/sistema que saíram da lista
+        if (estrategia === 'inativar') {
+          let q = supabase.from('usuario_empresa')
+            .select('usuario:usuario_id(id, email)')
+            .eq('empresa_id', empresa.id)
+            .eq('fonte', 'api')
+            .eq('fonte_sistema', fonteSistema) as any
 
-        const inativar = (usuariosEmpresa ?? [])
-          .map((r: any) => r.usuario)
-          .filter((u: any) => u && !emailsImportados.includes(u.email?.toLowerCase()))
-          .map((u: any) => u.id)
+          const { data: vinculados } = await q
 
-        if (inativar.length > 0) {
-          await supabase.from('usuarios').update({ status: 'inativo' }).in('id', inativar)
+          const inativar = (vinculados ?? [])
+            .map((r: any) => r.usuario)
+            .filter((u: any) => u && !emailsAtivos.includes(u.email?.toLowerCase()))
+            .map((u: any) => u.id)
+
+          if (inativar.length > 0) {
+            await supabase.from('usuarios').update({ status: 'inativo' }).in('id', inativar)
+            inativados = inativar.length
+          }
         }
 
-        resultados.push({
-          empresa: empresa.nome,
-          criados,
-          existentes,
-          inativados: inativar.length,
-        })
+        resultados.push({ empresa: empresa.nome, criados, atualizados, inativados })
+        app.log.info(`Sync ${empresa.nome}: ${criados} criados, ${atualizados} atualizados, ${inativados} inativados`)
+
       } catch (e: any) {
+        app.log.error(`Sync erro ${empresa.nome}: ${e.message}`)
         resultados.push({ empresa: empresa.nome, erro: e.message })
       }
     }

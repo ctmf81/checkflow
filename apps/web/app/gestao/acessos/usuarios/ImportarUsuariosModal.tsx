@@ -33,7 +33,11 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
   // API
   const [apiUrl, setApiUrl] = useState('')
   const [apiHeaders, setApiHeaders] = useState('')
-  const [mapeamento, setMapeamento] = useState({ nome: '', email: '', cpf: '', telefone: '' })
+  const [mapeamento, setMapeamento] = useState({ nome: '', email: '', cpf: '', telefone: '', status: '' })
+  const [sistemaNome, setSistemaNome] = useState('')
+  const [campoStatus, setCampoStatus] = useState('')
+  const [statusAtivo, setStatusAtivo] = useState('')
+  const [estrategia, setEstrategia] = useState<'inativar' | 'manter'>('inativar')
   const [camposApi, setCamposApi] = useState<string[]>([])
   const [carregando, setCarregando] = useState(false)
   const [camposMsg, setCamposMsg] = useState('')
@@ -45,12 +49,16 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
   useEffect(() => {
     if (!empresaId) return
     createClient().from('empresas')
-      .select('importacao_api_url, importacao_api_headers, importacao_api_mapeamento')
+      .select('importacao_api_url, importacao_api_headers, importacao_api_mapeamento, importacao_campo_status, importacao_status_ativo, importacao_estrategia, importacao_sistema_nome')
       .eq('id', empresaId).single()
       .then(({ data }) => {
         if (data?.importacao_api_url) setApiUrl(data.importacao_api_url)
         if (data?.importacao_api_headers) setApiHeaders(JSON.stringify(data.importacao_api_headers, null, 2))
-        if (data?.importacao_api_mapeamento) setMapeamento({ nome: '', email: '', cpf: '', telefone: '', ...data.importacao_api_mapeamento })
+        if (data?.importacao_api_mapeamento) setMapeamento({ nome: '', email: '', cpf: '', telefone: '', status: '', ...data.importacao_api_mapeamento })
+        if (data?.importacao_sistema_nome) setSistemaNome(data.importacao_sistema_nome)
+        if (data?.importacao_campo_status) setCampoStatus(data.importacao_campo_status)
+        if (data?.importacao_status_ativo) setStatusAtivo(data.importacao_status_ativo)
+        if (data?.importacao_estrategia) setEstrategia(data.importacao_estrategia)
       })
   }, [empresaId])
 
@@ -62,6 +70,10 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
       importacao_api_url: apiUrl.trim() || null,
       importacao_api_headers: parsedHeaders,
       importacao_api_mapeamento: mapeamento,
+      importacao_sistema_nome: sistemaNome.trim() || null,
+      importacao_campo_status: campoStatus.trim() || null,
+      importacao_status_ativo: statusAtivo.trim() || null,
+      importacao_estrategia: estrategia,
     }).eq('id', empresaId)
     setSalvandoConfig(false)
     setConfigSalva(true)
@@ -147,7 +159,12 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
       const res = await fetch('/api/usuarios/importar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usuarios, empresaId }),
+        body: JSON.stringify({
+          usuarios,
+          empresaId,
+          fonte: aba === 'csv' ? 'csv' : 'api',
+          fonteSistema: aba === 'api' && sistemaNome.trim() ? sistemaNome.trim() : undefined,
+        }),
       })
       const json = await res.json()
       console.log('Importação resultado:', JSON.stringify(json))
@@ -232,11 +249,29 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
 
               {aba === 'api' && (
                 <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">URL do endpoint</label>
-                    <input value={apiUrl} onChange={e => setApiUrl(e.target.value)}
-                      placeholder="https://api.empresa.com/usuarios"
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 font-mono" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">URL do endpoint</label>
+                      <input value={apiUrl} onChange={e => setApiUrl(e.target.value)}
+                        placeholder="https://api.empresa.com/usuarios"
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 font-mono" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Sistema de origem <span className="text-gray-400 font-normal">(opcional)</span>
+                      </label>
+                      <input value={sistemaNome} onChange={e => setSistemaNome(e.target.value)}
+                        placeholder="ex: Senior, Oracle EBS"
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Ao sincronizar, usuários removidos</label>
+                      <select value={estrategia} onChange={e => setEstrategia(e.target.value as any)}
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
+                        <option value="inativar">Inativar automaticamente</option>
+                        <option value="manter">Manter ativos</option>
+                      </select>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Headers <span className="text-gray-400 font-normal">(JSON opcional)</span></label>
@@ -255,10 +290,10 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
                   {camposApi.length > 0 && (
                     <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 space-y-2">
                       <p className="text-xs font-medium text-gray-600">Mapeamento</p>
-                      {(['nome', 'email', 'cpf', 'telefone'] as const).map(campo => (
+                      {(['nome', 'email', 'cpf', 'telefone', 'status'] as const).map(campo => (
                         <div key={campo} className="flex items-center gap-2">
                           <span className={`text-xs font-medium w-16 ${campo === 'nome' || campo === 'email' ? 'text-orange-600' : 'text-gray-500'}`}>
-                            {campo}{campo === 'nome' || campo === 'email' ? ' *' : ''}
+                            {campo}{campo === 'nome' || campo === 'email' ? ' *' : ''}{campo === 'status' ? ' 🔵' : ''}
                           </span>
                           <span className="text-gray-400 text-xs">→</span>
                           <select value={mapeamento[campo]} onChange={e => setMapeamento(p => ({ ...p, [campo]: e.target.value }))}
@@ -268,6 +303,14 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
                           </select>
                         </div>
                       ))}
+                    </div>
+                  )}
+                  {mapeamento.status && (
+                    <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg">
+                      <span className="text-xs text-blue-600 font-medium">Valor que significa ATIVO:</span>
+                      <input value={statusAtivo} onChange={e => setStatusAtivo(e.target.value)}
+                        placeholder="ex: A, ATIVO, 1, true"
+                        className="flex-1 px-2 py-1 text-xs border border-blue-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-300" />
                     </div>
                   )}
                   {camposApi.length > 0 && mapeamento.nome && mapeamento.email && (

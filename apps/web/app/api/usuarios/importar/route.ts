@@ -7,10 +7,12 @@ export async function POST(req: NextRequest) {
       'https://pswdjdlirylxgscohcfi.supabase.co',
       process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBzd2RqZGxpcnlseGdzY29oY2ZpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDQ5MDYxOCwiZXhwIjoyMDk2MDY2NjE4fQ.W1ngY6tPoep-Y_Q-1y1O_iECR8Ww1j2pqjMfN1QAWlE',
     )
-    const { usuarios, empresaId, syncCompleto } = await req.json() as {
+    const { usuarios, empresaId, syncCompleto, fonte, fonteSistema } = await req.json() as {
       usuarios: { nome: string; email: string; cpf?: string; telefone?: string }[]
       empresaId?: string
-      syncCompleto?: boolean // só inativa quando for sync completo via API agendada
+      syncCompleto?: boolean
+      fonte?: string        // 'manual' | 'api' | 'csv'
+      fonteSistema?: string // ex: 'senior', 'oracle'
     }
 
     if (!usuarios?.length) {
@@ -66,6 +68,8 @@ export async function POST(req: NextRequest) {
             usuario_id: authData.user.id,
             empresa_id: empresaId,
             perfil_id: perfilOperacao.id,
+            fonte: fonte ?? 'csv',
+            fonte_sistema: fonteSistema ?? null,
           }, { onConflict: 'usuario_id,empresa_id' })
         }
       }
@@ -73,13 +77,16 @@ export async function POST(req: NextRequest) {
       resultados.push({ email: u.email, id: authData.user.id, status: 'criado' })
     }
 
-    // Inativa usuários apenas quando for sync completo (via API agendada), nunca em import manual
+    // Inativa apenas usuários da mesma fonte que não vieram na importação
     if (empresaId && syncCompleto) {
       const emailsImportados = usuarios.map(u => u.email.toLowerCase())
-      const { data: usuariosEmpresa } = await supabaseAdmin
+      let q = supabaseAdmin
         .from('usuario_empresa')
         .select('usuario:usuario_id(id, email)')
         .eq('empresa_id', empresaId)
+        .eq('fonte', fonte ?? 'csv') // só mexe em usuários da mesma origem
+      if (fonteSistema) q = q.eq('fonte_sistema', fonteSistema) as typeof q
+      const { data: usuariosEmpresa } = await q
 
       const inativar = (usuariosEmpresa ?? [])
         .map((r: any) => r.usuario)
