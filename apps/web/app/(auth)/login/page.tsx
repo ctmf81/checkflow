@@ -89,8 +89,9 @@ export default function LoginPage() {
 
       router.push(destino)
       router.refresh()
-    } catch {
-      setErro('Erro ao conectar. Tente novamente.')
+    } catch (e: any) {
+      console.error('Login error:', e?.message ?? e)
+      setErro(`Erro: ${e?.message ?? 'Falha na conexão'}`)
       setLoading(false)
     }
   }
