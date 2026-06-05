@@ -9,7 +9,8 @@ const app = Fastify({ logger: true })
 
 app.register(helmet)
 app.register(cors, {
-  origin: process.env.WEB_URL || 'http://localhost:3000',
+  origin: true, // permite qualquer origem — restringir após confirmar funcionamento
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 })
 
 app.register(healthRoutes)

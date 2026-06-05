@@ -32,6 +32,7 @@ export async function catalogoRoutes(app: FastifyInstance) {
 
   // POST /catalogos/:id/sync — sincroniza valores via API externa
   app.post<{ Params: { id: string } }>('/catalogos/:id/sync', async (req, reply) => {
+    try {
     const { id } = req.params
 
     const supabase = createClient(
@@ -126,6 +127,10 @@ export async function catalogoRoutes(app: FastifyInstance) {
       deletados,
       mensagem: `${valores.length} itens sincronizados, ${deletados} removidos.`,
     })
+    } catch (e: any) {
+      app.log.error(`Sync error: ${e?.message ?? e}`)
+      return reply.status(500).send({ error: e?.message ?? 'Erro interno no servidor.' })
+    }
   })
 
   // POST /catalogos/sync-all — sincroniza todos os catálogos com API configurada
