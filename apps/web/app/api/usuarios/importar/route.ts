@@ -60,9 +60,30 @@ export async function POST(req: NextRequest) {
       resultados.push({ email: u.email, id: authData.user.id, status: 'criado' })
     }
 
+    // Inativa usuários da empresa que não vieram mais na importação
+    if (empresaId) {
+      const emailsImportados = usuarios.map(u => u.email.toLowerCase())
+      const { data: usuariosEmpresa } = await supabaseAdmin
+        .from('usuario_empresa')
+        .select('usuario:usuario_id(id, email)')
+        .eq('empresa_id', empresaId)
+
+      const inativar = (usuariosEmpresa ?? [])
+        .map((r: any) => r.usuario)
+        .filter((u: any) => u && !emailsImportados.includes(u.email?.toLowerCase()))
+        .map((u: any) => u.id)
+
+      if (inativar.length > 0) {
+        await supabaseAdmin.from('usuarios')
+          .update({ status: 'inativo' })
+          .in('id', inativar)
+      }
+    }
+
     return NextResponse.json({
       criados: resultados.filter(r => r.status === 'criado').length,
       existentes: resultados.filter(r => r.status === 'existente').length,
+      inativados: empresaId ? (resultados.length) : 0,
       erros: erros.length,
       detalhes: { resultados, erros },
     })

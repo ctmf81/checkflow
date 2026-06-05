@@ -40,7 +40,7 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
 
   // Importação
   const [importando, setImportando] = useState(false)
-  const [resultado, setResultado] = useState<{ criados: number; existentes: number; erros: number } | null>(null)
+  const [resultado, setResultado] = useState<{ criados: number; existentes: number; inativados: number; erros: number } | null>(null)
 
   function baixarModelo() {
     const csv = 'nome,email,cpf,telefone\nJoão Silva,joao@empresa.com,000.000.000-00,(11) 9 0000-0000'
@@ -158,6 +158,7 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
                 <p className="font-semibold text-gray-800">Importação concluída</p>
                 <p className="text-sm text-green-600">✓ {resultado.criados} criados</p>
                 {resultado.existentes > 0 && <p className="text-sm text-gray-500">⚠ {resultado.existentes} já existiam</p>}
+                {resultado.inativados > 0 && <p className="text-sm text-orange-500">⊘ {resultado.inativados} inativados</p>}
                 {resultado.erros > 0 && <p className="text-sm text-red-500">✗ {resultado.erros} com erro</p>}
               </div>
               <Button onClick={onClose}>Fechar</Button>
