@@ -7,9 +7,10 @@ export async function POST(req: NextRequest) {
       'https://pswdjdlirylxgscohcfi.supabase.co',
       process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBzd2RqZGxpcnlseGdzY29oY2ZpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDQ5MDYxOCwiZXhwIjoyMDk2MDY2NjE4fQ.W1ngY6tPoep-Y_Q-1y1O_iECR8Ww1j2pqjMfN1QAWlE',
     )
-    const { usuarios, empresaId } = await req.json() as {
+    const { usuarios, empresaId, syncCompleto } = await req.json() as {
       usuarios: { nome: string; email: string; cpf?: string; telefone?: string }[]
       empresaId?: string
+      syncCompleto?: boolean // só inativa quando for sync completo via API agendada
     }
 
     if (!usuarios?.length) {
@@ -72,8 +73,8 @@ export async function POST(req: NextRequest) {
       resultados.push({ email: u.email, id: authData.user.id, status: 'criado' })
     }
 
-    // Inativa usuários da empresa que não vieram mais na importação
-    if (empresaId) {
+    // Inativa usuários apenas quando for sync completo (via API agendada), nunca em import manual
+    if (empresaId && syncCompleto) {
       const emailsImportados = usuarios.map(u => u.email.toLowerCase())
       const { data: usuariosEmpresa } = await supabaseAdmin
         .from('usuario_empresa')
