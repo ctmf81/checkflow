@@ -103,6 +103,8 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
   const [carregandoCampos, setCarregandoCampos] = useState(false)
   const [camposMsg, setCamposMsg] = useState('')
   const [totalRegistros, setTotalRegistros] = useState<number | null>(null)
+  const [previewDados, setPreviewDados] = useState<any[] | null>(null)
+  const [previewMapa, setPreviewMapa] = useState<Record<string, string>>({})
 
   async function carregarCampos() {
     if (!apiUrl.trim()) { setCamposMsg('Informe a URL primeiro.'); return }
@@ -122,9 +124,33 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
       if (json.error) { setCamposMsg(json.error); setCarregandoCampos(false); return }
       setCamposApi(json.campos ?? [])
       setTotalRegistros(json.total ?? null)
+      setPreviewDados(null)
       setCamposMsg(`${json.campos?.length ?? 0} campos encontrados${json.total ? ` · ${json.total} registros` : ''}.`)
     } catch {
       setCamposMsg('Erro ao conectar com a API local (porta 3001).')
+    }
+    setCarregandoCampos(false)
+  }
+
+  async function verPrevia() {
+    if (!apiUrl.trim()) return
+    setCarregandoCampos(true)
+    setSyncMsg('')
+    try {
+      let parsedHeaders: Record<string, string> = {}
+      if (apiHeaders.trim()) { try { parsedHeaders = JSON.parse(apiHeaders) } catch { /* */ } }
+      const res = await fetch('http://localhost:3001/catalogos/test-api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: apiUrl.trim(), headers: parsedHeaders }),
+      })
+      const json = await res.json()
+      if (json.error) { setCamposMsg(json.error); setCarregandoCampos(false); return }
+      setPreviewDados(json.preview ?? [])
+      setPreviewMapa({ ...apiMapa })
+      setTotalRegistros(json.total ?? null)
+    } catch {
+      setCamposMsg('Erro ao conectar com a API local.')
     }
     setCarregandoCampos(false)
   }
@@ -137,6 +163,7 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
       const res = await fetch(`http://localhost:3001/catalogos/${catalogo.id}/sync`, { method: 'POST' })
       const json = await res.json()
       setSyncMsg(json.mensagem ?? json.error ?? 'Concluído.')
+      setPreviewDados(null)
     } catch {
       setSyncMsg('Erro ao conectar com a API.')
     }
@@ -291,21 +318,68 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
               </div>
             </div>
 
+            {/* Prévia dos dados */}
+            {previewDados && previewDados.length > 0 && (
+              <div className="border border-orange-200 rounded-lg overflow-hidden">
+                <div className="bg-orange-50 px-4 py-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-orange-700">
+                    Prévia — primeiros {previewDados.length} de {totalRegistros ?? '?'} registros
+                  </span>
+                  <button onClick={() => setPreviewDados(null)} className="text-orange-400 hover:text-orange-600 text-xs">fechar</button>
+                </div>
+                <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        {attrKeys.map((key, i) => {
+                          if (i > 0 && !attrs[i - 1]) return null
+                          return <th key={key} className="px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">{attrLabels[i]}</th>
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewDados.map((item, idx) => (
+                        <tr key={idx} className="border-t border-gray-100 hover:bg-gray-50">
+                          {attrKeys.map((key, i) => {
+                            if (i > 0 && !attrs[i - 1]) return null
+                            const campo = previewMapa[key] ?? ''
+                            const val = campo ? item[campo] : ''
+                            return (
+                              <td key={key} className={`px-3 py-1.5 ${!val ? 'text-gray-300 italic' : 'text-gray-700'}`}>
+                                {val ?? '—'}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {syncMsg && (
               <p className={`text-xs px-3 py-2 rounded-lg ${syncMsg.includes('Erro') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
                 {syncMsg}
               </p>
             )}
 
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex justify-end gap-3 pt-2 flex-wrap">
               <button type="button" onClick={onClose} className="text-sm text-gray-500 px-4 py-2">Fechar</button>
               <Button onClick={salvar} disabled={salvando} variant="outline">
                 {salvando ? 'Salvando...' : 'Salvar configuração'}
               </Button>
-              {isEdicao && (
-                <Button onClick={sincronizar} disabled={sincronizando || !apiUrl}>
+              {isEdicao && !previewDados && (
+                <button onClick={verPrevia} disabled={carregandoCampos || !apiUrl.trim()}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-2 border-orange-500 text-orange-500 hover:bg-orange-50 disabled:opacity-50 rounded-lg transition-colors">
+                  <RefreshCw size={14} className={carregandoCampos ? 'animate-spin' : ''} />
+                  {carregandoCampos ? 'Carregando...' : 'Ver prévia'}
+                </button>
+              )}
+              {isEdicao && previewDados && (
+                <Button onClick={sincronizar} disabled={sincronizando}>
                   <RefreshCw size={14} className={sincronizando ? 'animate-spin' : ''} />
-                  {sincronizando ? 'Sincronizando...' : 'Sincronizar agora'}
+                  {sincronizando ? 'Sincronizando...' : `Confirmar e sincronizar ${totalRegistros ? `(${totalRegistros})` : ''}`}
                 </Button>
               )}
             </div>

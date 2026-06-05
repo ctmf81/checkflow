@@ -24,7 +24,7 @@ export async function catalogoRoutes(app: FastifyInstance) {
       if (!primeiro) return reply.send({ campos: [], total: 0 })
 
       const campos = Object.keys(primeiro)
-      return reply.send({ campos, total: lista.length, exemplo: primeiro })
+      return reply.send({ campos, total: lista.length, preview: lista.slice(0, 10) })
     } catch (e: any) {
       return reply.status(502).send({ error: `Erro: ${e.message}` })
     }
