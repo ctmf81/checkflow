@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { X, Info } from 'lucide-react'
+import { X, Info, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
@@ -15,6 +15,9 @@ export interface Catalogo {
   atributo_2: string | null
   atributo_3: string | null
   atributo_4: string | null
+  api_url?: string | null
+  api_headers?: Record<string, string> | null
+  api_mapeamento?: Record<string, string> | null
 }
 
 interface Props {
@@ -26,6 +29,7 @@ interface Props {
 export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
   const { unidadeAtiva } = useSession()
   const isEdicao = !!catalogo
+  const [aba, setAba] = useState<'estrutura' | 'api'>('estrutura')
 
   const [nome, setNome] = useState(catalogo?.nome ?? '')
   const [descricao, setDescricao] = useState(catalogo?.descricao ?? '')
@@ -36,6 +40,15 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
     catalogo?.atributo_3 ?? '',
     catalogo?.atributo_4 ?? '',
   ])
+  // API
+  const [apiUrl, setApiUrl] = useState(catalogo?.api_url ?? '')
+  const [apiHeaders, setApiHeaders] = useState(
+    catalogo?.api_headers ? JSON.stringify(catalogo.api_headers, null, 2) : ''
+  )
+  const [apiMapa, setApiMapa] = useState<Record<string, string>>(catalogo?.api_mapeamento ?? {})
+  const [sincronizando, setSincronizando] = useState(false)
+  const [syncMsg, setSyncMsg] = useState('')
+
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
 
@@ -50,6 +63,11 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
     setSalvando(true)
     const supabase = createClient()
 
+    let parsedHeaders: Record<string, string> | null = null
+    if (apiHeaders.trim()) {
+      try { parsedHeaders = JSON.parse(apiHeaders) } catch { /* ignora */ }
+    }
+
     const payload = {
       nome: nome.trim(),
       descricao: descricao.trim() || null,
@@ -58,6 +76,9 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
       atributo_2: attrs[1].trim() || null,
       atributo_3: attrs[2].trim() || null,
       atributo_4: attrs[3].trim() || null,
+      api_url: apiUrl.trim() || null,
+      api_headers: parsedHeaders,
+      api_mapeamento: Object.keys(apiMapa).length > 0 ? apiMapa : null,
     }
 
     if (isEdicao) {
@@ -76,7 +97,23 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
     setSalvando(false)
   }
 
+  async function sincronizar() {
+    if (!catalogo?.id) return
+    setSincronizando(true)
+    setSyncMsg('')
+    try {
+      const res = await fetch(`http://localhost:3001/catalogos/${catalogo.id}/sync`, { method: 'POST' })
+      const json = await res.json()
+      setSyncMsg(json.mensagem ?? json.error ?? 'Concluído.')
+    } catch {
+      setSyncMsg('Erro ao conectar com a API.')
+    }
+    setSincronizando(false)
+  }
+
   const attrExemplos = ['Nome do produto', 'Acabamento', 'Formato', 'Nº de faces']
+  const attrKeys = ['campo_chave', 'atributo_1', 'atributo_2', 'atributo_3', 'atributo_4'] as const
+  const attrLabels = [campoChave || catalogo?.campo_chave || 'Campo chave', ...attrs.map((a, i) => a || `Atributo ${i + 1}`)]
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
@@ -86,7 +123,20 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
         </div>
 
+        {/* Abas */}
+        <div className="flex border-b border-gray-100 px-6 flex-shrink-0">
+          {(['estrutura', 'api'] as const).map(a => (
+            <button key={a} onClick={() => setAba(a)}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors capitalize ${
+                aba === a ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}>
+              {a === 'api' ? '🔗 API' : '📋 Estrutura'}
+            </button>
+          ))}
+        </div>
+
         <div className="overflow-y-auto px-6 py-5 space-y-4">
+        {aba === 'estrutura' && (<>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Catálogo</label>
             <input value={nome} onChange={e => setNome(e.target.value)} placeholder="nome do catálogo"
@@ -129,6 +179,78 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
               {salvando ? 'Salvando...' : isEdicao ? 'Salvar' : 'Continuar'}
             </Button>
           </div>
+        </>)}
+
+        {aba === 'api' && (
+          <div className="space-y-4">
+            <div className="bg-blue-50 rounded-lg px-4 py-3 text-xs text-blue-700 space-y-1">
+              <p className="font-medium">Como funciona</p>
+              <p>Configure o endpoint externo. A API buscará os dados e fará upsert nos valores do catálogo.</p>
+              <p>Aceita arrays diretos ou objetos com <code className="bg-blue-100 px-1 rounded">data</code>, <code className="bg-blue-100 px-1 rounded">items</code> ou <code className="bg-blue-100 px-1 rounded">results</code>.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">URL do endpoint</label>
+              <input value={apiUrl} onChange={e => setApiUrl(e.target.value)}
+                placeholder="https://api.empresa.com/produtos"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 font-mono" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Headers <span className="text-gray-400 font-normal">(JSON opcional)</span>
+              </label>
+              <textarea value={apiHeaders} onChange={e => setApiHeaders(e.target.value)}
+                placeholder={'{\n  "Authorization": "Bearer SEU_TOKEN"\n}'}
+                rows={3}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none font-mono" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Mapeamento de campos
+                <span className="text-xs text-gray-400 font-normal ml-1">— qual campo da API corresponde a cada atributo</span>
+              </label>
+              <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50">
+                {attrKeys.map((key, i) => {
+                  const label = attrLabels[i]
+                  if (i > 0 && !attrs[i - 1]) return null
+                  return (
+                    <div key={key} className="flex items-center gap-2">
+                      <span className="text-xs text-orange-600 font-medium w-28 flex-shrink-0 truncate">{label}</span>
+                      <span className="text-gray-400 text-xs">→</span>
+                      <input
+                        value={apiMapa[key] ?? ''}
+                        onChange={e => setApiMapa(prev => ({ ...prev, [key]: e.target.value }))}
+                        placeholder={`campo na API`}
+                        className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-orange-200 font-mono"
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {syncMsg && (
+              <p className={`text-xs px-3 py-2 rounded-lg ${syncMsg.includes('Erro') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                {syncMsg}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={onClose} className="text-sm text-gray-500 px-4 py-2">Fechar</button>
+              <Button onClick={salvar} disabled={salvando} variant="outline">
+                {salvando ? 'Salvando...' : 'Salvar configuração'}
+              </Button>
+              {isEdicao && (
+                <Button onClick={sincronizar} disabled={sincronizando || !apiUrl}>
+                  <RefreshCw size={14} className={sincronizando ? 'animate-spin' : ''} />
+                  {sincronizando ? 'Sincronizando...' : 'Sincronizar agora'}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
         </div>
       </div>
     </div>
