@@ -1,15 +1,58 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, AlertCircle, Database, ChevronRight } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Plus, AlertCircle, Database, ChevronRight, MoreVertical, Pencil, Copy, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { NovoCatalogoModal, Catalogo } from './NovoCatalogoModal'
 import { ValoresModal } from './ValoresModal'
+import { DuplicarCatalogoModal } from './DuplicarCatalogoModal'
 
-interface CatalogoCard extends Catalogo {
-  totalValores: number
+interface CatalogoCard extends Catalogo { totalValores: number }
+
+function CardMenu({ catalogo, onEditar, onDuplicar, onExcluir }: {
+  catalogo: Catalogo
+  onEditar: () => void
+  onDuplicar: () => void
+  onExcluir: () => void
+}) {
+  const [aberto, setAberto] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function h(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setAberto(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  return (
+    <div ref={ref} className="relative" onClick={e => e.stopPropagation()}>
+      <button onClick={() => setAberto(!aberto)}
+        className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+        <MoreVertical size={15} />
+      </button>
+      {aberto && (
+        <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+          <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b border-gray-100 truncate">{catalogo.nome}</div>
+          <button onClick={() => { setAberto(false); onEditar() }}
+            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+            <Pencil size={13} className="text-gray-400" />Editar
+          </button>
+          <button onClick={() => { setAberto(false); onDuplicar() }}
+            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+            <Copy size={13} className="text-gray-400" />Duplicar
+          </button>
+          <div className="border-t border-gray-100 mt-1">
+            <button onClick={() => { setAberto(false); onExcluir() }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50">
+              <Trash2 size={13} />Excluir
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function CatalogosPage() {
@@ -19,6 +62,7 @@ export default function CatalogosPage() {
   const [modalNovo, setModalNovo] = useState(false)
   const [editando, setEditando] = useState<Catalogo | undefined>()
   const [valoresCatalogo, setValoresCatalogo] = useState<Catalogo | null>(null)
+  const [duplicando, setDuplicando] = useState<Catalogo | null>(null)
 
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
@@ -51,12 +95,8 @@ export default function CatalogosPage() {
     setModalNovo(false)
     setEditando(undefined)
     carregar()
-    // Após criar, abre direto o gerenciador de valores
     if (!editando) setValoresCatalogo(cat)
   }
-
-  const atributoCount = (c: Catalogo) =>
-    [c.atributo_1, c.atributo_2, c.atributo_3, c.atributo_4].filter(Boolean).length
 
   if (!unidadeAtiva) return (
     <div className="py-16 text-center">
@@ -94,32 +134,24 @@ export default function CatalogosPage() {
                   <h3 className="font-semibold text-gray-800">{cat.nome}</h3>
                   {cat.descricao && <p className="text-xs text-gray-400 mt-0.5 truncate">{cat.descricao}</p>}
                 </div>
-                <div className="flex items-center gap-1 ml-2">
-                  <button onClick={() => { setEditando(cat); setModalNovo(true) }}
-                    className="p-1.5 text-gray-400 hover:text-orange-500 rounded-lg hover:bg-orange-50 transition-colors">
-                    <Pencil size={13} />
-                  </button>
-                  <button onClick={() => excluir(cat.id, cat.nome)}
-                    className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
-                    <Trash2 size={13} />
-                  </button>
-                </div>
+                <CardMenu
+                  catalogo={cat}
+                  onEditar={() => { setEditando(cat); setModalNovo(true) }}
+                  onDuplicar={() => setDuplicando(cat)}
+                  onExcluir={() => excluir(cat.id, cat.nome)}
+                />
               </div>
 
-              {/* Estrutura */}
               <div className="flex flex-wrap gap-1.5 mb-4">
                 <span className="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-medium">
                   🔑 {cat.campo_chave}
                 </span>
                 {[cat.atributo_1, cat.atributo_2, cat.atributo_3, cat.atributo_4]
                   .filter(Boolean).map((a, i) => (
-                    <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                      {a}
-                    </span>
+                    <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{a}</span>
                   ))}
               </div>
 
-              {/* Botão de valores */}
               <button onClick={() => setValoresCatalogo(cat)}
                 className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-50 hover:bg-orange-50 rounded-lg transition-colors group">
                 <div className="flex items-center gap-2">
@@ -136,18 +168,20 @@ export default function CatalogosPage() {
       )}
 
       {modalNovo && (
-        <NovoCatalogoModal
-          catalogo={editando}
+        <NovoCatalogoModal catalogo={editando}
           onClose={() => { setModalNovo(false); setEditando(undefined) }}
-          onSalvo={handleSalvo}
-        />
+          onSalvo={handleSalvo} />
       )}
 
       {valoresCatalogo && (
-        <ValoresModal
-          catalogo={valoresCatalogo}
-          onClose={() => { setValoresCatalogo(null); carregar() }}
-        />
+        <ValoresModal catalogo={valoresCatalogo}
+          onClose={() => { setValoresCatalogo(null); carregar() }} />
+      )}
+
+      {duplicando && (
+        <DuplicarCatalogoModal catalogo={duplicando}
+          onClose={() => setDuplicando(null)}
+          onDuplicado={() => { setDuplicando(null); carregar() }} />
       )}
     </>
   )
