@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Search, UserCircle, AlertCircle } from 'lucide-react'
+import { Plus, Trash2, Search, UserCircle, AlertCircle, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { UsuarioModal } from './UsuarioModal'
+import { ImportarUsuariosModal } from './ImportarUsuariosModal'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 
@@ -22,6 +23,7 @@ export default function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [busca, setBusca] = useState('')
   const [modalAberto, setModalAberto] = useState(false)
+  const [importarAberto, setImportarAberto] = useState(false)
   const [usuarioEditando, setUsuarioEditando] = useState<Usuario | undefined>()
   const [loading, setLoading] = useState(true)
 
@@ -74,9 +76,15 @@ export default function UsuariosPage() {
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Usuários</span>
             <p className="text-xs text-gray-400 mt-0.5">Empresa: <span className="text-orange-500 font-medium">{empresaAtiva.nome}</span></p>
           </div>
-          <Button onClick={() => { setUsuarioEditando(undefined); setModalAberto(true) }}>
-            <Plus size={16} />Adicionar usuário
-          </Button>
+          <div className="flex gap-2">
+            <button onClick={() => setImportarAberto(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
+              <Upload size={14} />Importar
+            </button>
+            <Button onClick={() => { setUsuarioEditando(undefined); setModalAberto(true) }}>
+              <Plus size={16} />Adicionar usuário
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100">
@@ -115,6 +123,14 @@ export default function UsuariosPage() {
           </div>
         ))}
       </div>
+
+      {importarAberto && empresaAtiva && (
+        <ImportarUsuariosModal
+          empresaId={empresaAtiva.id}
+          onClose={() => setImportarAberto(false)}
+          onImportado={() => { setImportarAberto(false); carregar() }}
+        />
+      )}
 
       {modalAberto && (
         <UsuarioModal
