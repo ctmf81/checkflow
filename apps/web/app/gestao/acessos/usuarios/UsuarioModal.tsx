@@ -57,7 +57,16 @@ export function UsuarioModal({ usuario, onClose, perfilFixo }: Props) {
     const supabase = createClient()
     let q = supabase.from('perfis').select('id, nome').order('nome')
     if (perfilFixo) q = q.eq('nome', perfilFixo) as typeof q
-    q.then(({ data }) => { if (data) setPerfis(data) })
+    q.then(({ data }) => {
+      if (data) {
+        setPerfis(data)
+        // Se não tem perfil selecionado, usa Operação como padrão
+        if (!perfilId) {
+          const operacao = data.find(p => p.nome === 'Operação')
+          if (operacao) setPerfilId(operacao.id)
+        }
+      }
+    })
     supabase.from('unidades').select('id, nome').order('nome').then(({ data }) => { if (data) setUnidades(data) })
   }, [perfilFixo])
 
