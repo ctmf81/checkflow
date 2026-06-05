@@ -150,7 +150,8 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
         body: JSON.stringify({ usuarios, empresaId }),
       })
       const json = await res.json()
-      setResultado(json)
+      console.log('Importação resultado:', JSON.stringify(json))
+      setResultado({ ...json, detalhes: json.detalhes })
       if (json.criados > 0) onImportado?.()
     } catch { /* */ }
     setImportando(false)
