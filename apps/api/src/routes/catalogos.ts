@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
+import ws from 'ws'
 
 export async function catalogoRoutes(app: FastifyInstance) {
 
@@ -37,7 +38,8 @@ export async function catalogoRoutes(app: FastifyInstance) {
 
     const supabase = createClient(
       process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SECRET_KEY!
+      process.env.SUPABASE_SECRET_KEY!,
+      { realtime: { transport: ws } }
     )
 
     // Busca configuração do catálogo
@@ -138,7 +140,8 @@ export async function catalogoRoutes(app: FastifyInstance) {
   app.post('/catalogos/sync-all', async (req, reply) => {
     const supabase = createClient(
       process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SECRET_KEY!
+      process.env.SUPABASE_SECRET_KEY!,
+      { realtime: { transport: ws } }
     )
 
     const { data: catalogos } = await supabase
