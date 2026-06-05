@@ -97,6 +97,38 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
     setSalvando(false)
   }
 
+  const [camposApi, setCamposApi] = useState<string[]>(
+    catalogo?.api_mapeamento ? Object.values(catalogo.api_mapeamento) : []
+  )
+  const [carregandoCampos, setCarregandoCampos] = useState(false)
+  const [camposMsg, setCamposMsg] = useState('')
+  const [totalRegistros, setTotalRegistros] = useState<number | null>(null)
+
+  async function carregarCampos() {
+    if (!apiUrl.trim()) { setCamposMsg('Informe a URL primeiro.'); return }
+    setCarregandoCampos(true)
+    setCamposMsg('')
+    try {
+      let parsedHeaders: Record<string, string> = {}
+      if (apiHeaders.trim()) {
+        try { parsedHeaders = JSON.parse(apiHeaders) } catch { /* ignora */ }
+      }
+      const res = await fetch('http://localhost:3001/catalogos/test-api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: apiUrl.trim(), headers: parsedHeaders }),
+      })
+      const json = await res.json()
+      if (json.error) { setCamposMsg(json.error); setCarregandoCampos(false); return }
+      setCamposApi(json.campos ?? [])
+      setTotalRegistros(json.total ?? null)
+      setCamposMsg(`${json.campos?.length ?? 0} campos encontrados${json.total ? ` · ${json.total} registros` : ''}.`)
+    } catch {
+      setCamposMsg('Erro ao conectar com a API local (porta 3001).')
+    }
+    setCarregandoCampos(false)
+  }
+
   async function sincronizar() {
     if (!catalogo?.id) return
     setSincronizando(true)
@@ -202,14 +234,29 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
               </label>
               <textarea value={apiHeaders} onChange={e => setApiHeaders(e.target.value)}
                 placeholder={'{\n  "Authorization": "Bearer SEU_TOKEN"\n}'}
-                rows={3}
+                rows={2}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none font-mono" />
             </div>
 
+            {/* Botão carregar campos */}
+            <div className="flex items-center gap-3">
+              <button onClick={carregarCampos} disabled={carregandoCampos || !apiUrl.trim()}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white rounded-lg transition-colors">
+                <RefreshCw size={13} className={carregandoCampos ? 'animate-spin' : ''} />
+                {carregandoCampos ? 'Carregando...' : 'Carregar campos da API'}
+              </button>
+              {camposMsg && (
+                <span className={`text-xs ${camposMsg.includes('Erro') || camposMsg.includes('erro') ? 'text-red-500' : 'text-green-600'}`}>
+                  {camposMsg}
+                </span>
+              )}
+            </div>
+
+            {/* Mapeamento com dropdowns */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Mapeamento de campos
-                <span className="text-xs text-gray-400 font-normal ml-1">— qual campo da API corresponde a cada atributo</span>
+                {camposApi.length === 0 && <span className="text-xs text-gray-400 font-normal ml-1">— carregue os campos da API primeiro</span>}
               </label>
               <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50">
                 {attrKeys.map((key, i) => {
@@ -219,12 +266,25 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
                     <div key={key} className="flex items-center gap-2">
                       <span className="text-xs text-orange-600 font-medium w-28 flex-shrink-0 truncate">{label}</span>
                       <span className="text-gray-400 text-xs">→</span>
-                      <input
-                        value={apiMapa[key] ?? ''}
-                        onChange={e => setApiMapa(prev => ({ ...prev, [key]: e.target.value }))}
-                        placeholder={`campo na API`}
-                        className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-orange-200 font-mono"
-                      />
+                      {camposApi.length > 0 ? (
+                        <select
+                          value={apiMapa[key] ?? ''}
+                          onChange={e => setApiMapa(prev => ({ ...prev, [key]: e.target.value }))}
+                          className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-orange-200"
+                        >
+                          <option value="">— selecione —</option>
+                          {camposApi.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          value={apiMapa[key] ?? ''}
+                          onChange={e => setApiMapa(prev => ({ ...prev, [key]: e.target.value }))}
+                          placeholder="campo na API"
+                          className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-orange-200 font-mono"
+                        />
+                      )}
                     </div>
                   )
                 })}

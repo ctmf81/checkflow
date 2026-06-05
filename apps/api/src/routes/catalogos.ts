@@ -3,6 +3,33 @@ import { createClient } from '@supabase/supabase-js'
 
 export async function catalogoRoutes(app: FastifyInstance) {
 
+  // POST /catalogos/test-api — testa a API e retorna os campos disponíveis
+  app.post('/catalogos/test-api', async (req, reply) => {
+    const { url, headers: extraHeaders } = req.body as { url: string; headers?: Record<string, string> }
+
+    if (!url) return reply.status(400).send({ error: 'URL obrigatória.' })
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(extraHeaders ?? {}),
+      }
+      const res = await fetch(url, { headers })
+      if (!res.ok) return reply.status(502).send({ error: `API retornou ${res.status}` })
+
+      const json = await res.json()
+      const lista: any[] = Array.isArray(json) ? json : (json.data ?? json.items ?? json.results ?? [])
+      const primeiro = lista[0]
+
+      if (!primeiro) return reply.send({ campos: [], total: 0 })
+
+      const campos = Object.keys(primeiro)
+      return reply.send({ campos, total: lista.length, exemplo: primeiro })
+    } catch (e: any) {
+      return reply.status(502).send({ error: `Erro: ${e.message}` })
+    }
+  })
+
   // POST /catalogos/:id/sync — sincroniza valores via API externa
   app.post<{ Params: { id: string } }>('/catalogos/:id/sync', async (req, reply) => {
     const { id } = req.params
