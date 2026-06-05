@@ -17,7 +17,7 @@ export async function catalogoRoutes(app: FastifyInstance) {
       const res = await fetch(url, { headers })
       if (!res.ok) return reply.status(502).send({ error: `API retornou ${res.status}` })
 
-      const json = await res.json()
+      const json: any = await res.json()
       const lista: any[] = Array.isArray(json) ? json : (json.data ?? json.items ?? json.results ?? [])
       const primeiro = lista[0]
 
@@ -65,7 +65,7 @@ export async function catalogoRoutes(app: FastifyInstance) {
       if (!res.ok) {
         return reply.status(502).send({ error: `API externa retornou ${res.status}: ${res.statusText}` })
       }
-      const json = await res.json()
+      const json: any = await res.json()
       // Aceita array direto ou objeto com array dentro (ex: { data: [...] } ou { items: [...] })
       itens = Array.isArray(json) ? json : (json.data ?? json.items ?? json.results ?? [])
     } catch (e: any) {
@@ -129,7 +129,7 @@ export async function catalogoRoutes(app: FastifyInstance) {
           `http://localhost:${process.env.PORT ?? 3001}/catalogos/${cat.id}/sync`,
           { method: 'POST' }
         )
-        const json = await res.json()
+        const json: any = await res.json()
         resultados.push({ id: cat.id, nome: cat.nome, ...json })
       } catch (e: any) {
         resultados.push({ id: cat.id, nome: cat.nome, error: e.message })
