@@ -65,7 +65,11 @@ export default function UsuariosPage() {
 
   async function inativar(usuarioId: string) {
     if (!confirm('Inativar este usuário?')) return
-    await createClient().from('usuarios').update({ status: 'inativo' }).eq('id', usuarioId)
+    await fetch('/api/usuarios/inativar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usuarioId }),
+    })
     carregar()
   }
 
