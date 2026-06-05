@@ -56,6 +56,19 @@ export async function POST(req: NextRequest) {
         primeiro_acesso: true,
       })
 
+      // Vincula à empresa se informada (com perfil padrão "Operação")
+      if (empresaId) {
+        const { data: perfilOperacao } = await supabaseAdmin
+          .from('perfis').select('id').eq('nome', 'Operação').single()
+        if (perfilOperacao) {
+          await supabaseAdmin.from('usuario_empresa').upsert({
+            usuario_id: authData.user.id,
+            empresa_id: empresaId,
+            perfil_id: perfilOperacao.id,
+          }, { onConflict: 'usuario_id,empresa_id' })
+        }
+      }
+
       resultados.push({ email: u.email, id: authData.user.id, status: 'criado' })
     }
 
