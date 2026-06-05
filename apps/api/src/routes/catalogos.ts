@@ -90,11 +90,13 @@ export async function catalogoRoutes(app: FastifyInstance) {
       .filter(v => v.valor_chave)
 
     // Upsert — atualiza se já existe, insere se não existe
+    app.log.info(`Upserting ${valores.length} valores for catalogo ${id}`)
     const { error: upsertErr } = await supabase
       .from('catalogo_valores')
       .upsert(valores, { onConflict: 'catalogo_id,valor_chave', ignoreDuplicates: false })
 
     if (upsertErr) {
+      app.log.error(`Upsert error: ${upsertErr.message} | code: ${upsertErr.code}`)
       return reply.status(500).send({ error: `Erro ao salvar: ${upsertErr.message}` })
     }
 
@@ -147,8 +149,9 @@ export async function catalogoRoutes(app: FastifyInstance) {
     const resultados = []
     for (const cat of catalogos) {
       try {
+        const apiBase = process.env.API_URL ?? `http://localhost:${process.env.PORT ?? 8080}`
         const res = await fetch(
-          `http://localhost:${process.env.PORT ?? 3001}/catalogos/${cat.id}/sync`,
+          `${apiBase}/catalogos/${cat.id}/sync`,
           { method: 'POST' }
         )
         const json: any = await res.json()
