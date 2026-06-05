@@ -4,6 +4,7 @@ import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import { healthRoutes } from './routes/health'
 import { catalogoRoutes } from './routes/catalogos'
+import { usuarioRoutes } from './routes/usuarios'
 
 const app = Fastify({ logger: true })
 
@@ -15,6 +16,7 @@ app.register(cors, {
 
 app.register(healthRoutes)
 app.register(catalogoRoutes)
+app.register(usuarioRoutes)
 
 const port = Number(process.env.PORT) || 3001
 
