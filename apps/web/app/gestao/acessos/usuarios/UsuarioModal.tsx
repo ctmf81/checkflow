@@ -14,6 +14,7 @@ interface Usuario {
   cpf: string | null
   telefone: string | null
   perfil: string
+  perfilId?: string
   unidades: Unidade[]
 }
 
@@ -45,7 +46,7 @@ export function UsuarioModal({ usuario, onClose, perfilFixo }: Props) {
   const [email, setEmail] = useState(usuario?.email ?? '')
   const [cpf, setCpf] = useState(usuario?.cpf ?? '')
   const [telefone, setTelefone] = useState(usuario?.telefone ?? '')
-  const [perfilId, setPerfilId] = useState('')
+  const [perfilId, setPerfilId] = useState(usuario?.perfilId ?? '')
   const [unidadesSel, setUnidadesSel] = useState<Unidade[]>(usuario?.unidades ?? [])
   const [perfis, setPerfis] = useState<Perfil[]>([])
   const [unidades, setUnidades] = useState<Unidade[]>([])

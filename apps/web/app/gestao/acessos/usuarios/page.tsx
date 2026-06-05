@@ -15,6 +15,7 @@ interface Usuario {
   cpf: string | null
   telefone: string | null
   perfil: string
+  perfilId?: string
   unidades: { id: string; nome: string }[]
 }
 
