@@ -43,15 +43,24 @@ export default function ChecklistsPage() {
       .order('nome')
 
     if (data) {
-      const comContagens = await Promise.all(data.map(async c => {
+      const comContagens = await Promise.all(data.map(async (c: any) => {
         const { count } = await supabase
           .from('checklist_atividades')
           .select('id', { count: 'exact', head: true })
           .eq('checklist_id', c.id)
           .is('atividade_pai_id', null)
-        return { ...c, total_atividades: count ?? 0 }
+        const subgrupoNorm = Array.isArray(c.subgrupo) ? c.subgrupo[0] : c.subgrupo
+        return {
+          id: c.id,
+          nome: c.nome,
+          descricao: c.descricao,
+          status: c.status,
+          versao_atual: c.versao_atual,
+          subgrupo: subgrupoNorm ? { nome: subgrupoNorm.nome } : null,
+          total_atividades: count ?? 0,
+        } as Checklist
       }))
-      setChecklists(comContagens as Checklist[])
+      setChecklists(comContagens)
     }
     setLoading(false)
   }
