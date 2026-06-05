@@ -98,9 +98,31 @@ export async function catalogoRoutes(app: FastifyInstance) {
       return reply.status(500).send({ error: `Erro ao salvar: ${upsertErr.message}` })
     }
 
+    // Deleta registros que não vieram mais da API
+    const chavesApi = valores.map(v => v.valor_chave)
+    const { data: chavesDb } = await supabase
+      .from('catalogo_valores')
+      .select('valor_chave')
+      .eq('catalogo_id', id)
+
+    const chavesDeletar = (chavesDb ?? [])
+      .map((r: any) => r.valor_chave)
+      .filter((c: string) => !chavesApi.includes(c))
+
+    let deletados = 0
+    if (chavesDeletar.length > 0) {
+      await supabase
+        .from('catalogo_valores')
+        .delete()
+        .eq('catalogo_id', id)
+        .in('valor_chave', chavesDeletar)
+      deletados = chavesDeletar.length
+    }
+
     return reply.send({
       sincronizados: valores.length,
-      mensagem: `${valores.length} itens sincronizados com sucesso.`,
+      deletados,
+      mensagem: `${valores.length} itens sincronizados, ${deletados} removidos.`,
     })
   })
 
