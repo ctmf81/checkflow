@@ -103,4 +103,39 @@ export async function catalogoRoutes(app: FastifyInstance) {
       mensagem: `${valores.length} itens sincronizados com sucesso.`,
     })
   })
+
+  // POST /catalogos/sync-all — sincroniza todos os catálogos com API configurada
+  // Usado pelo agendador (cron)
+  app.post('/catalogos/sync-all', async (req, reply) => {
+    const supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SECRET_KEY!
+    )
+
+    const { data: catalogos } = await supabase
+      .from('catalogos')
+      .select('id, nome')
+      .not('api_url', 'is', null)
+      .eq('status', 'ativo')
+
+    if (!catalogos?.length) {
+      return reply.send({ sincronizados: 0, mensagem: 'Nenhum catálogo com API configurada.' })
+    }
+
+    const resultados = []
+    for (const cat of catalogos) {
+      try {
+        const res = await fetch(
+          `http://localhost:${process.env.PORT ?? 3001}/catalogos/${cat.id}/sync`,
+          { method: 'POST' }
+        )
+        const json = await res.json()
+        resultados.push({ id: cat.id, nome: cat.nome, ...json })
+      } catch (e: any) {
+        resultados.push({ id: cat.id, nome: cat.nome, error: e.message })
+      }
+    }
+
+    return reply.send({ resultados, total: catalogos.length })
+  })
 }
