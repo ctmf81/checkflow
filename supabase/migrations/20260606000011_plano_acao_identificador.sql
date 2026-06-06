@@ -1,15 +1,14 @@
 -- ============================================================
 -- Identificador legível para planos de ação
 -- Formato: PA-AAAAMM-XXXX  (ex: PA-202606-0042)
--- Sequencial por empresa + ano-mês, com zero-fill de 4 dígitos
--- Nota: coluna simples (não generated) pois to_char não é imutável
+-- Cadeia: subgrupos → grupos → unidades → empresas
 -- ============================================================
 
 -- 1. Colunas
 alter table planos_acao add column if not exists numero_seq   integer;
 alter table planos_acao add column if not exists identificador text;
 
--- 2. Função que calcula número sequencial e identificador
+-- 2. Função
 create or replace function planos_acao_set_numero_seq()
 returns trigger language plpgsql as $$
 declare
@@ -17,17 +16,20 @@ declare
   v_anomes     text;
   v_next       integer;
 begin
-  select g.empresa_id into v_empresa_id
-  from subgrupos s join grupos g on g.id = s.grupo_id
+  select u.empresa_id into v_empresa_id
+  from subgrupos s
+  join grupos   g on g.id = s.grupo_id
+  join unidades u on u.id = g.unidade_id
   where s.id = NEW.subgrupo_id;
 
   v_anomes := to_char(now(), 'YYYYMM');
 
   select coalesce(max(pa.numero_seq), 0) + 1 into v_next
   from planos_acao pa
-  join subgrupos s on s.id = pa.subgrupo_id
-  join grupos    g on g.id = s.grupo_id
-  where g.empresa_id = v_empresa_id
+  join subgrupos s on s.id  = pa.subgrupo_id
+  join grupos    g on g.id  = s.grupo_id
+  join unidades  u on u.id  = g.unidade_id
+  where u.empresa_id = v_empresa_id
     and to_char(pa.created_at, 'YYYYMM') = v_anomes
     and pa.numero_seq is not null;
 
@@ -56,8 +58,10 @@ begin
     from planos_acao pa where pa.numero_seq is null
     order by pa.created_at asc
   loop
-    select g.empresa_id into v_empresa_id
-    from subgrupos s join grupos g on g.id = s.grupo_id
+    select u.empresa_id into v_empresa_id
+    from subgrupos s
+    join grupos   g on g.id = s.grupo_id
+    join unidades u on u.id = g.unidade_id
     where s.id = rec.subgrupo_id;
 
     v_anomes := to_char(rec.created_at, 'YYYYMM');
@@ -66,7 +70,8 @@ begin
     from planos_acao pa2
     join subgrupos s2 on s2.id = pa2.subgrupo_id
     join grupos    g2 on g2.id = s2.grupo_id
-    where g2.empresa_id = v_empresa_id
+    join unidades  u2 on u2.id = g2.unidade_id
+    where u2.empresa_id = v_empresa_id
       and to_char(pa2.created_at, 'YYYYMM') = v_anomes
       and pa2.numero_seq is not null;
 
