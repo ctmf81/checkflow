@@ -78,6 +78,7 @@ export default function ChecklistMontador({ checklistId }: Props) {
   const [subgrupos, setSubgrupos] = useState<{ id: string; nome: string }[]>([])
   const [motivos, setMotivos] = useState<{ id: string; descricao: string; tipo: string }[]>([])
   const [motivosSelecionados, setMotivosSelecionados] = useState<string[]>([])
+  const [tempoGuarda, setTempoGuarda] = useState(12)
   const [status, setStatus] = useState<'rascunho' | 'publicado'>('rascunho')
   const [secoes, setSecoes] = useState<Secao[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -129,6 +130,7 @@ export default function ChecklistMontador({ checklistId }: Props) {
     if (clErr || !cl) return
     setNome(cl.nome)
     setDescricao(cl.descricao ?? '')
+    setTempoGuarda(cl.tempo_guarda_meses ?? 12)
     setStatus(cl.status)
 
     // Deriva grupoId do subgrupo salvo
@@ -181,11 +183,13 @@ export default function ChecklistMontador({ checklistId }: Props) {
     let checkId = id
     if (id) {
       await supabase.from('checklists').update({
-        nome, descricao: descricao || null, subgrupo_id: subgrupoId || null, atualizado_em: new Date().toISOString()
+        nome, descricao: descricao || null, subgrupo_id: subgrupoId || null,
+        tempo_guarda_meses: tempoGuarda, atualizado_em: new Date().toISOString()
       }).eq('id', id)
     } else {
       const { data } = await supabase.from('checklists').insert({
         nome, descricao: descricao || null, subgrupo_id: subgrupoId || null,
+        tempo_guarda_meses: tempoGuarda,
         unidade_id: unidadeAtiva.id, criado_por: user?.id, status: 'rascunho'
       }).select('id').single()
       if (data) {
@@ -373,6 +377,23 @@ export default function ChecklistMontador({ checklistId }: Props) {
           <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
           <input value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Opcional"
             className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Tempo de guarda</label>
+          <p className="text-xs text-gray-400 mb-2">Por quantos meses os registros de execução devem ser retidos antes de poderem ser excluídos.</p>
+          <div className="flex flex-wrap gap-2">
+            {[1, 3, 6, 12, 24, 36, 48, 64].map(m => (
+              <button key={m} type="button" onClick={() => setTempoGuarda(m)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  tempoGuarda === m
+                    ? 'bg-orange-500 text-white border-orange-500'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300 hover:text-orange-500'
+                }`}>
+                {m} {m === 1 ? 'mês' : 'meses'}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Motivos de não execução */}
