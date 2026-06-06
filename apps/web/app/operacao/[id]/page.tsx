@@ -19,6 +19,7 @@ interface Atividade {
   obrigatorio: boolean
   config: any
   ordem: number
+  secao_id: string | null
   atividade_pai_id: string | null
   valor_gatilho: string | null
   dependentes?: Atividade[]
