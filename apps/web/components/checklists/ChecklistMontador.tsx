@@ -446,6 +446,16 @@ export default function ChecklistMontador({ checklistId }: Props) {
         </div>
       )}
 
+      {id && status === 'publicado' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-4 flex items-start gap-2">
+          <span className="text-blue-500 text-base leading-none mt-0.5">🔒</span>
+          <div>
+            <p className="text-xs font-semibold text-blue-800">Checklist publicado — somente leitura</p>
+            <p className="text-xs text-blue-600 mt-0.5">Para alterar as atividades, duplique este checklist e publique uma nova versão.</p>
+          </div>
+        </div>
+      )}
+
       {id && (
         <div className="space-y-3">
           {secoes.map((secao, sIdx) => (
@@ -455,26 +465,33 @@ export default function ChecklistMontador({ checklistId }: Props) {
                 <GripVertical size={16} className="text-gray-300 flex-shrink-0" />
                 <input
                   value={secao.nome}
-                  onChange={e => renomearSecao(secao.id, e.target.value)}
-                  className="flex-1 text-sm font-semibold bg-transparent border-none outline-none text-gray-700 focus:bg-white focus:px-2 focus:rounded transition-all"
+                  onChange={e => status !== 'publicado' && renomearSecao(secao.id, e.target.value)}
+                  readOnly={status === 'publicado'}
+                  className="flex-1 text-sm font-semibold bg-transparent border-none outline-none text-gray-700 focus:bg-white focus:px-2 focus:rounded transition-all read-only:cursor-default"
                 />
                 <span className="text-xs text-gray-400">{secao.atividades.length} atividades</span>
                 <div className="flex items-center gap-1">
-                  <button onClick={() => moverSecao(sIdx, -1)} disabled={sIdx === 0}
-                    className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30">
-                    <ChevronUp size={14} />
-                  </button>
-                  <button onClick={() => moverSecao(sIdx, 1)} disabled={sIdx === secoes.length - 1}
-                    className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30">
-                    <ChevronDown size={14} />
-                  </button>
+                  {status !== 'publicado' && (
+                    <>
+                      <button onClick={() => moverSecao(sIdx, -1)} disabled={sIdx === 0}
+                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30">
+                        <ChevronUp size={14} />
+                      </button>
+                      <button onClick={() => moverSecao(sIdx, 1)} disabled={sIdx === secoes.length - 1}
+                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30">
+                        <ChevronDown size={14} />
+                      </button>
+                    </>
+                  )}
                   <button onClick={() => setSecoes(prev => prev.map(s => s.id === secao.id ? { ...s, expandida: !s.expandida } : s))}
                     className="p-1 text-gray-400 hover:text-orange-500">
                     {secao.expandida ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                   </button>
-                  <button onClick={() => deletarSecao(secao.id)} className="p-1 text-gray-400 hover:text-red-500">
-                    <Trash2 size={14} />
-                  </button>
+                  {status !== 'publicado' && (
+                    <button onClick={() => deletarSecao(secao.id)} className="p-1 text-gray-400 hover:text-red-500">
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -493,22 +510,26 @@ export default function ChecklistMontador({ checklistId }: Props) {
                     />
                   ))}
 
-                  <div className="px-4 py-2">
-                    <button
-                      onClick={() => setAtividadeModal({ secaoId: secao.id })}
-                      className="flex items-center gap-1.5 text-xs text-orange-500 hover:text-orange-600 font-medium py-1">
-                      <Plus size={13} />Adicionar atividade
-                    </button>
-                  </div>
+                  {status !== 'publicado' && (
+                    <div className="px-4 py-2">
+                      <button
+                        onClick={() => setAtividadeModal({ secaoId: secao.id })}
+                        className="flex items-center gap-1.5 text-xs text-orange-500 hover:text-orange-600 font-medium py-1">
+                        <Plus size={13} />Adicionar atividade
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           ))}
 
-          <button onClick={adicionarSecao}
-            className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:border-orange-300 hover:text-orange-500 transition-colors">
-            <Plus size={15} />Adicionar seção
-          </button>
+          {status !== 'publicado' && (
+            <button onClick={adicionarSecao}
+              className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:border-orange-300 hover:text-orange-500 transition-colors">
+              <Plus size={15} />Adicionar seção
+            </button>
+          )}
         </div>
       )}
 

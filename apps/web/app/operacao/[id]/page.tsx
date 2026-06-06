@@ -26,6 +26,7 @@ interface Atividade {
   nome: string
   tipo: string
   obrigatoria: boolean
+  critica: boolean
   config: any
   ordem: number
   secao_id: string | null
@@ -334,10 +335,14 @@ function CampoCatalogo({ atividade, onChange }: { atividade: Atividade; onChange
   )
   if (carregando) return <p className="text-xs text-gray-400 py-2">Carregando catálogo...</p>
 
+  function norm(s: string | null | undefined) {
+    return (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  }
+  const buscaNorm = norm(busca)
   const filtrados = itens.filter(i =>
-    i.valor_chave?.toLowerCase().includes(busca.toLowerCase()) ||
-    i.atributo_1?.toLowerCase().includes(busca.toLowerCase()) ||
-    i.atributo_2?.toLowerCase().includes(busca.toLowerCase())
+    norm(i.valor_chave).includes(buscaNorm) ||
+    norm(i.atributo_1).includes(buscaNorm) ||
+    norm(i.atributo_2).includes(buscaNorm)
   )
 
   const selecionado = itens.find(i => i.id === val?.id)
@@ -655,10 +660,15 @@ function AtividadeItem({ atividade, onResposta, nivel = 0 }: {
         <div className="flex items-start gap-3 mb-3">
           <TipoIcon tipo={atividade.tipo} />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-800 leading-snug">
-              {atividade.nome}
-              {atividade.obrigatoria && <span className="text-red-400 ml-1">*</span>}
-            </p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="text-sm font-semibold text-gray-800 leading-snug">
+                {atividade.nome}
+                {atividade.obrigatoria && <span className="text-red-400 ml-1">*</span>}
+              </p>
+              {atividade.critica && (
+                <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium flex-shrink-0">crítica</span>
+              )}
+            </div>
             {respondida && <ValidacaoTag valido={validacao} />}
           </div>
           {respondida && validacao === null && (
@@ -679,7 +689,7 @@ function AtividadeItem({ atividade, onResposta, nivel = 0 }: {
 export default function ExecucaoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
-  const { unidadeAtiva, user } = useSession() as any
+  const { unidadeAtiva } = useSession()
   const [checklist, setChecklist] = useState<Checklist | null>(null)
   const [secoes, setSecoes] = useState<Secao[]>([])
   const [respostas, setRespostas] = useState<Record<string, any>>({})
@@ -687,6 +697,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   const [loading, setLoading] = useState(true)
   const [erroCarregar, setErroCarregar] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
+  const [erroFinalizar, setErroFinalizar] = useState<string | null>(null)
   const [concluido, setConcluido] = useState(false)
 
   useEffect(() => { carregar() }, [id])
@@ -704,7 +715,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       .select('id, nome, ordem').eq('checklist_id', id).order('ordem')
 
     const { data: atvsData, error: atvErr } = await sb.from('checklist_atividades')
-      .select('id, nome, tipo, obrigatoria, config, ordem, atividade_pai_id, valor_gatilho, secao_id')
+      .select('id, nome, tipo, obrigatoria, critica, config, ordem, atividade_pai_id, valor_gatilho, secao_id')
       .eq('checklist_id', id).order('ordem')
 
     if (atvErr) { setErroCarregar(`Erro: ${atvErr.message}`); setLoading(false); return }
@@ -763,6 +774,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     }))
   }
 
+  // Conta só atividades visíveis (respeita gatilhos de dependentes)
   function calcularProgresso() {
     let total = 0, respondidas = 0
     function contar(atividades: Atividade[]) {
@@ -770,35 +782,106 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
         total++
         const r = respostas[a.id]
         if (r !== undefined && r !== null && r !== '' && !(Array.isArray(r) && r.length === 0)) respondidas++
-        if (a.dependentes?.length) {
-          const gatilhoAtivo = a.dependentes.some(d => {
-            const resp = respostas[a.id]
-            return !d.valor_gatilho || (Array.isArray(resp) ? resp.includes(d.valor_gatilho) : String(resp ?? '') === d.valor_gatilho)
-          })
-          if (gatilhoAtivo) contar(a.dependentes)
-        }
+        const visiveis = (a.dependentes ?? []).filter(dep => {
+          if (!dep.valor_gatilho) return true
+          const resp = respostas[a.id]
+          return Array.isArray(resp) ? resp.includes(dep.valor_gatilho) : String(resp ?? '') === dep.valor_gatilho
+        })
+        if (visiveis.length) contar(visiveis)
       })
     }
     secoes.forEach(s => contar(s.atividades))
     return { total, respondidas }
   }
 
+  // Retorna lista plana de todas as atividades visíveis (para validação e save)
+  function listarAtividadesVisiveis(): Atividade[] {
+    const lista: Atividade[] = []
+    function coletar(atividades: Atividade[]) {
+      atividades.forEach(a => {
+        const comResp = { ...a, resposta: respostas[a.id] }
+        lista.push(comResp)
+        const visiveis = (a.dependentes ?? []).filter(dep => {
+          if (!dep.valor_gatilho) return true
+          const resp = respostas[a.id]
+          return Array.isArray(resp) ? resp.includes(dep.valor_gatilho) : String(resp ?? '') === dep.valor_gatilho
+        })
+        if (visiveis.length) coletar(visiveis)
+      })
+    }
+    secoes.forEach(s => coletar(s.atividades))
+    return lista
+  }
+
   async function finalizar() {
     if (!unidadeAtiva || !checklist) return
+    setErroFinalizar(null)
+
+    // Valida obrigatórias
+    const visiveis = listarAtividadesVisiveis()
+    const pendentes = visiveis.filter(a => {
+      if (!a.obrigatoria) return false
+      const r = respostas[a.id]
+      return r === undefined || r === null || r === '' || (Array.isArray(r) && r.length === 0)
+    })
+    if (pendentes.length > 0) {
+      setErroFinalizar(`${pendentes.length} campo(s) obrigatório(s) sem resposta: ${pendentes.map(a => a.nome).join(', ')}`)
+      return
+    }
+
     setSalvando(true)
     const sb = createClient()
+    const { data: { user } } = await sb.auth.getUser()
     const agora = new Date()
     const expiracao = new Date(agora)
     expiracao.setMonth(expiracao.getMonth() + (checklist.tempo_guarda_meses ?? 12))
 
-    await sb.from('checklist_execucoes').insert({
+    // Insere header da execução
+    const { data: execucao, error: execErr } = await sb.from('checklist_execucoes').insert({
       checklist_id: checklist.id,
       unidade_id: unidadeAtiva.id,
-      executado_por: user?.id,
+      executado_por: user?.id ?? null,
       data_execucao: agora.toISOString(),
       data_expiracao: expiracao.toISOString().split('T')[0],
       status: 'concluido',
-    })
+    }).select('id').single()
+
+    if (execErr || !execucao) { setSalvando(false); setErroFinalizar('Erro ao salvar execução. Tente novamente.'); return }
+
+    const execId = execucao.id
+
+    // Faz upload de arquivos (foto e vídeo) e obtém URLs permanentes
+    async function uploadArquivo(file: File, atividadeId: string, ext: string): Promise<string | null> {
+      const path = `${execId}/${atividadeId}.${ext}`
+      const { error } = await sb.storage.from('execucoes').upload(path, file, { contentType: file.type, upsert: true })
+      if (error) return null
+      return sb.storage.from('execucoes').getPublicUrl(path).data.publicUrl
+    }
+
+    // Monta e salva respostas
+    const linhasRespostas = await Promise.all(visiveis.map(async a => {
+      let resposta = respostas[a.id] ?? null
+      // Upload de foto
+      if (a.tipo === 'foto' && resposta?.file instanceof File) {
+        const ext = resposta.file.name.split('.').pop() ?? 'jpg'
+        const url = await uploadArquivo(resposta.file, a.id, ext)
+        resposta = url ? { url, nome: resposta.nome } : { nome: resposta.nome }
+      }
+      // Upload de vídeo
+      if (a.tipo === 'video' && resposta?.file instanceof File) {
+        const ext = resposta.file.name.split('.').pop() ?? 'mp4'
+        const url = await uploadArquivo(resposta.file, a.id, ext)
+        resposta = url ? { url, nome: resposta.nome, origem: resposta.origem, dataArquivo: resposta.dataArquivo } : { nome: resposta.nome }
+      }
+      return {
+        execucao_id: execId,
+        atividade_id: a.id,
+        resposta: resposta !== null ? JSON.parse(JSON.stringify(resposta)) : null,
+        conforme: calcularValidacao({ ...a, resposta }),
+      }
+    }))
+
+    await sb.from('checklist_execucao_respostas').insert(linhasRespostas)
 
     setSalvando(false)
     setConcluido(true)
@@ -916,8 +999,16 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       </div>
 
       {/* Botão finalizar fixo */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 z-30">
-        <div className="max-w-2xl mx-auto">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-30">
+        {erroFinalizar && (
+          <div className="px-4 pt-3">
+            <div className="max-w-2xl mx-auto flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
+              <AlertCircle size={14} className="text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-red-700">{erroFinalizar}</p>
+            </div>
+          </div>
+        )}
+        <div className="max-w-2xl mx-auto p-4">
           <button onClick={finalizar} disabled={salvando}
             className="w-full py-4 bg-orange-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-orange-600 disabled:opacity-60 transition-colors shadow-lg shadow-orange-200 active:scale-[0.99]">
             {salvando

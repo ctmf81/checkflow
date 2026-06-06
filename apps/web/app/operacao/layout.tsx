@@ -3,10 +3,18 @@
 import { SessionProvider, useSession } from '@/contexts/SessionContext'
 import { createClient } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
-import { CheckSquare, LogOut, ChevronDown } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { CheckSquare, ChevronDown } from 'lucide-react'
 
 function OperacaoHeader() {
   const { empresaAtiva, unidadeAtiva, setUnidadeAtiva } = useSession() as any
+  const router = useRouter()
+
+  useEffect(() => {
+    createClient().auth.getSession().then(({ data }) => {
+      if (!data.session) router.replace('/login')
+    })
+  }, [])
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [unidades, setUnidades] = useState<{ id: string; nome: string }[]>([])
   const [menuAberto, setMenuAberto] = useState(false)
