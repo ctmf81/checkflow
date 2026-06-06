@@ -84,6 +84,18 @@ alter table workflow_estagio_itens  enable row level security;
 alter table workflow_execucoes      enable row level security;
 alter table workflow_item_execucoes enable row level security;
 
+-- Drop antes de criar (idempotente)
+drop policy if exists "workflows_admin"        on workflows;
+drop policy if exists "workflows_leitura"      on workflows;
+drop policy if exists "workflows_escrita"      on workflows;
+drop policy if exists "workflows_update"       on workflows;
+drop policy if exists "wf_estagios_leitura"    on workflow_estagios;
+drop policy if exists "wf_estagios_escrita"    on workflow_estagios;
+drop policy if exists "wf_itens_leitura"       on workflow_estagio_itens;
+drop policy if exists "wf_itens_escrita"       on workflow_estagio_itens;
+drop policy if exists "wf_exec_acesso"         on workflow_execucoes;
+drop policy if exists "wf_item_exec_acesso"    on workflow_item_execucoes;
+
 create policy "workflows_admin"   on workflows for all    using (is_admin_sistema());
 create policy "workflows_leitura" on workflows for select using (
   empresa_id in (select empresa_id from usuario_empresa where usuario_id = auth.uid())

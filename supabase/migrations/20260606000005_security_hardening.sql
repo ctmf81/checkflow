@@ -1,15 +1,12 @@
 -- ============================================================
 -- SECURITY HARDENING — corrige políticas RLS excessivamente
 -- permissivas identificadas em auditoria de segurança
+-- Idempotente: DROP IF EXISTS antes de cada CREATE
 -- ============================================================
 
 -- ── 1. USUARIOS ───────────────────────────────────────────────
--- Substitui "leitura pública de todos os usuários" por acesso
--- restrito ao próprio registro ou colegas da mesma empresa.
--- O lookup de email por CPF é feito via função security definer,
--- que não exige leitura direta na tabela.
-
-drop policy if exists "usuarios_leitura_publica" on usuarios;
+drop policy if exists "usuarios_leitura_publica"  on usuarios;
+drop policy if exists "usuarios_leitura_scoped"   on usuarios;
 
 create policy "usuarios_leitura_scoped" on usuarios
   for select using (
@@ -24,7 +21,6 @@ create policy "usuarios_leitura_scoped" on usuarios
   );
 
 -- Função para lookup de email por CPF sem expor a tabela inteira
--- (usada pela tela de login antes da autenticação via anon key)
 create or replace function public.buscar_email_por_cpf(p_cpf text)
 returns text
 language sql
@@ -37,9 +33,6 @@ $$;
 grant execute on function public.buscar_email_por_cpf(text) to anon, authenticated;
 
 -- ── 2. CHECKLISTS e estrutura ─────────────────────────────────
--- Substitui "leitura pública total" por leitura restrita
--- às unidades às quais o usuário pertence.
-
 drop policy if exists "checklists_leitura"        on checklists;
 drop policy if exists "versoes_leitura"            on checklist_versoes;
 drop policy if exists "secoes_leitura"             on checklist_secoes;
@@ -100,10 +93,7 @@ create policy "opcoes_leitura" on checklist_atividade_opcoes
   );
 
 -- ── 3. CHECKLIST_NAO_EXECUCAO_MOTIVOS ─────────────────────────
--- Substitui write policy aberta (using true) por política
--- restrita à unidade do checklist.
-
-drop policy if exists "checklist_nao_exec_write" on checklist_nao_execucao_motivos;
+drop policy if exists "checklist_nao_exec_write"   on checklist_nao_execucao_motivos;
 drop policy if exists "checklist_nao_exec_leitura" on checklist_nao_execucao_motivos;
 
 create policy "checklist_nao_exec_leitura" on checklist_nao_execucao_motivos
@@ -164,10 +154,7 @@ create policy "imagens_leitura" on etapa_imagens
     )
   );
 
--- ── 5. CONFIGURAÇÕES (nao_execucao, causa_raiz, catalogos) ────
--- Leitura restrita à empresa do usuário (dados de configuração
--- criados por admin, lidos por usuários da mesma empresa).
-
+-- ── 5. CONFIGURAÇÕES ──────────────────────────────────────────
 drop policy if exists "nao_exec_leitura"    on nao_execucao_motivos;
 drop policy if exists "causa_raiz_leitura"  on causa_raiz;
 drop policy if exists "catalogos_leitura"   on catalogos;
@@ -208,11 +195,7 @@ create policy "valores_leitura" on catalogo_valores
     )
   );
 
--- ── 6. STORAGE — execucoes: restringe upload ao dono ──────────
--- Qualquer autenticado não pode mais gravar em qualquer path.
--- O path deve começar com um execucao_id que pertença à unidade
--- do usuário.
-
+-- ── 6. STORAGE — execucoes ────────────────────────────────────
 drop policy if exists "execucoes_upload"  on storage.objects;
 drop policy if exists "execucoes_delete"  on storage.objects;
 
@@ -221,9 +204,7 @@ create policy "execucoes_upload" on storage.objects
   with check (
     bucket_id = 'execucoes'
     and (
-      -- admin sobe qualquer coisa
       is_admin_sistema()
-      -- ou o prefixo do path é um execucao_id da unidade do usuário
       or (string_to_array(name, '/'))[1]::uuid in (
         select id from checklist_execucoes
         where unidade_id in (
@@ -248,9 +229,9 @@ create policy "execucoes_delete" on storage.objects
     )
   );
 
--- ── 7. STORAGE — empresas: somente admin faz upload ───────────
-drop policy if exists "upload_logo"    on storage.objects;
-drop policy if exists "deletar_logo"   on storage.objects;
+-- ── 7. STORAGE — empresas ─────────────────────────────────────
+drop policy if exists "upload_logo"   on storage.objects;
+drop policy if exists "deletar_logo"  on storage.objects;
 
 create policy "upload_logo" on storage.objects
   for insert to authenticated
