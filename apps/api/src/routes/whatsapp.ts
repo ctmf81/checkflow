@@ -7,7 +7,27 @@ const EVO_INSTANCE = process.env.EVOLUTION_INSTANCE ?? 'checkflow'
 
 export async function whatsappRoutes(app: FastifyInstance) {
 
-  // GET /whatsapp/status — verifica se está conectado
+  // POST /whatsapp/status — verifica se está conectado (aceita config via body)
+  app.post('/whatsapp/status', async (req, reply) => {
+    const body = (req.body ?? {}) as any
+    const url = body.evoUrl || EVO_URL
+    const key = body.evoKey || EVO_KEY
+    const instance = body.evoInstance || EVO_INSTANCE
+    try {
+      const res = await fetch(`${url}/instance/fetchInstances`, {
+        headers: { 'apikey': key },
+      })
+      if (!res.ok) return reply.send({ conectado: false })
+      const json: any = await res.json()
+      const inst = Array.isArray(json) ? json.find((i: any) => i.instance?.instanceName === instance) : null
+      const conectado = inst?.instance?.state === 'open'
+      return reply.send({ conectado })
+    } catch {
+      return reply.send({ conectado: false })
+    }
+  })
+
+  // GET /whatsapp/status — mantém compatibilidade
   app.get('/whatsapp/status', async (req, reply) => {
     const status = await statusInstancia()
     return reply.send(status)
@@ -16,7 +36,12 @@ export async function whatsappRoutes(app: FastifyInstance) {
   // POST /whatsapp/conectar — cria a instância e retorna QR Code
   app.post('/whatsapp/conectar', async (req, reply) => {
     try {
-      const headers = { 'Content-Type': 'application/json', 'apikey': EVO_KEY }
+      const body = (req.body ?? {}) as any
+      const url = body.evoUrl || EVO_URL
+      const key = body.evoKey || EVO_KEY
+      const instance = body.evoInstance || EVO_INSTANCE
+
+      const headers = { 'Content-Type': 'application/json', 'apikey': key }
 
       function normalizeQr(raw: string | undefined): string | null {
         if (!raw) return null
@@ -25,10 +50,10 @@ export async function whatsappRoutes(app: FastifyInstance) {
       }
 
       // Tenta criar a instância
-      const criar = await fetch(`${EVO_URL}/instance/create`, {
+      const criar = await fetch(`${url}/instance/create`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ instanceName: EVO_INSTANCE, qrcode: true, integration: 'WHATSAPP-BAILEYS' }),
+        body: JSON.stringify({ instanceName: instance, qrcode: true, integration: 'WHATSAPP-BAILEYS' }),
       })
       const criado: any = await criar.json()
 
@@ -37,24 +62,23 @@ export async function whatsappRoutes(app: FastifyInstance) {
         return reply.send({ qrcode: qrDoCriar, status: 'aguardando_scan' })
       }
 
-      // Se instância já existe e está aberta, reconecta (gera novo QR)
+      // Se instância já existe, desconecta para forçar novo QR
       const instanceState = criado?.response?.message ?? ''
       const jaExiste = criar.status === 409 || (typeof instanceState === 'string' && instanceState.includes('exists'))
 
       if (jaExiste) {
-        // Desconecta para forçar novo QR
-        await fetch(`${EVO_URL}/instance/logout/${EVO_INSTANCE}`, { method: 'DELETE', headers })
+        await fetch(`${url}/instance/logout/${instance}`, { method: 'DELETE', headers })
       }
 
       // Chama connect para obter QR
-      const qrRes = await fetch(`${EVO_URL}/instance/connect/${EVO_INSTANCE}`, { headers })
+      const qrRes = await fetch(`${url}/instance/connect/${instance}`, { headers })
       const qrJson: any = await qrRes.json()
       const qrDoConnect = normalizeQr(qrJson?.base64 ?? qrJson?.qrcode?.base64 ?? qrJson?.code)
 
       return reply.send({
         qrcode: qrDoConnect,
         status: 'aguardando_scan',
-        _debug: process.env.NODE_ENV !== 'production' ? { criado, qrJson } : undefined,
+        _debug: process.env.NODE_ENV !== 'production' ? { url, instance, criado, qrJson } : undefined,
       })
     } catch (e: any) {
       return reply.status(500).send({ error: e.message })
