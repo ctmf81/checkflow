@@ -98,16 +98,23 @@ export async function whatsappRoutes(app: FastifyInstance) {
         criado = recriado
       }
 
-      // Aguarda a instância estar pronta e tenta connect até 5x
+      // Aguarda a instância gerar o QR — tenta até 8x via fetchInstances
       let qrJson: any = null
       let qrDoConnect: string | null = null
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 8; i++) {
         await new Promise(r => setTimeout(r, 2000))
-        const qrRes = await fetch(`${url}/instance/connect/${instance}`, { headers })
-        qrJson = await qrRes.json()
-        debugSteps[`passo_connect_${i + 1}`] = { status: qrRes.status, body: qrJson }
-        qrDoConnect = normalizeQr(qrJson?.base64 ?? qrJson?.qrcode?.base64 ?? qrJson?.code)
-        if (qrDoConnect) break
+
+        // Busca o QR via fetchInstances (mais confiável que /connect nessa versão)
+        const fetchRes = await fetch(`${url}/instance/fetchInstances?instanceName=${instance}`, { headers })
+        const fetchJson: any = await fetchRes.json()
+        const inst = Array.isArray(fetchJson) ? fetchJson[0] : fetchJson
+        debugSteps[`passo_poll_${i + 1}`] = {
+          status: fetchRes.status,
+          instanceState: inst?.instance?.state,
+          hasQr: !!inst?.qrcode?.base64,
+        }
+        qrDoConnect = normalizeQr(inst?.qrcode?.base64 ?? inst?.base64)
+        if (qrDoConnect) { qrJson = inst; break }
       }
 
       return reply.send({
