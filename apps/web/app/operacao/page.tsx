@@ -187,68 +187,66 @@ function AbaHistorico({ unidadeId }: { unidadeId: string }) {
 
   useEffect(() => {
     async function carregar() {
-      const sb = createClient()
-      const { data: { user } } = await sb.auth.getUser()
-      if (!user) return
+      try {
+        const sb = createClient()
+        const { data: { user } } = await sb.auth.getUser()
+        if (!user) { setLoading(false); return }
 
-      const { data: execs } = await sb
-        .from('checklist_execucoes')
-        .select(`
-          id, status, data_execucao,
-          checklists(nome),
-          executor:executado_por(nome)
-        `)
-        .eq('unidade_id', unidadeId)
-        .eq('executado_por', user.id)
-        .order('data_execucao', { ascending: false })
-        .limit(50)
+        // execuções do usuário nesta unidade
+        const { data: execs, error: execErr } = await sb
+          .from('checklist_execucoes')
+          .select('id, status, data_execucao, checklists(nome)')
+          .eq('unidade_id', unidadeId)
+          .eq('executado_por', user.id)
+          .order('data_execucao', { ascending: false })
+          .limit(50)
 
-      if (!execs) { setLoading(false); return }
+        if (execErr || !execs || execs.length === 0) { setLoading(false); return }
 
-      const execIds = execs.map((e: any) => e.id)
+        const execIds = execs.map((e: any) => e.id)
 
-      // Planos de ação de cada execução
-      const { data: planos } = execIds.length
-        ? await sb.from('planos_acao')
-            .select(`
-              id, status, execucao_id:checklist_execucao_id,
-              checklist_atividades(nome),
-              ultima:plano_acao_movimentacoes(acao, criado_em, usuarios(nome))
-            `)
-            .in('checklist_execucao_id', execIds)
-        : { data: [] }
+        // Planos das execuções
+        const { data: planos } = await sb.from('planos_acao')
+          .select(`
+            id, status, checklist_execucao_id,
+            checklist_atividades(nome),
+            plano_acao_movimentacoes(acao, criado_em, usuarios(nome))
+          `)
+          .in('checklist_execucao_id', execIds)
 
-      const planosPorExec: Record<string, PlanoResumo[]> = {}
-      for (const p of (planos ?? [])) {
-        const movs = (p.ultima ?? []) as any[]
-        const ultima = movs.sort((a: any, b: any) =>
-          new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime()
-        )[0] ?? null
+        const planosPorExec: Record<string, PlanoResumo[]> = {}
+        for (const p of (planos ?? [])) {
+          const movs = (p.plano_acao_movimentacoes ?? []) as any[]
+          const ultima = movs.sort((a: any, b: any) =>
+            new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime()
+          )[0] ?? null
 
-        const item: PlanoResumo = {
-          id: p.id,
-          status: p.status,
-          atividade_nome: (p.checklist_atividades as any)?.nome ?? '—',
-          ultima_mov: ultima ? {
-            acao: ultima.acao,
-            usuario_nome: (ultima.usuarios as any)?.nome ?? null,
-            criado_em: ultima.criado_em,
-          } : null,
+          const item: PlanoResumo = {
+            id: p.id,
+            status: p.status,
+            atividade_nome: (p.checklist_atividades as any)?.nome ?? '—',
+            ultima_mov: ultima ? {
+              acao: ultima.acao,
+              usuario_nome: (ultima.usuarios as any)?.nome ?? null,
+              criado_em: ultima.criado_em,
+            } : null,
+          }
+          const execId = p.checklist_execucao_id
+          if (!planosPorExec[execId]) planosPorExec[execId] = []
+          planosPorExec[execId].push(item)
         }
-        const execId = p.execucao_id
-        if (!planosPorExec[execId]) planosPorExec[execId] = []
-        planosPorExec[execId].push(item)
-      }
 
-      setExecucoes(execs.map((e: any) => ({
-        id: e.id,
-        checklist_nome: (e.checklists as any)?.nome ?? '—',
-        data_execucao: e.data_execucao,
-        status: e.status,
-        executado_por_nome: (e.executor as any)?.nome ?? null,
-        planos: planosPorExec[e.id] ?? [],
-      })))
-      setLoading(false)
+        setExecucoes(execs.map((e: any) => ({
+          id: e.id,
+          checklist_nome: (e.checklists as any)?.nome ?? '—',
+          data_execucao: e.data_execucao,
+          status: e.status,
+          executado_por_nome: null,
+          planos: planosPorExec[e.id] ?? [],
+        })))
+      } finally {
+        setLoading(false)
+      }
     }
     carregar()
   }, [unidadeId])
@@ -357,43 +355,55 @@ function AbaDocumentos({ unidadeId }: { unidadeId: string }) {
 
   useEffect(() => {
     async function carregar() {
-      const sb = createClient()
+      try {
+        const sb = createClient()
 
-      // Subgrupos do usuário logado nesta unidade
-      const { data: { user } } = await sb.auth.getUser()
-      if (!user) { setLoading(false); return }
+        const { data: { user } } = await sb.auth.getUser()
+        if (!user) { setLoading(false); return }
 
-      const { data: us } = await sb.from('usuario_subgrupo')
-        .select('subgrupo_id, subgrupos!inner(grupo_id)')
-        .eq('subgrupos.unidade_id' as any, unidadeId)
+        // 1. Subgrupos do usuário — busca simples sem inner join filtrado
+        const { data: us } = await sb
+          .from('usuario_subgrupo')
+          .select('subgrupo_id, subgrupos(grupo_id, grupos(unidade_id))')
+          .eq('usuario_id', user.id)
 
-      const subgrupoIds = us?.map((r: any) => r.subgrupo_id) ?? []
-      const grupoIds = [...new Set(us?.map((r: any) => r.subgrupos?.grupo_id).filter(Boolean) ?? [])]
+        // Filtra só os que pertencem a esta unidade
+        const usUnidade = (us ?? []).filter((r: any) => {
+          const grp = r.subgrupos?.grupos
+          return grp?.unidade_id === unidadeId
+        })
 
-      // Documentos ativos para a unidade / grupos / subgrupos do usuário
-      const { data: docs } = await sb.from('documentos')
-        .select(`
-          id, nome, descricao, tipo, arquivo_url,
-          subgrupos(nome), grupos(nome)
-        `)
-        .eq('status', 'ativo')
-        .or([
-          `unidade_id.eq.${unidadeId}`,
-          subgrupoIds.length ? `subgrupo_id.in.(${subgrupoIds.join(',')})` : '',
-          grupoIds.length ? `grupo_id.in.(${grupoIds.join(',')})` : '',
-        ].filter(Boolean).join(','))
-        .order('nome')
+        const subgrupoIds: string[] = usUnidade.map((r: any) => r.subgrupo_id)
+        const grupoIds: string[] = [...new Set(
+          usUnidade.map((r: any) => r.subgrupos?.grupo_id).filter(Boolean) as string[]
+        )]
 
-      setDocumentos((docs ?? []).map((d: any) => ({
-        id: d.id,
-        nome: d.nome,
-        descricao: d.descricao,
-        tipo: d.tipo,
-        arquivo_url: d.arquivo_url,
-        subgrupo_nome: d.subgrupos?.nome ?? null,
-        grupo_nome: d.grupos?.nome ?? null,
-      })))
-      setLoading(false)
+        // 2. Busca documentos: começa pelos da unidade, depois filtra por subgrupo/grupo
+        let query = sb.from('documentos')
+          .select('id, nome, descricao, tipo, arquivo_url, subgrupo_id, grupo_id, subgrupos(nome), grupos(nome)')
+          .eq('status', 'ativo')
+          .order('nome')
+
+        // Monta filtro OR em partes
+        const orParts = [`unidade_id.eq.${unidadeId}`]
+        if (subgrupoIds.length) orParts.push(`subgrupo_id.in.(${subgrupoIds.join(',')})`)
+        if (grupoIds.length) orParts.push(`grupo_id.in.(${grupoIds.join(',')})`)
+        query = query.or(orParts.join(','))
+
+        const { data: docs } = await query
+
+        setDocumentos((docs ?? []).map((d: any) => ({
+          id: d.id,
+          nome: d.nome,
+          descricao: d.descricao,
+          tipo: d.tipo,
+          arquivo_url: d.arquivo_url,
+          subgrupo_nome: (d.subgrupos as any)?.nome ?? null,
+          grupo_nome: (d.grupos as any)?.nome ?? null,
+        })))
+      } finally {
+        setLoading(false)
+      }
     }
     carregar()
   }, [unidadeId])
