@@ -19,6 +19,7 @@ type Funcao = 'operacao' | 'nivel_1' | 'nivel_2' | null
 interface Plano {
   id: string
   status: StatusPlano
+  identificador: string | null
   observacao_abertura: string | null
   sla_prazo: string | null
   created_at: string
@@ -199,7 +200,7 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
     const { data: { user } } = await sb.auth.getUser()
 
     const { data: p } = await sb.from('planos_acao').select(`
-      id, status, observacao_abertura, sla_prazo, created_at,
+      id, status, identificador, observacao_abertura, sla_prazo, created_at,
       subgrupo_id, checklist_execucao_id,
       subgrupos(nome),
       checklist_atividades(nome),
@@ -364,9 +365,16 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
           <ArrowLeft size={20} />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="font-bold text-gray-800 text-base leading-tight truncate">
-            {plano.checklist_atividades?.nome ?? 'Plano de Ação'}
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="font-bold text-gray-800 text-base leading-tight truncate">
+              {plano.checklist_atividades?.nome ?? 'Plano de Ação'}
+            </h1>
+            {plano.identificador && (
+              <span className="text-xs font-mono font-semibold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-lg tracking-wide flex-shrink-0">
+                {plano.identificador}
+              </span>
+            )}
+          </div>
           <p className="text-xs text-gray-400 mt-0.5 truncate">
             {plano.subgrupos?.nome} · {checklist}
           </p>

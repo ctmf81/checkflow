@@ -15,6 +15,7 @@ type StatusPlano = 'em_moderacao_n1' | 'em_moderacao_n2' | 'corrigido' | 'nao_co
 interface PlanoItem {
   id: string
   status: StatusPlano
+  identificador: string | null
   observacao_abertura: string | null
   sla_prazo: string | null
   created_at: string
@@ -93,7 +94,7 @@ export default function PlanosAcaoPage() {
     const { data } = await sb
       .from('planos_acao')
       .select(`
-        id, status, observacao_abertura, sla_prazo, created_at,
+        id, status, identificador, observacao_abertura, sla_prazo, created_at,
         subgrupos(nome),
         checklist_atividades(nome),
         checklist_execucoes(checklists(nome)),
@@ -158,7 +159,7 @@ export default function PlanosAcaoPage() {
                 className="w-full bg-white border border-gray-200 rounded-xl p-4 hover:shadow-sm hover:border-gray-300 transition-all text-left group">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    {/* Status + subgrupo */}
+                    {/* Status + subgrupo + identificador */}
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${cfg.cor}`}>
                         <cfg.Icon size={11} />
@@ -167,6 +168,11 @@ export default function PlanosAcaoPage() {
                       {p.subgrupos?.nome && (
                         <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
                           {p.subgrupos.nome}
+                        </span>
+                      )}
+                      {p.identificador && (
+                        <span className="text-xs font-mono font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full tracking-wide">
+                          {p.identificador}
                         </span>
                       )}
                     </div>
