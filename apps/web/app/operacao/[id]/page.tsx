@@ -242,29 +242,39 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   const [respostas, setRespostas] = useState<Record<string, any>>({})
   const [secaoAberta, setSecaoAberta] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [erroCarregar, setErroCarregar] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [concluido, setConcluido] = useState(false)
 
   useEffect(() => { carregar() }, [id])
 
   async function carregar() {
+    setLoading(true)
+    setErroCarregar(null)
     const sb = createClient()
 
-    const { data: cl } = await sb.from('checklists')
+    const { data: cl, error: clErr } = await sb.from('checklists')
       .select('id, nome, descricao, tempo_guarda_meses')
       .eq('id', id).single()
-    if (!cl) { setLoading(false); return }
+    if (clErr || !cl) { setErroCarregar(`Checklist não encontrado (${clErr?.message})`); setLoading(false); return }
     setChecklist(cl)
 
-    const { data: secoesData } = await sb.from('checklist_secoes')
+    const { data: secoesData, error: secErr } = await sb.from('checklist_secoes')
       .select('id, nome, ordem')
       .eq('checklist_id', id).order('ordem')
+    if (secErr) console.error('Erro ao carregar seções:', secErr)
 
-    const { data: atvsData } = await sb.from('checklist_atividades')
+    const { data: atvsData, error: atvErr } = await sb.from('checklist_atividades')
       .select('id, nome, tipo, obrigatorio, config, ordem, atividade_pai_id, valor_gatilho, secao_id')
       .eq('checklist_id', id).order('ordem')
+    if (atvErr) console.error('Erro ao carregar atividades:', atvErr)
 
-    if (!atvsData) { setLoading(false); return }
+    if (!atvsData || atvsData.length === 0) {
+      // Checklist sem atividades — mostra seção placeholder
+      setSecoes([{ id: '__vazio__', nome: 'Sem atividades', ordem: 0, atividades: [] }])
+      setLoading(false)
+      return
+    }
 
     // Monta árvore de dependentes
     const atvMap = new Map<string, Atividade>()
@@ -373,6 +383,16 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     </div>
   )
 
+  if (erroCarregar) return (
+    <div className="flex items-center justify-center min-h-[60vh] px-6">
+      <div className="text-center">
+        <AlertCircle size={40} className="text-red-300 mx-auto mb-3" />
+        <p className="text-sm text-red-600 font-medium">Erro ao carregar checklist</p>
+        <p className="text-xs text-gray-400 mt-1">{erroCarregar}</p>
+      </div>
+    </div>
+  )
+
   if (!checklist) return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <AlertCircle size={40} className="text-red-300 mx-auto" />
@@ -443,10 +463,16 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
 
               {/* Atividades */}
               {aberta && (
-                <div className="px-4 pb-4 space-y-0">
-                  {atvsComResp.map(atv => (
-                    <AtividadeItem key={atv.id} atividade={atv} onResposta={setResposta} />
-                  ))}
+                <div className="px-4 pb-4">
+                  {atvsComResp.length === 0 ? (
+                    <p className="text-xs text-gray-400 py-2 text-center">Nenhuma atividade nesta seção.</p>
+                  ) : (
+                    <div className="space-y-0">
+                      {atvsComResp.map(atv => (
+                        <AtividadeItem key={atv.id} atividade={atv} onResposta={setResposta} />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
