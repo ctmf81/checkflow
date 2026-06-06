@@ -98,12 +98,17 @@ export async function whatsappRoutes(app: FastifyInstance) {
         criado = recriado
       }
 
-      // Última tentativa: connect direto
-      const qrRes = await fetch(`${url}/instance/connect/${instance}`, { headers })
-      const qrJson: any = await qrRes.json()
-      debugSteps.passo5_connect = { status: qrRes.status, body: qrJson }
-
-      const qrDoConnect = normalizeQr(qrJson?.base64 ?? qrJson?.qrcode?.base64 ?? qrJson?.code)
+      // Aguarda a instância estar pronta e tenta connect até 5x
+      let qrJson: any = null
+      let qrDoConnect: string | null = null
+      for (let i = 0; i < 5; i++) {
+        await new Promise(r => setTimeout(r, 2000))
+        const qrRes = await fetch(`${url}/instance/connect/${instance}`, { headers })
+        qrJson = await qrRes.json()
+        debugSteps[`passo_connect_${i + 1}`] = { status: qrRes.status, body: qrJson }
+        qrDoConnect = normalizeQr(qrJson?.base64 ?? qrJson?.qrcode?.base64 ?? qrJson?.code)
+        if (qrDoConnect) break
+      }
 
       return reply.send({
         qrcode: qrDoConnect,
