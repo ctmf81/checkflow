@@ -8,6 +8,7 @@ import { NovoGrupoModal } from './NovoGrupoModal'
 import { GrupoMenu } from './GrupoMenu'
 import { AdicionarUsuarioModal } from './AdicionarUsuarioModal'
 import { EditarGrupoModal } from './EditarGrupoModal'
+import { UsuariosGrupoModal } from './UsuariosGrupoModal'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 
@@ -27,6 +28,7 @@ export default function GruposPage() {
   const [loading, setLoading] = useState(true)
   const [grupoUsuario, setGrupoUsuario] = useState<Grupo | null>(null)
   const [grupoEditando, setGrupoEditando] = useState<Grupo | null>(null)
+  const [grupoListaUsuarios, setGrupoListaUsuarios] = useState<Grupo | null>(null)
 
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
@@ -102,7 +104,7 @@ export default function GruposPage() {
                 />
               </div>
 
-              <Link href={`/gestao/grupos/${grupo.id}/subgrupos`} className="flex gap-2 block">
+              <Link href={`/gestao/grupos/${grupo.id}/subgrupos`} className="flex gap-2 block mb-3">
                 <div className="flex items-center gap-1.5 bg-orange-50 px-3 py-2 rounded-lg flex-1">
                   <LayoutGrid size={14} className="text-orange-400" />
                   <span className="text-orange-500 font-bold text-sm">{grupo.totalSubgrupos}</span>
@@ -114,6 +116,11 @@ export default function GruposPage() {
                   <span className="text-gray-500 text-xs">Usuários</span>
                 </div>
               </Link>
+              <button
+                onClick={() => setGrupoListaUsuarios(grupo)}
+                className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-green-600 hover:border-green-200 transition-colors">
+                <Users size={13} />Gerenciar usuários
+              </button>
             </div>
           ))}
         </div>
@@ -128,6 +135,16 @@ export default function GruposPage() {
           grupo={grupoEditando}
           onClose={() => setGrupoEditando(null)}
           onSalvo={() => { setGrupoEditando(null); carregar() }}
+        />
+      )}
+
+      {grupoListaUsuarios && (
+        <UsuariosGrupoModal
+          grupoId={grupoListaUsuarios.id}
+          grupoNome={grupoListaUsuarios.display_name || grupoListaUsuarios.nome}
+          subgrupoLabel={subgrupoLabel}
+          onClose={() => setGrupoListaUsuarios(null)}
+          onAlterado={() => carregar()}
         />
       )}
 
