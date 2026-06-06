@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { Plus, Search, FileCheck, MoreVertical, AlertCircle, CheckCircle2, Clock, Eye, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -25,6 +25,14 @@ const STATUS_CONFIG = {
 }
 
 export default function ChecklistsPage() {
+  return (
+    <Suspense fallback={<div className="py-16 text-center text-sm text-gray-400">Carregando...</div>}>
+      <ChecklistsContent />
+    </Suspense>
+  )
+}
+
+function ChecklistsContent() {
   const { unidadeAtiva, subgrupoLabel } = useSession()
   const searchParams = useSearchParams()
   const router = useRouter()
