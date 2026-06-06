@@ -115,36 +115,39 @@ function calcularValidacao(atividade: Atividade): boolean | null {
 
 // ─── Campos por tipo ──────────────────────────────────────────────────────────
 
-// Leitor de QR/Barcode via câmera (BarcodeDetector ou fallback)
+// Leitor de QR/Barcode via câmera (BarcodeDetector API)
 async function lerCodigoDeCamera(
   tipo: 'qrcode' | 'barcode',
   onResult: (val: string) => void,
   onErro: (msg: string) => void
 ) {
+  // @ts-ignore
+  if (typeof BarcodeDetector === 'undefined') {
+    onErro('Leitura de código não suportada neste navegador. Use Chrome no Android.')
+    return
+  }
+
   const input = document.createElement('input')
   input.type = 'file'
   input.accept = 'image/*'
-  input.capture = 'environment'
+  // setAttribute é necessário — a propriedade JS não ativa o capture em todos os browsers
+  input.setAttribute('capture', 'environment')
+
   input.onchange = async () => {
     const file = input.files?.[0]
     if (!file) return
     try {
-      // @ts-ignore — BarcodeDetector não está nos tipos lib ainda
-      if (typeof BarcodeDetector === 'undefined') {
-        onErro('Leitura de código não suportada neste navegador. Use Chrome no Android.')
-        return
-      }
-      const formats = tipo === 'qrcode' ? ['qr_code'] : [
-        'code_128','code_39','ean_13','ean_8','upc_a','upc_e','itf','codabar','data_matrix','pdf417'
-      ]
+      const formats = tipo === 'qrcode'
+        ? ['qr_code']
+        : ['code_128','code_39','ean_13','ean_8','upc_a','upc_e','itf','codabar','data_matrix','pdf417','aztec']
       // @ts-ignore
       const detector = new BarcodeDetector({ formats })
       const bitmap = await createImageBitmap(file)
       const codes: any[] = await detector.detect(bitmap)
-      if (codes.length === 0) { onErro('Nenhum código encontrado na imagem.'); return }
+      if (codes.length === 0) { onErro('Nenhum código encontrado. Tente novamente mais perto.'); return }
       onResult(codes[0].rawValue)
     } catch (e: any) {
-      onErro('Erro ao ler código: ' + (e.message ?? e))
+      onErro('Erro ao processar imagem: ' + (e.message ?? String(e)))
     }
   }
   input.click()
