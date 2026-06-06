@@ -4,41 +4,624 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
-import { CheckSquare, ChevronRight, AlertCircle, Layers, Search, GitBranch, Play } from 'lucide-react'
+import {
+  CheckSquare, ChevronRight, AlertCircle, Layers, Search,
+  GitBranch, Play, History, FileText, X, ChevronDown, ChevronUp,
+  ClipboardList, Clock, User, CheckCircle, XCircle, AlertTriangle,
+  RotateCcw, ExternalLink, Image as ImageIcon, Video,
+} from 'lucide-react'
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
+type Aba = 'checklists' | 'historico' | 'documentos'
 
 interface Checklist {
-  id: string
-  nome: string
-  descricao: string | null
-  total_atividades: number
-  subgrupo_id: string | null
-  subgrupo_nome: string | null
-  grupo_id: string | null
-  grupo_nome: string | null
+  id: string; nome: string; descricao: string | null
+  total_atividades: number; subgrupo_id: string | null
+  subgrupo_nome: string | null; grupo_id: string | null; grupo_nome: string | null
 }
-
 interface GrupoAgrupado {
-  id: string
-  nome: string
-  subgrupos: {
-    id: string | null
-    nome: string | null
-    checklists: Checklist[]
-  }[]
+  id: string; nome: string
+  subgrupos: { id: string | null; nome: string | null; checklists: Checklist[] }[]
+}
+interface ItemWorkflowLiberado {
+  item_execucao_id: string; checklist_id: string; checklist_nome: string
+  workflow_nome: string; estagio_nome: string; subgrupo_nome: string | null
 }
 
-interface ItemWorkflowLiberado {
-  item_execucao_id: string
-  checklist_id: string
-  checklist_nome: string
-  workflow_nome: string
-  estagio_nome: string
-  subgrupo_nome: string | null
+interface Execucao {
+  id: string; checklist_nome: string; data_execucao: string
+  status: 'em_andamento' | 'concluido' | 'nao_executado'
+  executado_por_nome: string | null
+  planos: PlanoResumo[]
 }
+interface PlanoResumo {
+  id: string; status: string; atividade_nome: string
+  ultima_mov: { acao: string; usuario_nome: string | null; criado_em: string } | null
+}
+
+interface Documento {
+  id: string; nome: string; descricao: string | null
+  tipo: 'pop' | 'it' | 'consulta_inteligente'; arquivo_url: string | null
+  subgrupo_nome: string | null; grupo_nome: string | null
+}
+interface Etapa {
+  id: string; titulo: string | null; conteudo: string | null
+  video_id: string | null; ordem: number
+  imagens: { id: string; url: string; ordem: number }[]
+}
+
+// ─── Helpers visuais ──────────────────────────────────────────────────────────
+
+const STATUS_EXEC: Record<string, { label: string; cor: string; icon: React.ReactNode }> = {
+  concluido:      { label: 'Concluído',      cor: 'text-green-600 bg-green-50 border-green-200',  icon: <CheckCircle size={12} /> },
+  em_andamento:   { label: 'Em andamento',   cor: 'text-amber-600 bg-amber-50 border-amber-200',  icon: <Clock size={12} /> },
+  nao_executado:  { label: 'Não executado',  cor: 'text-gray-500 bg-gray-50 border-gray-200',     icon: <XCircle size={12} /> },
+}
+const STATUS_PLANO: Record<string, { label: string; cor: string }> = {
+  em_moderacao_n1: { label: 'Aguarda N1',   cor: 'text-amber-700 bg-amber-50 border-amber-300' },
+  em_moderacao_n2: { label: 'Aguarda N2',   cor: 'text-orange-700 bg-orange-50 border-orange-300' },
+  corrigido:       { label: 'Corrigido',     cor: 'text-green-700 bg-green-50 border-green-300' },
+  nao_corrigido:   { label: 'Não corrigido', cor: 'text-red-700 bg-red-50 border-red-300' },
+  reaberto:        { label: 'Reaberto',      cor: 'text-violet-700 bg-violet-50 border-violet-300' },
+}
+const TIPO_DOC: Record<string, { label: string; cor: string }> = {
+  pop:                  { label: 'POP',    cor: 'text-blue-600 bg-blue-50 border-blue-200' },
+  it:                   { label: 'IT',     cor: 'text-violet-600 bg-violet-50 border-violet-200' },
+  consulta_inteligente: { label: 'Consulta', cor: 'text-green-600 bg-green-50 border-green-200' },
+}
+
+function dataRelativa(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime()
+  const m = Math.floor(diff / 60000)
+  if (m < 60) return `${m} min atrás`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h atrás`
+  return `${Math.floor(h / 24)}d atrás`
+}
+
+// ─── ABA: Checklists (conteúdo original) ────────────────────────────────────
+
+function AbaChecklists({ grupos, semGrupo, itensWorkflow, busca, setBusca }: {
+  grupos: GrupoAgrupado[]; semGrupo: Checklist[]
+  itensWorkflow: ItemWorkflowLiberado[]; busca: string
+  setBusca: (v: string) => void
+}) {
+  const router = useRouter()
+
+  function filtrar(cls: Checklist[]) {
+    if (!busca.trim()) return cls
+    return cls.filter(c => c.nome.toLowerCase().includes(busca.toLowerCase()))
+  }
+
+  const gruposFiltrados = grupos
+    .map(g => ({ ...g, subgrupos: g.subgrupos.map(s => ({ ...s, checklists: filtrar(s.checklists) })).filter(s => s.checklists.length > 0) }))
+    .filter(g => g.subgrupos.length > 0)
+  const semGrupoFiltrado = filtrar(semGrupo)
+  const semResultado = busca && gruposFiltrados.length === 0 && semGrupoFiltrado.length === 0
+
+  return (
+    <div className="space-y-6">
+      {/* Workflows */}
+      {itensWorkflow.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <GitBranch size={16} className="text-violet-500" />
+            <h2 className="text-base font-bold text-gray-800">Workflows em andamento</h2>
+            <span className="text-xs bg-violet-100 text-violet-600 font-semibold px-2 py-0.5 rounded-full">{itensWorkflow.length}</span>
+          </div>
+          <div className="space-y-2">
+            {itensWorkflow.map(item => (
+              <button key={item.item_execucao_id}
+                onClick={() => router.push(`/operacao/${item.checklist_id}?wf_item=${item.item_execucao_id}`)}
+                className="w-full text-left bg-violet-50 border border-violet-200 rounded-xl px-4 py-3.5 flex items-center gap-3 hover:border-violet-400 hover:shadow-sm active:scale-[0.99] transition-all">
+                <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Play size={16} className="text-violet-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-800 text-sm">{item.checklist_nome}</p>
+                  <p className="text-xs text-violet-600 mt-0.5">{item.workflow_nome} · {item.estagio_nome}</p>
+                  {item.subgrupo_nome && <p className="text-xs text-gray-400 mt-0.5">{item.subgrupo_nome}</p>}
+                </div>
+                <ChevronRight size={16} className="text-violet-300 flex-shrink-0" />
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Busca */}
+      <div className="relative">
+        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar checklist..."
+          className="w-full pl-10 pr-4 py-3 text-sm bg-white border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-200" />
+      </div>
+
+      {semResultado && <div className="text-center py-12"><p className="text-gray-400 text-sm">Nenhum resultado para "{busca}"</p></div>}
+
+      {gruposFiltrados.map(grupo => (
+        <section key={grupo.id}>
+          <div className="flex items-center gap-2 mb-3">
+            <Layers size={16} className="text-orange-400" />
+            <h2 className="text-base font-bold text-gray-800">{grupo.nome}</h2>
+          </div>
+          {grupo.subgrupos.map(sub => (
+            <div key={sub.id ?? 'sem'} className="mb-4">
+              {sub.nome && <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">{sub.nome}</p>}
+              <div className="space-y-2">
+                {sub.checklists.map(cl => (
+                  <ChecklistCard key={cl.id} checklist={cl} onClick={() => router.push(`/operacao/${cl.id}`)} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+      ))}
+
+      {semGrupoFiltrado.length > 0 && (
+        <section>
+          {grupos.length > 0 && (
+            <div className="flex items-center gap-2 mb-3">
+              <CheckSquare size={16} className="text-gray-400" />
+              <h2 className="text-base font-bold text-gray-800">Outros</h2>
+            </div>
+          )}
+          <div className="space-y-2">
+            {semGrupoFiltrado.map(cl => (
+              <ChecklistCard key={cl.id} checklist={cl} onClick={() => router.push(`/operacao/${cl.id}`)} />
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  )
+}
+
+// ─── ABA: Histórico ───────────────────────────────────────────────────────────
+
+function AbaHistorico({ unidadeId }: { unidadeId: string }) {
+  const [execucoes, setExecucoes] = useState<Execucao[]>([])
+  const [loading, setLoading] = useState(true)
+  const [expandido, setExpandido] = useState<string | null>(null)
+  const router = useRouter()
+
+  useEffect(() => {
+    async function carregar() {
+      const sb = createClient()
+      const { data: { user } } = await sb.auth.getUser()
+      if (!user) return
+
+      const { data: execs } = await sb
+        .from('checklist_execucoes')
+        .select(`
+          id, status, data_execucao,
+          checklists(nome),
+          executor:executado_por(nome)
+        `)
+        .eq('unidade_id', unidadeId)
+        .eq('executado_por', user.id)
+        .order('data_execucao', { ascending: false })
+        .limit(50)
+
+      if (!execs) { setLoading(false); return }
+
+      const execIds = execs.map((e: any) => e.id)
+
+      // Planos de ação de cada execução
+      const { data: planos } = execIds.length
+        ? await sb.from('planos_acao')
+            .select(`
+              id, status, execucao_id:checklist_execucao_id,
+              checklist_atividades(nome),
+              ultima:plano_acao_movimentacoes(acao, criado_em, usuarios(nome))
+            `)
+            .in('checklist_execucao_id', execIds)
+        : { data: [] }
+
+      const planosPorExec: Record<string, PlanoResumo[]> = {}
+      for (const p of (planos ?? [])) {
+        const movs = (p.ultima ?? []) as any[]
+        const ultima = movs.sort((a: any, b: any) =>
+          new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime()
+        )[0] ?? null
+
+        const item: PlanoResumo = {
+          id: p.id,
+          status: p.status,
+          atividade_nome: (p.checklist_atividades as any)?.nome ?? '—',
+          ultima_mov: ultima ? {
+            acao: ultima.acao,
+            usuario_nome: (ultima.usuarios as any)?.nome ?? null,
+            criado_em: ultima.criado_em,
+          } : null,
+        }
+        const execId = p.execucao_id
+        if (!planosPorExec[execId]) planosPorExec[execId] = []
+        planosPorExec[execId].push(item)
+      }
+
+      setExecucoes(execs.map((e: any) => ({
+        id: e.id,
+        checklist_nome: (e.checklists as any)?.nome ?? '—',
+        data_execucao: e.data_execucao,
+        status: e.status,
+        executado_por_nome: (e.executor as any)?.nome ?? null,
+        planos: planosPorExec[e.id] ?? [],
+      })))
+      setLoading(false)
+    }
+    carregar()
+  }, [unidadeId])
+
+  if (loading) return <div className="flex justify-center py-16"><div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>
+
+  if (execucoes.length === 0) return (
+    <div className="text-center py-16">
+      <History size={40} className="text-gray-200 mx-auto mb-3" />
+      <p className="text-sm text-gray-500">Nenhuma execução encontrada.</p>
+      <p className="text-xs text-gray-400 mt-1">Execute um checklist para ver o histórico aqui.</p>
+    </div>
+  )
+
+  return (
+    <div className="space-y-3">
+      {execucoes.map(exec => {
+        const st = STATUS_EXEC[exec.status] ?? STATUS_EXEC.concluido
+        const aberto = expandido === exec.id
+        return (
+          <div key={exec.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            {/* Linha principal */}
+            <button className="w-full text-left px-4 py-3.5 flex items-center gap-3"
+              onClick={() => setExpandido(aberto ? null : exec.id)}>
+              <div className="w-9 h-9 bg-orange-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                <ClipboardList size={16} className="text-orange-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-800 truncate">{exec.checklist_nome}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{dataRelativa(exec.data_execucao)}</p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {exec.planos.length > 0 && (
+                  <span className="text-xs bg-red-50 text-red-500 border border-red-200 font-medium px-2 py-0.5 rounded-full">
+                    {exec.planos.length} plano{exec.planos.length > 1 ? 's' : ''}
+                  </span>
+                )}
+                <span className={`flex items-center gap-1 text-xs border font-medium px-2 py-0.5 rounded-full ${st.cor}`}>
+                  {st.icon}{st.label}
+                </span>
+                {aberto ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+              </div>
+            </button>
+
+            {/* Detalhes expandidos */}
+            {aberto && (
+              <div className="border-t border-gray-100 px-4 py-4 bg-gray-50 space-y-4">
+                {/* Planos de ação */}
+                {exec.planos.length > 0 ? (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Planos de ação</p>
+                    <div className="space-y-2">
+                      {exec.planos.map(pl => {
+                        const sp = STATUS_PLANO[pl.status] ?? { label: pl.status, cor: 'text-gray-500 bg-gray-50 border-gray-200' }
+                        return (
+                          <div key={pl.id} className="bg-white border border-gray-200 rounded-lg px-3 py-2.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-gray-700 truncate">{pl.atividade_nome}</p>
+                                {pl.ultima_mov && (
+                                  <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                                    <User size={10} />
+                                    {pl.ultima_mov.usuario_nome ?? 'Desconhecido'} · {dataRelativa(pl.ultima_mov.criado_em)}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 flex-shrink-0">
+                                <span className={`text-xs border font-medium px-2 py-0.5 rounded-full ${sp.cor}`}>{sp.label}</span>
+                                <button
+                                  onClick={() => router.push(`/gestao/planos-acao/${pl.id}`)}
+                                  className="p-1 text-gray-300 hover:text-orange-500 transition-colors"
+                                  title="Ver plano">
+                                  <ExternalLink size={12} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                    <CheckCircle size={13} className="text-green-400" />
+                    Nenhum plano de ação aberto nesta execução
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── ABA: Documentos ─────────────────────────────────────────────────────────
+
+function AbaDocumentos({ unidadeId }: { unidadeId: string }) {
+  const [documentos, setDocumentos] = useState<Documento[]>([])
+  const [loading, setLoading] = useState(true)
+  const [docAberto, setDocAberto] = useState<Documento | null>(null)
+  const [etapas, setEtapas] = useState<Etapa[]>([])
+  const [etapaIdx, setEtapaIdx] = useState(0)
+  const [loadingEtapas, setLoadingEtapas] = useState(false)
+
+  useEffect(() => {
+    async function carregar() {
+      const sb = createClient()
+
+      // Subgrupos do usuário logado nesta unidade
+      const { data: { user } } = await sb.auth.getUser()
+      if (!user) { setLoading(false); return }
+
+      const { data: us } = await sb.from('usuario_subgrupo')
+        .select('subgrupo_id, subgrupos!inner(grupo_id)')
+        .eq('subgrupos.unidade_id' as any, unidadeId)
+
+      const subgrupoIds = us?.map((r: any) => r.subgrupo_id) ?? []
+      const grupoIds = [...new Set(us?.map((r: any) => r.subgrupos?.grupo_id).filter(Boolean) ?? [])]
+
+      // Documentos ativos para a unidade / grupos / subgrupos do usuário
+      const { data: docs } = await sb.from('documentos')
+        .select(`
+          id, nome, descricao, tipo, arquivo_url,
+          subgrupos(nome), grupos(nome)
+        `)
+        .eq('status', 'ativo')
+        .or([
+          `unidade_id.eq.${unidadeId}`,
+          subgrupoIds.length ? `subgrupo_id.in.(${subgrupoIds.join(',')})` : '',
+          grupoIds.length ? `grupo_id.in.(${grupoIds.join(',')})` : '',
+        ].filter(Boolean).join(','))
+        .order('nome')
+
+      setDocumentos((docs ?? []).map((d: any) => ({
+        id: d.id,
+        nome: d.nome,
+        descricao: d.descricao,
+        tipo: d.tipo,
+        arquivo_url: d.arquivo_url,
+        subgrupo_nome: d.subgrupos?.nome ?? null,
+        grupo_nome: d.grupos?.nome ?? null,
+      })))
+      setLoading(false)
+    }
+    carregar()
+  }, [unidadeId])
+
+  async function abrirDocumento(doc: Documento) {
+    setDocAberto(doc)
+    setEtapaIdx(0)
+
+    if (!doc.arquivo_url) {
+      // Busca etapas
+      setLoadingEtapas(true)
+      const sb = createClient()
+      const { data: etapasData } = await sb
+        .from('documento_etapas')
+        .select('id, titulo, conteudo, video_id, ordem, etapa_imagens(id, url, ordem)')
+        .eq('documento_id', doc.id)
+        .order('ordem')
+      setEtapas((etapasData ?? []).map((e: any) => ({
+        ...e,
+        imagens: (e.etapa_imagens ?? []).sort((a: any, b: any) => a.ordem - b.ordem),
+      })))
+      setLoadingEtapas(false)
+    }
+  }
+
+  if (loading) return <div className="flex justify-center py-16"><div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>
+
+  if (documentos.length === 0) return (
+    <div className="text-center py-16">
+      <FileText size={40} className="text-gray-200 mx-auto mb-3" />
+      <p className="text-sm text-gray-500">Nenhum documento disponível.</p>
+      <p className="text-xs text-gray-400 mt-1">Os documentos da sua área aparecerão aqui.</p>
+    </div>
+  )
+
+  return (
+    <>
+      <div className="space-y-2">
+        {documentos.map(doc => {
+          const tp = TIPO_DOC[doc.tipo] ?? { label: doc.tipo, cor: 'text-gray-500 bg-gray-50 border-gray-200' }
+          return (
+            <button key={doc.id} onClick={() => abrirDocumento(doc)}
+              className="w-full text-left bg-white border border-gray-200 rounded-xl px-4 py-4 flex items-center gap-3 hover:border-orange-300 hover:shadow-sm active:scale-[0.99] transition-all">
+              <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                <FileText size={18} className="text-blue-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-gray-800 text-sm">{doc.nome}</p>
+                  <span className={`text-xs border font-medium px-1.5 py-0.5 rounded-full ${tp.cor}`}>{tp.label}</span>
+                </div>
+                {doc.descricao && <p className="text-xs text-gray-400 mt-0.5 truncate">{doc.descricao}</p>}
+                {(doc.subgrupo_nome || doc.grupo_nome) && (
+                  <p className="text-xs text-gray-400 mt-0.5">{doc.subgrupo_nome ?? doc.grupo_nome}</p>
+                )}
+              </div>
+              <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Viewer de documento */}
+      {docAberto && (
+        <ViewerDocumento
+          doc={docAberto}
+          etapas={etapas}
+          etapaIdx={etapaIdx}
+          setEtapaIdx={setEtapaIdx}
+          loadingEtapas={loadingEtapas}
+          onClose={() => { setDocAberto(null); setEtapas([]) }}
+        />
+      )}
+    </>
+  )
+}
+
+function ViewerDocumento({ doc, etapas, etapaIdx, setEtapaIdx, loadingEtapas, onClose }: {
+  doc: Documento; etapas: Etapa[]; etapaIdx: number
+  setEtapaIdx: (i: number) => void; loadingEtapas: boolean; onClose: () => void
+}) {
+  const etapa = etapas[etapaIdx]
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex flex-col z-50">
+      {/* Header */}
+      <div className="bg-white flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-gray-800 text-sm truncate">{doc.nome}</p>
+          {etapas.length > 0 && (
+            <p className="text-xs text-gray-400 mt-0.5">
+              Etapa {etapaIdx + 1} de {etapas.length}
+            </p>
+          )}
+        </div>
+        <button onClick={onClose} className="ml-3 p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg flex-shrink-0">
+          <X size={18} />
+        </button>
+      </div>
+
+      {/* Conteúdo */}
+      <div className="flex-1 overflow-y-auto bg-gray-50">
+        {/* Arquivo direto (PDF / imagem) */}
+        {doc.arquivo_url && (
+          <div className="flex flex-col items-center justify-center h-full p-4 gap-4">
+            {doc.arquivo_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={doc.arquivo_url} alt={doc.nome} className="max-w-full rounded-xl shadow" />
+            ) : (
+              <>
+                <iframe src={doc.arquivo_url} className="w-full rounded-xl shadow bg-white" style={{ height: 'calc(100vh - 140px)' }} />
+                <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-sm text-orange-500 font-medium hover:underline">
+                  <ExternalLink size={14} />Abrir em nova aba
+                </a>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Etapas (POP / IT) */}
+        {!doc.arquivo_url && (
+          loadingEtapas ? (
+            <div className="flex justify-center py-16">
+              <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : etapas.length === 0 ? (
+            <div className="text-center py-16">
+              <FileText size={36} className="text-gray-200 mx-auto mb-2" />
+              <p className="text-sm text-gray-400">Este documento não possui conteúdo cadastrado.</p>
+            </div>
+          ) : etapa ? (
+            <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
+              {/* Título da etapa */}
+              {etapa.titulo && (
+                <h2 className="text-lg font-bold text-gray-800">{etapa.titulo}</h2>
+              )}
+
+              {/* Vídeo YouTube */}
+              {etapa.video_id && (
+                <div className="rounded-xl overflow-hidden shadow aspect-video">
+                  <iframe
+                    src={`https://www.youtube.com/embed/${etapa.video_id}`}
+                    className="w-full h-full"
+                    allowFullScreen
+                    title={etapa.titulo ?? 'Vídeo'}
+                  />
+                </div>
+              )}
+
+              {/* Imagens */}
+              {etapa.imagens.length > 0 && (
+                <div className={`grid gap-2 ${etapa.imagens.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  {etapa.imagens.map(img => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={img.id} src={img.url} alt="" className="w-full rounded-xl object-cover border border-gray-200" />
+                  ))}
+                </div>
+              )}
+
+              {/* Conteúdo */}
+              {etapa.conteudo && (
+                <div className="bg-white border border-gray-200 rounded-xl px-4 py-4">
+                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{etapa.conteudo}</p>
+                </div>
+              )}
+            </div>
+          ) : null
+        )}
+      </div>
+
+      {/* Navegação de etapas */}
+      {!doc.arquivo_url && etapas.length > 1 && (
+        <div className="bg-white border-t border-gray-200 flex items-center gap-3 px-4 py-3 flex-shrink-0">
+          <button
+            onClick={() => setEtapaIdx(Math.max(0, etapaIdx - 1))}
+            disabled={etapaIdx === 0}
+            className="flex-1 py-2.5 text-sm font-medium border border-gray-200 rounded-xl disabled:opacity-40 hover:bg-gray-50 transition-colors">
+            ← Anterior
+          </button>
+
+          {/* Indicadores */}
+          <div className="flex gap-1">
+            {etapas.map((_, i) => (
+              <button key={i} onClick={() => setEtapaIdx(i)}
+                className={`w-2 h-2 rounded-full transition-colors ${i === etapaIdx ? 'bg-orange-500' : 'bg-gray-200'}`} />
+            ))}
+          </div>
+
+          <button
+            onClick={() => setEtapaIdx(Math.min(etapas.length - 1, etapaIdx + 1))}
+            disabled={etapaIdx === etapas.length - 1}
+            className="flex-1 py-2.5 text-sm font-medium bg-orange-500 text-white rounded-xl disabled:opacity-40 hover:bg-orange-600 transition-colors">
+            Próxima →
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── ChecklistCard ────────────────────────────────────────────────────────────
+
+function ChecklistCard({ checklist, onClick }: { checklist: Checklist; onClick: () => void }) {
+  return (
+    <button onClick={onClick}
+      className="w-full text-left bg-white border border-gray-200 rounded-xl px-4 py-4 flex items-center gap-3 hover:border-orange-300 hover:shadow-sm active:scale-[0.99] transition-all">
+      <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center flex-shrink-0">
+        <CheckSquare size={18} className="text-orange-500" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-semibold text-gray-800 text-sm leading-snug">{checklist.nome}</p>
+        {checklist.descricao && <p className="text-xs text-gray-400 mt-0.5 truncate">{checklist.descricao}</p>}
+        <p className="text-xs text-gray-400 mt-0.5">
+          {checklist.total_atividades} {checklist.total_atividades === 1 ? 'atividade' : 'atividades'}
+        </p>
+      </div>
+      <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
+    </button>
+  )
+}
+
+// ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function OperacaoPage() {
   const { unidadeAtiva } = useSession()
   const router = useRouter()
+  const [aba, setAba] = useState<Aba>('checklists')
   const [grupos, setGrupos] = useState<GrupoAgrupado[]>([])
   const [semGrupo, setSemGrupo] = useState<Checklist[]>([])
   const [itensWorkflow, setItensWorkflow] = useState<ItemWorkflowLiberado[]>([])
@@ -47,147 +630,77 @@ export default function OperacaoPage() {
 
   useEffect(() => {
     if (!unidadeAtiva?.id) { setLoading(false); return }
-    carregar()
+    carregarChecklists()
   }, [unidadeAtiva?.id])
 
-  async function carregar() {
+  async function carregarChecklists() {
     setLoading(true)
     const sb = createClient()
 
-    // Checklists publicados da unidade
     const { data } = await sb
       .from('checklists')
-      .select(`
-        id, nome, descricao, subgrupo_id,
-        subgrupo:subgrupo_id (
-          id, nome,
-          grupo:grupo_id ( id, nome )
-        )
-      `)
+      .select(`id, nome, descricao, subgrupo_id, subgrupo:subgrupo_id(id, nome, grupo:grupo_id(id, nome))`)
       .eq('unidade_id', unidadeAtiva!.id)
       .eq('status', 'publicado')
       .order('nome')
 
     if (data) {
-      // Batch: conta atividades de todos os checklists de uma vez (sem N+1)
       const ids = data.map((c: any) => c.id)
       const { data: counts } = ids.length
-        ? await sb.from('checklist_atividades')
-            .select('checklist_id')
-            .in('checklist_id', ids)
-            .is('atividade_pai_id', null)
+        ? await sb.from('checklist_atividades').select('checklist_id').in('checklist_id', ids).is('atividade_pai_id', null)
         : { data: [] }
 
       const countMap: Record<string, number> = {}
-      for (const row of (counts ?? [])) {
-        countMap[row.checklist_id] = (countMap[row.checklist_id] ?? 0) + 1
-      }
+      for (const row of (counts ?? [])) countMap[row.checklist_id] = (countMap[row.checklist_id] ?? 0) + 1
 
       const comContagem: Checklist[] = data.map((c: any) => {
         const sub = Array.isArray(c.subgrupo) ? c.subgrupo[0] : c.subgrupo
         const grp = sub ? (Array.isArray(sub.grupo) ? sub.grupo[0] : sub.grupo) : null
-        return {
-          id: c.id,
-          nome: c.nome,
-          descricao: c.descricao,
-          total_atividades: countMap[c.id] ?? 0,
-          subgrupo_id: sub?.id ?? null,
-          subgrupo_nome: sub?.nome ?? null,
-          grupo_id: grp?.id ?? null,
-          grupo_nome: grp?.nome ?? null,
-        }
+        return { id: c.id, nome: c.nome, descricao: c.descricao, total_atividades: countMap[c.id] ?? 0,
+          subgrupo_id: sub?.id ?? null, subgrupo_nome: sub?.nome ?? null, grupo_id: grp?.id ?? null, grupo_nome: grp?.nome ?? null }
       })
 
       const gruposMap = new Map<string, GrupoAgrupado>()
       const semGrupoList: Checklist[] = []
-
       for (const cl of comContagem) {
         if (!cl.grupo_id) { semGrupoList.push(cl); continue }
-        if (!gruposMap.has(cl.grupo_id)) {
-          gruposMap.set(cl.grupo_id, { id: cl.grupo_id, nome: cl.grupo_nome!, subgrupos: [] })
-        }
+        if (!gruposMap.has(cl.grupo_id)) gruposMap.set(cl.grupo_id, { id: cl.grupo_id, nome: cl.grupo_nome!, subgrupos: [] })
         const grupo = gruposMap.get(cl.grupo_id)!
         const subId = cl.subgrupo_id ?? '__sem__'
         let sub = grupo.subgrupos.find(s => s.id === subId)
-        if (!sub) {
-          sub = { id: cl.subgrupo_id, nome: cl.subgrupo_nome, checklists: [] }
-          grupo.subgrupos.push(sub)
-        }
+        if (!sub) { sub = { id: cl.subgrupo_id, nome: cl.subgrupo_nome, checklists: [] }; grupo.subgrupos.push(sub) }
         sub.checklists.push(cl)
       }
-
       setGrupos(Array.from(gruposMap.values()))
       setSemGrupo(semGrupoList)
     }
 
-    // Itens de workflow liberados para esta unidade
-    await carregarItensWorkflow(sb)
+    // Workflow items
+    const { data: wfItems } = await sb.from('workflow_item_execucoes').select(`
+      id, estagio_item_id,
+      workflow_execucao:workflow_execucao_id(id, unidade_id, workflow:workflow_id(nome)),
+      item:estagio_item_id(checklist_id, subgrupo_id, checklist:checklist_id(nome), subgrupo:subgrupo_id(nome), estagio:estagio_id(nome))
+    `).eq('status', 'liberado')
 
+    if (wfItems) {
+      const liberados: ItemWorkflowLiberado[] = []
+      for (const wie of wfItems) {
+        const exec = Array.isArray(wie.workflow_execucao) ? wie.workflow_execucao[0] : wie.workflow_execucao
+        if (!exec || exec.unidade_id !== unidadeAtiva!.id) continue
+        const item = Array.isArray(wie.item) ? wie.item[0] : wie.item
+        if (!item) continue
+        const wf = Array.isArray(exec.workflow) ? exec.workflow[0] : exec.workflow
+        const cl = Array.isArray(item.checklist) ? item.checklist[0] : item.checklist
+        const sg = Array.isArray(item.subgrupo) ? item.subgrupo[0] : item.subgrupo
+        const est = Array.isArray(item.estagio) ? item.estagio[0] : item.estagio
+        liberados.push({ item_execucao_id: wie.id, checklist_id: item.checklist_id,
+          checklist_nome: cl?.nome ?? '—', workflow_nome: wf?.nome ?? '—',
+          estagio_nome: est?.nome ?? '—', subgrupo_nome: sg?.nome ?? null })
+      }
+      setItensWorkflow(liberados)
+    }
     setLoading(false)
   }
-
-  async function carregarItensWorkflow(sb: ReturnType<typeof createClient>) {
-    // Busca itens liberados de workflow para esta unidade (sem subgrupo específico ou qualquer)
-    const { data: wfItems } = await sb
-      .from('workflow_item_execucoes')
-      .select(`
-        id,
-        estagio_item_id,
-        workflow_execucao:workflow_execucao_id (
-          id,
-          unidade_id,
-          workflow:workflow_id ( nome )
-        ),
-        item:estagio_item_id (
-          checklist_id,
-          subgrupo_id,
-          checklist:checklist_id ( nome ),
-          subgrupo:subgrupo_id ( nome ),
-          estagio:estagio_id ( nome )
-        )
-      `)
-      .eq('status', 'liberado')
-
-    if (!wfItems) return
-
-    const liberados: ItemWorkflowLiberado[] = []
-    for (const wie of wfItems) {
-      const exec = Array.isArray(wie.workflow_execucao) ? wie.workflow_execucao[0] : wie.workflow_execucao
-      if (!exec || exec.unidade_id !== unidadeAtiva!.id) continue
-
-      const item = Array.isArray(wie.item) ? wie.item[0] : wie.item
-      if (!item) continue
-
-      const wf = Array.isArray(exec.workflow) ? exec.workflow[0] : exec.workflow
-      const cl = Array.isArray(item.checklist) ? item.checklist[0] : item.checklist
-      const sg = Array.isArray(item.subgrupo) ? item.subgrupo[0] : item.subgrupo
-      const est = Array.isArray(item.estagio) ? item.estagio[0] : item.estagio
-
-      liberados.push({
-        item_execucao_id: wie.id,
-        checklist_id: item.checklist_id,
-        checklist_nome: cl?.nome ?? '—',
-        workflow_nome: wf?.nome ?? '—',
-        estagio_nome: est?.nome ?? '—',
-        subgrupo_nome: sg?.nome ?? null,
-      })
-    }
-    setItensWorkflow(liberados)
-  }
-
-  function filtrar(cls: Checklist[]) {
-    if (!busca.trim()) return cls
-    return cls.filter(c => c.nome.toLowerCase().includes(busca.toLowerCase()))
-  }
-
-  if (loading) return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="text-center">
-        <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-sm text-gray-500">Carregando checklists...</p>
-      </div>
-    </div>
-  )
 
   if (!unidadeAtiva) return (
     <div className="flex items-center justify-center min-h-[60vh] px-6">
@@ -199,147 +712,44 @@ export default function OperacaoPage() {
     </div>
   )
 
-  const temConteudo = grupos.length > 0 || semGrupo.length > 0
-
-  if (!temConteudo && itensWorkflow.length === 0) return (
-    <div className="flex items-center justify-center min-h-[60vh] px-6">
-      <div className="text-center">
-        <CheckSquare size={48} className="text-gray-200 mx-auto mb-4" />
-        <p className="text-gray-500 font-medium">Nenhum checklist disponível</p>
-        <p className="text-sm text-gray-400 mt-1">Não há checklists publicados para esta unidade.</p>
-      </div>
-    </div>
-  )
-
-  const gruposFiltrados = grupos.map(g => ({
-    ...g,
-    subgrupos: g.subgrupos.map(s => ({ ...s, checklists: filtrar(s.checklists) })).filter(s => s.checklists.length > 0),
-  })).filter(g => g.subgrupos.length > 0)
-
-  const semGrupoFiltrado = filtrar(semGrupo)
-  const semResultado = busca && gruposFiltrados.length === 0 && semGrupoFiltrado.length === 0
+  const ABAS: { id: Aba; label: string; icon: React.ReactNode }[] = [
+    { id: 'checklists', label: 'Checklists',  icon: <CheckSquare size={15} /> },
+    { id: 'historico',  label: 'Histórico',   icon: <History size={15} /> },
+    { id: 'documentos', label: 'Documentos',  icon: <FileText size={15} /> },
+  ]
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 pb-16">
-      {/* Itens de workflow liberados */}
-      {itensWorkflow.length > 0 && (
-        <section className="mb-8">
-          <div className="flex items-center gap-2 mb-3">
-            <GitBranch size={16} className="text-violet-500" />
-            <h2 className="text-base font-bold text-gray-800">Workflows em andamento</h2>
-            <span className="text-xs bg-violet-100 text-violet-600 font-semibold px-2 py-0.5 rounded-full">
-              {itensWorkflow.length}
-            </span>
-          </div>
-          <div className="space-y-2">
-            {itensWorkflow.map(item => (
-              <button
-                key={item.item_execucao_id}
-                onClick={() => router.push(`/operacao/${item.checklist_id}?wf_item=${item.item_execucao_id}`)}
-                className="w-full text-left bg-violet-50 border border-violet-200 rounded-xl px-4 py-3.5 flex items-center gap-3 hover:border-violet-400 hover:shadow-sm active:scale-[0.99] transition-all"
-              >
-                <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Play size={16} className="text-violet-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-800 text-sm leading-snug">{item.checklist_nome}</p>
-                  <p className="text-xs text-violet-600 mt-0.5">
-                    {item.workflow_nome} · {item.estagio_nome}
-                  </p>
-                  {item.subgrupo_nome && (
-                    <p className="text-xs text-gray-400 mt-0.5">{item.subgrupo_nome}</p>
-                  )}
-                </div>
-                <ChevronRight size={16} className="text-violet-300 flex-shrink-0" />
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Busca */}
-      <div className="relative mb-6">
-        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input
-          value={busca}
-          onChange={e => setBusca(e.target.value)}
-          placeholder="Buscar checklist..."
-          className="w-full pl-10 pr-4 py-3 text-sm bg-white border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
-        />
-      </div>
-
-      {semResultado && (
-        <div className="text-center py-12">
-          <p className="text-gray-400 text-sm">Nenhum resultado para "{busca}"</p>
-        </div>
-      )}
-
-      {/* Checklists por grupo */}
-      {gruposFiltrados.map(grupo => (
-        <section key={grupo.id} className="mb-8">
-          <div className="flex items-center gap-2 mb-3">
-            <Layers size={16} className="text-orange-400" />
-            <h2 className="text-base font-bold text-gray-800">{grupo.nome}</h2>
-          </div>
-
-          {grupo.subgrupos.map(sub => (
-            <div key={sub.id ?? 'sem'} className="mb-4">
-              {sub.nome && (
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">
-                  {sub.nome}
-                </p>
-              )}
-              <div className="space-y-2">
-                {sub.checklists.map(cl => (
-                  <ChecklistCard key={cl.id} checklist={cl}
-                    onClick={() => router.push(`/operacao/${cl.id}`)} />
-                ))}
-              </div>
-            </div>
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-16">
+      {/* Abas */}
+      <div className="sticky top-14 z-20 bg-gray-50 pt-4 pb-3">
+        <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
+          {ABAS.map(a => (
+            <button key={a.id} onClick={() => setAba(a.id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium rounded-lg transition-all ${
+                aba === a.id
+                  ? 'bg-orange-500 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}>
+              {a.icon}{a.label}
+            </button>
           ))}
-        </section>
-      ))}
+        </div>
+      </div>
 
-      {/* Sem grupo */}
-      {semGrupoFiltrado.length > 0 && (
-        <section className="mb-8">
-          {grupos.length > 0 && (
-            <div className="flex items-center gap-2 mb-3">
-              <CheckSquare size={16} className="text-gray-400" />
-              <h2 className="text-base font-bold text-gray-800">Outros</h2>
-            </div>
+      {loading && aba === 'checklists' ? (
+        <div className="flex items-center justify-center min-h-[40vh]">
+          <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <>
+          {aba === 'checklists' && (
+            <AbaChecklists grupos={grupos} semGrupo={semGrupo}
+              itensWorkflow={itensWorkflow} busca={busca} setBusca={setBusca} />
           )}
-          <div className="space-y-2">
-            {semGrupoFiltrado.map(cl => (
-              <ChecklistCard key={cl.id} checklist={cl}
-                onClick={() => router.push(`/operacao/${cl.id}`)} />
-            ))}
-          </div>
-        </section>
+          {aba === 'historico' && <AbaHistorico unidadeId={unidadeAtiva.id} />}
+          {aba === 'documentos' && <AbaDocumentos unidadeId={unidadeAtiva.id} />}
+        </>
       )}
     </div>
-  )
-}
-
-function ChecklistCard({ checklist, onClick }: { checklist: Checklist; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full text-left bg-white border border-gray-200 rounded-xl px-4 py-4 flex items-center gap-3 hover:border-orange-300 hover:shadow-sm active:scale-[0.99] transition-all"
-    >
-      <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center flex-shrink-0">
-        <CheckSquare size={18} className="text-orange-500" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-gray-800 text-sm leading-snug">{checklist.nome}</p>
-        {checklist.descricao && (
-          <p className="text-xs text-gray-400 mt-0.5 truncate">{checklist.descricao}</p>
-        )}
-        <p className="text-xs text-gray-400 mt-0.5">
-          {checklist.total_atividades} {checklist.total_atividades === 1 ? 'atividade' : 'atividades'}
-        </p>
-      </div>
-      <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
-    </button>
   )
 }
