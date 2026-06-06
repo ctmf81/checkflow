@@ -110,8 +110,10 @@ export async function whatsappRoutes(app: FastifyInstance) {
         const inst = Array.isArray(fetchJson) ? fetchJson[0] : fetchJson
         debugSteps[`passo_poll_${i + 1}`] = {
           status: fetchRes.status,
-          instanceState: inst?.instance?.state,
+          raw: i === 0 ? fetchJson : undefined,  // raw completo só na 1ª tentativa
+          instanceState: inst?.instance?.state ?? inst?.state,
           hasQr: !!inst?.qrcode?.base64,
+          keys: inst ? Object.keys(inst) : [],
         }
         qrDoConnect = normalizeQr(inst?.qrcode?.base64 ?? inst?.base64)
         if (qrDoConnect) { qrJson = inst; break }
