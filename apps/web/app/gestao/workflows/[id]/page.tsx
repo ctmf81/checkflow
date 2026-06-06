@@ -46,7 +46,8 @@ interface ChecklistDisponivel {
   subgrupo_nome: string | null
 }
 
-interface Subgrupo { id: string; nome: string }
+interface Subgrupo { id: string; nome: string; grupo_id: string }
+interface Grupo { id: string; nome: string }
 
 function PickerModal({
   unidadeId,
@@ -58,9 +59,11 @@ function PickerModal({
   onClose: () => void
 }) {
   const [checklists, setChecklists]   = useState<ChecklistDisponivel[]>([])
+  const [grupos, setGrupos]           = useState<Grupo[]>([])
   const [subgrupos, setSubgrupos]     = useState<Subgrupo[]>([])
   const [busca, setBusca]             = useState('')
   const [selecionado, setSelecionado] = useState<ChecklistDisponivel | null>(null)
+  const [grupoId, setGrupoId]         = useState<string>('')
   const [subgrupoId, setSubgrupoId]   = useState<string>('')
   const [loading, setLoading]         = useState(true)
 
@@ -72,26 +75,72 @@ function PickerModal({
         .eq('unidade_id', unidadeId)
         .eq('status', 'publicado')
         .order('nome'),
-      sb.from('subgrupos')
+      sb.from('grupos')
         .select('id, nome')
+        .eq('unidade_id', unidadeId)
         .eq('status', 'ativo')
         .order('nome'),
-    ]).then(([clRes, sgRes]) => {
+      sb.from('subgrupos')
+        .select('id, nome, grupo_id, grupo:grupo_id(unidade_id)')
+        .eq('status', 'ativo')
+        .order('nome'),
+      sb.auth.getUser(),
+    ]).then(async ([clRes, grRes, sgRes, userRes]) => {
       const cls = (clRes.data ?? []).map((c: any) => {
         const sg = Array.isArray(c.subgrupo) ? c.subgrupo[0] : c.subgrupo
         return { id: c.id, nome: c.nome, subgrupo_id: sg?.id ?? null, subgrupo_nome: sg?.nome ?? null }
       })
+      const sgs = (sgRes.data ?? [])
+        .map((s: any) => {
+          const gr = Array.isArray(s.grupo) ? s.grupo[0] : s.grupo
+          return { id: s.id, nome: s.nome, grupo_id: s.grupo_id, _unidade_id: gr?.unidade_id }
+        })
+        .filter((s: any) => s._unidade_id === unidadeId)
+        .map(({ _unidade_id, ...s }: any) => s)
+
       setChecklists(cls)
-      setSubgrupos(sgRes.data ?? [])
+      setGrupos(grRes.data ?? [])
+      setSubgrupos(sgs)
       setLoading(false)
+
+      // Pré-seleciona o grupo/subgrupo atual do usuário (primeiro vínculo encontrado nesta unidade)
+      const userId = userRes?.data?.user?.id
+      if (userId) {
+        const { data: meu } = await sb
+          .from('usuario_subgrupo')
+          .select('subgrupo_id, subgrupo:subgrupo_id(id, grupo_id, grupo:grupo_id(unidade_id))')
+          .eq('usuario_id', userId)
+        const meuNaUnidade = (meu ?? []).find((m: any) => {
+          const sg = Array.isArray(m.subgrupo) ? m.subgrupo[0] : m.subgrupo
+          const gr = sg ? (Array.isArray(sg.grupo) ? sg.grupo[0] : sg.grupo) : null
+          return gr?.unidade_id === unidadeId
+        })
+        if (meuNaUnidade) {
+          const sg = Array.isArray(meuNaUnidade.subgrupo) ? meuNaUnidade.subgrupo[0] : meuNaUnidade.subgrupo
+          if (sg) {
+            setGrupoId(sg.grupo_id)
+            setSubgrupoId(sg.id)
+          }
+        }
+      }
     })
   }, [unidadeId])
 
-  // Quando seleciona um checklist, pré-preenche o subgrupo dele
+  // Quando seleciona um checklist, pré-preenche o subgrupo dele (e o grupo correspondente)
   function selecionar(cl: ChecklistDisponivel) {
     setSelecionado(cl)
+    if (cl.subgrupo_id) {
+      const sg = subgrupos.find(s => s.id === cl.subgrupo_id)
+      if (sg) {
+        setGrupoId(sg.grupo_id)
+        setSubgrupoId(sg.id)
+        return
+      }
+    }
     setSubgrupoId(cl.subgrupo_id ?? '')
   }
+
+  const subgruposDoGrupo = subgrupos.filter(s => s.grupo_id === grupoId)
 
   function confirmar() {
     if (!selecionado) return
@@ -170,20 +219,36 @@ function PickerModal({
 
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                  Quem executa este checklist neste estágio?
+                  Grupo
                 </label>
                 <div className="relative">
-                  <select value={subgrupoId} onChange={e => setSubgrupoId(e.target.value)}
+                  <select value={grupoId} onChange={e => { setGrupoId(e.target.value); setSubgrupoId('') }}
                     className="w-full appearance-none px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-200 bg-white pr-8">
+                    <option value="">Selecione um grupo</option>
+                    {grupos.map(g => (
+                      <option key={g.id} value={g.id}>{g.nome}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                  Quem executa este checklist neste estágio? (subgrupo)
+                </label>
+                <div className="relative">
+                  <select value={subgrupoId} onChange={e => setSubgrupoId(e.target.value)} disabled={!grupoId}
+                    className="w-full appearance-none px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-200 bg-white pr-8 disabled:opacity-50">
                     <option value="">Sem subgrupo específico</option>
-                    {subgrupos.map(s => (
+                    {subgruposDoGrupo.map(s => (
                       <option key={s.id} value={s.id}>{s.nome}</option>
                     ))}
                   </select>
                   <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
-                  Define qual área/equipe verá este checklist na tela de operações.
+                  Define qual área/equipe verá este checklist na tela de operações. Por padrão, vem marcado o grupo e subgrupo atuais do criador — você pode trocar para qualquer outro da unidade.
                 </p>
               </div>
             </div>
