@@ -8,7 +8,7 @@ import {
   ArrowLeft, ChevronDown, ChevronUp, CheckCircle2, XCircle,
   Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine,
   CalendarDays, MapPin, AlertCircle, Send, Clock, Locate, Search,
-  QrCode, X, ImagePlus, Video, AlertTriangle
+  QrCode, X, ImagePlus, Video, AlertTriangle, GitBranch
 } from 'lucide-react'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -805,6 +805,14 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   const [salvando, setSalvando] = useState(false)
   const [erroFinalizar, setErroFinalizar] = useState<string | null>(null)
   const [concluido, setConcluido] = useState(false)
+  const [resultadoFinal, setResultadoFinal] = useState<'aprovado' | 'reprovado' | null>(null)
+  // ID do item de workflow que originou esta execução (vem via ?wf_item=)
+  const [wfItemId, setWfItemId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    setWfItemId(params.get('wf_item'))
+  }, [])
 
   useEffect(() => { carregar() }, [id])
 
@@ -945,19 +953,36 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     const expiracao = new Date(agora)
     expiracao.setMonth(expiracao.getMonth() + (checklist.tempo_guarda_meses ?? 12))
 
+    // Calcula resultado global: reprovado se qualquer atividade estiver não conforme
+    const naoConformes = visiveis.filter(a => calcularValidacao({ ...a, resposta: respostas[a.id] }) === false)
+    const resultado: 'aprovado' | 'reprovado' = naoConformes.length > 0 ? 'reprovado' : 'aprovado'
+
     // Insere header da execução
+    // Se vier de workflow: insere como 'em_andamento' para poder linkar antes de concluir
+    const statusInicial = wfItemId ? 'em_andamento' : 'concluido'
     const { data: execucao, error: execErr } = await sb.from('checklist_execucoes').insert({
       checklist_id: checklist.id,
       unidade_id: unidadeAtiva.id,
       executado_por: user?.id ?? null,
       data_execucao: agora.toISOString(),
       data_expiracao: expiracao.toISOString().split('T')[0],
-      status: 'concluido',
+      status: statusInicial,
+      resultado: wfItemId ? null : resultado, // resultado definido depois para workflow (trigger cuida)
     }).select('id').single()
 
     if (execErr || !execucao) { setSalvando(false); setErroFinalizar('Erro ao salvar execução. Tente novamente.'); return }
 
     const execId = execucao.id
+
+    // Se veio de workflow: linka o item de workflow antes de concluir
+    // O trigger trg_workflow_checklist_concluido busca por checklist_execucao_id = new.id
+    if (wfItemId) {
+      await sb.from('workflow_item_execucoes').update({
+        checklist_execucao_id: execId,
+        status: 'em_andamento',
+        iniciado_em: agora.toISOString(),
+      }).eq('id', wfItemId)
+    }
 
     // Faz upload de arquivos (foto e vídeo) e obtém URLs permanentes
     async function uploadArquivo(file: File, atividadeId: string, ext: string): Promise<string | null> {
@@ -992,7 +1017,16 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
 
     await sb.from('checklist_execucao_respostas').insert(linhasRespostas)
 
+    // Se vier de workflow: atualiza para 'concluido' com resultado → dispara trigger de avanço
+    if (wfItemId) {
+      await sb.from('checklist_execucoes').update({
+        status: 'concluido',
+        resultado,
+      }).eq('id', execId)
+    }
+
     setSalvando(false)
+    setResultadoFinal(resultado)
     setConcluido(true)
   }
 
@@ -1014,21 +1048,30 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     </div>
   )
 
-  if (concluido) return (
-    <div className="flex items-center justify-center min-h-[80vh] px-6">
-      <div className="text-center">
-        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <CheckCircle2 size={40} className="text-green-500" />
+  if (concluido) {
+    const aprovado = resultadoFinal === 'aprovado'
+    return (
+      <div className="flex items-center justify-center min-h-[80vh] px-6">
+        <div className="text-center">
+          <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 ${aprovado ? 'bg-green-100' : 'bg-red-100'}`}>
+            {aprovado
+              ? <CheckCircle2 size={40} className="text-green-500" />
+              : <XCircle size={40} className="text-red-500" />}
+          </div>
+          <h2 className="text-xl font-bold text-gray-800 mb-1">Checklist concluído!</h2>
+          <span className={`inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full mb-4 ${aprovado ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+            {aprovado ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+            {aprovado ? 'Aprovado' : 'Reprovado'}
+          </span>
+          <p className="text-sm text-gray-500 mb-6">Execução registrada com sucesso.</p>
+          <button onClick={() => router.push('/operacao')}
+            className="bg-orange-500 text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-orange-600 transition-colors">
+            Voltar aos checklists
+          </button>
         </div>
-        <h2 className="text-xl font-bold text-gray-800 mb-2">Checklist concluído!</h2>
-        <p className="text-sm text-gray-500 mb-6">Execução registrada com sucesso.</p>
-        <button onClick={() => router.push('/operacao')}
-          className="bg-orange-500 text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-orange-600 transition-colors">
-          Voltar aos checklists
-        </button>
       </div>
-    </div>
-  )
+    )
+  }
 
   if (!checklist) return null
 
@@ -1057,6 +1100,12 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
         </div>
       </div>
 
+      {wfItemId && (
+        <div className="px-4 sm:px-6 py-2.5 bg-violet-50 border-b border-violet-100 flex items-center gap-2">
+          <GitBranch size={13} className="text-violet-500 flex-shrink-0" />
+          <p className="text-xs text-violet-700 font-medium">Execução vinculada a um workflow</p>
+        </div>
+      )}
       {checklist.descricao && (
         <div className="px-4 sm:px-6 py-3 bg-blue-50 border-b border-blue-100">
           <p className="text-xs text-blue-700">{checklist.descricao}</p>
