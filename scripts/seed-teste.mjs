@@ -22,11 +22,11 @@
 
 import { createClient } from '@supabase/supabase-js'
 
-const URL = process.env.SUPABASE_URL
-const KEY = process.env.SUPABASE_SERVICE_KEY
+const URL = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
+const KEY = process.env.SUPABASE_SERVICE_KEY ?? process.env.SUPABASE_SECRET_KEY
 
 if (!URL || !KEY) {
-  console.error('❌  Defina SUPABASE_URL e SUPABASE_SERVICE_KEY')
+  console.error('❌  Defina SUPABASE_URL e SUPABASE_SERVICE_KEY (ou SUPABASE_SECRET_KEY)')
   process.exit(1)
 }
 
@@ -59,59 +59,54 @@ async function criarUsuario(email, nome, cpf) {
   return existing.id
 }
 
+// ─── Helpers de insert-or-select ──────────────────────────────────────────────
+
+async function findOrCreate(tabela, filtros, dados) {
+  // Tenta buscar existente primeiro
+  let q = sb.from(tabela).select('id')
+  for (const [k, v] of Object.entries(filtros)) q = q.eq(k, v)
+  const { data: existente } = await q.single()
+  if (existente) return existente
+
+  // Cria
+  const { data: criado, error } = await sb.from(tabela).insert(dados).select('id').single()
+  if (error) {
+    // Race condition: tenta buscar de novo
+    let q2 = sb.from(tabela).select('id')
+    for (const [k, v] of Object.entries(filtros)) q2 = q2.eq(k, v)
+    const { data: existente2 } = await q2.single()
+    if (existente2) return existente2
+    fail(`${tabela} insert`, error)
+  }
+  return criado
+}
+
 // ─── Seed ─────────────────────────────────────────────────────────────────────
 
 console.log('\n🌱  Iniciando seed de teste...\n')
 
 // 1. Empresa
-let { data: empresa, error: empErr } = await sb.from('empresas')
-  .upsert({ nome: 'Empresa Teste CheckFlow', status: 'ativo' }, { onConflict: 'nome' })
-  .select('id').single()
-if (empErr) {
-  const { data: e } = await sb.from('empresas').select('id').eq('nome', 'Empresa Teste CheckFlow').single()
-  empresa = e
-}
+const empresa = await findOrCreate('empresas', { nome: 'Empresa Teste CheckFlow' }, { nome: 'Empresa Teste CheckFlow', status: 'ativo' })
 ok('Empresa', empresa)
 
 // 2. Unidade
-let { data: unidade, error: unErr } = await sb.from('unidades')
-  .upsert({ empresa_id: empresa.id, nome: 'Unidade Matriz', status: 'ativo' }, { onConflict: 'empresa_id,nome' })
-  .select('id').single()
-if (unErr) {
-  const { data: u } = await sb.from('unidades').select('id').eq('empresa_id', empresa.id).eq('nome', 'Unidade Matriz').single()
-  unidade = u
-}
+const unidade = await findOrCreate('unidades', { empresa_id: empresa.id, nome: 'Unidade Matriz' }, { empresa_id: empresa.id, nome: 'Unidade Matriz', status: 'ativo' })
 ok('Unidade', unidade)
 
 // 3. Grupo
-let { data: grupo, error: grpErr } = await sb.from('grupos')
-  .upsert({ unidade_id: unidade.id, nome: 'Operações', status: 'ativo' }, { onConflict: 'unidade_id,nome' })
-  .select('id').single()
-if (grpErr) {
-  const { data: g } = await sb.from('grupos').select('id').eq('unidade_id', unidade.id).eq('nome', 'Operações').single()
-  grupo = g
-}
+const grupo = await findOrCreate('grupos', { unidade_id: unidade.id, nome: 'Operações' }, { unidade_id: unidade.id, nome: 'Operações', status: 'ativo' })
 ok('Grupo', grupo)
 
 // 4. Subgrupo
-let { data: subgrupo, error: subErr } = await sb.from('subgrupos')
-  .upsert({ grupo_id: grupo.id, nome: 'Turno A', status: 'ativo' }, { onConflict: 'grupo_id,nome' })
-  .select('id').single()
-if (subErr) {
-  const { data: s } = await sb.from('subgrupos').select('id').eq('grupo_id', grupo.id).eq('nome', 'Turno A').single()
-  subgrupo = s
-}
+const subgrupo = await findOrCreate('subgrupos', { grupo_id: grupo.id, nome: 'Turno A' }, { grupo_id: grupo.id, nome: 'Turno A', status: 'ativo' })
 ok('Subgrupo', subgrupo)
 
 // 5. Perfil padrão da empresa
-let { data: perfil } = await sb.from('perfis')
-  .select('id').eq('empresa_id', empresa.id).limit(1).single()
-if (!perfil) {
-  const { data: p } = await sb.from('perfis')
-    .insert({ empresa_id: empresa.id, nome: 'Padrão', permissoes: [] })
-    .select('id').single()
-  perfil = p
-}
+const perfil = await findOrCreate(
+  'perfis',
+  { empresa_id: empresa.id, nome: 'Padrão' },
+  { empresa_id: empresa.id, nome: 'Padrão', descricao: 'Perfil padrão de acesso' }
+)
 ok('Perfil', perfil)
 
 // 6. Usuários
@@ -137,30 +132,19 @@ for (const u of usuarios) {
 
 // 7. Checklist
 console.log('\n📋  Criando checklist...')
-let { data: checklist, error: clErr } = await sb.from('checklists')
-  .upsert({
-    unidade_id: unidade.id,
-    subgrupo_id: subgrupo.id,
-    nome: 'Inspeção de Equipamentos — Teste',
-    descricao: 'Checklist de teste para validar o fluxo de planos de ação.',
-    status: 'publicado',
-    tempo_guarda_meses: 12,
-  }, { onConflict: 'unidade_id,nome' })
-  .select('id').single()
-if (clErr) {
-  const { data: cl } = await sb.from('checklists').select('id').eq('unidade_id', unidade.id).eq('nome', 'Inspeção de Equipamentos — Teste').single()
-  checklist = cl
-}
+const checklist = await findOrCreate(
+  'checklists',
+  { unidade_id: unidade.id, nome: 'Inspeção de Equipamentos — Teste' },
+  { unidade_id: unidade.id, subgrupo_id: subgrupo.id, nome: 'Inspeção de Equipamentos — Teste', descricao: 'Checklist de teste para validar o fluxo de planos de ação.', status: 'publicado', tempo_guarda_meses: 12 }
+)
 ok('Checklist', checklist)
 
 // 7a. Seção
-let { data: secao } = await sb.from('checklist_secoes')
-  .upsert({ checklist_id: checklist.id, nome: 'Verificações Gerais', ordem: 0 }, { onConflict: 'checklist_id,nome' })
-  .select('id').single()
-if (!secao) {
-  const { data: s } = await sb.from('checklist_secoes').select('id').eq('checklist_id', checklist.id).single()
-  secao = s
-}
+const secao = await findOrCreate(
+  'checklist_secoes',
+  { checklist_id: checklist.id, nome: 'Verificações Gerais' },
+  { checklist_id: checklist.id, nome: 'Verificações Gerais', ordem: 0 }
+)
 ok('Seção', secao)
 
 // 7b. Atividades
@@ -204,19 +188,11 @@ const atividades = [
 ]
 
 for (const atv of atividades) {
-  let { data: a, error: aErr } = await sb.from('checklist_atividades')
-    .upsert({
-      checklist_id: checklist.id,
-      secao_id: secao.id,
-      obrigatoria: true,
-      ...atv,
-    }, { onConflict: 'checklist_id,secao_id,nome' })
-    .select('id').single()
-
-  if (aErr) {
-    const { data: ex } = await sb.from('checklist_atividades').select('id').eq('checklist_id', checklist.id).eq('nome', atv.nome).single()
-    a = ex
-  }
+  const a = await findOrCreate(
+    'checklist_atividades',
+    { checklist_id: checklist.id, nome: atv.nome },
+    { checklist_id: checklist.id, secao_id: secao.id, obrigatoria: true, ...atv }
+  )
   ok(`Atividade "${atv.nome}"`, a)
 
   // Opções da múltipla escolha

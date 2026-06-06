@@ -9,7 +9,7 @@ import {
   ArrowLeft, ChevronDown, ChevronUp, CheckCircle2, XCircle,
   Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine,
   CalendarDays, MapPin, AlertCircle, Send, Clock, Locate, Search,
-  QrCode, X, ImagePlus, Video, AlertTriangle, GitBranch, ClipboardList
+  QrCode, X, ImagePlus, Video, AlertTriangle, GitBranch, ClipboardList, Loader2
 } from 'lucide-react'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -45,6 +45,12 @@ interface Secao {
   nome: string
   ordem: number
   atividades: Atividade[]
+}
+
+interface Motivo {
+  id: string
+  descricao: string
+  tipo: 'checklist' | 'atividade'
 }
 
 interface Checklist {
@@ -91,6 +97,7 @@ function ValidacaoTag({ valido }: { valido: boolean | null }) {
 function calcularValidacao(atividade: Atividade): boolean | null {
   const val = atividade.resposta
   if (val === null || val === undefined || val === '') return null
+  if (typeof val === 'object' && val?._nao_executavel) return null
   const cfg = atividade.config ?? {}
 
   if (atividade.tipo === 'sim_nao') {
@@ -923,15 +930,28 @@ function PlanoAcaoModal({ atividade, dadosIniciais, onClose, onConfirmar }: {
 
 // ─── Item de atividade ────────────────────────────────────────────────────────
 
-function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturados, nivel = 0 }: {
+function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturados, motivosAtividade, nivel = 0 }: {
   atividade: Atividade
   onResposta: (id: string, val: any) => void
   onAbrirPlanoAcao: (atv: Atividade) => void
   planosCapturados: Record<string, DadosPlano>
+  motivosAtividade: Motivo[]
   nivel?: number
 }) {
+  const [escolhendoMotivo, setEscolhendoMotivo] = useState(false)
+  const [motivoSel, setMotivoSel] = useState('')
+
   const respondida = atividade.resposta !== undefined && atividade.resposta !== null && atividade.resposta !== ''
+  const naoExecutavel = typeof atividade.resposta === 'object' && atividade.resposta?._nao_executavel
   const validacao = calcularValidacao(atividade)
+
+  function confirmarNaoExecutar() {
+    if (!motivoSel) return
+    const m = motivosAtividade.find(mo => mo.id === motivoSel)
+    onResposta(atividade.id, { _nao_executavel: true, motivo_id: motivoSel, motivo_descricao: m?.descricao ?? '' })
+    setEscolhendoMotivo(false)
+    setMotivoSel('')
+  }
 
   const dependentesVisiveis = (atividade.dependentes ?? []).filter(dep => {
     if (!dep.valor_gatilho) return true
@@ -961,7 +981,43 @@ function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturad
             <CheckCircle2 size={18} className="text-green-500 flex-shrink-0 mt-0.5" />
           )}
         </div>
-        <CampoResposta atividade={atividade} onChange={val => onResposta(atividade.id, val)} />
+        {naoExecutavel ? (
+          <div className="flex items-start gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5">
+            <AlertTriangle size={14} className="text-gray-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-xs font-medium text-gray-600">Não executado</p>
+              <p className="text-xs text-gray-500 mt-0.5">Motivo: {atividade.resposta.motivo_descricao}</p>
+            </div>
+            <button onClick={() => onResposta(atividade.id, undefined)}
+              className="text-xs text-gray-400 hover:text-gray-600 underline flex-shrink-0">Desfazer</button>
+          </div>
+        ) : (
+          <CampoResposta atividade={atividade} onChange={val => onResposta(atividade.id, val)} />
+        )}
+
+        {/* Não consigo executar esta atividade */}
+        {!naoExecutavel && atividade.obrigatoria && motivosAtividade.length > 0 && (
+          <div className="mt-2">
+            {escolhendoMotivo ? (
+              <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
+                <select value={motivoSel} onChange={e => setMotivoSel(e.target.value)}
+                  className="flex-1 text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-orange-200">
+                  <option value="">Selecione o motivo...</option>
+                  {motivosAtividade.map(m => <option key={m.id} value={m.id}>{m.descricao}</option>)}
+                </select>
+                <button onClick={confirmarNaoExecutar} disabled={!motivoSel}
+                  className="text-xs font-medium text-orange-600 disabled:opacity-40 flex-shrink-0">Confirmar</button>
+                <button onClick={() => { setEscolhendoMotivo(false); setMotivoSel('') }}
+                  className="text-xs text-gray-400 hover:text-gray-600 flex-shrink-0">Cancelar</button>
+              </div>
+            ) : (
+              <button onClick={() => setEscolhendoMotivo(true)}
+                className="text-xs text-gray-400 hover:text-orange-500 underline transition-colors">
+                Não consigo executar esta atividade
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Botão plano de ação — aparece quando validação falha e atividade tem gera_plano_acao */}
         {validacao === false && atividade.gera_plano_acao && (
@@ -984,7 +1040,8 @@ function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturad
       </div>
       {dependentesVisiveis.map(dep => (
         <AtividadeItem key={dep.id} atividade={dep} onResposta={onResposta}
-          onAbrirPlanoAcao={onAbrirPlanoAcao} planosCapturados={planosCapturados} nivel={nivel + 1} />
+          onAbrirPlanoAcao={onAbrirPlanoAcao} planosCapturados={planosCapturados}
+          motivosAtividade={motivosAtividade} nivel={nivel + 1} />
       ))}
     </div>
   )
@@ -1011,6 +1068,13 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   const [modalPlanoAtividade, setModalPlanoAtividade] = useState<Atividade | null>(null)
   // ID do item de workflow que originou esta execução (vem via ?wf_item=)
   const [wfItemId, setWfItemId] = useState<string | null>(null)
+  // Motivos de não execução associados ao checklist (separados por tipo)
+  const [motivosChecklist, setMotivosChecklist] = useState<Motivo[]>([])
+  const [motivosAtividade, setMotivosAtividade] = useState<Motivo[]>([])
+  const [naoExecModal, setNaoExecModal] = useState(false)
+  const [motivoChecklistSel, setMotivoChecklistSel] = useState('')
+  const [obsNaoExec, setObsNaoExec] = useState('')
+  const [enviandoNaoExec, setEnviandoNaoExec] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -1080,6 +1144,20 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
 
     setSecoes(secoesComAtv)
     if (secoesComAtv.length > 0) setSecaoAberta(secoesComAtv[0].id)
+
+    // Carrega motivos de não execução associados a este checklist
+    const { data: motivosVinculo } = await sb
+      .from('checklist_nao_execucao_motivos')
+      .select('motivo:motivo_id(id, descricao, tipo)')
+      .eq('checklist_id', id)
+    if (motivosVinculo) {
+      const todos: Motivo[] = motivosVinculo
+        .map((m: any) => Array.isArray(m.motivo) ? m.motivo[0] : m.motivo)
+        .filter(Boolean)
+      setMotivosChecklist(todos.filter(m => m.tipo === 'checklist'))
+      setMotivosAtividade(todos.filter(m => m.tipo === 'atividade'))
+    }
+
     setLoading(false)
   }
 
@@ -1136,6 +1214,35 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   // Limite de tamanho para uploads
   const MAX_FOTO_MB = 10
   const MAX_VIDEO_MB = 100
+
+  // Registra que o checklist inteiro não pôde ser executado, com motivo selecionado
+  async function naoExecutarChecklist() {
+    if (!unidadeAtiva || !checklist || !motivoChecklistSel) return
+    setEnviandoNaoExec(true)
+    const sb = createClient()
+    const { data: { user } } = await sb.auth.getUser()
+    if (!user) { setEnviandoNaoExec(false); return }
+
+    const agora = new Date()
+    const expiracao = new Date(agora)
+    expiracao.setMonth(expiracao.getMonth() + (checklist.tempo_guarda_meses ?? 12))
+
+    const { error } = await sb.from('checklist_execucoes').insert({
+      checklist_id: checklist.id,
+      unidade_id: unidadeAtiva.id,
+      executado_por: user.id,
+      data_execucao: agora.toISOString(),
+      data_expiracao: expiracao.toISOString().split('T')[0],
+      status: 'nao_executado',
+      motivo_nao_execucao_id: motivoChecklistSel,
+      motivo_nao_execucao_obs: obsNaoExec.trim() || null,
+    })
+
+    setEnviandoNaoExec(false)
+    if (error) { setErroFinalizar('Erro ao registrar não execução. Tente novamente.'); return }
+    setNaoExecModal(false)
+    router.push('/operacao')
+  }
 
   async function finalizar() {
     if (!unidadeAtiva || !checklist) return
@@ -1432,6 +1539,43 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
         }}
       />
     )}
+    {naoExecModal && (
+      <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-800">Não foi possível executar</h3>
+            <button onClick={() => setNaoExecModal(false)} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
+              <X size={16} />
+            </button>
+          </div>
+          <div className="px-5 py-5 space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Motivo</label>
+              <select value={motivoChecklistSel} onChange={e => setMotivoChecklistSel(e.target.value)}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-200">
+                <option value="">Selecione o motivo...</option>
+                {motivosChecklist.map(m => <option key={m.id} value={m.id}>{m.descricao}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Observação (opcional)</label>
+              <textarea value={obsNaoExec} onChange={e => setObsNaoExec(e.target.value)} rows={3}
+                placeholder="Detalhe o que ocorreu..."
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none" />
+            </div>
+          </div>
+          <div className="px-5 py-4 border-t border-gray-100 flex justify-end gap-2">
+            <button onClick={() => setNaoExecModal(false)}
+              className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancelar</button>
+            <button onClick={naoExecutarChecklist} disabled={!motivoChecklistSel || enviandoNaoExec}
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50">
+              {enviandoNaoExec ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+              Confirmar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     <div className="max-w-2xl mx-auto pb-32">
       {/* Header fixo */}
       <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
@@ -1462,6 +1606,16 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       {checklist.descricao && (
         <div className="px-4 sm:px-6 py-3 bg-blue-50 border-b border-blue-100">
           <p className="text-xs text-blue-700">{checklist.descricao}</p>
+        </div>
+      )}
+
+      {/* Não foi possível executar este checklist */}
+      {motivosChecklist.length > 0 && (
+        <div className="px-4 sm:px-6 pt-3 flex justify-end">
+          <button onClick={() => setNaoExecModal(true)}
+            className="text-xs text-gray-400 hover:text-orange-500 underline transition-colors">
+            Não foi possível executar este checklist
+          </button>
         </div>
       )}
 
@@ -1499,7 +1653,8 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
                     : <div className="space-y-0">
                         {atvsComResp.map(atv => (
                           <AtividadeItem key={atv.id} atividade={atv} onResposta={setResposta}
-                            onAbrirPlanoAcao={setModalPlanoAtividade} planosCapturados={planosCapturados} />
+                            onAbrirPlanoAcao={setModalPlanoAtividade} planosCapturados={planosCapturados}
+                            motivosAtividade={motivosAtividade} />
                         ))}
                       </div>
                   }
