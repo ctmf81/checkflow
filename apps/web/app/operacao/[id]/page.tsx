@@ -1334,6 +1334,15 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     setSalvando(false)
     setResultadoFinal(resultado)
     setConcluido(true)
+
+    // Gera PDF da execução em background (fire-and-forget)
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.access_token) return
+      fetch(`/api/execucoes/${execId}/pdf`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+      }).catch(() => { /* silencioso — PDF pode ser gerado depois */ })
+    })
   }
 
   // ─── Estados de loading / erro / concluído ─────────────────────────────────

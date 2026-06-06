@@ -33,6 +33,8 @@ interface ItemWorkflowLiberado {
 interface Execucao {
   id: string; checklist_nome: string; data_execucao: string
   status: 'em_andamento' | 'concluido' | 'nao_executado'
+  resultado: 'aprovado' | 'reprovado' | null
+  pdf_url: string | null
   executado_por_nome: string | null
   planos: PlanoResumo[]
 }
@@ -196,7 +198,7 @@ function AbaHistorico({ unidadeId }: { unidadeId: string }) {
         // execuções do usuário nesta unidade
         const { data: execs, error: execErr } = await sb
           .from('checklist_execucoes')
-          .select('id, status, data_execucao, checklists(nome)')
+          .select('id, status, resultado, pdf_url, data_execucao, checklists(nome)')
           .eq('unidade_id', unidadeId)
           .eq('executado_por', user.id)
           .order('data_execucao', { ascending: false })
@@ -242,6 +244,8 @@ function AbaHistorico({ unidadeId }: { unidadeId: string }) {
           checklist_nome: (e.checklists as any)?.nome ?? '—',
           data_execucao: e.data_execucao,
           status: e.status,
+          resultado: e.resultado ?? null,
+          pdf_url: e.pdf_url ?? null,
           executado_por_nome: null,
           planos: planosPorExec[e.id] ?? [],
         })))
@@ -288,6 +292,14 @@ function AbaHistorico({ unidadeId }: { unidadeId: string }) {
                 <span className={`flex items-center gap-1 text-xs border font-medium px-2 py-0.5 rounded-full ${st.cor}`}>
                   {st.icon}{st.label}
                 </span>
+                {exec.pdf_url && (
+                  <a href={exec.pdf_url} target="_blank" rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    title="Baixar PDF da execução"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-orange-50 hover:text-orange-500 text-gray-400 transition-colors">
+                    <FileText size={14} />
+                  </a>
+                )}
                 {aberto ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
               </div>
             </button>
