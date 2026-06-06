@@ -7,7 +7,7 @@ alter table checklist_execucoes
   add column if not exists resultado text check (resultado in ('aprovado','reprovado'));
 
 -- Workflow (pertence à empresa, transversal às unidades)
-create table workflows (
+create table if not exists workflows (
   id            uuid primary key default gen_random_uuid(),
   empresa_id    uuid not null references empresas(id) on delete cascade,
   nome          text not null,
@@ -20,7 +20,7 @@ create table workflows (
 );
 
 -- Estágios ordenados (sequenciais entre si)
-create table workflow_estagios (
+create table if not exists workflow_estagios (
   id              uuid primary key default gen_random_uuid(),
   workflow_id     uuid not null references workflows(id) on delete cascade,
   nome            text not null,
@@ -31,7 +31,7 @@ create table workflow_estagios (
 );
 
 -- Checklists dentro de cada estágio (executados em paralelo)
-create table workflow_estagio_itens (
+create table if not exists workflow_estagio_itens (
   id           uuid primary key default gen_random_uuid(),
   estagio_id   uuid not null references workflow_estagios(id) on delete cascade,
   checklist_id uuid not null references checklists(id) on delete cascade,
@@ -41,7 +41,7 @@ create table workflow_estagio_itens (
 );
 
 -- Execução de uma instância do workflow
-create table workflow_execucoes (
+create table if not exists workflow_execucoes (
   id                  uuid primary key default gen_random_uuid(),
   workflow_id         uuid not null references workflows(id) on delete cascade,
   unidade_id          uuid not null references unidades(id),
@@ -54,7 +54,7 @@ create table workflow_execucoes (
 );
 
 -- Estado de cada item dentro de uma execução
-create table workflow_item_execucoes (
+create table if not exists workflow_item_execucoes (
   id                    uuid primary key default gen_random_uuid(),
   workflow_execucao_id  uuid not null references workflow_execucoes(id) on delete cascade,
   estagio_item_id       uuid not null references workflow_estagio_itens(id),
@@ -67,14 +67,14 @@ create table workflow_item_execucoes (
   concluido_em          timestamptz
 );
 
--- Indexes
-create index on workflows(empresa_id);
-create index on workflow_estagios(workflow_id, ordem);
-create index on workflow_estagio_itens(estagio_id);
-create index on workflow_execucoes(workflow_id);
-create index on workflow_execucoes(unidade_id, status);
-create index on workflow_item_execucoes(workflow_execucao_id);
-create index on workflow_item_execucoes(checklist_execucao_id);
+-- Indexes (IF NOT EXISTS disponível a partir do Postgres 9.5)
+create index if not exists idx_workflows_empresa        on workflows(empresa_id);
+create index if not exists idx_wf_estagios_workflow     on workflow_estagios(workflow_id, ordem);
+create index if not exists idx_wf_itens_estagio         on workflow_estagio_itens(estagio_id);
+create index if not exists idx_wf_exec_workflow         on workflow_execucoes(workflow_id);
+create index if not exists idx_wf_exec_unidade_status   on workflow_execucoes(unidade_id, status);
+create index if not exists idx_wf_item_exec_execucao    on workflow_item_execucoes(workflow_execucao_id);
+create index if not exists idx_wf_item_exec_cl_exec     on workflow_item_execucoes(checklist_execucao_id);
 
 -- ── RLS ──────────────────────────────────────────────────────
 
@@ -251,6 +251,7 @@ begin
 end;
 $$;
 
+drop trigger if exists trg_workflow_checklist_concluido on checklist_execucoes;
 create trigger trg_workflow_checklist_concluido
   after update on checklist_execucoes
   for each row execute function workflow_on_checklist_concluido();
