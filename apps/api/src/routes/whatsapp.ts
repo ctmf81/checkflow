@@ -78,7 +78,7 @@ export async function whatsappRoutes(app: FastifyInstance) {
       return reply.send({
         qrcode: qrDoConnect,
         status: 'aguardando_scan',
-        _debug: process.env.NODE_ENV !== 'production' ? { url, instance, criado, qrJson } : undefined,
+        _debug: { url, instance, criado, qrJson },
       })
     } catch (e: any) {
       return reply.status(500).send({ error: e.message })
