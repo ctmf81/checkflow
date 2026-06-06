@@ -188,6 +188,7 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
   const [plano, setPlano] = useState<Plano | null>(null)
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([])
   const [funcaoUsuario, setFuncaoUsuario] = useState<Funcao>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [modalAcao, setModalAcao] = useState<{ acao: Acao; titulo: string; corBtn: string } | null>(null)
   const [salvando, setSalvando] = useState(false)
@@ -220,9 +221,15 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
 
     // Função do usuário logado neste subgrupo
     if (user) {
-      const { data: us } = await sb.from('usuario_subgrupo')
-        .select('funcao').eq('subgrupo_id', (p as any).subgrupo_id).eq('usuario_id', user.id).single()
-      setFuncaoUsuario((us?.funcao ?? null) as Funcao)
+      // Admin do sistema é identificado via JWT metadata
+      const admin = user.user_metadata?.role === 'admin_sistema'
+      setIsAdmin(admin)
+
+      if (!admin) {
+        const { data: us } = await sb.from('usuario_subgrupo')
+          .select('funcao').eq('subgrupo_id', (p as any).subgrupo_id).eq('usuario_id', user.id).single()
+        setFuncaoUsuario((us?.funcao ?? null) as Funcao)
+      }
     }
 
     setLoading(false)
@@ -307,8 +314,9 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
     const { status } = plano
     const botoes: { acao: Acao; label: string; cor: string; corBtn: string }[] = []
 
-    const isN1 = funcaoUsuario === 'nivel_1' || funcaoUsuario === 'nivel_2'
-    const isN2 = funcaoUsuario === 'nivel_2'
+    // Admin do sistema tem acesso total (equivalente a N2)
+    const isN1 = isAdmin || funcaoUsuario === 'nivel_1' || funcaoUsuario === 'nivel_2'
+    const isN2 = isAdmin || funcaoUsuario === 'nivel_2'
     const isTerminal = status === 'corrigido' || status === 'nao_corrigido'
 
     if (status === 'em_moderacao_n1' && isN1) {
