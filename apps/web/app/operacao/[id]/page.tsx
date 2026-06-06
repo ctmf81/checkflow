@@ -267,11 +267,14 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     const { data: atvsData, error: atvErr } = await sb.from('checklist_atividades')
       .select('id, nome, tipo, obrigatorio, config, ordem, atividade_pai_id, valor_gatilho, secao_id')
       .eq('checklist_id', id).order('ordem')
-    if (atvErr) console.error('Erro ao carregar atividades:', atvErr)
+    if (atvErr) {
+      setErroCarregar(`Erro atividades: ${atvErr.message} | code: ${atvErr.code}`)
+      setLoading(false)
+      return
+    }
 
     if (!atvsData || atvsData.length === 0) {
-      // Checklist sem atividades — mostra seção placeholder
-      setSecoes([{ id: '__vazio__', nome: 'Sem atividades', ordem: 0, atividades: [] }])
+      setErroCarregar(`Checklist sem atividades (id: ${id})`)
       setLoading(false)
       return
     }
