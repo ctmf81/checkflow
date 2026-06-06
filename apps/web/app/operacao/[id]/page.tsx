@@ -115,11 +115,47 @@ function calcularValidacao(atividade: Atividade): boolean | null {
 
 // ─── Campos por tipo ──────────────────────────────────────────────────────────
 
+// Leitor de QR/Barcode via câmera (BarcodeDetector ou fallback)
+async function lerCodigoDeCamera(
+  tipo: 'qrcode' | 'barcode',
+  onResult: (val: string) => void,
+  onErro: (msg: string) => void
+) {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  input.capture = 'environment'
+  input.onchange = async () => {
+    const file = input.files?.[0]
+    if (!file) return
+    try {
+      // @ts-ignore — BarcodeDetector não está nos tipos lib ainda
+      if (typeof BarcodeDetector === 'undefined') {
+        onErro('Leitura de código não suportada neste navegador. Use Chrome no Android.')
+        return
+      }
+      const formats = tipo === 'qrcode' ? ['qr_code'] : [
+        'code_128','code_39','ean_13','ean_8','upc_a','upc_e','itf','codabar','data_matrix','pdf417'
+      ]
+      // @ts-ignore
+      const detector = new BarcodeDetector({ formats })
+      const bitmap = await createImageBitmap(file)
+      const codes: any[] = await detector.detect(bitmap)
+      if (codes.length === 0) { onErro('Nenhum código encontrado na imagem.'); return }
+      onResult(codes[0].rawValue)
+    } catch (e: any) {
+      onErro('Erro ao ler código: ' + (e.message ?? e))
+    }
+  }
+  input.click()
+}
+
 // Texto com máscara + QR/Barcode
 function CampoTexto({ atividade, onChange }: { atividade: Atividade; onChange: (v: any) => void }) {
   const cfg = atividade.config ?? {}
   const mascara: string = cfg.mascara ?? ''
   const val: string = atividade.resposta ?? ''
+  const [erroCodigo, setErroCodigo] = useState<string | null>(null)
 
   function aplicarMascara(input: string): string {
     if (!mascara) return input
@@ -140,6 +176,13 @@ function CampoTexto({ atividade, onChange }: { atividade: Atividade; onChange: (
     return result
   }
 
+  function handleScan(tipo: 'qrcode' | 'barcode') {
+    setErroCodigo(null)
+    lerCodigoDeCamera(tipo, val => {
+      onChange(mascara ? aplicarMascara(val.replace(/\W/g, '')) : val)
+    }, setErroCodigo)
+  }
+
   return (
     <div className="space-y-2">
       <div className="flex gap-2">
@@ -150,19 +193,20 @@ function CampoTexto({ atividade, onChange }: { atividade: Atividade; onChange: (
           className="flex-1 px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200"
         />
         {cfg.qrcode && (
-          <button title="Ler QR Code"
-            className="px-3 py-2.5 bg-gray-800 text-white rounded-xl text-xs flex items-center gap-1 hover:bg-gray-700">
+          <button title="Ler QR Code" onClick={() => handleScan('qrcode')}
+            className="px-3 py-2.5 bg-gray-800 text-white rounded-xl text-xs flex items-center gap-1 hover:bg-gray-700 active:scale-95 transition-transform">
             <QrCode size={16} />
           </button>
         )}
         {cfg.barcode && (
-          <button title="Ler código de barras"
-            className="px-3 py-2.5 bg-gray-700 text-white rounded-xl text-xs flex items-center gap-1 hover:bg-gray-600">
+          <button title="Ler código de barras" onClick={() => handleScan('barcode')}
+            className="px-3 py-2.5 bg-gray-700 text-white rounded-xl text-xs flex items-center gap-1 hover:bg-gray-600 active:scale-95 transition-transform">
             <ScanBarcode size={16} />
           </button>
         )}
       </div>
       {mascara && <p className="text-xs text-gray-400">Formato: {mascara}</p>}
+      {erroCodigo && <p className="text-xs text-red-500">{erroCodigo}</p>}
     </div>
   )
 }
@@ -279,8 +323,8 @@ function CampoCatalogo({ atividade, onChange }: { atividade: Atividade; onChange
     if (!catId) { setCarregando(false); return }
     const sb = createClient()
     Promise.all([
-      sb.from('catalogos').select('id, nome, campo_chave, atributo_1').eq('id', catId).single(),
-      sb.from('catalogo_valores').select('id, valor_chave, atributo_1, atributo_2').eq('catalogo_id', catId).order('valor_chave'),
+      sb.from('catalogos').select('id, nome, campo_chave, atributo_1, atributo_2, atributo_3, atributo_4').eq('id', catId).single(),
+      sb.from('catalogo_valores').select('id, valor_chave, atributo_1, atributo_2, atributo_3, atributo_4, imagem_url').eq('catalogo_id', catId).order('valor_chave'),
     ]).then(([{ data: cat }, { data: vals }]) => {
       setCatalogo(cat)
       setItens(vals ?? [])
@@ -295,46 +339,83 @@ function CampoCatalogo({ atividade, onChange }: { atividade: Atividade; onChange
 
   const filtrados = itens.filter(i =>
     i.valor_chave?.toLowerCase().includes(busca.toLowerCase()) ||
-    i.atributo_1?.toLowerCase().includes(busca.toLowerCase())
+    i.atributo_1?.toLowerCase().includes(busca.toLowerCase()) ||
+    i.atributo_2?.toLowerCase().includes(busca.toLowerCase())
   )
 
   const selecionado = itens.find(i => i.id === val?.id)
 
-  return (
-    <div className="space-y-2">
-      {selecionado ? (
-        <div className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-xl px-3 py-2.5">
-          <div>
-            <p className="text-sm font-semibold text-orange-800">{selecionado.valor_chave}</p>
-            {selecionado.atributo_1 && <p className="text-xs text-orange-600">{selecionado.atributo_1}</p>}
+  // Monta lista de atributos nomeados do catálogo para exibir no card
+  function atributosItem(item: any) {
+    const labels = [catalogo?.atributo_1, catalogo?.atributo_2, catalogo?.atributo_3, catalogo?.atributo_4]
+    const vals   = [item.atributo_1,     item.atributo_2,     item.atributo_3,     item.atributo_4]
+    return labels.map((l, i) => ({ label: l, valor: vals[i] })).filter(x => x.label && x.valor)
+  }
+
+  if (selecionado) {
+    const attrs = atributosItem(selecionado)
+    return (
+      <div className="bg-orange-50 border border-orange-200 rounded-xl overflow-hidden">
+        {/* Imagem se existir */}
+        {selecionado.imagem_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={selecionado.imagem_url} alt={selecionado.valor_chave}
+            className="w-full max-h-48 object-cover border-b border-orange-100" />
+        )}
+        <div className="px-3 py-2.5">
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <div>
+              <p className="text-xs font-semibold text-orange-500 uppercase tracking-wide">
+                {catalogo?.campo_chave ?? 'Código'}
+              </p>
+              <p className="text-base font-bold text-orange-900 leading-tight">{selecionado.valor_chave}</p>
+            </div>
+            <button onClick={() => onChange(null)} className="p-1 text-orange-400 hover:text-orange-600 flex-shrink-0 mt-0.5">
+              <X size={15} />
+            </button>
           </div>
-          <button onClick={() => onChange(null)} className="p-1 text-orange-400 hover:text-orange-600">
-            <X size={14} />
-          </button>
-        </div>
-      ) : (
-        <>
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input value={busca} onChange={e => setBusca(e.target.value)}
-              placeholder={`Buscar ${catalogo?.campo_chave ?? 'item'}...`}
-              className="w-full pl-8 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
-          </div>
-          {busca && (
-            <div className="border border-gray-200 rounded-xl overflow-hidden max-h-48 overflow-y-auto">
-              {filtrados.length === 0
-                ? <p className="text-xs text-gray-400 px-3 py-3 text-center">Nenhum resultado</p>
-                : filtrados.slice(0, 20).map(item => (
-                  <button key={item.id} onClick={() => { onChange(item); setBusca('') }}
-                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-orange-50 border-b border-gray-100 last:border-0 transition-colors">
-                    <p className="font-medium text-gray-800">{item.valor_chave}</p>
-                    {item.atributo_1 && <p className="text-xs text-gray-400">{item.atributo_1}</p>}
-                  </button>
-                ))
-              }
+          {attrs.length > 0 && (
+            <div className="space-y-1.5 mt-2 pt-2 border-t border-orange-100">
+              {attrs.map(({ label, valor }) => (
+                <div key={label} className="flex items-start gap-2">
+                  <span className="text-xs text-orange-500 font-medium min-w-[80px] flex-shrink-0">{label}:</span>
+                  <span className="text-xs text-orange-800">{valor}</span>
+                </div>
+              ))}
             </div>
           )}
-        </>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="relative">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input value={busca} onChange={e => setBusca(e.target.value)}
+          placeholder={`Buscar ${catalogo?.campo_chave ?? 'item'}...`}
+          className="w-full pl-8 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
+      </div>
+      {busca && (
+        <div className="border border-gray-200 rounded-xl overflow-hidden max-h-52 overflow-y-auto">
+          {filtrados.length === 0
+            ? <p className="text-xs text-gray-400 px-3 py-3 text-center">Nenhum resultado</p>
+            : filtrados.slice(0, 20).map(item => (
+              <button key={item.id} onClick={() => { onChange(item); setBusca('') }}
+                className="w-full text-left px-3 py-2.5 text-sm hover:bg-orange-50 border-b border-gray-100 last:border-0 transition-colors flex items-center gap-3">
+                {item.imagem_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.imagem_url} alt="" className="w-9 h-9 object-cover rounded-lg flex-shrink-0 border border-gray-100" />
+                )}
+                <div className="min-w-0">
+                  <p className="font-medium text-gray-800 truncate">{item.valor_chave}</p>
+                  {item.atributo_1 && <p className="text-xs text-gray-400 truncate">{item.atributo_1}</p>}
+                </div>
+              </button>
+            ))
+          }
+        </div>
       )}
     </div>
   )
