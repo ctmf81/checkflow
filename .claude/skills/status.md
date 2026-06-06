@@ -29,8 +29,7 @@ Next logical step: [one-sentence inference, only if obvious]
 
 | # | Issue | Severidade |
 |---|-------|-----------|
-| 1 | `video` falta no CHECK CONSTRAINT do banco — migration `20260606000003_add_tipo_video.sql` criada mas NÃO aplicada | 🔴 Crítico |
-| 2 | WhatsApp QR Code ainda não funciona (Evolution API + Redis) | 🟠 Alto |
+| 1 | WhatsApp QR Code ainda não funciona (Evolution API + Redis) | 🟠 Alto |
 | 3 | `user` no SessionContext acessado via `as any` → pode ser undefined | 🟠 Alto |
 | 4 | Checklist publicado pode ter atividades editadas (sem proteção no montador) | 🟡 Médio |
 | 5 | Redirect para login ausente quando sessão expira na Operação | 🟡 Médio |

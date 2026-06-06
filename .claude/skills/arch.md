@@ -65,7 +65,7 @@ DB constraint enforces these values. When adding a new type, **must** update:
 
 Current types: `sim_nao`, `numero`, `texto`, `multipla_escolha`, `catalogo`, `foto`, `video`, `assinatura`, `data_hora`, `localizacao`
 
-⚠️ **`video` exists in frontend code but NOT yet in the DB `check` constraint** — migration needed.
+✅ `video` está no frontend e no DB constraint (migration `20260606000003` aplicada).
 
 ## Code Generation Rules
 1. TypeScript with explicit types — minimize `any`

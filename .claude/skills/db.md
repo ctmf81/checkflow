@@ -55,18 +55,7 @@ Generate timestamp: `(Get-Date -Format "yyyyMMddHHmmss")` (PowerShell)
 ### `checklist_atividades.tipo` CHECK Constraint
 Currently in DB: `'sim_nao','numero','texto','multipla_escolha','catalogo','foto','assinatura','data_hora','localizacao'`
 
-⚠️ **`video` is NOT in the DB constraint yet.** Migration needed:
-```sql
--- supabase/migrations/YYYYMMDDHHMMSS_add_tipo_video.sql
-alter table checklist_atividades
-  drop constraint checklist_atividades_tipo_check;
-alter table checklist_atividades
-  add constraint checklist_atividades_tipo_check
-  check (tipo in (
-    'sim_nao','numero','texto','multipla_escolha','catalogo',
-    'foto','video','assinatura','data_hora','localizacao'
-  ));
-```
+✅ **`video` adicionado ao constraint** via migration `20260606000003_add_tipo_video.sql`.
 
 ### `checklist_atividades.config` JSONB Shapes
 ```
