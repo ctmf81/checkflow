@@ -8,7 +8,7 @@ import {
   ArrowLeft, ChevronDown, ChevronUp, CheckCircle2, XCircle,
   Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine,
   CalendarDays, MapPin, AlertCircle, Send, Clock, Locate, Search,
-  QrCode, ScanBarcode, X, ImagePlus, Video, AlertTriangle
+  QrCode, X, ImagePlus, Video, AlertTriangle
 } from 'lucide-react'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -179,9 +179,9 @@ function CampoTexto({ atividade, onChange }: { atividade: Atividade; onChange: (
     return result
   }
 
-  function handleScan(tipo: 'qrcode' | 'barcode') {
+  function handleScanQR() {
     setErroCodigo(null)
-    lerCodigoDeCamera(tipo, val => {
+    lerCodigoDeCamera('qrcode', val => {
       onChange(mascara ? aplicarMascara(val.replace(/\W/g, '')) : val)
     }, setErroCodigo)
   }
@@ -196,15 +196,9 @@ function CampoTexto({ atividade, onChange }: { atividade: Atividade; onChange: (
           className="flex-1 px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200"
         />
         {cfg.qrcode && (
-          <button title="Ler QR Code" onClick={() => handleScan('qrcode')}
+          <button title="Ler QR Code" onClick={handleScanQR}
             className="px-3 py-2.5 bg-gray-800 text-white rounded-xl text-xs flex items-center gap-1 hover:bg-gray-700 active:scale-95 transition-transform">
             <QrCode size={16} />
-          </button>
-        )}
-        {cfg.barcode && (
-          <button title="Ler código de barras" onClick={() => handleScan('barcode')}
-            className="px-3 py-2.5 bg-gray-700 text-white rounded-xl text-xs flex items-center gap-1 hover:bg-gray-600 active:scale-95 transition-transform">
-            <ScanBarcode size={16} />
           </button>
         )}
       </div>

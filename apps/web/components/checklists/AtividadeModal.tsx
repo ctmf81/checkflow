@@ -47,17 +47,17 @@ const TIPO_CONFIG_MODAL: Record<string, { bg: string; Icon: React.ComponentType<
   localizacao:     { bg: 'bg-amber-600',   Icon: MapPin },
 }
 
-const TIPOS = [
-  { value: 'sim_nao',         label: 'Sim/Não',         validacao: true },
-  { value: 'numero',          label: 'Número',           validacao: true },
-  { value: 'texto',           label: 'Texto',            validacao: false },
-  { value: 'multipla_escolha',label: 'Múltipla escolha', validacao: true },
-  { value: 'catalogo',        label: 'Catálogo',         validacao: false },
-  { value: 'foto',            label: 'Foto',             validacao: false },
-  { value: 'video',           label: 'Vídeo',            validacao: false },
-  { value: 'assinatura',      label: 'Assinatura',       validacao: false },
-  { value: 'data_hora',       label: 'Data/Hora',        validacao: false },
-  { value: 'localizacao',     label: 'Localização',      validacao: true },
+const TIPOS: { value: string; label: string; validacao: boolean }[] = [
+  { value: 'sim_nao',         label: 'Sim/Não',          validacao: true  },
+  { value: 'numero',          label: 'Número',            validacao: true  },
+  { value: 'texto',           label: 'Texto',             validacao: false },
+  { value: 'multipla_escolha',label: 'Múltipla escolha',  validacao: true  },
+  { value: 'catalogo',        label: 'Catálogo',          validacao: false },
+  { value: 'foto',            label: 'Foto',              validacao: false },
+  { value: 'video',           label: 'Vídeo',             validacao: false },
+  { value: 'assinatura',      label: 'Assinatura',        validacao: false },
+  { value: 'data_hora',       label: 'Data/Hora',         validacao: false },
+  { value: 'localizacao',     label: 'Localização',       validacao: true  },
 ]
 
 interface Opcao {
