@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useEffect, useRef, useState } from 'react'
+import { use, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
@@ -523,9 +523,113 @@ function CampoFoto({ atividade, onChange }: { atividade: Atividade; onChange: (v
   )
 }
 
-// Vídeo (câmera ou galeria, com alerta de data antiga)
+// Gravador de vídeo inline via getUserMedia (funciona em desktop e mobile)
+function GravadorVideo({ onGravado }: { onGravado: (file: File, url: string) => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const streamRef = useRef<MediaStream | null>(null)
+
+  const [gravando, setGravando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [pronto, setPronto] = useState(false)
+  const [tempoSeg, setTempoSeg] = useState(0)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const iniciarStream = useCallback(async () => {
+    setErro(null)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.play()
+      }
+      setPronto(true)
+    } catch {
+      setErro('Não foi possível acessar a câmera. Verifique as permissões do navegador.')
+    }
+  }, [])
+
+  useEffect(() => {
+    iniciarStream()
+    return () => {
+      streamRef.current?.getTracks().forEach(t => t.stop())
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [iniciarStream])
+
+  function iniciarGravacao() {
+    if (!streamRef.current) return
+    chunksRef.current = []
+    const mr = new MediaRecorder(streamRef.current)
+    mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+    mr.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: 'video/webm' })
+      const file = new File([blob], `gravacao_${Date.now()}.webm`, { type: 'video/webm' })
+      const url = URL.createObjectURL(blob)
+      streamRef.current?.getTracks().forEach(t => t.stop())
+      onGravado(file, url)
+    }
+    mediaRecorderRef.current = mr
+    mr.start()
+    setGravando(true)
+    setTempoSeg(0)
+    timerRef.current = setInterval(() => setTempoSeg(s => s + 1), 1000)
+  }
+
+  function pararGravacao() {
+    mediaRecorderRef.current?.stop()
+    setGravando(false)
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+  }
+
+  const mm = String(Math.floor(tempoSeg / 60)).padStart(2, '0')
+  const ss = String(tempoSeg % 60).padStart(2, '0')
+
+  return (
+    <div className="space-y-2">
+      {erro ? (
+        <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
+          <AlertTriangle size={14} className="text-red-500 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-red-600">{erro}</p>
+        </div>
+      ) : (
+        <div className="relative bg-black rounded-xl overflow-hidden">
+          <video ref={videoRef} muted playsInline className="w-full max-h-56 object-cover" />
+          {gravando && (
+            <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-black/60 rounded-full px-2 py-0.5">
+              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              <span className="text-xs text-white font-mono">{mm}:{ss}</span>
+            </div>
+          )}
+        </div>
+      )}
+      {!erro && (
+        gravando ? (
+          <button onClick={pararGravacao}
+            className="w-full py-2.5 bg-red-500 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 hover:bg-red-600 active:scale-[0.99] transition-all">
+            <span className="w-3 h-3 bg-white rounded-sm" />
+            Parar gravação
+          </button>
+        ) : (
+          pronto && (
+            <button onClick={iniciarGravacao}
+              className="w-full py-2.5 bg-pink-600 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 hover:bg-pink-700 active:scale-[0.99] transition-all">
+              <Camera size={16} />
+              Iniciar gravação
+            </button>
+          )
+        )
+      )}
+    </div>
+  )
+}
+
+// Vídeo (câmera via getUserMedia ou galeria)
 function CampoVideo({ atividade, onChange }: { atividade: Atividade; onChange: (v: any) => void }) {
   const inputGaleriaRef = useRef<HTMLInputElement>(null)
+  const [modoCamera, setModoCamera] = useState(false)
   const val = atividade.resposta
 
   function handleFile(file: File, origem: 'camera' | 'galeria') {
@@ -533,23 +637,23 @@ function CampoVideo({ atividade, onChange }: { atividade: Atividade; onChange: (
     const agora = new Date()
     const diffHoras = (agora.getTime() - dataArquivo.getTime()) / (1000 * 60 * 60)
     const antigo = origem === 'galeria' && diffHoras > 1
-
     const url = URL.createObjectURL(file)
     onChange({ file, url, nome: file.name, origem, dataArquivo: dataArquivo.toISOString(), antigo })
   }
 
-  function abrirCamera() {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = 'video/*'
-    // setAttribute força abertura da câmera em mobile e desktop (não usa galeria)
-    input.setAttribute('capture', 'environment')
-    input.onchange = () => {
-      const file = input.files?.[0]
-      if (file) handleFile(file, 'camera')
-    }
-    input.click()
-  }
+  if (modoCamera) return (
+    <div className="space-y-2">
+      <GravadorVideo onGravado={(file, url) => {
+        setModoCamera(false)
+        const agora = new Date().toISOString()
+        onChange({ file, url, nome: file.name, origem: 'camera', dataArquivo: agora, antigo: false })
+      }} />
+      <button onClick={() => setModoCamera(false)}
+        className="w-full py-2 text-xs text-gray-500 hover:text-gray-700 transition-colors">
+        Cancelar
+      </button>
+    </div>
+  )
 
   if (val?.url) return (
     <div className="space-y-2">
@@ -590,7 +694,7 @@ function CampoVideo({ atividade, onChange }: { atividade: Atividade; onChange: (
       <input ref={inputGaleriaRef} type="file" accept="video/*"
         className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f, 'galeria'); e.target.value = '' }} />
       <div className="grid grid-cols-2 gap-2">
-        <button onClick={abrirCamera}
+        <button onClick={() => setModoCamera(true)}
           className="py-4 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-500 flex flex-col items-center justify-center gap-2 hover:border-pink-300 hover:text-pink-500 transition-colors active:scale-[0.99]">
           <Camera size={20} />
           <span className="text-xs font-medium">Gravar vídeo</span>
