@@ -90,9 +90,11 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
 
   // Config por tipo
   const [simNaoEsperado, setSimNaoEsperado] = useState(config.esperado ?? 'sim')
+  const [simNaoExibirRef, setSimNaoExibirRef] = useState(config.exibir_referencia ?? true)
   const [numMin, setNumMin] = useState(config.min ?? '')
   const [numMax, setNumMax] = useState(config.max ?? '')
   const [numUnidade, setNumUnidade] = useState(config.unidade ?? '')
+  const [numExibirRef, setNumExibirRef] = useState(config.exibir_referencia ?? true)
   const [textoMascara, setTextoMascara] = useState(config.mascara ?? '')
   const [textoQrcode, setTextoQrcode] = useState(config.qrcode ?? false)
   const [textoBarcode, setTextoBarcode] = useState(config.barcode ?? false)
@@ -227,8 +229,8 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
 
   function buildConfig() {
     switch (tipo) {
-      case 'sim_nao': return { esperado: simNaoEsperado }
-      case 'numero': return { min: numMin !== '' ? Number(numMin) : null, max: numMax !== '' ? Number(numMax) : null, unidade: numUnidade || null }
+      case 'sim_nao': return { esperado: simNaoEsperado, exibir_referencia: simNaoExibirRef }
+      case 'numero': return { min: numMin !== '' ? Number(numMin) : null, max: numMax !== '' ? Number(numMax) : null, unidade: numUnidade || null, exibir_referencia: numExibirRef }
       case 'texto': return { mascara: textoMascara || null, qrcode: textoQrcode, barcode: textoBarcode }
       case 'localizacao': return { lat: locLat ? Number(locLat) : null, lng: locLng ? Number(locLng) : null, raio_metros: Number(locRaio), endereco: locEnderecoDisplay || null }
       case 'data_hora': return { automatico: dataAuto }
@@ -340,18 +342,27 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
 
           {/* Configurações específicas por tipo */}
           {tipo === 'sim_nao' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Resposta esperada (aprovação)</label>
-              <div className="flex gap-2">
-                {['sim', 'nao'].map(v => (
-                  <button key={v} type="button" onClick={() => setSimNaoEsperado(v)}
-                    className={`flex-1 py-2 text-sm rounded-lg border transition-colors font-medium ${
-                      simNaoEsperado === v ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
-                    }`}>
-                    {v === 'sim' ? 'Sim' : 'Não'}
-                  </button>
-                ))}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Resposta esperada (aprovação)</label>
+                <div className="flex gap-2">
+                  {['sim', 'nao'].map(v => (
+                    <button key={v} type="button" onClick={() => setSimNaoEsperado(v)}
+                      className={`flex-1 py-2 text-sm rounded-lg border transition-colors font-medium ${
+                        simNaoEsperado === v ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                      }`}>
+                      {v === 'sim' ? 'Sim' : 'Não'}
+                    </button>
+                  ))}
+                </div>
               </div>
+              <button type="button" onClick={() => setSimNaoExibirRef(v => !v)}
+                className="flex items-center gap-2 w-full text-left">
+                <div className={`w-8 h-4 rounded-full transition-colors flex-shrink-0 ${simNaoExibirRef ? 'bg-orange-500' : 'bg-gray-300'}`}>
+                  <div className={`w-3 h-3 bg-white rounded-full mt-0.5 transition-transform ${simNaoExibirRef ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </div>
+                <span className="text-xs text-gray-600">Mostrar referência ao operador quando a resposta estiver fora do esperado</span>
+              </button>
             </div>
           )}
 
@@ -374,6 +385,13 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
                 </div>
               </div>
+              <button type="button" onClick={() => setNumExibirRef(v => !v)}
+                className="flex items-center gap-2 w-full text-left">
+                <div className={`w-8 h-4 rounded-full transition-colors flex-shrink-0 ${numExibirRef ? 'bg-orange-500' : 'bg-gray-300'}`}>
+                  <div className={`w-3 h-3 bg-white rounded-full mt-0.5 transition-transform ${numExibirRef ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </div>
+                <span className="text-xs text-gray-600">Mostrar referência ao operador quando o valor estiver fora do intervalo</span>
+              </button>
             </div>
           )}
 

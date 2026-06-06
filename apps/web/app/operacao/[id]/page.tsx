@@ -166,7 +166,8 @@ function CampoTexto({ atividade, onChange }: { atividade: Atividade; onChange: (
     let result = ''
     let j = 0
     for (let i = 0; i < mascara.length && j < input.length; i++) {
-      if (mascara[i] === '9') {
+      if (mascara[i] === '9' || mascara[i] === '0') {
+        // '9' e '0' = wildcard de dígito
         if (/\d/.test(input[j])) { result += input[j++] } else { j++; i-- }
       } else if (mascara[i] === 'A') {
         if (/[a-zA-Z]/.test(input[j])) { result += input[j++].toUpperCase() } else { j++; i-- }
@@ -221,19 +222,19 @@ function CampoNumero({ atividade, onChange }: { atividade: Atividade; onChange: 
   return (
     <div className="space-y-1.5">
       <div className="flex gap-2 items-center">
-        <input type="number" value={val} onChange={e => onChange(e.target.value)}
+        <input type="number" inputMode="decimal" step="any" value={val} onChange={e => onChange(e.target.value)}
           placeholder="Digite o valor"
           className={`flex-1 px-3 py-2.5 text-sm border rounded-xl bg-gray-50 focus:outline-none focus:ring-2 ${
             fora ? 'border-red-300 focus:ring-red-200' : 'border-gray-200 focus:ring-orange-200'
           }`} />
         {cfg.unidade && <span className="text-sm text-gray-500 font-medium whitespace-nowrap">{cfg.unidade}</span>}
       </div>
-      {(cfg.min !== null && cfg.min !== undefined) || (cfg.max !== null && cfg.max !== undefined) ? (
+      {cfg.exibir_referencia !== false && ((cfg.min !== null && cfg.min !== undefined) || (cfg.max !== null && cfg.max !== undefined)) ? (
         <p className="text-xs text-gray-400">
           Esperado: {cfg.min !== null && cfg.min !== undefined ? `mín ${cfg.min}` : ''}{cfg.min !== null && cfg.max !== null ? ' — ' : ''}{cfg.max !== null && cfg.max !== undefined ? `máx ${cfg.max}` : ''} {cfg.unidade ?? ''}
         </p>
       ) : null}
-      {fora && <p className="text-xs text-red-500">Valor fora do intervalo esperado</p>}
+      {fora && cfg.exibir_referencia !== false && <p className="text-xs text-red-500">Valor fora do intervalo esperado</p>}
     </div>
   )
 }
@@ -256,7 +257,7 @@ function CampoSimNao({ atividade, onChange }: { atividade: Atividade; onChange: 
           </button>
         ))}
       </div>
-      {esperado && val && val !== esperado && (
+      {esperado && val && val !== esperado && atividade.config?.exibir_referencia !== false && (
         <p className="text-xs text-red-500">Esperado: {esperado === 'sim' ? 'Sim' : 'Não'}</p>
       )}
     </div>
@@ -524,31 +525,30 @@ function CampoFoto({ atividade, onChange }: { atividade: Atividade; onChange: (v
 
 // Vídeo (câmera ou galeria, com alerta de data antiga)
 function CampoVideo({ atividade, onChange }: { atividade: Atividade; onChange: (v: any) => void }) {
-  const inputCameraRef = useRef<HTMLInputElement>(null)
   const inputGaleriaRef = useRef<HTMLInputElement>(null)
   const val = atividade.resposta
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>, origem: 'camera' | 'galeria') {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    // lastModified é a data de modificação do arquivo (em ms desde epoch)
+  function handleFile(file: File, origem: 'camera' | 'galeria') {
     const dataArquivo = new Date(file.lastModified)
     const agora = new Date()
     const diffHoras = (agora.getTime() - dataArquivo.getTime()) / (1000 * 60 * 60)
     const antigo = origem === 'galeria' && diffHoras > 1
 
     const url = URL.createObjectURL(file)
-    onChange({
-      file,
-      url,
-      nome: file.name,
-      origem,
-      dataArquivo: dataArquivo.toISOString(),
-      antigo,
-    })
-    // limpa o input para permitir reselecionar o mesmo arquivo
-    e.target.value = ''
+    onChange({ file, url, nome: file.name, origem, dataArquivo: dataArquivo.toISOString(), antigo })
+  }
+
+  function abrirCamera() {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'video/*'
+    // setAttribute força abertura da câmera em mobile e desktop (não usa galeria)
+    input.setAttribute('capture', 'environment')
+    input.onchange = () => {
+      const file = input.files?.[0]
+      if (file) handleFile(file, 'camera')
+    }
+    input.click()
   }
 
   if (val?.url) return (
@@ -587,12 +587,10 @@ function CampoVideo({ atividade, onChange }: { atividade: Atividade; onChange: (
 
   return (
     <>
-      <input ref={inputCameraRef} type="file" accept="video/*" capture="environment"
-        className="hidden" onChange={e => handleFile(e, 'camera')} />
       <input ref={inputGaleriaRef} type="file" accept="video/*"
-        className="hidden" onChange={e => handleFile(e, 'galeria')} />
+        className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f, 'galeria'); e.target.value = '' }} />
       <div className="grid grid-cols-2 gap-2">
-        <button onClick={() => inputCameraRef.current?.click()}
+        <button onClick={abrirCamera}
           className="py-4 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-500 flex flex-col items-center justify-center gap-2 hover:border-pink-300 hover:text-pink-500 transition-colors active:scale-[0.99]">
           <Camera size={20} />
           <span className="text-xs font-medium">Gravar vídeo</span>

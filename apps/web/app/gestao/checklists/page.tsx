@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
-import { Plus, Search, FileCheck, MoreVertical, AlertCircle, CheckCircle2, Clock, Eye, ChevronLeft } from 'lucide-react'
+import { useEffect, useState, useRef, Suspense } from 'react'
+import { Plus, Search, FileCheck, MoreVertical, AlertCircle, CheckCircle2, Clock, Eye, ChevronLeft, Copy, EyeOff, Loader2, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
@@ -18,6 +18,10 @@ interface Checklist {
   total_atividades?: number
 }
 
+interface Unidade { id: string; nome: string }
+interface Grupo   { id: string; nome: string }
+interface Subgrupo{ id: string; nome: string }
+
 const STATUS_CONFIG = {
   rascunho:  { label: 'Rascunho',  cor: 'bg-yellow-100 text-yellow-700', icon: Clock },
   publicado: { label: 'Publicado', cor: 'bg-green-100 text-green-700',  icon: CheckCircle2 },
@@ -33,7 +37,7 @@ export default function ChecklistsPage() {
 }
 
 function ChecklistsContent() {
-  const { unidadeAtiva, subgrupoLabel } = useSession()
+  const { unidadeAtiva, subgrupoLabel, empresaAtiva } = useSession()
   const searchParams = useSearchParams()
   const router = useRouter()
   const filtroSubgrupoId = searchParams.get('subgrupo')
@@ -43,6 +47,16 @@ function ChecklistsContent() {
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('')
   const [loading, setLoading] = useState(true)
+
+  // Dropdown menu state
+  const [menuAberto, setMenuAberto] = useState<string | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Inativar state
+  const [inativando, setInativando] = useState<string | null>(null)
+
+  // Modal duplicar
+  const [duplicando, setDuplicando] = useState<Checklist | null>(null)
 
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
@@ -84,6 +98,26 @@ function ChecklistsContent() {
   }
 
   useEffect(() => { carregar() }, [unidadeAtiva?.id, filtroSubgrupoId])
+
+  // Fecha dropdown ao clicar fora
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuAberto(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  async function inativar(id: string) {
+    setInativando(id)
+    setMenuAberto(null)
+    const supabase = createClient()
+    await supabase.from('checklists').update({ status: 'inativo' }).eq('id', id)
+    setChecklists(prev => prev.filter(c => c.id !== id))
+    setInativando(null)
+  }
 
   const filtrados = checklists.filter(c => {
     const matchBusca = c.nome.toLowerCase().includes(busca.toLowerCase())
@@ -152,7 +186,7 @@ function ChecklistsContent() {
           <p className="text-sm text-gray-500">Nenhum checklist cadastrado.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200">
+        <div className="bg-white rounded-xl border border-gray-200" ref={menuRef}>
           {filtrados.map(cl => {
             const cfg = STATUS_CONFIG[cl.status]
             const Icon = cfg.icon
@@ -190,15 +224,321 @@ function ChecklistsContent() {
                     className="p-1.5 text-gray-400 hover:text-orange-500 rounded-lg hover:bg-orange-50 transition-colors">
                     <Eye size={15} />
                   </Link>
-                  <button className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
-                    <MoreVertical size={15} />
-                  </button>
+
+                  {/* Dropdown menu */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setMenuAberto(menuAberto === cl.id ? null : cl.id)}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+                      disabled={inativando === cl.id}
+                    >
+                      {inativando === cl.id
+                        ? <Loader2 size={15} className="animate-spin" />
+                        : <MoreVertical size={15} />
+                      }
+                    </button>
+
+                    {menuAberto === cl.id && (
+                      <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-44">
+                        <button
+                          onClick={() => { setMenuAberto(null); setDuplicando(cl) }}
+                          className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          <Copy size={14} className="text-gray-400" />
+                          Duplicar
+                        </button>
+                        <button
+                          onClick={() => inativar(cl.id)}
+                          className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <EyeOff size={14} className="text-red-400" />
+                          Inativar
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )
           })}
         </div>
       )}
+
+      {/* Modal duplicar */}
+      {duplicando && (
+        <DuplicarModal
+          checklist={duplicando}
+          empresaId={empresaAtiva?.id ?? ''}
+          onClose={() => setDuplicando(null)}
+          onDuplicado={() => { setDuplicando(null); carregar() }}
+        />
+      )}
     </>
+  )
+}
+
+// ─── Modal de Duplicação ──────────────────────────────────────────────────────
+
+interface DuplicarModalProps {
+  checklist: Checklist
+  empresaId: string
+  onClose: () => void
+  onDuplicado: () => void
+}
+
+function DuplicarModal({ checklist, empresaId, onClose, onDuplicado }: DuplicarModalProps) {
+  const [unidades, setUnidades] = useState<Unidade[]>([])
+  const [grupos, setGrupos] = useState<Grupo[]>([])
+  const [subgrupos, setSubgrupos] = useState<Subgrupo[]>([])
+
+  const [unidadeId, setUnidadeId] = useState('')
+  const [grupoId, setGrupoId] = useState('')
+  const [subgrupoId, setSubgrupoId] = useState('')
+  const [nome, setNome] = useState(`${checklist.nome} (cópia)`)
+
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
+
+  useEffect(() => {
+    if (!empresaId) return
+    const supabase = createClient()
+    supabase.from('unidades').select('id, nome').eq('empresa_id', empresaId).order('nome')
+      .then(({ data }) => setUnidades(data ?? []))
+  }, [empresaId])
+
+  useEffect(() => {
+    setGrupoId('')
+    setSubgrupoId('')
+    setGrupos([])
+    setSubgrupos([])
+    if (!unidadeId) return
+    const supabase = createClient()
+    supabase.from('grupos').select('id, nome').eq('unidade_id', unidadeId).eq('status', 'ativo').order('nome')
+      .then(({ data }) => setGrupos(data ?? []))
+  }, [unidadeId])
+
+  useEffect(() => {
+    setSubgrupoId('')
+    setSubgrupos([])
+    if (!grupoId) return
+    const supabase = createClient()
+    supabase.from('subgrupos').select('id, nome').eq('grupo_id', grupoId).eq('status', 'ativo').order('nome')
+      .then(({ data }) => setSubgrupos(data ?? []))
+  }, [grupoId])
+
+  async function duplicar() {
+    if (!unidadeId) { setErro('Selecione uma unidade de destino.'); return }
+    if (!nome.trim()) { setErro('Informe um nome para o checklist.'); return }
+    setSalvando(true)
+    setErro('')
+    const supabase = createClient()
+
+    // 1. Cria novo checklist
+    const { data: novoCl, error: errCl } = await supabase
+      .from('checklists')
+      .insert({
+        nome: nome.trim(),
+        descricao: checklist.descricao,
+        unidade_id: unidadeId,
+        subgrupo_id: subgrupoId || null,
+        status: 'rascunho',
+        versao_atual: 0,
+      })
+      .select('id')
+      .single()
+
+    if (errCl || !novoCl) { setErro('Erro ao criar checklist.'); setSalvando(false); return }
+
+    // 2. Copia seções
+    const { data: secoes } = await supabase
+      .from('checklist_secoes')
+      .select('id, nome, ordem')
+      .eq('checklist_id', checklist.id)
+      .order('ordem')
+
+    const mapaSecoes: Record<string, string> = {}
+    if (secoes?.length) {
+      for (const s of secoes) {
+        const { data: novaS } = await supabase
+          .from('checklist_secoes')
+          .insert({ checklist_id: novoCl.id, nome: s.nome, ordem: s.ordem })
+          .select('id')
+          .single()
+        if (novaS) mapaSecoes[s.id] = novaS.id
+      }
+    }
+
+    // 3. Copia atividades (em duas passagens para preservar pai→filho)
+    const { data: atividades } = await supabase
+      .from('checklist_atividades')
+      .select('*')
+      .eq('checklist_id', checklist.id)
+      .order('ordem')
+
+    const mapaAtividades: Record<string, string> = {}
+    if (atividades?.length) {
+      // Primeira passagem: atividades sem pai
+      for (const a of atividades.filter(a => !a.atividade_pai_id)) {
+        const { data: novaA } = await supabase
+          .from('checklist_atividades')
+          .insert({
+            checklist_id: novoCl.id,
+            secao_id: a.secao_id ? (mapaSecoes[a.secao_id] ?? null) : null,
+            nome: a.nome,
+            descricao: a.descricao,
+            tipo: a.tipo,
+            ordem: a.ordem,
+            obrigatoria: a.obrigatoria,
+            critica: a.critica,
+            gera_plano_acao: a.gera_plano_acao,
+            config: a.config,
+            atividade_pai_id: null,
+            valor_gatilho: null,
+          })
+          .select('id')
+          .single()
+        if (novaA) mapaAtividades[a.id] = novaA.id
+      }
+      // Segunda passagem: atividades filhas
+      for (const a of atividades.filter(a => !!a.atividade_pai_id)) {
+        const { data: novaA } = await supabase
+          .from('checklist_atividades')
+          .insert({
+            checklist_id: novoCl.id,
+            secao_id: a.secao_id ? (mapaSecoes[a.secao_id] ?? null) : null,
+            nome: a.nome,
+            descricao: a.descricao,
+            tipo: a.tipo,
+            ordem: a.ordem,
+            obrigatoria: a.obrigatoria,
+            critica: a.critica,
+            gera_plano_acao: a.gera_plano_acao,
+            config: a.config,
+            atividade_pai_id: mapaAtividades[a.atividade_pai_id] ?? null,
+            valor_gatilho: a.valor_gatilho,
+          })
+          .select('id')
+          .single()
+        if (novaA) mapaAtividades[a.id] = novaA.id
+      }
+
+      // 4. Copia opções de múltipla escolha
+      const { data: opcoes } = await supabase
+        .from('checklist_atividade_opcoes')
+        .select('*')
+        .in('atividade_id', atividades.map(a => a.id))
+        .order('ordem')
+
+      if (opcoes?.length) {
+        const novasOpcoes = opcoes
+          .filter(o => mapaAtividades[o.atividade_id])
+          .map(o => ({
+            atividade_id: mapaAtividades[o.atividade_id],
+            label: o.label,
+            valor: o.valor,
+            ordem: o.ordem,
+            e_valido: o.e_valido,
+          }))
+        if (novasOpcoes.length) await supabase.from('checklist_atividade_opcoes').insert(novasOpcoes)
+      }
+    }
+
+    setSalvando(false)
+    onDuplicado()
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        <div className="px-6 py-5 border-b border-gray-100">
+          <h2 className="text-base font-semibold text-gray-800">Duplicar checklist</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Escolha o destino da cópia</p>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {/* Nome */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Nome do novo checklist</label>
+            <input
+              value={nome}
+              onChange={e => setNome(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-200"
+            />
+          </div>
+
+          {/* Unidade */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Unidade de destino <span className="text-red-400">*</span></label>
+            <div className="relative">
+              <select
+                value={unidadeId}
+                onChange={e => setUnidadeId(e.target.value)}
+                className="w-full appearance-none px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-200 bg-white pr-8"
+              >
+                <option value="">Selecione...</option>
+                {unidades.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
+              </select>
+              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Grupo */}
+          {grupos.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Grupo</label>
+              <div className="relative">
+                <select
+                  value={grupoId}
+                  onChange={e => setGrupoId(e.target.value)}
+                  className="w-full appearance-none px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-200 bg-white pr-8"
+                >
+                  <option value="">Selecione...</option>
+                  {grupos.map(g => <option key={g.id} value={g.id}>{g.nome}</option>)}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+          )}
+
+          {/* Subgrupo */}
+          {subgrupos.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Subgrupo</label>
+              <div className="relative">
+                <select
+                  value={subgrupoId}
+                  onChange={e => setSubgrupoId(e.target.value)}
+                  className="w-full appearance-none px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-200 bg-white pr-8"
+                >
+                  <option value="">Nenhum</option>
+                  {subgrupos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+          )}
+
+          {erro && <p className="text-xs text-red-500">{erro}</p>}
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={salvando}
+            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={duplicar}
+            disabled={salvando || !unidadeId}
+            className="flex items-center gap-2 px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {salvando && <Loader2 size={14} className="animate-spin" />}
+            {salvando ? 'Duplicando...' : 'Duplicar'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
