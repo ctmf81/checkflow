@@ -245,10 +245,30 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
 
   async function salvar() {
     if (!nome.trim()) { setErro('Informe o nome da atividade.'); return }
+
+    // Valida catálogo obrigatório
+    if (tipo === 'catalogo' && !catalogoId) {
+      setErro('Selecione um catálogo para esta atividade.'); return
+    }
+
+    // Valida SLA: se preenchido, deve ser número inteiro positivo
+    if (geraPlanoAcao && planoAcaoSlaHoras !== '') {
+      const sla = Number(planoAcaoSlaHoras)
+      if (!Number.isInteger(sla) || sla <= 0) {
+        setErro('O SLA deve ser um número inteiro de horas maior que zero.'); return
+      }
+    }
+
     setErro('')
     setSalvando(true)
     const supabase = createClient()
     const configFinal = buildConfig()
+
+    const slaFinal = (() => {
+      if (!geraPlanoAcao || planoAcaoSlaHoras === '') return null
+      const v = Number(planoAcaoSlaHoras)
+      return Number.isInteger(v) && v > 0 ? v : null
+    })()
 
     const payload = {
       checklist_id: checklistId,
@@ -259,7 +279,7 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
       obrigatoria,
       critica,
       gera_plano_acao: geraPlanoAcao,
-      plano_acao_sla_horas: geraPlanoAcao && planoAcaoSlaHoras !== '' ? Number(planoAcaoSlaHoras) : null,
+      plano_acao_sla_horas: slaFinal,
       config: configFinal,
       atividade_pai_id: paiId ?? null,
       valor_gatilho: valorGatilho ?? null,
@@ -486,12 +506,15 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
                 </p>
               ) : (
                 <select value={catalogoId} onChange={e => setCatalogoId(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
+                  className={`w-full px-3 py-2 text-sm border rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 ${!catalogoId ? 'border-amber-300' : 'border-gray-200'}`}>
                   <option value="">— Selecione um catálogo —</option>
                   {catalogos.map(c => (
                     <option key={c.id} value={c.id}>{c.nome}</option>
                   ))}
                 </select>
+                {!catalogoId && (
+                  <p className="text-xs text-amber-600 mt-1">⚠ Selecione um catálogo — sem ele o checklist não poderá ser executado.</p>
+                )}
               )}
             </div>
           )}
@@ -617,7 +640,12 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
                 />
                 <span className="text-sm text-gray-500">horas</span>
               </div>
-              <p className="text-xs text-gray-400 mt-1">Deixe em branco se não houver prazo definido.</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Deixe em branco se não houver prazo. Informe apenas números inteiros (ex: 24 = 1 dia).
+              </p>
+              {planoAcaoSlaHoras !== '' && (isNaN(Number(planoAcaoSlaHoras)) || Number(planoAcaoSlaHoras) <= 0 || !Number.isInteger(Number(planoAcaoSlaHoras))) && (
+                <p className="text-xs text-red-500 mt-1">⚠ Valor inválido — use um número inteiro positivo.</p>
+              )}
             </div>
           )}
 

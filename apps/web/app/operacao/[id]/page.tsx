@@ -108,10 +108,12 @@ function calcularValidacao(atividade: Atividade): boolean | null {
     const opcoes = atividade.opcoesMC ?? []
     if (!opcoes.length) return null
     const selecionados = Array.isArray(val) ? val : [val]
-    // Não conforme se alguma selecionada tem e_valido=false
+    if (selecionados.length === 0) return null
+    // Não conforme se alguma selecionada tem e_valido=false OU não existe mais
     const temInvalido = selecionados.some(v => {
       const op = opcoes.find(o => o.valor === v || o.label === v)
-      return op && !op.e_valido
+      // opção deletada = tratar como inválida
+      return !op || !op.e_valido
     })
     return !temInvalido
   }
@@ -1105,6 +1107,10 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     return lista
   }
 
+  // Limite de tamanho para uploads
+  const MAX_FOTO_MB = 10
+  const MAX_VIDEO_MB = 100
+
   async function finalizar() {
     if (!unidadeAtiva || !checklist) return
     setErroFinalizar(null)
@@ -1121,36 +1127,80 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       return
     }
 
+    // Valida tamanho dos arquivos antes de enviar
+    for (const a of visiveis) {
+      const r = respostas[a.id]
+      if (a.tipo === 'foto' && r?.file instanceof File) {
+        if (r.file.size > MAX_FOTO_MB * 1024 * 1024) {
+          setErroFinalizar(`Foto em "${a.nome}" excede ${MAX_FOTO_MB}MB. Reduza o tamanho e tente novamente.`)
+          return
+        }
+      }
+      if (a.tipo === 'video' && r?.file instanceof File) {
+        if (r.file.size > MAX_VIDEO_MB * 1024 * 1024) {
+          setErroFinalizar(`Vídeo em "${a.nome}" excede ${MAX_VIDEO_MB}MB. Reduza o tamanho e tente novamente.`)
+          return
+        }
+      }
+    }
+
+    // Valida tamanho das evidências de planos de ação
+    for (const [, plano] of Object.entries(planosCapturados)) {
+      for (const f of plano.fotos) {
+        if (f.file.size > MAX_FOTO_MB * 1024 * 1024) {
+          setErroFinalizar(`Uma foto do plano de ação excede ${MAX_FOTO_MB}MB.`)
+          return
+        }
+      }
+      if (plano.video && plano.video.file.size > MAX_VIDEO_MB * 1024 * 1024) {
+        setErroFinalizar(`O vídeo do plano de ação excede ${MAX_VIDEO_MB}MB.`)
+        return
+      }
+    }
+
     setSalvando(true)
     const sb = createClient()
     const { data: { user } } = await sb.auth.getUser()
+
+    if (!user) {
+      setSalvando(false)
+      setErroFinalizar('Sessão expirada. Faça login novamente.')
+      return
+    }
+
     const agora = new Date()
     const expiracao = new Date(agora)
     expiracao.setMonth(expiracao.getMonth() + (checklist.tempo_guarda_meses ?? 12))
 
-    // Calcula resultado global: reprovado se qualquer atividade estiver não conforme
+    // Busca o nome do usuário uma única vez (fora do loop de planos)
+    const { data: perfil } = await sb.from('usuarios').select('nome').eq('id', user.id).single()
+    const atorNome = perfil?.nome ?? 'Operador'
+
+    // Calcula resultado global
     const naoConformes = visiveis.filter(a => calcularValidacao({ ...a, resposta: respostas[a.id] }) === false)
     const resultado: 'aprovado' | 'reprovado' = naoConformes.length > 0 ? 'reprovado' : 'aprovado'
 
     // Insere header da execução
-    // Se vier de workflow: insere como 'em_andamento' para poder linkar antes de concluir
     const statusInicial = wfItemId ? 'em_andamento' : 'concluido'
     const { data: execucao, error: execErr } = await sb.from('checklist_execucoes').insert({
       checklist_id: checklist.id,
       unidade_id: unidadeAtiva.id,
-      executado_por: user?.id ?? null,
+      executado_por: user.id,
       data_execucao: agora.toISOString(),
       data_expiracao: expiracao.toISOString().split('T')[0],
       status: statusInicial,
-      resultado: wfItemId ? null : resultado, // resultado definido depois para workflow (trigger cuida)
+      resultado: wfItemId ? null : resultado,
     }).select('id').single()
 
-    if (execErr || !execucao) { setSalvando(false); setErroFinalizar('Erro ao salvar execução. Tente novamente.'); return }
+    if (execErr || !execucao) {
+      setSalvando(false)
+      setErroFinalizar('Erro ao salvar execução. Tente novamente.')
+      return
+    }
 
     const execId = execucao.id
 
-    // Se veio de workflow: linka o item de workflow antes de concluir
-    // O trigger trg_workflow_checklist_concluido busca por checklist_execucao_id = new.id
+    // Se veio de workflow: linka o item antes de concluir
     if (wfItemId) {
       await sb.from('workflow_item_execucoes').update({
         checklist_execucao_id: execId,
@@ -1159,27 +1209,24 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       }).eq('id', wfItemId)
     }
 
-    // Faz upload de arquivos (foto e vídeo) e obtém URLs permanentes
-    async function uploadArquivo(file: File, atividadeId: string, ext: string): Promise<string | null> {
-      const path = `${execId}/${atividadeId}.${ext}`
+    // Helper de upload com validação de erro
+    async function uploadArquivo(file: File, path: string): Promise<string | null> {
       const { error } = await sb.storage.from('execucoes').upload(path, file, { contentType: file.type, upsert: true })
       if (error) return null
       return sb.storage.from('execucoes').getPublicUrl(path).data.publicUrl
     }
 
-    // Monta e salva respostas
+    // Monta respostas com uploads
     const linhasRespostas = await Promise.all(visiveis.map(async a => {
       let resposta = respostas[a.id] ?? null
-      // Upload de foto
       if (a.tipo === 'foto' && resposta?.file instanceof File) {
         const ext = resposta.file.name.split('.').pop() ?? 'jpg'
-        const url = await uploadArquivo(resposta.file, a.id, ext)
+        const url = await uploadArquivo(resposta.file, `${execId}/${a.id}.${ext}`)
         resposta = url ? { url, nome: resposta.nome } : { nome: resposta.nome }
       }
-      // Upload de vídeo
       if (a.tipo === 'video' && resposta?.file instanceof File) {
         const ext = resposta.file.name.split('.').pop() ?? 'mp4'
-        const url = await uploadArquivo(resposta.file, a.id, ext)
+        const url = await uploadArquivo(resposta.file, `${execId}/${a.id}.${ext}`)
         resposta = url ? { url, nome: resposta.nome, origem: resposta.origem, dataArquivo: resposta.dataArquivo } : { nome: resposta.nome }
       }
       return {
@@ -1190,19 +1237,38 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       }
     }))
 
-    const { data: respostasInseridas } = await sb.from('checklist_execucao_respostas')
-      .insert(linhasRespostas).select('id, atividade_id')
+    const { data: respostasInseridas, error: respErr } = await sb
+      .from('checklist_execucao_respostas')
+      .insert(linhasRespostas)
+      .select('id, atividade_id')
 
-    // Salva planos de ação capturados durante a execução
-    if (respostasInseridas && checklist.subgrupo_id && Object.keys(planosCapturados).length > 0) {
+    if (respErr || !respostasInseridas) {
+      // Execução já foi criada — marca como incompleta para não perder o registro
+      await sb.from('checklist_execucoes').update({ status: 'nao_executado' }).eq('id', execId)
+      setSalvando(false)
+      setErroFinalizar('Erro ao salvar respostas. Tente novamente.')
+      return
+    }
+
+    // Salva planos de ação — só se o checklist tem subgrupo_id
+    const temPlanos = Object.keys(planosCapturados).length > 0
+    if (temPlanos && !checklist.subgrupo_id) {
+      // Avisa mas não bloqueia — a execução foi salva com sucesso
+      console.warn('[CheckFlow] Planos de ação não criados: checklist sem subgrupo_id.')
+    }
+
+    if (temPlanos && checklist.subgrupo_id) {
       for (const [atividadeId, plano] of Object.entries(planosCapturados)) {
         const resposta = respostasInseridas.find((r: any) => r.atividade_id === atividadeId)
         if (!resposta) continue
-        const atv = visiveis.find(a => a.id === atividadeId)
-        const slaHoras = atv?.plano_acao_sla_horas ?? null
-        const slaPrazo = slaHoras ? new Date(agora.getTime() + slaHoras * 3600000).toISOString() : null
 
-        const { data: planoInserido } = await sb.from('planos_acao').insert({
+        const atv = visiveis.find(a => a.id === atividadeId)
+        const slaHoras = atv?.plano_acao_sla_horas
+        const slaPrazo = slaHoras && slaHoras > 0
+          ? new Date(agora.getTime() + slaHoras * 3600000).toISOString()
+          : null
+
+        const { data: planoInserido, error: planoErr } = await sb.from('planos_acao').insert({
           unidade_id: unidadeAtiva.id,
           subgrupo_id: checklist.subgrupo_id,
           checklist_execucao_id: execId,
@@ -1210,55 +1276,54 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
           atividade_id: atividadeId,
           observacao_abertura: plano.observacao,
           sla_prazo: slaPrazo,
-          criado_por: user?.id ?? null,
+          criado_por: user.id,
         }).select('id').single()
 
-        if (!planoInserido) continue
+        if (planoErr || !planoInserido) {
+          console.error('[CheckFlow] Erro ao criar plano de ação:', planoErr?.message)
+          continue
+        }
 
         // Upload e registro das evidências
         const evidencias: { plano_acao_id: string; tipo: string; url: string; ordem: number }[] = []
+
         for (let i = 0; i < plano.fotos.length; i++) {
           const f = plano.fotos[i]
           const ext = f.file.name.split('.').pop() ?? 'jpg'
-          const path = `planos/${planoInserido.id}/foto_${i}.${ext}`
-          const { error } = await sb.storage.from('execucoes').upload(path, f.file, { contentType: f.file.type, upsert: true })
-          if (!error) {
-            const { data: { publicUrl } } = sb.storage.from('execucoes').getPublicUrl(path)
-            evidencias.push({ plano_acao_id: planoInserido.id, tipo: 'foto', url: publicUrl, ordem: i })
-          }
-        }
-        if (plano.video) {
-          const ext = plano.video.file.name.split('.').pop() ?? 'mp4'
-          const path = `planos/${planoInserido.id}/video.${ext}`
-          const { error } = await sb.storage.from('execucoes').upload(path, plano.video.file, { contentType: plano.video.file.type, upsert: true })
-          if (!error) {
-            const { data: { publicUrl } } = sb.storage.from('execucoes').getPublicUrl(path)
-            evidencias.push({ plano_acao_id: planoInserido.id, tipo: 'video', url: publicUrl, ordem: 0 })
-          }
-        }
-        if (evidencias.length > 0) {
-          await sb.from('plano_acao_evidencias').insert(evidencias)
+          const url = await uploadArquivo(f.file, `planos/${planoInserido.id}/foto_${i}.${ext}`)
+          if (url) evidencias.push({ plano_acao_id: planoInserido.id, tipo: 'foto', url, ordem: i })
         }
 
-        // Primeira movimentação — trilha de auditoria
-        await sb.from('plano_acao_movimentacoes').insert({
+        if (plano.video) {
+          const ext = plano.video.file.name.split('.').pop() ?? 'mp4'
+          const url = await uploadArquivo(plano.video.file, `planos/${planoInserido.id}/video.${ext}`)
+          if (url) evidencias.push({ plano_acao_id: planoInserido.id, tipo: 'video', url, ordem: 0 })
+        }
+
+        if (evidencias.length > 0) {
+          const { error: evErr } = await sb.from('plano_acao_evidencias').insert(evidencias)
+          if (evErr) console.error('[CheckFlow] Erro ao inserir evidências:', evErr.message)
+        }
+
+        // Movimentação inicial
+        const { error: movErr } = await sb.from('plano_acao_movimentacoes').insert({
           plano_acao_id: planoInserido.id,
-          usuario_id: user?.id ?? null,
+          usuario_id: user.id,
           acao: 'aberto',
           observacao: plano.observacao,
         })
+        if (movErr) console.error('[CheckFlow] Erro ao inserir movimentação:', movErr.message)
 
-        // Notifica N1/N2 via WhatsApp (fire-and-forget — não bloqueia)
-        const { data: perfil } = await sb.from('usuarios').select('nome').eq('id', user?.id ?? '').single()
+        // Notifica N1/N2 (fire-and-forget)
         notificarPlanoAberto({
           plano_id: planoInserido.id,
           observacao: plano.observacao,
-          ator_nome: perfil?.nome ?? 'Operador',
+          ator_nome: atorNome,
         })
       }
     }
 
-    // Se vier de workflow: atualiza para 'concluido' com resultado → dispara trigger de avanço
+    // Workflow: atualiza para 'concluido' → dispara trigger de avanço
     if (wfItemId) {
       await sb.from('checklist_execucoes').update({
         status: 'concluido',
