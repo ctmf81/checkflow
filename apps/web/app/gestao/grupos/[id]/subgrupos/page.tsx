@@ -165,13 +165,20 @@ function FuncoesModal({ subgrupo, onClose }: { subgrupo: Subgrupo; onClose: () =
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
         </div>
 
-        {/* Legenda */}
-        <div className="px-6 py-3 border-b border-gray-50 flex flex-wrap gap-2 flex-shrink-0">
+        {/* Legenda compacta — tooltip ao passar o mouse */}
+        <div className="px-6 py-3 border-b border-gray-50 flex items-center gap-2 flex-shrink-0">
+          <span className="text-xs text-gray-400">Funções:</span>
           {FUNCOES.map(f => (
-            <span key={String(f.valor)} className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border font-medium ${f.cor}`}>
-              {f.label}
-              <span className="font-normal text-gray-400">— {f.desc}</span>
-            </span>
+            <div key={String(f.valor)} className="relative group">
+              <span className={`inline-flex items-center text-xs px-2.5 py-1 rounded-full border font-medium cursor-default ${f.cor}`}>
+                {f.label}
+              </span>
+              {/* Tooltip */}
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-800 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
+                {f.desc}
+                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+              </div>
+            </div>
           ))}
         </div>
 
