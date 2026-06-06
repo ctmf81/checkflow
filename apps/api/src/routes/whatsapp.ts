@@ -16,33 +16,45 @@ export async function whatsappRoutes(app: FastifyInstance) {
   // POST /whatsapp/conectar — cria a instância e retorna QR Code
   app.post('/whatsapp/conectar', async (req, reply) => {
     try {
-      // Cria instância se não existir
-      const criar = await fetch(`${EVO_URL}/instance/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': EVO_KEY },
-        body: JSON.stringify({
-          instanceName: EVO_INSTANCE,
-          qrcode: true,
-          integration: 'WHATSAPP-BAILEYS',
-        }),
-      })
-      const json: any = await criar.json()
+      const headers = { 'Content-Type': 'application/json', 'apikey': EVO_KEY }
 
-      if (json?.qrcode?.base64 || json?.base64) {
-        return reply.send({
-          qrcode: json?.qrcode?.base64 ?? json?.base64,
-          status: 'aguardando_scan',
-        })
+      function normalizeQr(raw: string | undefined): string | null {
+        if (!raw) return null
+        if (raw.startsWith('data:')) return raw
+        return `data:image/png;base64,${raw}`
       }
 
-      // Busca QR code da instância existente
-      const qr = await fetch(`${EVO_URL}/instance/connect/${EVO_INSTANCE}`, {
-        headers: { 'apikey': EVO_KEY },
+      // Tenta criar a instância
+      const criar = await fetch(`${EVO_URL}/instance/create`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ instanceName: EVO_INSTANCE, qrcode: true, integration: 'WHATSAPP-BAILEYS' }),
       })
-      const qrJson: any = await qr.json()
+      const criado: any = await criar.json()
+
+      const qrDoCriar = normalizeQr(criado?.qrcode?.base64 ?? criado?.base64)
+      if (qrDoCriar) {
+        return reply.send({ qrcode: qrDoCriar, status: 'aguardando_scan' })
+      }
+
+      // Se instância já existe e está aberta, reconecta (gera novo QR)
+      const instanceState = criado?.response?.message ?? ''
+      const jaExiste = criar.status === 409 || (typeof instanceState === 'string' && instanceState.includes('exists'))
+
+      if (jaExiste) {
+        // Desconecta para forçar novo QR
+        await fetch(`${EVO_URL}/instance/logout/${EVO_INSTANCE}`, { method: 'DELETE', headers })
+      }
+
+      // Chama connect para obter QR
+      const qrRes = await fetch(`${EVO_URL}/instance/connect/${EVO_INSTANCE}`, { headers })
+      const qrJson: any = await qrRes.json()
+      const qrDoConnect = normalizeQr(qrJson?.base64 ?? qrJson?.qrcode?.base64 ?? qrJson?.code)
+
       return reply.send({
-        qrcode: qrJson?.base64 ?? qrJson?.qrcode?.base64,
+        qrcode: qrDoConnect,
         status: 'aguardando_scan',
+        _debug: process.env.NODE_ENV !== 'production' ? { criado, qrJson } : undefined,
       })
     } catch (e: any) {
       return reply.status(500).send({ error: e.message })

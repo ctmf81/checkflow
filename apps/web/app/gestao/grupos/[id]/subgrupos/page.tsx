@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, use, useRef } from 'react'
-import { Plus, Users, ChevronLeft, MoreVertical, Pencil, PowerOff, X } from 'lucide-react'
+import { Plus, Users, ChevronLeft, MoreVertical, Pencil, PowerOff, X, FileCheck, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { NovoSubgrupoModal } from './NovoSubgrupoModal'
 import { createClient } from '@/lib/supabase'
@@ -13,6 +14,7 @@ interface Subgrupo {
   nome: string
   descricao: string | null
   totalUsuarios: number
+  totalChecklists: number
 }
 
 function SubgrupoMenu({ subgrupo, onEditar, onDesativar }: {
@@ -104,6 +106,7 @@ function EditarSubgrupoModal({ subgrupo, onClose, onSalvo }: {
 export default function SubgruposPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const { subgrupoLabel } = useSession()
+  const router = useRouter()
   const [modal, setModal] = useState(false)
   const [grupo, setGrupo] = useState<{ nome: string } | null>(null)
   const [subgrupos, setSubgrupos] = useState<Subgrupo[]>([])
@@ -122,8 +125,11 @@ export default function SubgruposPage({ params }: { params: Promise<{ id: string
 
     if (subs) {
       const comContagens = await Promise.all(subs.map(async s => {
-        const { count } = await supabase.from('usuario_subgrupo').select('usuario_id', { count: 'exact', head: true }).eq('subgrupo_id', s.id)
-        return { ...s, totalUsuarios: count ?? 0 }
+        const [{ count: cUsuarios }, { count: cChecklists }] = await Promise.all([
+          supabase.from('usuario_subgrupo').select('usuario_id', { count: 'exact', head: true }).eq('subgrupo_id', s.id),
+          supabase.from('checklists').select('id', { count: 'exact', head: true }).eq('subgrupo_id', s.id).neq('status', 'inativo'),
+        ])
+        return { ...s, totalUsuarios: cUsuarios ?? 0, totalChecklists: cChecklists ?? 0 }
       }))
       setSubgrupos(comContagens)
     }
@@ -172,13 +178,23 @@ export default function SubgruposPage({ params }: { params: Promise<{ id: string
                   onDesativar={() => desativar(sub)}
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 mb-3">
                 <div className="flex items-center gap-1.5 bg-green-50 px-3 py-2 rounded-lg flex-1">
                   <Users size={14} className="text-green-400" />
                   <span className="text-green-500 font-bold text-sm">{sub.totalUsuarios}</span>
                   <span className="text-gray-500 text-xs">Usuários</span>
                 </div>
+                <div className="flex items-center gap-1.5 bg-orange-50 px-3 py-2 rounded-lg flex-1">
+                  <FileCheck size={14} className="text-orange-400" />
+                  <span className="text-orange-500 font-bold text-sm">{sub.totalChecklists}</span>
+                  <span className="text-gray-500 text-xs">Checklists</span>
+                </div>
               </div>
+              <button
+                onClick={() => router.push(`/gestao/checklists?subgrupo=${sub.id}&subgrupoNome=${encodeURIComponent(sub.nome)}`)}
+                className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-orange-500 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors">
+                Ver checklists <ChevronRight size={13} />
+              </button>
             </div>
           ))}
         </div>

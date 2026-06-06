@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { X } from 'lucide-react'
+import { X, Plus, Trash2, Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine, CalendarDays, MapPin, Upload, LocateFixed, Search, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
+import { useSession } from '@/contexts/SessionContext'
 
 interface Atividade {
   id: string
@@ -31,21 +32,49 @@ interface Props {
   onSalva: (atividade: Atividade) => void
 }
 
+import React from 'react'
+
+const TIPO_CONFIG_MODAL: Record<string, { bg: string; Icon: React.ComponentType<{ size?: number; className?: string }> }> = {
+  texto:           { bg: 'bg-orange-400',  Icon: Type },
+  numero:          { bg: 'bg-green-500',   Icon: Hash },
+  sim_nao:         { bg: 'bg-emerald-500', Icon: ToggleLeft },
+  multipla_escolha:{ bg: 'bg-blue-500',    Icon: List },
+  catalogo:        { bg: 'bg-slate-500',   Icon: BookOpen },
+  foto:            { bg: 'bg-rose-400',    Icon: Camera },
+  assinatura:      { bg: 'bg-purple-500',  Icon: PenLine },
+  data_hora:       { bg: 'bg-sky-400',     Icon: CalendarDays },
+  localizacao:     { bg: 'bg-amber-600',   Icon: MapPin },
+}
+
 const TIPOS = [
-  { value: 'sim_nao',         label: '✅ Sim/Não',          validacao: true },
-  { value: 'numero',          label: '🔢 Número',            validacao: true },
-  { value: 'texto',           label: '📝 Texto',             validacao: false },
-  { value: 'multipla_escolha',label: '☑️ Múltipla escolha',  validacao: true },
-  { value: 'catalogo',        label: '📋 Catálogo',          validacao: false },
-  { value: 'foto',            label: '📷 Foto',              validacao: false },
-  { value: 'assinatura',      label: '✍️ Assinatura',        validacao: false },
-  { value: 'data_hora',       label: '🗓️ Data/Hora',         validacao: false },
-  { value: 'localizacao',     label: '📍 Localização',       validacao: true },
+  { value: 'sim_nao',         label: 'Sim/Não',         validacao: true },
+  { value: 'numero',          label: 'Número',           validacao: true },
+  { value: 'texto',           label: 'Texto',            validacao: false },
+  { value: 'multipla_escolha',label: 'Múltipla escolha', validacao: true },
+  { value: 'catalogo',        label: 'Catálogo',         validacao: false },
+  { value: 'foto',            label: 'Foto',             validacao: false },
+  { value: 'assinatura',      label: 'Assinatura',       validacao: false },
+  { value: 'data_hora',       label: 'Data/Hora',        validacao: false },
+  { value: 'localizacao',     label: 'Localização',      validacao: true },
 ]
+
+interface Opcao {
+  id?: string
+  label: string
+  valor: string
+  ordem: number
+  e_valido: boolean
+}
+
+interface Catalogo {
+  id: string
+  nome: string
+}
 
 export default function AtividadeModal({ checklistId, secaoId, atividade, paiId, valorGatilho, ordemAtual, onClose, onSalva }: Props) {
   const isEdicao = !!atividade
   const isDependente = !!paiId
+  const { unidadeAtiva } = useSession()
 
   const [nome, setNome] = useState(atividade?.nome ?? '')
   const [descricao, setDescricao] = useState(atividade?.descricao ?? '')
@@ -68,15 +97,140 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
   const [locLat, setLocLat] = useState(config.lat ?? '')
   const [locLng, setLocLng] = useState(config.lng ?? '')
   const [locRaio, setLocRaio] = useState(config.raio_metros ?? 100)
+  const [locEnderecoDisplay, setLocEnderecoDisplay] = useState(config.endereco ?? '')
+  const [locNominatimConfirm, setLocNominatimConfirm] = useState('')
+  const [locBusca, setLocBusca] = useState(config.endereco ?? '')
+  const [locSugestoes, setLocSugestoes] = useState<{ display_name: string; lat: string; lon: string }[]>([])
+  const [locBuscando, setLocBuscando] = useState(false)
+  const [locGPS, setLocGPS] = useState(false)
   const [dataAuto, setDataAuto] = useState(config.automatico ?? true)
+
+  // Múltipla escolha
+  const [opcoes, setOpcoes] = useState<Opcao[]>([])
+  const [novaOpcaoLabel, setNovaOpcaoLabel] = useState('')
+
+  // Catálogo
+  const [catalogos, setCatalogos] = useState<Catalogo[]>([])
+  const [catalogoId, setCatalogoId] = useState<string>(config.catalogo_id ?? '')
+
+  // Carrega opções existentes (edição)
+  useEffect(() => {
+    if (!isEdicao || !atividade?.id) return
+    if (atividade.tipo !== 'multipla_escolha') return
+    const supabase = createClient()
+    supabase
+      .from('checklist_atividade_opcoes')
+      .select('id, label, valor, ordem, e_valido')
+      .eq('atividade_id', atividade.id)
+      .order('ordem')
+      .then(({ data }) => { if (data) setOpcoes(data) })
+  }, [isEdicao, atividade?.id, atividade?.tipo])
+
+  // Carrega catálogos da unidade
+  useEffect(() => {
+    if (tipo !== 'catalogo') return
+    const supabase = createClient()
+    supabase
+      .from('catalogos')
+      .select('id, nome')
+      .eq('unidade_id', unidadeAtiva?.id)
+      .eq('status', 'ativo')
+      .order('nome')
+      .then(({ data }) => { if (data) setCatalogos(data) })
+  }, [tipo, unidadeAtiva?.id])
+
+  function adicionarOpcao() {
+    const label = novaOpcaoLabel.trim()
+    if (!label) return
+    const valor = label.toLowerCase().replace(/\s+/g, '_')
+    setOpcoes(prev => [...prev, { label, valor, ordem: prev.length, e_valido: true }])
+    setNovaOpcaoLabel('')
+  }
+
+  function removerOpcao(index: number) {
+    setOpcoes(prev => prev.filter((_, i) => i !== index).map((o, i) => ({ ...o, ordem: i })))
+  }
+
+  function toggleValido(index: number) {
+    setOpcoes(prev => prev.map((o, i) => i === index ? { ...o, e_valido: !o.e_valido } : o))
+  }
+
+  function importarCSV(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string
+      const linhas = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+      const novas: Opcao[] = []
+      for (const linha of linhas) {
+        // suporta: "label" ou "label,valido" ou "label;valido"
+        const partes = linha.split(/[,;]/).map(p => p.trim().replace(/^"|"$/g, ''))
+        const label = partes[0]
+        if (!label) continue
+        const eValido = partes[1] ? !['false', '0', 'nao', 'não', 'inválido', 'invalido'].includes(partes[1].toLowerCase()) : true
+        const valor = label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+        novas.push({ label, valor, ordem: opcoes.length + novas.length, e_valido: eValido })
+      }
+      setOpcoes(prev => [...prev, ...novas])
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  async function buscarEndereco() {
+    if (!locBusca.trim()) return
+    setLocBuscando(true)
+    setLocSugestoes([])
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(locBusca)}&format=json&limit=5&addressdetails=0`,
+        { headers: { 'Accept-Language': 'pt-BR' } }
+      )
+      const data = await res.json()
+      setLocSugestoes(data)
+    } catch { /* silencia erro de rede */ }
+    setLocBuscando(false)
+  }
+
+  function selecionarSugestao(s: { display_name: string; lat: string; lon: string }) {
+    setLocLat(s.lat)
+    setLocLng(s.lon)
+    setLocEnderecoDisplay(locBusca.trim() || s.display_name)
+    setLocNominatimConfirm(s.display_name)
+    setLocSugestoes([])
+    // mantém locBusca para o usuário poder editar o endereço salvo
+  }
+
+  function usarGPS() {
+    if (!navigator.geolocation) return
+    setLocGPS(true)
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const { latitude, longitude } = pos.coords
+      setLocLat(String(latitude))
+      setLocLng(String(longitude))
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+          { headers: { 'Accept-Language': 'pt-BR' } }
+        )
+        const data = await res.json()
+        setLocEnderecoDisplay(data.display_name ?? `${latitude}, ${longitude}`)
+      } catch {
+        setLocEnderecoDisplay(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`)
+      }
+      setLocGPS(false)
+    }, () => setLocGPS(false))
+  }
 
   function buildConfig() {
     switch (tipo) {
       case 'sim_nao': return { esperado: simNaoEsperado }
       case 'numero': return { min: numMin !== '' ? Number(numMin) : null, max: numMax !== '' ? Number(numMax) : null, unidade: numUnidade || null }
       case 'texto': return { mascara: textoMascara || null, qrcode: textoQrcode, barcode: textoBarcode }
-      case 'localizacao': return { lat: locLat ? Number(locLat) : null, lng: locLng ? Number(locLng) : null, raio_metros: Number(locRaio) }
+      case 'localizacao': return { lat: locLat ? Number(locLat) : null, lng: locLng ? Number(locLng) : null, raio_metros: Number(locRaio), endereco: locEnderecoDisplay || null }
       case 'data_hora': return { automatico: dataAuto }
+      case 'catalogo': return { catalogo_id: catalogoId || null }
       default: return {}
     }
   }
@@ -103,17 +257,33 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
       ordem: atividade?.ordem ?? ordemAtual,
     }
 
+    if (tipo === 'multipla_escolha' && opcoes.length === 0) {
+      setErro('Adicione ao menos uma opção.'); setSalvando(false); return
+    }
+
+    let atividadeId: string
     if (isEdicao) {
       const { error } = await supabase.from('checklist_atividades')
         .update({ ...payload, atualizado_em: new Date().toISOString() }).eq('id', atividade.id)
       if (error) { setErro('Erro ao salvar.'); setSalvando(false); return }
-      onSalva({ id: atividade.id, ...payload } as Atividade)
+      atividadeId = atividade.id
     } else {
       const { data, error } = await supabase.from('checklist_atividades')
         .insert(payload).select('id').single()
       if (error || !data) { setErro('Erro ao criar.'); setSalvando(false); return }
-      onSalva({ id: data.id, ...payload } as Atividade)
+      atividadeId = data.id
     }
+
+    if (tipo === 'multipla_escolha') {
+      await supabase.from('checklist_atividade_opcoes').delete().eq('atividade_id', atividadeId)
+      if (opcoes.length > 0) {
+        await supabase.from('checklist_atividade_opcoes').insert(
+          opcoes.map(o => ({ atividade_id: atividadeId, label: o.label, valor: o.valor, ordem: o.ordem, e_valido: o.e_valido }))
+        )
+      }
+    }
+
+    onSalva({ id: atividadeId, ...payload } as Atividade)
     setSalvando(false)
   }
 
@@ -144,14 +314,25 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
             <div className="grid grid-cols-3 gap-2">
-              {TIPOS.map(t => (
-                <button key={t.value} type="button" onClick={() => setTipo(t.value)}
-                  className={`px-2 py-2 text-xs rounded-lg border transition-colors text-left ${
-                    tipo === t.value ? 'border-orange-500 bg-orange-50 text-orange-700 font-medium' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                  }`}>
-                  {t.label}
-                </button>
-              ))}
+              {TIPOS.map(t => {
+                const cfg = TIPO_CONFIG_MODAL[t.value]
+                const isSelected = tipo === t.value
+                return (
+                  <button key={t.value} type="button" onClick={() => setTipo(t.value)}
+                    className={`flex items-center gap-2 px-2 py-2 rounded-xl border transition-all ${
+                      isSelected ? 'border-orange-400 bg-orange-50 ring-1 ring-orange-300' : 'border-gray-200 hover:bg-gray-50'
+                    }`}>
+                    {cfg && (
+                      <div className={`w-7 h-7 ${cfg.bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                        <cfg.Icon size={14} className="text-white" />
+                      </div>
+                    )}
+                    <span className={`text-xs font-medium leading-tight text-left ${isSelected ? 'text-orange-700' : 'text-gray-600'}`}>
+                      {t.label}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
           </div>
 
@@ -165,7 +346,7 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
                     className={`flex-1 py-2 text-sm rounded-lg border transition-colors font-medium ${
                       simNaoEsperado === v ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
                     }`}>
-                    {v === 'sim' ? 'Sim ✅' : 'Não ❌'}
+                    {v === 'sim' ? 'Sim' : 'Não'}
                   </button>
                 ))}
               </div>
@@ -223,24 +404,143 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
             </div>
           )}
 
-          {tipo === 'localizacao' && (
-            <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Latitude</label>
-                  <input type="number" step="any" value={locLat} onChange={e => setLocLat(e.target.value)} placeholder="Ex: -23.5505"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Longitude</label>
-                  <input type="number" step="any" value={locLng} onChange={e => setLocLng(e.target.value)} placeholder="Ex: -46.6333"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
-                </div>
+          {tipo === 'multipla_escolha' && (
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700">Opções de resposta</label>
+              {opcoes.length > 0 && (
+                <ul className="space-y-1">
+                  {opcoes.map((o, i) => (
+                    <li key={i} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+                      <button type="button" onClick={() => toggleValido(i)}
+                        title={o.e_valido ? 'Clique para marcar como inválido' : 'Clique para marcar como válido'}
+                        className={`text-xs font-medium px-2 py-0.5 rounded-full border flex-shrink-0 transition-colors ${
+                          o.e_valido
+                            ? 'border-green-300 bg-green-50 text-green-700'
+                            : 'border-red-200 bg-red-50 text-red-600'
+                        }`}>
+                        {o.e_valido ? '✓ válido' : '✗ inválido'}
+                      </button>
+                      <span className="flex-1 text-sm text-gray-700">{o.label}</span>
+                      <button type="button" onClick={() => removerOpcao(i)} className="text-gray-300 hover:text-red-400">
+                        <Trash2 size={14} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="flex gap-2">
+                <input
+                  value={novaOpcaoLabel}
+                  onChange={e => setNovaOpcaoLabel(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); adicionarOpcao() } }}
+                  placeholder="Nova opção..."
+                  className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                />
+                <button type="button" onClick={adicionarOpcao}
+                  className="flex items-center gap-1 px-3 py-2 text-sm bg-orange-50 text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-100">
+                  <Plus size={14} /> Adicionar
+                </button>
               </div>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-500 border border-dashed border-gray-300 rounded-lg hover:border-orange-300 hover:text-orange-500 cursor-pointer transition-colors">
+                  <Upload size={12} /> Importar CSV
+                  <input type="file" accept=".csv,.txt" className="hidden" onChange={importarCSV} />
+                </label>
+                <span className="text-xs text-gray-400">Uma opção por linha. Ex: <code className="bg-gray-100 px-1 rounded">Bom,true</code></span>
+              </div>
+              <p className="text-xs text-gray-400">Clique no badge verde/vermelho para alternar se a opção é válida (aprovação).</p>
+            </div>
+          )}
+
+          {tipo === 'catalogo' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Catálogo</label>
+              {catalogos.length === 0 ? (
+                <p className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
+                  Nenhum catálogo ativo encontrado para esta unidade.
+                </p>
+              ) : (
+                <select value={catalogoId} onChange={e => setCatalogoId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
+                  <option value="">— Selecione um catálogo —</option>
+                  {catalogos.map(c => (
+                    <option key={c.id} value={c.id}>{c.nome}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
+          {tipo === 'localizacao' && (
+            <div className="space-y-3">
+              {/* Busca de endereço */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Raio permitido (metros)</label>
-                <input type="number" value={locRaio} onChange={e => setLocRaio(Number(e.target.value))} min={10}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Endereço de referência
+                  <span className="text-gray-400 font-normal ml-1">— inclua número e cidade</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    value={locBusca}
+                    onChange={e => { setLocBusca(e.target.value); setLocEnderecoDisplay(e.target.value); setLocNominatimConfirm('') }}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); buscarEndereco() } }}
+                    placeholder="Ex: Rua Lourenço de Souza Alencar, 89, Maceió"
+                    className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                  />
+                  <button type="button" onClick={buscarEndereco} disabled={locBuscando}
+                    className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 hover:text-orange-500 hover:border-orange-300 disabled:opacity-50">
+                    {locBuscando ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
+                  </button>
+                  <button type="button" onClick={usarGPS} disabled={locGPS}
+                    title="Usar minha localização atual"
+                    className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 hover:text-orange-500 hover:border-orange-300 disabled:opacity-50">
+                    {locGPS ? <Loader2 size={15} className="animate-spin" /> : <LocateFixed size={15} />}
+                  </button>
+                </div>
+
+                {/* Sugestões */}
+                {locSugestoes.length > 0 && (
+                  <ul className="mt-1 border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                    {locSugestoes.map((s, i) => (
+                      <li key={i}>
+                        <button type="button" onClick={() => selecionarSugestao(s)}
+                          className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-orange-50 hover:text-orange-700 border-b border-gray-100 last:border-0">
+                          {s.display_name}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* Confirmação do Nominatim — coordenadas obtidas */}
+                {locLat && locNominatimConfirm && (
+                  <div className="mt-1 flex items-start gap-1.5 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                    <MapPin size={12} className="text-green-500 flex-shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-green-700 font-medium">Coordenadas obtidas</p>
+                      <p className="text-xs text-green-600 truncate">{locNominatimConfirm}</p>
+                      <p className="text-xs text-green-500">{Number(locLat).toFixed(6)}, {Number(locLng).toFixed(6)}</p>
+                    </div>
+                  </div>
+                )}
+                {locLat && !locNominatimConfirm && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Coordenadas: {Number(locLat).toFixed(6)}, {Number(locLng).toFixed(6)}
+                  </p>
+                )}
+              </div>
+
+              {/* Raio */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Raio de tolerância: <span className="text-orange-500 font-semibold">{locRaio}m</span>
+                </label>
+                <input type="range" min={10} max={2000} step={10} value={locRaio}
+                  onChange={e => setLocRaio(Number(e.target.value))}
+                  className="w-full accent-orange-500" />
+                <div className="flex justify-between text-xs text-gray-400 mt-0.5">
+                  <span>10m</span><span>500m</span><span>2km</span>
+                </div>
               </div>
             </div>
           )}

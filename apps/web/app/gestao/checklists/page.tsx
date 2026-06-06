@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Search, FileCheck, MoreVertical, AlertCircle, CheckCircle2, Clock, Eye } from 'lucide-react'
+import { Plus, Search, FileCheck, MoreVertical, AlertCircle, CheckCircle2, Clock, Eye, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
@@ -25,6 +26,11 @@ const STATUS_CONFIG = {
 
 export default function ChecklistsPage() {
   const { unidadeAtiva, subgrupoLabel } = useSession()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const filtroSubgrupoId = searchParams.get('subgrupo')
+  const filtroSubgrupoNome = searchParams.get('subgrupoNome') ?? ''
+
   const [checklists, setChecklists] = useState<Checklist[]>([])
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('')
@@ -35,12 +41,16 @@ export default function ChecklistsPage() {
     setLoading(true)
     const supabase = createClient()
 
-    const { data } = await supabase
+    let query = supabase
       .from('checklists')
       .select('id, nome, descricao, status, versao_atual, subgrupo:subgrupo_id(nome)')
       .eq('unidade_id', unidadeAtiva.id)
       .neq('status', 'inativo')
       .order('nome')
+
+    if (filtroSubgrupoId) query = query.eq('subgrupo_id', filtroSubgrupoId)
+
+    const { data } = await query
 
     if (data) {
       const comContagens = await Promise.all(data.map(async (c: any) => {
@@ -65,7 +75,7 @@ export default function ChecklistsPage() {
     setLoading(false)
   }
 
-  useEffect(() => { carregar() }, [unidadeAtiva?.id])
+  useEffect(() => { carregar() }, [unidadeAtiva?.id, filtroSubgrupoId])
 
   const filtrados = checklists.filter(c => {
     const matchBusca = c.nome.toLowerCase().includes(busca.toLowerCase())
@@ -83,9 +93,24 @@ export default function ChecklistsPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-800">Checklists</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
+        <div className="flex items-center gap-2">
+          {filtroSubgrupoId && (
+            <button onClick={() => router.push('/gestao/checklists')}
+              className="text-gray-400 hover:text-orange-500 transition-colors">
+              <ChevronLeft size={20} />
+            </button>
+          )}
+          <div>
+            <h1 className="text-xl font-semibold text-gray-800">
+              {filtroSubgrupoId ? filtroSubgrupoNome : 'Checklists'}
+            </h1>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {filtroSubgrupoId
+                ? <><span className="text-orange-500 cursor-pointer hover:underline" onClick={() => router.push('/gestao/checklists')}>Checklists</span> · {subgrupoLabel}: {filtroSubgrupoNome}</>
+                : <>Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></>
+              }
+            </p>
+          </div>
         </div>
         <Link href="/gestao/checklists/novo">
           <Button><Plus size={16} />Novo checklist</Button>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, ChevronLeft, Save, Send, GripVertical, Trash2, ChevronDown, ChevronUp, Settings } from 'lucide-react'
+import { Plus, ChevronLeft, Save, Send, GripVertical, Trash2, ChevronDown, ChevronUp, Settings, Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine, CalendarDays, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
@@ -36,25 +36,48 @@ interface Props {
   checklistId: string | null
 }
 
-const TIPO_ICONS: Record<string, string> = {
-  sim_nao: '✅', numero: '🔢', texto: '📝', multipla_escolha: '☑️',
-  catalogo: '📋', foto: '📷', assinatura: '✍️', data_hora: '🗓️', localizacao: '📍'
-}
-
 const TIPO_LABELS: Record<string, string> = {
   sim_nao: 'Sim/Não', numero: 'Número', texto: 'Texto', multipla_escolha: 'Múltipla escolha',
   catalogo: 'Catálogo', foto: 'Foto', assinatura: 'Assinatura', data_hora: 'Data/Hora', localizacao: 'Localização'
 }
 
+const TIPO_CONFIG: Record<string, { bg: string; Icon: React.ComponentType<{ size?: number; className?: string }> }> = {
+  texto:           { bg: 'bg-orange-400',  Icon: Type },
+  numero:          { bg: 'bg-green-500',   Icon: Hash },
+  sim_nao:         { bg: 'bg-emerald-500', Icon: ToggleLeft },
+  multipla_escolha:{ bg: 'bg-blue-500',    Icon: List },
+  catalogo:        { bg: 'bg-slate-500',   Icon: BookOpen },
+  foto:            { bg: 'bg-rose-400',    Icon: Camera },
+  assinatura:      { bg: 'bg-purple-500',  Icon: PenLine },
+  data_hora:       { bg: 'bg-sky-400',     Icon: CalendarDays },
+  localizacao:     { bg: 'bg-amber-600',   Icon: MapPin },
+}
+
+function TipoIcon({ tipo, size = 'md' }: { tipo: string; size?: 'sm' | 'md' | 'lg' }) {
+  const cfg = TIPO_CONFIG[tipo] ?? { bg: 'bg-gray-400', Icon: Type }
+  const { bg, Icon } = cfg
+  const dim = size === 'sm' ? 'w-7 h-7' : size === 'lg' ? 'w-11 h-11' : 'w-9 h-9'
+  const iconSize = size === 'sm' ? 14 : size === 'lg' ? 22 : 18
+  return (
+    <div className={`${dim} ${bg} rounded-xl flex items-center justify-center flex-shrink-0`}>
+      <Icon size={iconSize} className="text-white" />
+    </div>
+  )
+}
+
 export default function ChecklistMontador({ checklistId }: Props) {
   const router = useRouter()
-  const { unidadeAtiva, subgrupoLabel } = useSession()
+  const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
 
   // Dados do checklist
   const [nome, setNome] = useState('')
   const [descricao, setDescricao] = useState('')
+  const [grupoId, setGrupoId] = useState('')
   const [subgrupoId, setSubgrupoId] = useState('')
+  const [grupos, setGrupos] = useState<{ id: string; nome: string }[]>([])
   const [subgrupos, setSubgrupos] = useState<{ id: string; nome: string }[]>([])
+  const [motivos, setMotivos] = useState<{ id: string; descricao: string; tipo: string }[]>([])
+  const [motivosSelecionados, setMotivosSelecionados] = useState<string[]>([])
   const [status, setStatus] = useState<'rascunho' | 'publicado'>('rascunho')
   const [secoes, setSecoes] = useState<Secao[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -68,23 +91,61 @@ export default function ChecklistMontador({ checklistId }: Props) {
     valorGatilho?: string
   } | null>(null)
 
+  // Carrega grupos da unidade
   useEffect(() => {
     if (!unidadeAtiva?.id) return
-    createClient().from('subgrupos').select('id, nome')
-      .eq('status', 'ativo').order('nome')
-      .then(({ data }) => { if (data) setSubgrupos(data) })
+    createClient().from('grupos')
+      .select('id, nome').eq('unidade_id', unidadeAtiva.id).eq('status', 'ativo').order('nome')
+      .then(({ data }) => { if (data) setGrupos(data) })
 
     if (checklistId) carregarChecklist(checklistId)
   }, [unidadeAtiva?.id, checklistId])
 
-  async function carregarChecklist(clId: string) {
+  // Carrega subgrupos quando grupo muda
+  useEffect(() => {
+    if (!grupoId) { setSubgrupos([]); setSubgrupoId(''); return }
+    createClient().from('subgrupos')
+      .select('id, nome').eq('grupo_id', grupoId).eq('status', 'ativo').order('nome')
+      .then(({ data }) => { if (data) setSubgrupos(data) })
+  }, [grupoId])
+
+  // Carrega motivos de não execução quando grupo ou subgrupo mudam
+  useEffect(() => {
+    if (!grupoId) { setMotivos([]); setMotivosSelecionados(prev => []); return }
     const supabase = createClient()
-    const { data: cl } = await supabase.from('checklists').select('*').eq('id', clId).single()
-    if (!cl) return
+    let q = supabase.from('nao_execucao_motivos').select('id, descricao, tipo').eq('status', 'ativo')
+    if (subgrupoId) {
+      q = q.or(`subgrupo_id.eq.${subgrupoId},subgrupo_id.is.null`).eq('grupo_id', grupoId)
+    } else {
+      q = q.eq('grupo_id', grupoId)
+    }
+    q.order('tipo').order('descricao').then(({ data }) => { if (data) setMotivos(data) })
+  }, [grupoId, subgrupoId])
+
+  async function carregarChecklist(clId: string) {
+    try {
+    const supabase = createClient()
+    const { data: cl, error: clErr } = await supabase.from('checklists').select('*').eq('id', clId).single()
+    if (clErr || !cl) return
     setNome(cl.nome)
     setDescricao(cl.descricao ?? '')
-    setSubgrupoId(cl.subgrupo_id ?? '')
     setStatus(cl.status)
+
+    // Deriva grupoId do subgrupo salvo
+    if (cl.subgrupo_id) {
+      const { data: sub } = await supabase.from('subgrupos').select('grupo_id').eq('id', cl.subgrupo_id).single()
+      if (sub?.grupo_id) setGrupoId(sub.grupo_id)
+    }
+    setSubgrupoId(cl.subgrupo_id ?? '')
+
+    // Carrega motivos selecionados (tabela pode não existir ainda)
+    try {
+      const { data: motivosData } = await supabase
+        .from('checklist_nao_execucao_motivos')
+        .select('motivo_id')
+        .eq('checklist_id', clId)
+      if (motivosData) setMotivosSelecionados(motivosData.map((m: any) => m.motivo_id))
+    } catch { /* tabela ainda não existe */ }
 
     const { data: secsData } = await supabase.from('checklist_secoes')
       .select('*').eq('checklist_id', clId).order('ordem')
@@ -106,6 +167,9 @@ export default function ChecklistMontador({ checklistId }: Props) {
         atividades: atvsRaiz.filter(a => a.secao_id === s.id)
       })))
     }
+    } catch (e) {
+      console.error('Erro ao carregar checklist:', e)
+    }
   }
 
   async function salvar() {
@@ -114,6 +178,7 @@ export default function ChecklistMontador({ checklistId }: Props) {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
+    let checkId = id
     if (id) {
       await supabase.from('checklists').update({
         nome, descricao: descricao || null, subgrupo_id: subgrupoId || null, atualizado_em: new Date().toISOString()
@@ -124,8 +189,19 @@ export default function ChecklistMontador({ checklistId }: Props) {
         unidade_id: unidadeAtiva.id, criado_por: user?.id, status: 'rascunho'
       }).select('id').single()
       if (data) {
+        checkId = data.id
         setId(data.id)
         router.replace(`/gestao/checklists/${data.id}/montar`)
+      }
+    }
+
+    // Salva motivos selecionados
+    if (checkId) {
+      await supabase.from('checklist_nao_execucao_motivos').delete().eq('checklist_id', checkId)
+      if (motivosSelecionados.length > 0) {
+        await supabase.from('checklist_nao_execucao_motivos').insert(
+          motivosSelecionados.map(motivo_id => ({ checklist_id: checkId, motivo_id }))
+        )
       }
     }
     setSalvando(false)
@@ -200,6 +276,21 @@ export default function ChecklistMontador({ checklistId }: Props) {
   function onAtividadeSalva(atividade: Atividade) {
     setSecoes(prev => prev.map(s => {
       if (s.id !== atividade.secao_id) return s
+      // Atividade dependente — aninha no pai
+      if (atividade.atividade_pai_id) {
+        return {
+          ...s,
+          atividades: s.atividades.map(a => {
+            if (a.id !== atividade.atividade_pai_id) return a
+            const depExiste = (a.dependentes ?? []).find(d => d.id === atividade.id)
+            const novosDeps = depExiste
+              ? (a.dependentes ?? []).map(d => d.id === atividade.id ? atividade : d)
+              : [...(a.dependentes ?? []), atividade]
+            return { ...a, dependentes: novosDeps }
+          }),
+        }
+      }
+      // Atividade raiz
       const existe = s.atividades.find(a => a.id === atividade.id)
       if (existe) return { ...s, atividades: s.atividades.map(a => a.id === atividade.id ? { ...atividade, dependentes: a.dependentes } : a) }
       return { ...s, atividades: [...s.atividades, { ...atividade, dependentes: [] }] }
@@ -212,6 +303,17 @@ export default function ChecklistMontador({ checklistId }: Props) {
     await createClient().from('checklist_atividades').delete().eq('id', atividadeId)
     setSecoes(prev => prev.map(s => s.id !== secaoId ? s : {
       ...s, atividades: s.atividades.filter(a => a.id !== atividadeId)
+    }))
+  }
+
+  async function deletarDependente(depId: string, paiId: string, secaoId: string) {
+    if (!confirm('Remover esta atividade dependente?')) return
+    await createClient().from('checklist_atividades').delete().eq('id', depId)
+    setSecoes(prev => prev.map(s => s.id !== secaoId ? s : {
+      ...s,
+      atividades: s.atividades.map(a => a.id !== paiId ? a : {
+        ...a, dependentes: (a.dependentes ?? []).filter(d => d.id !== depId)
+      }),
     }))
   }
 
@@ -250,19 +352,69 @@ export default function ChecklistMontador({ checklistId }: Props) {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{grupoLabel}</label>
+            <select value={grupoId} onChange={e => { setGrupoId(e.target.value); setSubgrupoId('') }}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
+              <option value="">Selecione</option>
+              {grupos.map(g => <option key={g.id} value={g.id}>{g.nome}</option>)}
+            </select>
+          </div>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">{subgrupoLabel}</label>
             <select value={subgrupoId} onChange={e => setSubgrupoId(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
+              disabled={!grupoId}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 disabled:opacity-50">
               <option value="">Nenhum</option>
               {subgrupos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-            <input value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Opcional"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
-          </div>
         </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+          <input value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Opcional"
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
+        </div>
+
+        {/* Motivos de não execução */}
+        {grupoId && motivos.length > 0 && (
+          <div className="border-t border-gray-100 pt-3 space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Motivos de não execução válidos
+              <span className="text-gray-400 font-normal ml-1">(selecione os aplicáveis)</span>
+            </label>
+            {['checklist', 'atividade'].map(tipo => {
+              const lista = motivos.filter(m => m.tipo === tipo)
+              if (lista.length === 0) return null
+              return (
+                <div key={tipo}>
+                  <p className="text-xs font-medium text-gray-500 mb-1">
+                    {tipo === 'checklist' ? 'Não execução do checklist' : 'Não execução de atividade'}
+                  </p>
+                  <div className="grid grid-cols-2 gap-1">
+                    {lista.map(m => (
+                      <label key={m.id} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer py-1">
+                        <input
+                          type="checkbox"
+                          checked={motivosSelecionados.includes(m.id)}
+                          onChange={e => setMotivosSelecionados(prev =>
+                            e.target.checked ? [...prev, m.id] : prev.filter(x => x !== m.id)
+                          )}
+                          className="accent-orange-500 flex-shrink-0"
+                        />
+                        {m.descricao}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+        {grupoId && motivos.length === 0 && (
+          <p className="text-xs text-gray-400 border-t border-gray-100 pt-3">
+            Nenhum motivo de não execução cadastrado para este {grupoLabel.toLowerCase()}/{subgrupoLabel.toLowerCase()}.
+          </p>
+        )}
       </div>
 
       {/* Seções e atividades */}
@@ -314,6 +466,8 @@ export default function ChecklistMontador({ checklistId }: Props) {
                       onEditar={() => setAtividadeModal({ secaoId: secao.id, atividade: atv })}
                       onDeletar={() => deletarAtividade(atv.id, secao.id)}
                       onAdicionarDependente={(paiId, gatilho) => setAtividadeModal({ secaoId: secao.id, paiId, valorGatilho: gatilho })}
+                      onEditarDependente={(dep) => setAtividadeModal({ secaoId: secao.id, atividade: dep })}
+                      onDeletarDependente={(depId) => deletarDependente(depId, atv.id, secao.id)}
                     />
                   ))}
 
@@ -353,7 +507,7 @@ export default function ChecklistMontador({ checklistId }: Props) {
   )
 }
 
-function AtividadeRow({ atividade, idx, total, onMover, onEditar, onDeletar, onAdicionarDependente }: {
+function AtividadeRow({ atividade, idx, total, onMover, onEditar, onDeletar, onAdicionarDependente, onEditarDependente, onDeletarDependente }: {
   atividade: Atividade
   idx: number
   total: number
@@ -361,16 +515,29 @@ function AtividadeRow({ atividade, idx, total, onMover, onEditar, onDeletar, onA
   onEditar: () => void
   onDeletar: () => void
   onAdicionarDependente: (paiId: string, gatilho: string) => void
+  onEditarDependente: (dep: Atividade) => void
+  onDeletarDependente: (depId: string) => void
 }) {
   const [expandido, setExpandido] = useState(false)
+  const [opcoesMC, setOpcoesMC] = useState<{ valor: string; label: string }[]>([])
   const temDependentes = (atividade.dependentes?.length ?? 0) > 0
   const podeTerDependentes = ['sim_nao', 'multipla_escolha'].includes(atividade.tipo)
+
+  useEffect(() => {
+    if (atividade.tipo !== 'multipla_escolha') return
+    createClient()
+      .from('checklist_atividade_opcoes')
+      .select('valor, label')
+      .eq('atividade_id', atividade.id)
+      .order('ordem')
+      .then(({ data }) => { if (data) setOpcoesMC(data) })
+  }, [atividade.id, atividade.tipo])
 
   return (
     <div className="px-4 py-3">
       <div className="flex items-center gap-2">
         <GripVertical size={14} className="text-gray-300 flex-shrink-0" />
-        <span className="text-sm mr-0.5">{TIPO_ICONS[atividade.tipo]}</span>
+        <TipoIcon tipo={atividade.tipo} size="sm" />
         <div className="flex-1 min-w-0">
           <p className="text-sm text-gray-800 truncate">{atividade.nome}</p>
           <div className="flex items-center gap-2 mt-0.5">
@@ -397,16 +564,22 @@ function AtividadeRow({ atividade, idx, total, onMover, onEditar, onDeletar, onA
 
       {/* Atividades dependentes */}
       {expandido && podeTerDependentes && (
-        <div className="ml-8 mt-2 space-y-1 border-l-2 border-blue-100 pl-3">
+        <div className="ml-6 mt-2 space-y-1 border-l-2 border-blue-100 pl-3">
           {atividade.dependentes?.map(dep => (
-            <div key={dep.id} className="flex items-center gap-2 py-1.5">
-              <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-mono">
+            <div key={dep.id} className="flex items-center gap-2 py-1.5 bg-blue-50/50 rounded-lg px-2">
+              <span className="text-xs font-mono font-semibold text-blue-500 flex-shrink-0">↳</span>
+              <span className={`text-xs font-medium px-1.5 py-0.5 rounded flex-shrink-0 ${
+                dep.valor_gatilho === 'sim' ? 'bg-green-100 text-green-700' :
+                dep.valor_gatilho === 'nao' ? 'bg-red-100 text-red-600' :
+                'bg-blue-100 text-blue-700'
+              }`}>
                 {dep.valor_gatilho === 'sim' ? 'SIM' : dep.valor_gatilho === 'nao' ? 'NÃO' : dep.valor_gatilho}
               </span>
-              <span className="text-sm mr-0.5">{TIPO_ICONS[dep.tipo]}</span>
+              <TipoIcon tipo={dep.tipo} size="sm" />
               <span className="text-sm text-gray-700 flex-1 truncate">{dep.nome}</span>
-              <button className="p-1 text-gray-400 hover:text-orange-500"><Settings size={12} /></button>
-              <button className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
+              <span className="text-xs text-blue-400 bg-blue-50 px-1.5 py-0.5 rounded flex-shrink-0">dependente</span>
+              <button onClick={() => onEditarDependente(dep)} className="p-1 text-gray-400 hover:text-orange-500"><Settings size={12} /></button>
+              <button onClick={() => onDeletarDependente(dep.id)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
             </div>
           ))}
           {/* Botões para adicionar dependentes */}
@@ -420,6 +593,16 @@ function AtividadeRow({ atividade, idx, total, onMover, onEditar, onDeletar, onA
                 className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1">
                 <Plus size={11} />Se NÃO
               </button>
+            </div>
+          )}
+          {atividade.tipo === 'multipla_escolha' && opcoesMC.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-1">
+              {opcoesMC.map(op => (
+                <button key={op.valor} onClick={() => onAdicionarDependente(atividade.id, op.valor)}
+                  className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 border border-blue-200 bg-blue-50 px-2 py-0.5 rounded-full">
+                  <Plus size={11} />Se "{op.label}"
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -438,6 +621,16 @@ function AtividadeRow({ atividade, idx, total, onMover, onEditar, onDeletar, onA
                 className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1">
                 <Plus size={11} />Se NÃO
               </button>
+            </div>
+          )}
+          {atividade.tipo === 'multipla_escolha' && opcoesMC.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {opcoesMC.map(op => (
+                <button key={op.valor} onClick={() => onAdicionarDependente(atividade.id, op.valor)}
+                  className="text-xs text-gray-400 hover:text-blue-600 flex items-center gap-1">
+                  <Plus size={11} />Se "{op.label}"
+                </button>
+              ))}
             </div>
           )}
         </div>
