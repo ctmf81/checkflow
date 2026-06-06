@@ -356,7 +356,7 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
                   ))}
                 </div>
               </div>
-              <button type="button" onClick={() => setSimNaoExibirRef(v => !v)}
+              <button type="button" onClick={() => setSimNaoExibirRef((v: boolean) => !v)}
                 className="flex items-center gap-2 w-full text-left">
                 <div className={`w-8 h-4 rounded-full transition-colors flex-shrink-0 ${simNaoExibirRef ? 'bg-orange-500' : 'bg-gray-300'}`}>
                   <div className={`w-3 h-3 bg-white rounded-full mt-0.5 transition-transform ${simNaoExibirRef ? 'translate-x-4' : 'translate-x-0.5'}`} />
@@ -385,7 +385,7 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
                 </div>
               </div>
-              <button type="button" onClick={() => setNumExibirRef(v => !v)}
+              <button type="button" onClick={() => setNumExibirRef((v: boolean) => !v)}
                 className="flex items-center gap-2 w-full text-left">
                 <div className={`w-8 h-4 rounded-full transition-colors flex-shrink-0 ${numExibirRef ? 'bg-orange-500' : 'bg-gray-300'}`}>
                   <div className={`w-3 h-3 bg-white rounded-full mt-0.5 transition-transform ${numExibirRef ? 'translate-x-4' : 'translate-x-0.5'}`} />
