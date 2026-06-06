@@ -24,7 +24,7 @@ alter table checklist_execucoes enable row level security;
 create policy "execucoes_unidade" on checklist_execucoes
   for all using (
     unidade_id in (
-      select unidade_id from usuario_unidades
+      select unidade_id from usuario_unidade
       where usuario_id = auth.uid()
     )
   );
