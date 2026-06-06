@@ -554,12 +554,23 @@ function GravadorVideo({ onGravado }: { onGravado: (file: File, url: string) => 
   const [erro, setErro] = useState<string | null>(null)
   const [pronto, setPronto] = useState(false)
   const [tempoSeg, setTempoSeg] = useState(0)
+  const [isMobile, setIsMobile] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    setIsMobile(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent))
+  }, [])
 
   const iniciarStream = useCallback(async () => {
     setErro(null)
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true })
+      const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: mobile
+          ? { facingMode: 'environment' }
+          : { facingMode: 'user', aspectRatio: { ideal: 1 } },
+        audio: true,
+      })
       streamRef.current = stream
       if (videoRef.current) {
         videoRef.current.srcObject = stream
@@ -619,8 +630,9 @@ function GravadorVideo({ onGravado }: { onGravado: (file: File, url: string) => 
           <p className="text-xs text-red-600">{erro}</p>
         </div>
       ) : (
-        <div className="relative bg-black rounded-xl overflow-hidden">
-          <video ref={videoRef} muted playsInline className="w-full max-h-56 object-cover" />
+        <div className={`relative bg-black rounded-xl overflow-hidden ${isMobile ? '' : 'aspect-square max-w-sm mx-auto'}`}>
+          <video ref={videoRef} muted playsInline
+            className={isMobile ? 'w-full max-h-56 object-cover' : 'w-full h-full object-cover'} />
           {gravando && (
             <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-black/60 rounded-full px-2 py-0.5">
               <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
