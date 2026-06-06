@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Search, UserCircle, AlertCircle, Upload, PowerOff, ChevronDown } from 'lucide-react'
+import { Plus, Search, UserCircle, AlertCircle, Upload, PowerOff, ChevronDown, LogIn, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { UsuarioModal } from './UsuarioModal'
 import { ImportarUsuariosModal } from './ImportarUsuariosModal'
@@ -31,6 +31,38 @@ export default function UsuariosPage() {
   const [usuarioEditando, setUsuarioEditando] = useState<Usuario | undefined>()
   const [loading, setLoading] = useState(true)
   const [perfilDropdown, setPerfilDropdown] = useState<string | null>(null)
+  const [impersonandoId, setImpersonandoId] = useState<string | null>(null)
+  const [isAdminSistema, setIsAdminSistema] = useState(false)
+
+  // Verifica se usuário logado é admin_sistema
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data }) => {
+      setIsAdminSistema(data?.user?.user_metadata?.role === 'admin_sistema')
+    })
+  }, [])
+
+  async function loginComo(email: string, usuarioId: string) {
+    setImpersonandoId(usuarioId)
+    try {
+      const { data: { session } } = await createClient().auth.getSession()
+      const token = session?.access_token
+      if (!token) { alert('Sessão inválida.'); return }
+
+      const res = await fetch('/api/usuarios/impersonar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ email }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.link) { alert(json.message ?? 'Erro ao gerar link.'); return }
+
+      window.location.href = json.link
+    } catch (e: any) {
+      alert(e.message ?? 'Erro inesperado.')
+    } finally {
+      setImpersonandoId(null)
+    }
+  }
 
   async function carregar() {
     if (!empresaAtiva?.id) { setLoading(false); return }
@@ -169,6 +201,20 @@ export default function UsuariosPage() {
                   </div>
                 )}
               </div>
+
+              {/* Login como (só para admin_sistema) */}
+              {isAdminSistema && (
+                <button
+                  onClick={() => loginComo(usuario.email, usuario.id)}
+                  disabled={impersonandoId === usuario.id}
+                  className="text-gray-300 hover:text-indigo-500 transition-colors p-1 disabled:opacity-50"
+                  title={`Entrar como ${usuario.nome}`}
+                >
+                  {impersonandoId === usuario.id
+                    ? <Loader2 size={15} className="animate-spin" />
+                    : <LogIn size={15} />}
+                </button>
+              )}
 
               {/* Inativar */}
               <button onClick={() => inativar(usuario.id)}
