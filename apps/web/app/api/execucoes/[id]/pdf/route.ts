@@ -57,7 +57,7 @@ function formatarResposta(tipo: string, resposta: any): string {
   if (tipo === 'sim_nao')         return resposta === true || resposta === 'true' || resposta === 'sim' ? 'Sim' : 'Não'
   if (tipo === 'foto')            return resposta?.url ? '[Foto registrada]' : '—'
   if (tipo === 'video')           return resposta?.url ? '[Vídeo registrado]' : '—'
-  if (tipo === 'localizacao')     return resposta?.endereco ?? `${resposta?.lat ?? ''}, ${resposta?.lng ?? ''}` || '—'
+  if (tipo === 'localizacao')     return (resposta?.endereco ?? `${resposta?.lat ?? ''}, ${resposta?.lng ?? ''}`) || '—'
   if (tipo === 'multipla_escolha') {
     if (Array.isArray(resposta))  return resposta.map((r: any) => r.valor ?? r).join(', ')
     if (typeof resposta === 'object' && resposta?.valor) return resposta.valor
