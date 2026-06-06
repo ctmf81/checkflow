@@ -77,13 +77,19 @@ export async function whatsappRoutes(app: FastifyInstance) {
       const debugSteps: any = { passo1_criar: { status: criarRes.status, body: criado } }
 
       if (jaExiste) {
-        // Deleta a instância existente completamente
-        const delRes = await fetch(`${url}/instance/delete/${instance}`, { method: 'DELETE', headers })
-        debugSteps.passo2_delete = { status: delRes.status }
+        // Passo 2: logout (desconecta sessão WhatsApp ativa)
+        const logoutRes = await fetch(`${url}/instance/logout/${instance}`, { method: 'DELETE', headers })
+        debugSteps.passo2_logout = { status: logoutRes.status }
+        await new Promise(r => setTimeout(r, 1500))
 
-        // Recria do zero
+        // Passo 3: deleta a instância
+        const delRes = await fetch(`${url}/instance/delete/${instance}`, { method: 'DELETE', headers })
+        debugSteps.passo3_delete = { status: delRes.status, body: await delRes.json().catch(() => null) }
+        await new Promise(r => setTimeout(r, 2000))
+
+        // Passo 4: recria do zero
         const { res: recriarRes, json: recriado } = await criarEObterQR()
-        debugSteps.passo3_recriar = { status: recriarRes.status, body: recriado }
+        debugSteps.passo4_recriar = { status: recriarRes.status, body: recriado }
 
         const qrRecriar = normalizeQr(recriado?.qrcode?.base64 ?? recriado?.base64)
         if (qrRecriar) {
@@ -95,7 +101,7 @@ export async function whatsappRoutes(app: FastifyInstance) {
       // Última tentativa: connect direto
       const qrRes = await fetch(`${url}/instance/connect/${instance}`, { headers })
       const qrJson: any = await qrRes.json()
-      debugSteps.passo4_connect = { status: qrRes.status, body: qrJson }
+      debugSteps.passo5_connect = { status: qrRes.status, body: qrJson }
 
       const qrDoConnect = normalizeQr(qrJson?.base64 ?? qrJson?.qrcode?.base64 ?? qrJson?.code)
 
