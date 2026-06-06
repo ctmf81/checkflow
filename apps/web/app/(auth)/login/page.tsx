@@ -33,14 +33,10 @@ export default function LoginPage() {
   async function resolverEmail(): Promise<string | null> {
     if (mode === 'email') return identificador
 
-    // Busca email pelo CPF na tabela usuarios
+    // Usa função RPC security-definer para não expor a tabela usuarios via anon
     const supabase = createClient()
-    const { data } = await supabase
-      .from('usuarios')
-      .select('email')
-      .eq('cpf', identificador)
-      .single()
-    return data?.email ?? null
+    const { data } = await supabase.rpc('buscar_email_por_cpf', { p_cpf: identificador })
+    return (data as string | null) ?? null
   }
 
   async function handleSubmit(e: React.FormEvent) {

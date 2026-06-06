@@ -3,10 +3,10 @@ import { createClient } from '@supabase/supabase-js'
 
 export async function POST(req: NextRequest) {
   try {
-    const supabaseAdmin = createClient(
-      'https://pswdjdlirylxgscohcfi.supabase.co',
-      process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBzd2RqZGxpcnlseGdzY29oY2ZpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDQ5MDYxOCwiZXhwIjoyMDk2MDY2NjE4fQ.W1ngY6tPoep-Y_Q-1y1O_iECR8Ww1j2pqjMfN1QAWlE',
-    )
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) return NextResponse.json({ message: 'Configuração de servidor ausente.' }, { status: 500 })
+    const supabaseAdmin = createClient(url, key)
     const { usuarios, empresaId, syncCompleto, fonte, fonteSistema } = await req.json() as {
       usuarios: { nome: string; email: string; cpf?: string; telefone?: string }[]
       empresaId?: string

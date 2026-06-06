@@ -75,12 +75,23 @@ function ChecklistsContent() {
     const { data } = await query
 
     if (data) {
-      const comContagens = await Promise.all(data.map(async (c: any) => {
-        const { count } = await supabase
-          .from('checklist_atividades')
-          .select('id', { count: 'exact', head: true })
-          .eq('checklist_id', c.id)
-          .is('atividade_pai_id', null)
+      const ids = data.map((c: any) => c.id)
+
+      // Uma única query para contar atividades raiz de todos os checklists
+      const { data: contagensRaw } = ids.length
+        ? await supabase
+            .from('checklist_atividades')
+            .select('checklist_id')
+            .in('checklist_id', ids)
+            .is('atividade_pai_id', null)
+        : { data: [] }
+
+      const contagemMap: Record<string, number> = {}
+      for (const row of (contagensRaw ?? [])) {
+        contagemMap[row.checklist_id] = (contagemMap[row.checklist_id] ?? 0) + 1
+      }
+
+      const comContagens = data.map((c: any) => {
         const subgrupoNorm = Array.isArray(c.subgrupo) ? c.subgrupo[0] : c.subgrupo
         return {
           id: c.id,
@@ -89,9 +100,9 @@ function ChecklistsContent() {
           status: c.status,
           versao_atual: c.versao_atual,
           subgrupo: subgrupoNorm ? { nome: subgrupoNorm.nome } : null,
-          total_atividades: count ?? 0,
+          total_atividades: contagemMap[c.id] ?? 0,
         } as Checklist
-      }))
+      })
       setChecklists(comContagens)
     }
     setLoading(false)
@@ -332,54 +343,68 @@ function DuplicarModal({ checklist, empresaId, onClose, onDuplicado }: DuplicarM
     setSalvando(true)
     setErro('')
     const supabase = createClient()
+    let novoClId: string | null = null
 
-    // 1. Cria novo checklist
-    const { data: novoCl, error: errCl } = await supabase
-      .from('checklists')
-      .insert({
-        nome: nome.trim(),
-        descricao: checklist.descricao,
-        unidade_id: unidadeId,
-        subgrupo_id: subgrupoId || null,
-        status: 'rascunho',
-        versao_atual: 0,
-      })
-      .select('id')
-      .single()
+    try {
+      // 1. Cria novo checklist
+      const { data: novoCl, error: errCl } = await supabase
+        .from('checklists')
+        .insert({
+          nome: nome.trim(),
+          descricao: checklist.descricao,
+          unidade_id: unidadeId,
+          subgrupo_id: subgrupoId || null,
+          status: 'rascunho',
+          versao_atual: 0,
+        })
+        .select('id')
+        .single()
 
-    if (errCl || !novoCl) { setErro('Erro ao criar checklist.'); setSalvando(false); return }
+      if (errCl || !novoCl) throw new Error('Erro ao criar checklist.')
+      novoClId = novoCl.id
 
-    // 2. Copia seções
-    const { data: secoes } = await supabase
-      .from('checklist_secoes')
-      .select('id, nome, ordem')
-      .eq('checklist_id', checklist.id)
-      .order('ordem')
+      // 2. Copia seções
+      const { data: secoes } = await supabase
+        .from('checklist_secoes')
+        .select('id, nome, ordem')
+        .eq('checklist_id', checklist.id)
+        .order('ordem')
 
-    const mapaSecoes: Record<string, string> = {}
-    if (secoes?.length) {
-      for (const s of secoes) {
-        const { data: novaS } = await supabase
+      const mapaSecoes: Record<string, string> = {}
+      for (const s of (secoes ?? [])) {
+        const { data: novaS, error: errS } = await supabase
           .from('checklist_secoes')
           .insert({ checklist_id: novoCl.id, nome: s.nome, ordem: s.ordem })
           .select('id')
           .single()
+        if (errS) throw new Error('Erro ao copiar seções.')
         if (novaS) mapaSecoes[s.id] = novaS.id
       }
-    }
 
-    // 3. Copia atividades (em duas passagens para preservar pai→filho)
-    const { data: atividades } = await supabase
-      .from('checklist_atividades')
-      .select('*')
-      .eq('checklist_id', checklist.id)
-      .order('ordem')
+      // 3. Copia atividades (duas passagens: pais → filhos)
+      const { data: atividades, error: errAtv } = await supabase
+        .from('checklist_atividades')
+        .select('*')
+        .eq('checklist_id', checklist.id)
+        .order('ordem')
 
-    const mapaAtividades: Record<string, string> = {}
-    if (atividades?.length) {
-      // Primeira passagem: atividades sem pai
-      for (const a of atividades.filter(a => !a.atividade_pai_id)) {
-        const { data: novaA } = await supabase
+      if (errAtv) throw new Error('Erro ao ler atividades.')
+
+      const mapaAtividades: Record<string, string> = {}
+      const ativsOrdenadas = (atividades ?? [])
+
+      // Garante que pais existem no mapa antes dos filhos (suporte a múltiplos níveis)
+      const pendentes = [...ativsOrdenadas]
+      let tentativas = 0
+      while (pendentes.length > 0 && tentativas < pendentes.length * 2) {
+        const a = pendentes.shift()!
+        if (a.atividade_pai_id && !mapaAtividades[a.atividade_pai_id]) {
+          pendentes.push(a) // reagenda para depois do pai ser processado
+          tentativas++
+          continue
+        }
+        tentativas = 0
+        const { data: novaA, error: errA } = await supabase
           .from('checklist_atividades')
           .insert({
             checklist_id: novoCl.id,
@@ -392,45 +417,24 @@ function DuplicarModal({ checklist, empresaId, onClose, onDuplicado }: DuplicarM
             critica: a.critica,
             gera_plano_acao: a.gera_plano_acao,
             config: a.config,
-            atividade_pai_id: null,
-            valor_gatilho: null,
-          })
-          .select('id')
-          .single()
-        if (novaA) mapaAtividades[a.id] = novaA.id
-      }
-      // Segunda passagem: atividades filhas
-      for (const a of atividades.filter(a => !!a.atividade_pai_id)) {
-        const { data: novaA } = await supabase
-          .from('checklist_atividades')
-          .insert({
-            checklist_id: novoCl.id,
-            secao_id: a.secao_id ? (mapaSecoes[a.secao_id] ?? null) : null,
-            nome: a.nome,
-            descricao: a.descricao,
-            tipo: a.tipo,
-            ordem: a.ordem,
-            obrigatoria: a.obrigatoria,
-            critica: a.critica,
-            gera_plano_acao: a.gera_plano_acao,
-            config: a.config,
-            atividade_pai_id: mapaAtividades[a.atividade_pai_id] ?? null,
+            atividade_pai_id: a.atividade_pai_id ? (mapaAtividades[a.atividade_pai_id] ?? null) : null,
             valor_gatilho: a.valor_gatilho,
           })
           .select('id')
           .single()
+        if (errA) throw new Error('Erro ao copiar atividades.')
         if (novaA) mapaAtividades[a.id] = novaA.id
       }
 
-      // 4. Copia opções de múltipla escolha
-      const { data: opcoes } = await supabase
-        .from('checklist_atividade_opcoes')
-        .select('*')
-        .in('atividade_id', atividades.map(a => a.id))
-        .order('ordem')
+      // 4. Copia opções de múltipla escolha em lote
+      if (ativsOrdenadas.length) {
+        const { data: opcoes } = await supabase
+          .from('checklist_atividade_opcoes')
+          .select('*')
+          .in('atividade_id', ativsOrdenadas.map(a => a.id))
+          .order('ordem')
 
-      if (opcoes?.length) {
-        const novasOpcoes = opcoes
+        const novasOpcoes = (opcoes ?? [])
           .filter(o => mapaAtividades[o.atividade_id])
           .map(o => ({
             atividade_id: mapaAtividades[o.atividade_id],
@@ -439,12 +443,20 @@ function DuplicarModal({ checklist, empresaId, onClose, onDuplicado }: DuplicarM
             ordem: o.ordem,
             e_valido: o.e_valido,
           }))
-        if (novasOpcoes.length) await supabase.from('checklist_atividade_opcoes').insert(novasOpcoes)
+        if (novasOpcoes.length) {
+          const { error: errOpc } = await supabase.from('checklist_atividade_opcoes').insert(novasOpcoes)
+          if (errOpc) throw new Error('Erro ao copiar opções.')
+        }
       }
-    }
 
-    setSalvando(false)
-    onDuplicado()
+      setSalvando(false)
+      onDuplicado()
+    } catch (e: any) {
+      // Rollback: remove o checklist parcialmente criado
+      if (novoClId) await supabase.from('checklists').delete().eq('id', novoClId)
+      setErro(e.message ?? 'Erro ao duplicar. Tente novamente.')
+      setSalvando(false)
+    }
   }
 
   return (

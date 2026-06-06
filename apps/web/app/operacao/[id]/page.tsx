@@ -554,6 +554,10 @@ function GravadorVideo({ onGravado }: { onGravado: (file: File, url: string) => 
   useEffect(() => {
     iniciarStream()
     return () => {
+      // Para gravação ativa antes de limpar a stream
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop()
+      }
       streamRef.current?.getTracks().forEach(t => t.stop())
       if (timerRef.current) clearInterval(timerRef.current)
     }
@@ -809,8 +813,11 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     const sb = createClient()
 
     const { data: cl, error: clErr } = await sb.from('checklists')
-      .select('id, nome, descricao, tempo_guarda_meses').eq('id', id).single()
-    if (clErr || !cl) { setErroCarregar(`Checklist não encontrado`); setLoading(false); return }
+      .select('id, nome, descricao, tempo_guarda_meses')
+      .eq('id', id)
+      .eq('unidade_id', unidadeAtiva?.id ?? '')
+      .single()
+    if (clErr || !cl) { setErroCarregar(`Checklist não encontrado ou sem permissão de acesso`); setLoading(false); return }
     setChecklist(cl)
 
     const { data: secoesData } = await sb.from('checklist_secoes')
