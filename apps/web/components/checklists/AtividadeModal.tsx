@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { X, Plus, Trash2, Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine, CalendarDays, MapPin, Upload, LocateFixed, Search, Loader2 } from 'lucide-react'
+import { X, Plus, Trash2, Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine, CalendarDays, MapPin, Upload, LocateFixed, Search, Loader2, Video } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
@@ -41,6 +41,7 @@ const TIPO_CONFIG_MODAL: Record<string, { bg: string; Icon: React.ComponentType<
   multipla_escolha:{ bg: 'bg-blue-500',    Icon: List },
   catalogo:        { bg: 'bg-slate-500',   Icon: BookOpen },
   foto:            { bg: 'bg-rose-400',    Icon: Camera },
+  video:           { bg: 'bg-pink-600',    Icon: Video },
   assinatura:      { bg: 'bg-purple-500',  Icon: PenLine },
   data_hora:       { bg: 'bg-sky-400',     Icon: CalendarDays },
   localizacao:     { bg: 'bg-amber-600',   Icon: MapPin },
@@ -53,6 +54,7 @@ const TIPOS = [
   { value: 'multipla_escolha',label: 'Múltipla escolha', validacao: true },
   { value: 'catalogo',        label: 'Catálogo',         validacao: false },
   { value: 'foto',            label: 'Foto',             validacao: false },
+  { value: 'video',           label: 'Vídeo',            validacao: false },
   { value: 'assinatura',      label: 'Assinatura',       validacao: false },
   { value: 'data_hora',       label: 'Data/Hora',        validacao: false },
   { value: 'localizacao',     label: 'Localização',      validacao: true },

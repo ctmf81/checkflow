@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, ChevronLeft, Save, Send, GripVertical, Trash2, ChevronDown, ChevronUp, Settings, Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine, CalendarDays, MapPin } from 'lucide-react'
+import { Plus, ChevronLeft, Save, Send, GripVertical, Trash2, ChevronDown, ChevronUp, Settings, Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine, CalendarDays, MapPin, Video } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
@@ -38,7 +38,7 @@ interface Props {
 
 const TIPO_LABELS: Record<string, string> = {
   sim_nao: 'Sim/Não', numero: 'Número', texto: 'Texto', multipla_escolha: 'Múltipla escolha',
-  catalogo: 'Catálogo', foto: 'Foto', assinatura: 'Assinatura', data_hora: 'Data/Hora', localizacao: 'Localização'
+  catalogo: 'Catálogo', foto: 'Foto', video: 'Vídeo', assinatura: 'Assinatura', data_hora: 'Data/Hora', localizacao: 'Localização'
 }
 
 const TIPO_CONFIG: Record<string, { bg: string; Icon: React.ComponentType<{ size?: number; className?: string }> }> = {
@@ -48,6 +48,7 @@ const TIPO_CONFIG: Record<string, { bg: string; Icon: React.ComponentType<{ size
   multipla_escolha:{ bg: 'bg-blue-500',    Icon: List },
   catalogo:        { bg: 'bg-slate-500',   Icon: BookOpen },
   foto:            { bg: 'bg-rose-400',    Icon: Camera },
+  video:           { bg: 'bg-pink-600',    Icon: Video },
   assinatura:      { bg: 'bg-purple-500',  Icon: PenLine },
   data_hora:       { bg: 'bg-sky-400',     Icon: CalendarDays },
   localizacao:     { bg: 'bg-amber-600',   Icon: MapPin },

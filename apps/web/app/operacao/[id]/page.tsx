@@ -8,7 +8,7 @@ import {
   ArrowLeft, ChevronDown, ChevronUp, CheckCircle2, XCircle,
   Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine,
   CalendarDays, MapPin, AlertCircle, Send, Clock, Locate, Search,
-  QrCode, ScanBarcode, X, ImagePlus
+  QrCode, ScanBarcode, X, ImagePlus, Video, AlertTriangle
 } from 'lucide-react'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -59,6 +59,7 @@ const TIPO_CONFIG: Record<string, { bg: string; Icon: any }> = {
   multipla_escolha: { bg: 'bg-blue-500',    Icon: List },
   catalogo:         { bg: 'bg-slate-500',   Icon: BookOpen },
   foto:             { bg: 'bg-rose-400',    Icon: Camera },
+  video:            { bg: 'bg-pink-600',    Icon: Video },
   assinatura:       { bg: 'bg-purple-500',  Icon: PenLine },
   data_hora:        { bg: 'bg-sky-400',     Icon: CalendarDays },
   localizacao:      { bg: 'bg-amber-600',   Icon: MapPin },
@@ -438,6 +439,91 @@ function CampoFoto({ atividade, onChange }: { atividade: Atividade; onChange: (v
   )
 }
 
+// Vídeo (câmera ou galeria, com alerta de data antiga)
+function CampoVideo({ atividade, onChange }: { atividade: Atividade; onChange: (v: any) => void }) {
+  const inputCameraRef = useRef<HTMLInputElement>(null)
+  const inputGaleriaRef = useRef<HTMLInputElement>(null)
+  const val = atividade.resposta
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>, origem: 'camera' | 'galeria') {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // lastModified é a data de modificação do arquivo (em ms desde epoch)
+    const dataArquivo = new Date(file.lastModified)
+    const agora = new Date()
+    const diffHoras = (agora.getTime() - dataArquivo.getTime()) / (1000 * 60 * 60)
+    const antigo = origem === 'galeria' && diffHoras > 1
+
+    const url = URL.createObjectURL(file)
+    onChange({
+      file,
+      url,
+      nome: file.name,
+      origem,
+      dataArquivo: dataArquivo.toISOString(),
+      antigo,
+    })
+    // limpa o input para permitir reselecionar o mesmo arquivo
+    e.target.value = ''
+  }
+
+  if (val?.url) return (
+    <div className="space-y-2">
+      {val.antigo && (
+        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+          <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs font-semibold text-amber-700">Arquivo antigo detectado</p>
+            <p className="text-xs text-amber-600 mt-0.5">
+              Este vídeo foi criado em {new Date(val.dataArquivo).toLocaleString('pt-BR')}.
+              Certifique-se de que é o vídeo correto.
+            </p>
+          </div>
+        </div>
+      )}
+      <div className="bg-gray-900 rounded-xl overflow-hidden">
+        <video src={val.url} controls className="w-full max-h-56 object-contain" />
+      </div>
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-1.5">
+          {val.origem === 'camera'
+            ? <Camera size={12} className="text-gray-400" />
+            : <Video size={12} className="text-gray-400" />
+          }
+          <p className="text-xs text-gray-400">
+            {val.origem === 'camera' ? 'Gravado agora' : `Da galeria · ${new Date(val.dataArquivo).toLocaleString('pt-BR')}`}
+          </p>
+        </div>
+        <button onClick={() => onChange(null)} className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1">
+          <X size={12} />Remover
+        </button>
+      </div>
+    </div>
+  )
+
+  return (
+    <>
+      <input ref={inputCameraRef} type="file" accept="video/*" capture="environment"
+        className="hidden" onChange={e => handleFile(e, 'camera')} />
+      <input ref={inputGaleriaRef} type="file" accept="video/*"
+        className="hidden" onChange={e => handleFile(e, 'galeria')} />
+      <div className="grid grid-cols-2 gap-2">
+        <button onClick={() => inputCameraRef.current?.click()}
+          className="py-4 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-500 flex flex-col items-center justify-center gap-2 hover:border-pink-300 hover:text-pink-500 transition-colors active:scale-[0.99]">
+          <Camera size={20} />
+          <span className="text-xs font-medium">Gravar vídeo</span>
+        </button>
+        <button onClick={() => inputGaleriaRef.current?.click()}
+          className="py-4 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-500 flex flex-col items-center justify-center gap-2 hover:border-pink-300 hover:text-pink-500 transition-colors active:scale-[0.99]">
+          <Video size={20} />
+          <span className="text-xs font-medium">Escolher da galeria</span>
+        </button>
+      </div>
+    </>
+  )
+}
+
 // Dispatcher
 function CampoResposta({ atividade, onChange }: { atividade: Atividade; onChange: (v: any) => void }) {
   const cfg = atividade.config ?? {}
@@ -449,6 +535,7 @@ function CampoResposta({ atividade, onChange }: { atividade: Atividade; onChange
     case 'catalogo':         return <CampoCatalogo atividade={atividade} onChange={onChange} />
     case 'localizacao':      return <CampoLocalizacao atividade={atividade} onChange={onChange} />
     case 'foto':             return <CampoFoto atividade={atividade} onChange={onChange} />
+    case 'video':            return <CampoVideo atividade={atividade} onChange={onChange} />
     case 'assinatura':
       return (
         <div className="border-2 border-dashed border-gray-200 rounded-xl p-5 text-center">
