@@ -19,8 +19,8 @@ export async function whatsappRoutes(app: FastifyInstance) {
       })
       if (!res.ok) return reply.send({ conectado: false })
       const json: any = await res.json()
-      const inst = Array.isArray(json) ? json.find((i: any) => i.instance?.instanceName === instance) : null
-      const conectado = inst?.instance?.state === 'open'
+      const inst = Array.isArray(json) ? json.find((i: any) => i.name === instance || i.instance?.instanceName === instance) : null
+      const conectado = inst?.connectionStatus === 'open' || inst?.instance?.state === 'open'
       return reply.send({ conectado })
     } catch {
       return reply.send({ conectado: false })
@@ -98,25 +98,33 @@ export async function whatsappRoutes(app: FastifyInstance) {
         criado = recriado
       }
 
-      // Aguarda a instância gerar o QR — tenta até 8x via fetchInstances
-      let qrJson: any = null
+      // Aguarda a instância gerar o QR via GET /instance/connect — tenta até 10x
       let qrDoConnect: string | null = null
-      for (let i = 0; i < 8; i++) {
+      for (let i = 0; i < 10; i++) {
         await new Promise(r => setTimeout(r, 2000))
 
-        // Busca o QR via fetchInstances (mais confiável que /connect nessa versão)
-        const fetchRes = await fetch(`${url}/instance/fetchInstances?instanceName=${instance}`, { headers })
-        const fetchJson: any = await fetchRes.json()
-        const inst = Array.isArray(fetchJson) ? fetchJson[0] : fetchJson
+        const connectRes = await fetch(`${url}/instance/connect/${instance}`, { headers })
+        const connectJson: any = await connectRes.json()
+
+        // v2: { code, pairingCode, count } — "code" é o QR em base64 ou string raw
+        const rawCode = connectJson?.code ?? connectJson?.base64 ?? connectJson?.qrcode?.base64
         debugSteps[`passo_poll_${i + 1}`] = {
-          status: fetchRes.status,
-          raw: i === 0 ? fetchJson : undefined,  // raw completo só na 1ª tentativa
-          instanceState: inst?.instance?.state ?? inst?.state,
-          hasQr: !!inst?.qrcode?.base64,
-          keys: inst ? Object.keys(inst) : [],
+          status: connectRes.status,
+          count: connectJson?.count,
+          hasCode: !!rawCode,
+          raw: i === 0 ? connectJson : undefined,
         }
-        qrDoConnect = normalizeQr(inst?.qrcode?.base64 ?? inst?.base64)
-        if (qrDoConnect) { qrJson = inst; break }
+
+        if (rawCode) {
+          // Se for base64 puro de imagem PNG
+          if (rawCode.startsWith('data:') || rawCode.startsWith('iVBOR') || rawCode.length > 200) {
+            qrDoConnect = normalizeQr(rawCode)
+          } else {
+            // É uma string de conexão WhatsApp — retorna como texto para o front gerar o QR
+            qrDoConnect = `qrstring:${rawCode}`
+          }
+          break
+        }
       }
 
       return reply.send({

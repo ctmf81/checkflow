@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import QRCode from 'qrcode'
 import { RefreshCw, CheckCircle, XCircle, Smartphone, Settings, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 
@@ -33,6 +34,7 @@ export default function WhatsAppPage() {
   const [debug, setDebug] = useState<string | null>(null)
   const [configAberta, setConfigAberta] = useState(false)
   const [config, setConfig] = useState<EvoConfig>({ url: '', apiKey: '', instancia: '' })
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
     setConfig(loadConfig())
@@ -75,7 +77,15 @@ export default function WhatsAppPage() {
         setErro(`Erro da API: ${json.error}`)
         if (json._debug) setDebug(JSON.stringify(json._debug, null, 2))
       } else if (json.qrcode) {
-        setQrcode(json.qrcode)
+        const qr = json.qrcode as string
+        if (qr.startsWith('qrstring:')) {
+          // string raw do WhatsApp — gera imagem via canvas
+          const raw = qr.replace('qrstring:', '')
+          const dataUrl = await QRCode.toDataURL(raw, { width: 256, margin: 2 })
+          setQrcode(dataUrl)
+        } else {
+          setQrcode(qr)
+        }
       } else {
         setErro('QR Code não retornado. Verifique as configurações da Evolution API.')
         setDebug(JSON.stringify(json._debug ?? json, null, 2))
