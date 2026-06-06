@@ -7,7 +7,7 @@ import { clsx } from 'clsx'
 import {
   Home, Users, CheckSquare, BarChart2, Settings,
   ChevronDown, ChevronUp, ClipboardList, Layers,
-  Network, UserCircle, GitBranch
+  Network, UserCircle, GitBranch, Clock
 } from 'lucide-react'
 import { useSession } from '@/contexts/SessionContext'
 import { createClient } from '@/lib/supabase'
@@ -25,6 +25,7 @@ const nav: NavItem[] = [
   { label: 'Planos de Ação', href: '/gestao/planos-acao',  icon: ClipboardList },
   { label: 'Checklists',   href: '/gestao/checklists',     icon: CheckSquare },
   { label: 'Workflows',    href: '/gestao/workflows',      icon: GitBranch },
+  { label: 'Agendamentos', href: '/gestao/agendamentos',   icon: Clock },
   { label: 'Indicadores',  href: '/gestao/indicadores',    icon: BarChart2 },
   {
     label: 'Padrão',
