@@ -6,25 +6,111 @@ description: Supabase and Postgres rules for CheckFlow. Use this skill whenever 
 # Supabase & Postgres Rules
 
 ## Non-Negotiable Rules
-- All primary keys: `UUID` with `gen_random_uuid()` default
+- All primary keys: `UUID` with `gen_random_uuid()` or `uuid_generate_v4()`
 - All column names: `snake_case`
 - RLS: **enabled by default on every table** — no exceptions without explicit user approval
-- Never write raw SQL in frontend code — always use the Supabase client or an Edge Function
+- Never write raw SQL in frontend code — always use the Supabase client
 - All schema changes go in `supabase/migrations/` as timestamped `.sql` files
 
 ## Migration File Naming
 `supabase/migrations/YYYYMMDDHHMMSS_description.sql`
+Generate timestamp: `(Get-Date -Format "yyyyMMddHHmmss")` (PowerShell)
 
-Generate the timestamp with: `(Get-Date -Format "yyyyMMddHHmmss")` (PowerShell)
+## Common Gotchas
+- Table is `usuario_unidade` (singular), not `usuario_unidades`
+- `checklist_atividades.obrigatoria` is feminine — not `obrigatorio`
+- `gen_random_uuid()` vs `uuid_generate_v4()` — both work, prefer `gen_random_uuid()` for new tables
+- Generated columns cannot use subqueries — compute derived values in application code
+- RLS `using` clause for unit-scoped tables: `unidade_id in (select unidade_id from usuario_unidade where usuario_id = auth.uid())`
 
-## Current Tables (concise index)
-- `profiles` — user profile data linked to `auth.users`
-- `checklists` — checklist headers with versioning metadata
-- `checklist_sections` — sections within a checklist
-- `checklist_activities` — activities within sections, with dependencies
-- `whatsapp_sessions` — Evolution API QR/session state per user
+## Table Index
+
+### Tenant & Auth
+| Table | Description |
+|-------|-------------|
+| `empresas` | Top-level tenants |
+| `unidades` | Units within a company (`empresa_id`, `grupo_label`, `subgrupo_label`) |
+| `usuarios` | App users linked to `auth.users` |
+| `usuario_empresa` | M:N user ↔ empresa |
+| `usuario_unidade` | M:N user ↔ unidade |
+| `sessao_usuario` | Last active empresa/unidade/ambiente per user |
+
+### Taxonomy
+| Table | Description |
+|-------|-------------|
+| `grupos` | Checklist grouping (`unidade_id`) |
+| `subgrupos` | Sub-grouping within grupo |
+
+### Checklists
+| Table | Description | Migration |
+|-------|-------------|-----------|
+| `checklists` | Headers: `nome`, `status`, `versao_atual`, `tempo_guarda_meses`, `subgrupo_id` | 20260603000017, 20260606000002 |
+| `checklist_versoes` | Immutable snapshots (`snapshot jsonb`) | 20260603000017 |
+| `checklist_secoes` | Sections within a checklist | 20260603000017 |
+| `checklist_atividades` | Activities — see tipo constraint below | 20260603000017 |
+| `checklist_atividade_opcoes` | Options for `multipla_escolha` (`label`, `valor`, `e_valido`) | 20260603000017 |
+| `checklist_execucoes` | Execution records (`data_expiracao`, `status`) | 20260606000002 |
+| `checklist_nao_execucao_motivos` | Junction: checklist ↔ motivo | 20260606000001 |
+
+### `checklist_atividades.tipo` CHECK Constraint
+Currently in DB: `'sim_nao','numero','texto','multipla_escolha','catalogo','foto','assinatura','data_hora','localizacao'`
+
+⚠️ **`video` is NOT in the DB constraint yet.** Migration needed:
+```sql
+-- supabase/migrations/YYYYMMDDHHMMSS_add_tipo_video.sql
+alter table checklist_atividades
+  drop constraint checklist_atividades_tipo_check;
+alter table checklist_atividades
+  add constraint checklist_atividades_tipo_check
+  check (tipo in (
+    'sim_nao','numero','texto','multipla_escolha','catalogo',
+    'foto','video','assinatura','data_hora','localizacao'
+  ));
+```
+
+### `checklist_atividades.config` JSONB Shapes
+```
+sim_nao:          { "esperado": "sim" | "nao" }
+numero:           { "min": number, "max": number, "unidade": string }
+texto:            { "mascara": string, "qrcode": boolean }
+multipla_escolha: { "multipla": boolean }
+catalogo:         { "catalogo_id": "uuid" }
+localizacao:      { "lat": number, "lng": number, "raio_metros": number }
+data_hora:        { "automatico": boolean }
+video:            {}   (no config needed)
+foto:             {}   (no config needed)
+```
+
+### Catálogos
+| Table | Description |
+|-------|-------------|
+| `catalogos` | Catalog metadata: `campo_chave`, `atributo_1..4` |
+| `catalogo_valores` | Items: `valor_chave`, `atributo_1..4`, `imagem_url` |
+
+### Documentos & Qualidade
+| Table | Description |
+|-------|-------------|
+| `documentos` | Document library |
+| `nao_execucao_motivos` | Reasons for non-execution |
+| `causa_raiz` | Root cause categories |
+
+## RLS Policy Patterns
+
+### Admin-only write, public read
+```sql
+create policy "X_admin"   on T for all    using (is_admin_sistema());
+create policy "X_leitura" on T for select using (true);
+```
+
+### Unit-scoped (operator data)
+```sql
+create policy "X_unidade" on T for all using (
+  unidade_id in (
+    select unidade_id from usuario_unidade
+    where usuario_id = auth.uid()
+  )
+);
+```
 
 ## Evolution Rule
-When the user says "Update /db with new table [X]", add X to the table index above with a one-line description. If a migration was written, note the filename next to it.
-
-**This skill is live.** When the user says "update skills with what we did today", add any new tables or RLS policy changes to this file.
+When the user says "Update /db with new table [X]", add X to the table index with a one-line description and migration filename. Keep constraint documentation up to date.

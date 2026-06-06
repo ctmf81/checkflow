@@ -3,33 +3,83 @@ name: uimap
 description: Dynamic UI and file index for the CheckFlow project. Use this skill before creating or editing any file to instantly locate existing pages, components, and hooks. Trigger whenever the user asks "where is X?", "which file handles Y?", or before touching any src/ file to avoid duplicating existing code.
 ---
 
-# UI Map — Dynamic File Index
+# UI Map — File Index
 
-When invoked, silently run the following command and use the output to locate files:
+## App Router Structure (`apps/web/app/`)
 
-```powershell
-# Windows (PowerShell)
-Get-ChildItem -Path src/pages, src/components, src/hooks, src/lib -Recurse -Depth 3 -File |
-  Select-Object -ExpandProperty FullName
-```
+### Auth (`(auth)/`)
+| Route | File | Purpose |
+|-------|------|---------|
+| `/login` | `(auth)/login/page.tsx` | Login form |
+| `/recuperar-senha` | `(auth)/recuperar-senha/page.tsx` | Request password reset |
+| `/nova-senha` | `(auth)/nova-senha/page.tsx` | Set new password |
 
-If those paths don't exist, fall back to:
-```powershell
-Get-ChildItem -Path src -Recurse -Depth 4 -Include *.tsx,*.ts -File |
-  Select-Object -ExpandProperty FullName
-```
+### Gestão — Backoffice (`gestao/`)
+Layout: `gestao/layout.tsx` — sidebar + SessionProvider
 
-## How to use the output
-- Answer "where is the component for X?" before touching any file
-- Use `@filename` references in your response so the user can click through
-- Never guess a file path — always run the index command first
-- If the file doesn't exist yet, confirm before creating it
+| Route | File | Purpose |
+|-------|------|---------|
+| `/gestao` | `gestao/page.tsx` | Dashboard |
+| `/gestao/checklists` | `gestao/checklists/page.tsx` | Checklist listing (uses Suspense for useSearchParams) |
+| `/gestao/checklists/novo` | `gestao/checklists/novo/page.tsx` | New checklist form |
+| `/gestao/checklists/novo/montar` | `gestao/checklists/novo/montar/page.tsx` | Builder for new |
+| `/gestao/checklists/[id]` | `gestao/checklists/[id]/page.tsx` | Edit checklist meta |
+| `/gestao/checklists/[id]/montar` | `gestao/checklists/[id]/montar/page.tsx` | Builder for existing |
+| `/gestao/grupos` | `gestao/grupos/page.tsx` | Grupos list |
+| `/gestao/grupos/[id]/subgrupos` | `gestao/grupos/[id]/subgrupos/page.tsx` | Subgrupos |
+| `/gestao/acessos/usuarios` | `gestao/acessos/usuarios/page.tsx` | User management |
+| `/gestao/acessos/perfis` | `gestao/acessos/perfis/page.tsx` | Access profiles |
+| `/gestao/acessos/empresa` | `gestao/acessos/empresa/page.tsx` | Company/units config |
+| `/gestao/configuracoes/documentos` | `gestao/configuracoes/documentos/page.tsx` | Document library |
+| `/gestao/configuracoes/nao-execucao` | `gestao/configuracoes/nao-execucao/page.tsx` | Non-execution reasons |
+| `/gestao/configuracoes/causa-raiz` | `gestao/configuracoes/causa-raiz/page.tsx` | Root causes |
+| `/gestao/configuracoes/catalogos` | `gestao/configuracoes/catalogos/page.tsx` | Catalog management |
+| `/gestao/configuracoes/formatacao` | `gestao/configuracoes/formatacao/page.tsx` | Label config |
 
-## Known Structure (keep updated)
-- `src/pages/` — route-level page files
-- `src/components/` — reusable UI components
-- `src/hooks/` — custom React hooks
-- `src/lib/` — utilities, Supabase client, helpers
-- `supabase/migrations/` — all DB migration files
+### Operação — Mobile execution (`operacao/`)
+Layout: `operacao/layout.tsx` — NO sidebar, OperacaoHeader with unit selector
 
-**This skill is live.** When the user says "update skills with what we did today", update the Known Structure section if new folders were created.
+| Route | File | Purpose |
+|-------|------|---------|
+| `/operacao` | `operacao/page.tsx` | Checklist listing grouped by grupo/subgrupo |
+| `/operacao/[id]` | `operacao/[id]/page.tsx` | Full checklist execution screen |
+
+### Sistema — Super-admin (`sistema/`)
+Layout: `sistema/layout.tsx`
+
+| Route | File | Purpose |
+|-------|------|---------|
+| `/sistema` | `sistema/page.tsx` | System overview |
+| `/sistema/empresas/[id]` | `sistema/empresas/[id]/page.tsx` | Company details |
+| `/sistema/whatsapp` | `sistema/whatsapp/page.tsx` | WhatsApp QR / Evolution API config |
+
+## Key Components (`apps/web/components/`)
+
+### `checklists/`
+| File | Purpose |
+|------|---------|
+| `ChecklistMontador.tsx` | Drag-and-drop checklist builder (sections + activities). Includes tempo_guarda selector |
+| `AtividadeModal.tsx` | Modal to add/edit an activity. Defines available types in `TIPOS[]` |
+
+### `ui/`
+| File | Purpose |
+|------|---------|
+| `Button.tsx` | Shared button component |
+
+## Context & Lib
+| File | Purpose |
+|------|---------|
+| `contexts/SessionContext.tsx` | Empresa, unidade, ambiente state + persistence to `sessao_usuario` |
+| `lib/supabase.ts` | Supabase client singleton |
+
+## API (`apps/api/src/`)
+| File | Purpose |
+|------|---------|
+| `routes/whatsapp.ts` | POST /whatsapp/conectar, POST /whatsapp/status, POST /whatsapp/enviar |
+| `lib/whatsapp.ts` | Evolution API helper (enviarWhatsApp, statusInstancia) |
+
+## Supabase Migrations (`supabase/migrations/`)
+See `/db` skill for full table index by migration file.
+
+## Evolution Rule
+When new pages or components are created, add them to the relevant table above.
