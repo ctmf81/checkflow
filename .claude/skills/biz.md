@@ -43,9 +43,11 @@ Rule: **never mutate a published checklist structure** — create a new version 
 
 ## Execução de Checklist
 - Ao finalizar, salva em `checklist_execucoes` com `status = 'concluido'`
+- `resultado` = `'aprovado'` se todas as atividades conformes; `'reprovado'` se qualquer `calcularValidacao() === false`
 - `data_expiracao` = `data_execucao + tempo_guarda_meses` meses (calculado pela aplicação)
 - `tempo_guarda_meses` padrão: 12. Opções: 1, 3, 6, 12, 24, 36, 48, 64 meses
 - Execuções são isoladas por `unidade_id` via RLS
+- Quando vem de workflow (`?wf_item=<id>`): insert com `status='em_andamento'` → linka `workflow_item_execucoes` → update para `'concluido'` → trigger avança o pipeline
 
 ## Atividades Dependentes
 - Uma atividade pode ter `atividade_pai_id` + `valor_gatilho`
@@ -65,6 +67,15 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - QR gerado via `POST /whatsapp/conectar` (proxy no Fastify)
 - ⚠️ Problema conhecido: `connectionStatus: "close"` se Redis não está disponível
   → Solução: `CACHE_REDIS_ENABLED=false` nas env vars da Evolution API no Railway
+
+## Workflows
+- Pipeline de checklists com estágios **sequenciais** e execução **paralela dentro** de cada estágio
+- Transversal à unidade — `workflows` pertence à `empresa_id`, execuções são por `unidade_id`
+- Cada item de estágio tem `subgrupo_id` opcional — define quem vê o checklist em Operação
+- Condição de avanço por estágio: `todos_aprovados` | `todos_concluidos` | `qualquer_aprovado`
+- Motor 100% em Postgres: trigger em `checklist_execucoes` avança estágio automaticamente
+- Status de workflow_execucoes: `em_andamento` → `concluido` (sucesso) | `bloqueado` (reprovado sem condição satisfeita) | `cancelado`
+- Em Operação, itens de workflow `liberados` aparecem na seção "Workflows em andamento" antes dos checklists avulsos
 
 ## Regras de Negócio Críticas
 - RLS obrigatório em todas as tabelas de dados de usuário

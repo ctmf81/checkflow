@@ -94,6 +94,26 @@ foto:             {}   (no config needed)
 | `nao_execucao_motivos` | Reasons for non-execution |
 | `causa_raiz` | Root cause categories |
 
+### Workflows (migration 20260606000006)
+| Table | Description |
+|-------|-------------|
+| `workflows` | Pipeline header (`empresa_id`, `status`: rascunho/publicado/inativo) — transversal às unidades |
+| `workflow_estagios` | Estágios sequenciais (`workflow_id`, `ordem`, `condicao_avanco`) |
+| `workflow_estagio_itens` | Checklists dentro de um estágio — paralelos (`estagio_id`, `checklist_id`, `subgrupo_id`, `obrigatorio`) |
+| `workflow_execucoes` | Instância de execução (`workflow_id`, `unidade_id`, `estagio_atual_ordem`, `status`) |
+| `workflow_item_execucoes` | Estado de cada item numa execução (`checklist_execucao_id`, `status`: bloqueado/liberado/em_andamento/aprovado/reprovado/pulado) |
+
+**`condicao_avanco`** values: `todos_aprovados` | `todos_concluidos` | `qualquer_aprovado`
+
+**Motor de avanço:** trigger `trg_workflow_checklist_concluido` em `checklist_execucoes AFTER UPDATE`
+→ chama `workflow_avaliar_avanco(execucao_id)` → libera próximo estágio automaticamente
+
+**Funções RPC:**
+- `workflow_iniciar(p_workflow_id, p_unidade_id, p_usuario_id)` → retorna `uuid` da execução
+- `workflow_avaliar_avanco(p_execucao_id)` → void, chamada pelo trigger
+
+**`checklist_execucoes`** agora tem coluna `resultado text check (resultado in ('aprovado','reprovado'))`
+
 ## RLS Policy Patterns
 
 ### Admin-only write, public read

@@ -27,27 +27,27 @@ Next logical step: [one-sentence inference, only if obvious]
 
 ## Known Open Issues (atualizado 2026-06-06)
 
-Consulte `docs/auditoria-inconsistencias.md` para detalhes. Resumo de prioridade:
-
 | # | Issue | Severidade |
 |---|-------|-----------|
 | 1 | `video` falta no CHECK CONSTRAINT do banco — migration `20260606000003_add_tipo_video.sql` criada mas NÃO aplicada | 🔴 Crítico |
-| 2 | Respostas das atividades não são persistidas (tabela `checklist_execucao_respostas` não existe) | 🔴 Crítico |
-| 3 | Foto e Vídeo não sobem para o Supabase Storage | 🔴 Crítico |
-| 4 | Finalizar não valida campos obrigatórios | 🟠 Alto |
-| 5 | `user` no SessionContext acessado via `as any` → pode ser undefined | 🟠 Alto |
-| 6 | WhatsApp QR Code ainda não funciona (Evolution API + Redis) | 🟠 Alto |
-| 7 | Checklist publicado pode ter atividades editadas (sem proteção no montador) | 🟡 Médio |
-| 8 | Redirect para login ausente quando sessão expira na Operação | 🟡 Médio |
+| 2 | WhatsApp QR Code ainda não funciona (Evolution API + Redis) | 🟠 Alto |
+| 3 | `user` no SessionContext acessado via `as any` → pode ser undefined | 🟠 Alto |
+| 4 | Checklist publicado pode ter atividades editadas (sem proteção no montador) | 🟡 Médio |
+| 5 | Redirect para login ausente quando sessão expira na Operação | 🟡 Médio |
 
-## Testes criados (Vitest — não instalado ainda)
-```
-apps/web/__tests__/operacao.validacao.test.ts  — calcularValidacao()
-apps/web/__tests__/operacao.mascara.test.ts    — aplicarMascara()
-apps/web/__tests__/operacao.video.test.ts      — isVideoAntigo()
-apps/web/__tests__/execucao.expiracao.test.ts  — calcularDataExpiracao()
-```
-Para instalar: `npm install -D vitest @vitejs/plugin-react @testing-library/jest-dom jsdom`
-Para rodar: `npx vitest run`
+## Migrations aplicadas em produção (Supabase)
+- `20260606000005_security_hardening.sql` ✅ aplicada
+- `20260606000006_workflows.sql` ✅ aplicada
 
-**This skill is live.** When the user says "update skills with what we did today", update the Known Open Issues table and the tests section.
+## Features entregues nesta sessão
+- Inativar/Duplicar checklist (com picker de destino)
+- Gravar vídeo via getUserMedia (sem galeria)
+- Toggle exibir/ocultar referência em atividades sim_nao e numero
+- Suporte decimal + fix máscara `0` como wildcard
+- QA/security audit: 7 issues corrigidos (IDOR, hardcoded keys, RLS, RPC buscar_email_por_cpf)
+- **Workflow completo**: schema + motor Postgres (trigger+função) + UI editor + execuções
+- Resultado de execução (aprovado/reprovado) gravado em `checklist_execucoes.resultado`
+- Operação: seção "Workflows em andamento", link `?wf_item=`, banner de contexto
+- Fix N+1 em operacao/page.tsx (contagem de atividades em batch)
+
+**This skill is live.** When the user says "update skills with what we did today", update the Known Open Issues table and sections acima.

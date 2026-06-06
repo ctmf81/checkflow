@@ -21,6 +21,12 @@ checkFlow/
 │   │   ├── app/      ← routes (App Router convention)
 │   │   │   ├── (auth)/       ← login, recuperar-senha, nova-senha
 │   │   │   ├── gestao/       ← admin backoffice (sidebar layout)
+│   │   │   │   └── workflows/
+│   │   │   │       ├── page.tsx             ← listagem
+│   │   │   │       ├── novo/page.tsx        ← re-export do editor com id='novo'
+│   │   │   │       └── [id]/
+│   │   │   │           ├── page.tsx         ← editor visual (criar + editar)
+│   │   │   │           └── execucoes/page.tsx ← acompanhamento de execuções
 │   │   │   ├── operacao/     ← mobile-first execution area (no sidebar)
 │   │   │   └── sistema/      ← super-admin area
 │   │   ├── components/
