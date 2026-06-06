@@ -468,7 +468,7 @@ export default function WorkflowEditorPage({ params }: { params: Promise<{ id: s
         {estagios.map((est, idx) => (
           <div key={est.localId}>
             {/* Card do estágio */}
-            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+            <div className="bg-white border border-gray-200 rounded-2xl">
               {/* Header do estágio */}
               <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50">
                 <div className="flex flex-col gap-0.5">
@@ -503,7 +503,7 @@ export default function WorkflowEditorPage({ params }: { params: Promise<{ id: s
                       <ChevronDown size={12} />
                     </button>
                     {menuEstagio === est.localId && (
-                      <div className="absolute right-0 top-6 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-64">
+                      <div className="absolute right-0 top-6 z-50 bg-white border border-gray-200 rounded-xl shadow-xl py-1 w-64">
                         {CONDICAO_OPTS.map(opt => (
                           <button key={opt.value}
                             onClick={() => { updateEstagio(est.localId, { condicaoAvanco: opt.value as any }); setMenuEstagio(null) }}
