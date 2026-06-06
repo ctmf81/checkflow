@@ -505,16 +505,18 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
                   Nenhum catálogo ativo encontrado para esta unidade.
                 </p>
               ) : (
-                <select value={catalogoId} onChange={e => setCatalogoId(e.target.value)}
-                  className={`w-full px-3 py-2 text-sm border rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 ${!catalogoId ? 'border-amber-300' : 'border-gray-200'}`}>
-                  <option value="">— Selecione um catálogo —</option>
-                  {catalogos.map(c => (
-                    <option key={c.id} value={c.id}>{c.nome}</option>
-                  ))}
-                </select>
-                {!catalogoId && (
-                  <p className="text-xs text-amber-600 mt-1">⚠ Selecione um catálogo — sem ele o checklist não poderá ser executado.</p>
-                )}
+                <>
+                  <select value={catalogoId} onChange={e => setCatalogoId(e.target.value)}
+                    className={`w-full px-3 py-2 text-sm border rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 ${!catalogoId ? 'border-amber-300' : 'border-gray-200'}`}>
+                    <option value="">— Selecione um catálogo —</option>
+                    {catalogos.map(c => (
+                      <option key={c.id} value={c.id}>{c.nome}</option>
+                    ))}
+                  </select>
+                  {!catalogoId && (
+                    <p className="text-xs text-amber-600 mt-1">⚠ Selecione um catálogo — sem ele o checklist não poderá ser executado.</p>
+                  )}
+                </>
               )}
             </div>
           )}

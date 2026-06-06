@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
@@ -9,6 +9,7 @@ import {
   GitBranch, Play, History, FileText, X, ChevronDown, ChevronUp,
   ClipboardList, Clock, User, CheckCircle, XCircle, AlertTriangle,
   RotateCcw, ExternalLink, Image as ImageIcon, Video,
+  Bot, Send, Loader2, MessageSquare,
 } from 'lucide-react'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -353,6 +354,10 @@ function AbaDocumentos({ unidadeId }: { unidadeId: string }) {
   const [etapaIdx, setEtapaIdx] = useState(0)
   const [loadingEtapas, setLoadingEtapas] = useState(false)
 
+  // Estado da Consulta Inteligente
+  const [consultaHistorico, setConsultaHistorico] = useState<{ pergunta: string; resposta: string }[]>([])
+  const [consultando, setConsultando] = useState(false)
+
   useEffect(() => {
     async function carregar() {
       try {
@@ -411,9 +416,11 @@ function AbaDocumentos({ unidadeId }: { unidadeId: string }) {
   async function abrirDocumento(doc: Documento) {
     setDocAberto(doc)
     setEtapaIdx(0)
+    setConsultaHistorico([])
+
+    if (doc.tipo === 'consulta_inteligente') return // Consulta inteligente não carrega etapas
 
     if (!doc.arquivo_url) {
-      // Busca etapas
       setLoadingEtapas(true)
       const sb = createClient()
       const { data: etapasData } = await sb
@@ -426,6 +433,52 @@ function AbaDocumentos({ unidadeId }: { unidadeId: string }) {
         imagens: (e.etapa_imagens ?? []).sort((a: any, b: any) => a.ordem - b.ordem),
       })))
       setLoadingEtapas(false)
+    }
+  }
+
+  async function consultar(pergunta: string) {
+    if (!docAberto || consultando) return
+    setConsultando(true)
+    const novaPergunta = { pergunta, resposta: '' }
+    setConsultaHistorico(prev => [...prev, novaPergunta])
+    const idx = consultaHistorico.length
+
+    try {
+      const sb = createClient()
+      const { data: { session } } = await sb.auth.getSession()
+      const token = session?.access_token
+      if (!token) throw new Error('Sessão expirada')
+
+      const res = await fetch('/api/documentos/consultar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ documento_id: docAberto.id, pergunta }),
+      })
+
+      if (!res.ok || !res.body) {
+        const err = await res.json().catch(() => ({ error: 'Erro na consulta' }))
+        setConsultaHistorico(prev => prev.map((h, i) => i === idx ? { ...h, resposta: `❌ ${err.error ?? 'Erro desconhecido'}` } : h))
+        return
+      }
+
+      // Lê stream chunk a chunk
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let textoCompleto = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        textoCompleto += decoder.decode(value, { stream: true })
+        setConsultaHistorico(prev => prev.map((h, i) => i === idx ? { ...h, resposta: textoCompleto } : h))
+      }
+    } catch (err: any) {
+      setConsultaHistorico(prev => prev.map((h, i) => i === idx ? { ...h, resposta: `❌ ${err.message ?? 'Erro ao consultar'}` } : h))
+    } finally {
+      setConsultando(false)
     }
   }
 
@@ -474,16 +527,23 @@ function AbaDocumentos({ unidadeId }: { unidadeId: string }) {
           etapaIdx={etapaIdx}
           setEtapaIdx={setEtapaIdx}
           loadingEtapas={loadingEtapas}
-          onClose={() => { setDocAberto(null); setEtapas([]) }}
+          onClose={() => { setDocAberto(null); setEtapas([]); setConsultaHistorico([]) }}
+          consultaHistorico={consultaHistorico}
+          consultando={consultando}
+          onConsultar={consultar}
         />
       )}
     </>
   )
 }
 
-function ViewerDocumento({ doc, etapas, etapaIdx, setEtapaIdx, loadingEtapas, onClose }: {
+function ViewerDocumento({ doc, etapas, etapaIdx, setEtapaIdx, loadingEtapas, onClose,
+  consultaHistorico, consultando, onConsultar }: {
   doc: Documento; etapas: Etapa[]; etapaIdx: number
   setEtapaIdx: (i: number) => void; loadingEtapas: boolean; onClose: () => void
+  consultaHistorico: { pergunta: string; resposta: string }[]
+  consultando: boolean
+  onConsultar: (pergunta: string) => void
 }) {
   const etapa = etapas[etapaIdx]
 
@@ -491,116 +551,242 @@ function ViewerDocumento({ doc, etapas, etapaIdx, setEtapaIdx, loadingEtapas, on
     <div className="fixed inset-0 bg-black/60 flex flex-col z-50">
       {/* Header */}
       <div className="bg-white flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-gray-800 text-sm truncate">{doc.nome}</p>
-          {etapas.length > 0 && (
-            <p className="text-xs text-gray-400 mt-0.5">
-              Etapa {etapaIdx + 1} de {etapas.length}
-            </p>
+        <div className="min-w-0 flex-1 flex items-center gap-2">
+          {doc.tipo === 'consulta_inteligente' && (
+            <div className="w-7 h-7 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Bot size={14} className="text-green-600" />
+            </div>
           )}
+          <div className="min-w-0">
+            <p className="font-semibold text-gray-800 text-sm truncate">{doc.nome}</p>
+            {doc.tipo === 'consulta_inteligente'
+              ? <p className="text-xs text-green-600 mt-0.5">Consulta Inteligente · IA</p>
+              : etapas.length > 0 && (
+                  <p className="text-xs text-gray-400 mt-0.5">Etapa {etapaIdx + 1} de {etapas.length}</p>
+                )
+            }
+          </div>
         </div>
         <button onClick={onClose} className="ml-3 p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg flex-shrink-0">
           <X size={18} />
         </button>
       </div>
 
-      {/* Conteúdo */}
-      <div className="flex-1 overflow-y-auto bg-gray-50">
-        {/* Arquivo direto (PDF / imagem) */}
-        {doc.arquivo_url && (
-          <div className="flex flex-col items-center justify-center h-full p-4 gap-4">
-            {doc.arquivo_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={doc.arquivo_url} alt={doc.nome} className="max-w-full rounded-xl shadow" />
-            ) : (
-              <>
-                <iframe src={doc.arquivo_url} className="w-full rounded-xl shadow bg-white" style={{ height: 'calc(100vh - 140px)' }} />
-                <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-sm text-orange-500 font-medium hover:underline">
-                  <ExternalLink size={14} />Abrir em nova aba
-                </a>
-              </>
+      {/* ─── Consulta Inteligente (RAG) ──────────────────────────────────────── */}
+      {doc.tipo === 'consulta_inteligente' && (
+        <ConsultaInteligente
+          documentoNome={doc.nome}
+          historico={consultaHistorico}
+          consultando={consultando}
+          onConsultar={onConsultar}
+        />
+      )}
+
+      {/* ─── Viewer normal (arquivo / etapas) ───────────────────────────────── */}
+      {doc.tipo !== 'consulta_inteligente' && (
+        <>
+          <div className="flex-1 overflow-y-auto bg-gray-50">
+            {/* Arquivo direto (PDF / imagem) */}
+            {doc.arquivo_url && (
+              <div className="flex flex-col items-center justify-center h-full p-4 gap-4">
+                {doc.arquivo_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={doc.arquivo_url} alt={doc.nome} className="max-w-full rounded-xl shadow" />
+                ) : (
+                  <>
+                    <iframe src={doc.arquivo_url} className="w-full rounded-xl shadow bg-white" style={{ height: 'calc(100vh - 140px)' }} />
+                    <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-sm text-orange-500 font-medium hover:underline">
+                      <ExternalLink size={14} />Abrir em nova aba
+                    </a>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Etapas (POP / IT) */}
+            {!doc.arquivo_url && (
+              loadingEtapas ? (
+                <div className="flex justify-center py-16">
+                  <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : etapas.length === 0 ? (
+                <div className="text-center py-16">
+                  <FileText size={36} className="text-gray-200 mx-auto mb-2" />
+                  <p className="text-sm text-gray-400">Este documento não possui conteúdo cadastrado.</p>
+                </div>
+              ) : etapa ? (
+                <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
+                  {etapa.titulo && <h2 className="text-lg font-bold text-gray-800">{etapa.titulo}</h2>}
+                  {etapa.video_id && (
+                    <div className="rounded-xl overflow-hidden shadow aspect-video">
+                      <iframe src={`https://www.youtube.com/embed/${etapa.video_id}`} className="w-full h-full" allowFullScreen title={etapa.titulo ?? 'Vídeo'} />
+                    </div>
+                  )}
+                  {etapa.imagens.length > 0 && (
+                    <div className={`grid gap-2 ${etapa.imagens.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                      {etapa.imagens.map(img => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img key={img.id} src={img.url} alt="" className="w-full rounded-xl object-cover border border-gray-200" />
+                      ))}
+                    </div>
+                  )}
+                  {etapa.conteudo && (
+                    <div className="bg-white border border-gray-200 rounded-xl px-4 py-4">
+                      <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{etapa.conteudo}</p>
+                    </div>
+                  )}
+                </div>
+              ) : null
             )}
           </div>
-        )}
 
-        {/* Etapas (POP / IT) */}
-        {!doc.arquivo_url && (
-          loadingEtapas ? (
-            <div className="flex justify-center py-16">
-              <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+          {/* Navegação de etapas */}
+          {!doc.arquivo_url && etapas.length > 1 && (
+            <div className="bg-white border-t border-gray-200 flex items-center gap-3 px-4 py-3 flex-shrink-0">
+              <button onClick={() => setEtapaIdx(Math.max(0, etapaIdx - 1))} disabled={etapaIdx === 0}
+                className="flex-1 py-2.5 text-sm font-medium border border-gray-200 rounded-xl disabled:opacity-40 hover:bg-gray-50 transition-colors">
+                ← Anterior
+              </button>
+              <div className="flex gap-1">
+                {etapas.map((_, i) => (
+                  <button key={i} onClick={() => setEtapaIdx(i)}
+                    className={`w-2 h-2 rounded-full transition-colors ${i === etapaIdx ? 'bg-orange-500' : 'bg-gray-200'}`} />
+                ))}
+              </div>
+              <button onClick={() => setEtapaIdx(Math.min(etapas.length - 1, etapaIdx + 1))} disabled={etapaIdx === etapas.length - 1}
+                className="flex-1 py-2.5 text-sm font-medium bg-orange-500 text-white rounded-xl disabled:opacity-40 hover:bg-orange-600 transition-colors">
+                Próxima →
+              </button>
             </div>
-          ) : etapas.length === 0 ? (
-            <div className="text-center py-16">
-              <FileText size={36} className="text-gray-200 mx-auto mb-2" />
-              <p className="text-sm text-gray-400">Este documento não possui conteúdo cadastrado.</p>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── ConsultaInteligente (UI de chat + RAG) ───────────────────────────────────
+
+function ConsultaInteligente({ documentoNome, historico, consultando, onConsultar }: {
+  documentoNome: string
+  historico: { pergunta: string; resposta: string }[]
+  consultando: boolean
+  onConsultar: (pergunta: string) => void
+}) {
+  const [pergunta, setPergunta] = useState('')
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    // Rola para baixo a cada nova mensagem/chunk
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [historico])
+
+  function handleSubmit(e?: React.FormEvent) {
+    e?.preventDefault()
+    const p = pergunta.trim()
+    if (!p || consultando) return
+    setPergunta('')
+    onConsultar(p)
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSubmit()
+    }
+  }
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+      {/* Área de conversa */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        {historico.length === 0 ? (
+          /* Estado inicial */
+          <div className="flex flex-col items-center justify-center h-full text-center py-8">
+            <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mb-4">
+              <Bot size={28} className="text-green-600" />
             </div>
-          ) : etapa ? (
-            <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
-              {/* Título da etapa */}
-              {etapa.titulo && (
-                <h2 className="text-lg font-bold text-gray-800">{etapa.titulo}</h2>
-              )}
-
-              {/* Vídeo YouTube */}
-              {etapa.video_id && (
-                <div className="rounded-xl overflow-hidden shadow aspect-video">
-                  <iframe
-                    src={`https://www.youtube.com/embed/${etapa.video_id}`}
-                    className="w-full h-full"
-                    allowFullScreen
-                    title={etapa.titulo ?? 'Vídeo'}
-                  />
-                </div>
-              )}
-
-              {/* Imagens */}
-              {etapa.imagens.length > 0 && (
-                <div className={`grid gap-2 ${etapa.imagens.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                  {etapa.imagens.map(img => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img key={img.id} src={img.url} alt="" className="w-full rounded-xl object-cover border border-gray-200" />
-                  ))}
-                </div>
-              )}
-
-              {/* Conteúdo */}
-              {etapa.conteudo && (
-                <div className="bg-white border border-gray-200 rounded-xl px-4 py-4">
-                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{etapa.conteudo}</p>
-                </div>
-              )}
+            <p className="font-semibold text-gray-700 text-base">Consulta Inteligente</p>
+            <p className="text-sm text-gray-400 mt-1 max-w-xs leading-relaxed">
+              Faça perguntas sobre o conteúdo de <span className="font-medium text-gray-600">"{documentoNome}"</span>.
+              A IA responderá com base no documento.
+            </p>
+            <div className="mt-4 grid grid-cols-1 gap-2 w-full max-w-xs">
+              {[
+                'Qual o procedimento descrito neste documento?',
+                'Quais são os itens de segurança necessários?',
+                'Resumo os pontos principais.',
+              ].map(sugestao => (
+                <button key={sugestao}
+                  onClick={() => { setPergunta(sugestao) }}
+                  className="text-xs text-left bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-gray-600 hover:border-green-300 hover:bg-green-50 transition-colors">
+                  "{sugestao}"
+                </button>
+              ))}
             </div>
-          ) : null
+          </div>
+        ) : (
+          historico.map((h, i) => (
+            <div key={i} className="space-y-3">
+              {/* Pergunta do usuário */}
+              <div className="flex justify-end">
+                <div className="bg-green-500 text-white rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[85%]">
+                  <p className="text-sm leading-relaxed">{h.pergunta}</p>
+                </div>
+              </div>
+
+              {/* Resposta da IA */}
+              <div className="flex items-start gap-2">
+                <div className="w-7 h-7 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Bot size={13} className="text-green-600" />
+                </div>
+                <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[85%] shadow-sm">
+                  {h.resposta ? (
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{h.resposta}</p>
+                  ) : (
+                    /* Typing indicator */
+                    <div className="flex items-center gap-1.5 py-1">
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
         )}
       </div>
 
-      {/* Navegação de etapas */}
-      {!doc.arquivo_url && etapas.length > 1 && (
-        <div className="bg-white border-t border-gray-200 flex items-center gap-3 px-4 py-3 flex-shrink-0">
-          <button
-            onClick={() => setEtapaIdx(Math.max(0, etapaIdx - 1))}
-            disabled={etapaIdx === 0}
-            className="flex-1 py-2.5 text-sm font-medium border border-gray-200 rounded-xl disabled:opacity-40 hover:bg-gray-50 transition-colors">
-            ← Anterior
-          </button>
-
-          {/* Indicadores */}
-          <div className="flex gap-1">
-            {etapas.map((_, i) => (
-              <button key={i} onClick={() => setEtapaIdx(i)}
-                className={`w-2 h-2 rounded-full transition-colors ${i === etapaIdx ? 'bg-orange-500' : 'bg-gray-200'}`} />
-            ))}
+      {/* Input */}
+      <div className="bg-white border-t border-gray-200 px-4 py-3 flex-shrink-0">
+        <form onSubmit={handleSubmit} className="flex items-end gap-2">
+          <div className="flex-1 bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2.5 focus-within:border-green-400 focus-within:ring-2 focus-within:ring-green-100 transition-all">
+            <textarea
+              value={pergunta}
+              onChange={e => setPergunta(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Pergunte algo sobre o documento…"
+              rows={1}
+              disabled={consultando}
+              className="w-full text-sm text-gray-800 bg-transparent resize-none focus:outline-none placeholder-gray-400 disabled:opacity-50"
+              style={{ maxHeight: '120px', overflowY: 'auto' }}
+            />
           </div>
-
           <button
-            onClick={() => setEtapaIdx(Math.min(etapas.length - 1, etapaIdx + 1))}
-            disabled={etapaIdx === etapas.length - 1}
-            className="flex-1 py-2.5 text-sm font-medium bg-orange-500 text-white rounded-xl disabled:opacity-40 hover:bg-orange-600 transition-colors">
-            Próxima →
+            type="submit"
+            disabled={!pergunta.trim() || consultando}
+            className="w-10 h-10 bg-green-500 text-white rounded-2xl flex items-center justify-center flex-shrink-0 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95">
+            {consultando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>
-        </div>
-      )}
+        </form>
+        <p className="text-xs text-gray-400 mt-1.5 text-center">
+          Enter para enviar · Shift+Enter para nova linha
+        </p>
+      </div>
     </div>
   )
 }
