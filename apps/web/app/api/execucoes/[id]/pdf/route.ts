@@ -245,7 +245,7 @@ export async function POST(
   // Gera PDF
   let pdfBuffer: Buffer
   try {
-    pdfBuffer = await renderToBuffer(React.createElement(PdfExecucao, { dados }))
+    pdfBuffer = await renderToBuffer(React.createElement(PdfExecucao, { dados }) as any)
   } catch (err: any) {
     console.error('[pdf] erro ao renderizar:', err?.message)
     return Response.json({ error: 'Erro ao gerar PDF' }, { status: 500 })
