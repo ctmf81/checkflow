@@ -30,6 +30,7 @@ export default function WhatsAppPage() {
   const [qrcode, setQrcode] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [debug, setDebug] = useState<string | null>(null)
   const [configAberta, setConfigAberta] = useState(false)
   const [config, setConfig] = useState<EvoConfig>({ url: '', apiKey: '', instancia: '' })
 
@@ -62,6 +63,7 @@ export default function WhatsAppPage() {
     setCarregando(true)
     setQrcode(null)
     setErro(null)
+    setDebug(null)
     try {
       const res = await fetch(`${API}/whatsapp/conectar`, {
         method: 'POST',
@@ -71,11 +73,12 @@ export default function WhatsAppPage() {
       const json = await res.json()
       if (json.error) {
         setErro(`Erro da API: ${json.error}`)
+        if (json._debug) setDebug(JSON.stringify(json._debug, null, 2))
       } else if (json.qrcode) {
         setQrcode(json.qrcode)
       } else {
         setErro('QR Code não retornado. Verifique as configurações da Evolution API.')
-        if (json._debug) console.log('Debug Evolution API:', json._debug)
+        setDebug(JSON.stringify(json._debug ?? json, null, 2))
       }
     } catch (e: any) {
       setErro(`Erro de conexão com a API: ${e.message}`)
@@ -160,9 +163,16 @@ export default function WhatsAppPage() {
             </div>
 
             {erro && (
-              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-                <AlertTriangle size={15} className="text-red-500 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-red-700">{erro}</p>
+              <div className="space-y-2">
+                <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                  <AlertTriangle size={15} className="text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-700">{erro}</p>
+                </div>
+                {debug && (
+                  <pre className="text-xs bg-gray-900 text-green-400 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">
+                    {debug}
+                  </pre>
+                )}
               </div>
             )}
 
