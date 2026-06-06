@@ -49,36 +49,60 @@ export async function whatsappRoutes(app: FastifyInstance) {
         return `data:image/png;base64,${raw}`
       }
 
-      // Tenta criar a instância
-      const criar = await fetch(`${url}/instance/create`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ instanceName: instance, qrcode: true, integration: 'WHATSAPP-BAILEYS' }),
-      })
-      const criado: any = await criar.json()
+      async function criarEObterQR() {
+        const res = await fetch(`${url}/instance/create`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ instanceName: instance, qrcode: true, integration: 'WHATSAPP-BAILEYS' }),
+        })
+        const json: any = await res.json()
+        return { res, json }
+      }
+
+      // 1ª tentativa: criar instância
+      let { res: criarRes, json: criado } = await criarEObterQR()
 
       const qrDoCriar = normalizeQr(criado?.qrcode?.base64 ?? criado?.base64)
       if (qrDoCriar) {
         return reply.send({ qrcode: qrDoCriar, status: 'aguardando_scan' })
       }
 
-      // Se instância já existe, desconecta para forçar novo QR
-      const instanceState = criado?.response?.message ?? ''
-      const jaExiste = criar.status === 409 || (typeof instanceState === 'string' && instanceState.includes('exists'))
+      // Verifica se a instância já existe (403 "already in use" ou 409)
+      const mensagens: string[] = [].concat(criado?.response?.message ?? criado?.message ?? [])
+      const jaExiste =
+        criarRes.status === 409 ||
+        criarRes.status === 403 ||
+        mensagens.some((m: string) => m.toLowerCase().includes('already') || m.toLowerCase().includes('exists'))
+
+      const debugSteps: any = { passo1_criar: { status: criarRes.status, body: criado } }
 
       if (jaExiste) {
-        await fetch(`${url}/instance/logout/${instance}`, { method: 'DELETE', headers })
+        // Deleta a instância existente completamente
+        const delRes = await fetch(`${url}/instance/delete/${instance}`, { method: 'DELETE', headers })
+        debugSteps.passo2_delete = { status: delRes.status }
+
+        // Recria do zero
+        const { res: recriarRes, json: recriado } = await criarEObterQR()
+        debugSteps.passo3_recriar = { status: recriarRes.status, body: recriado }
+
+        const qrRecriar = normalizeQr(recriado?.qrcode?.base64 ?? recriado?.base64)
+        if (qrRecriar) {
+          return reply.send({ qrcode: qrRecriar, status: 'aguardando_scan' })
+        }
+        criado = recriado
       }
 
-      // Chama connect para obter QR
+      // Última tentativa: connect direto
       const qrRes = await fetch(`${url}/instance/connect/${instance}`, { headers })
       const qrJson: any = await qrRes.json()
+      debugSteps.passo4_connect = { status: qrRes.status, body: qrJson }
+
       const qrDoConnect = normalizeQr(qrJson?.base64 ?? qrJson?.qrcode?.base64 ?? qrJson?.code)
 
       return reply.send({
         qrcode: qrDoConnect,
         status: 'aguardando_scan',
-        _debug: { url, instance, criado, qrJson },
+        _debug: { url, instance, ...debugSteps },
       })
     } catch (e: any) {
       return reply.status(500).send({ error: e.message })
