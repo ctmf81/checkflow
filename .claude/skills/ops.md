@@ -23,7 +23,13 @@ When debugging an error in logs: surface only the **last 20 lines** unless the u
 - `.env.local` is never committed — if it's not in `.gitignore`, add it immediately
 
 ## Services
-- *(List Railway services here as they are created)*
+| Serviço | URL |
+|---------|-----|
+| Web (Next.js) | `checkflow-production-b19d.up.railway.app` |
+| API (Fastify) | `api-production-5bce.up.railway.app` |
+
+## Env Vars (nomes — nunca valores no chat)
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_API_URL`
 
 ## Evolution Rule
 When a new service, env var name, or deploy command is established, add it here. Keep the file under 40 lines.
