@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-function makeAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) throw new Error('Variáveis de ambiente Supabase não configuradas.')
-  return createClient(url, key)
-}
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+// Suporte ao nome antigo (SUPABASE_SERVICE_ROLE_KEY) e novo (SUPABASE_SECRET_KEY)
+const SUPABASE_SECRET = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
+const SUPABASE_PUBLISHABLE = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
 
 /**
  * POST /api/usuarios/impersonar
@@ -14,28 +12,36 @@ function makeAdmin() {
  *
  * Apenas admins do sistema podem usar este endpoint.
  * Gera um magic link de login para o usuário alvo.
- * O frontend redireciona para ele — nenhuma senha é exposta.
  */
 export async function POST(req: NextRequest) {
   try {
-    // Verifica se quem chama é admin_sistema
+    if (!SUPABASE_URL || !SUPABASE_SECRET) {
+      return NextResponse.json({ message: 'Configuração do servidor incompleta.' }, { status: 500 })
+    }
+
+    // 1. Verifica o usuário chamador usando o token dele com o client público
     const authHeader = req.headers.get('authorization') ?? ''
-    const token = authHeader.replace('Bearer ', '')
+    const token = authHeader.replace('Bearer ', '').trim()
     if (!token) return NextResponse.json({ message: 'Não autorizado.' }, { status: 401 })
 
-    const admin = makeAdmin()
+    // Client com chave pública para verificar o token do usuário logado
+    const publicClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE || SUPABASE_SECRET)
+    const { data: { user: caller }, error: callerErr } = await publicClient.auth.getUser(token)
 
-    const { data: { user: caller }, error: callerErr } = await admin.auth.getUser(token)
-    if (callerErr || !caller) return NextResponse.json({ message: 'Não autorizado.' }, { status: 401 })
+    if (callerErr || !caller) {
+      return NextResponse.json({ message: 'Sessão inválida. Faça login novamente.' }, { status: 401 })
+    }
+
     if (caller.user_metadata?.role !== 'admin_sistema') {
       return NextResponse.json({ message: 'Apenas administradores do sistema podem usar este recurso.' }, { status: 403 })
     }
 
+    // 2. Gera magic link usando o client admin (secret key)
     const { email } = await req.json()
     if (!email) return NextResponse.json({ message: 'Email obrigatório.' }, { status: 400 })
 
-    // Gera magic link de login como o usuário alvo
-    const { data, error } = await admin.auth.admin.generateLink({
+    const adminClient = createClient(SUPABASE_URL, SUPABASE_SECRET)
+    const { data, error } = await adminClient.auth.admin.generateLink({
       type: 'magiclink',
       email,
     })
