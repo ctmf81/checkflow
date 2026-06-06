@@ -16,7 +16,7 @@ interface Atividade {
   id: string
   nome: string
   tipo: string
-  obrigatorio: boolean
+  obrigatoria: boolean
   config: any
   ordem: number
   secao_id: string | null
@@ -208,7 +208,7 @@ function AtividadeItem({
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-gray-800 leading-snug">
               {atividade.nome}
-              {atividade.obrigatorio && <span className="text-red-400 ml-1">*</span>}
+              {atividade.obrigatoria && <span className="text-red-400 ml-1">*</span>}
             </p>
           </div>
           {respondida && (
@@ -265,7 +265,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     if (secErr) console.error('Erro ao carregar seções:', secErr)
 
     const { data: atvsData, error: atvErr } = await sb.from('checklist_atividades')
-      .select('id, nome, tipo, obrigatorio, config, ordem, atividade_pai_id, valor_gatilho, secao_id')
+      .select('id, nome, tipo, obrigatoria, config, ordem, atividade_pai_id, valor_gatilho, secao_id')
       .eq('checklist_id', id).order('ordem')
     if (atvErr) {
       setErroCarregar(`Erro atividades: ${atvErr.message} | code: ${atvErr.code}`)
