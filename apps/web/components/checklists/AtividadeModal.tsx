@@ -16,6 +16,7 @@ interface Atividade {
   obrigatoria: boolean
   critica: boolean
   gera_plano_acao: boolean
+  plano_acao_sla_horas: number | null
   config: Record<string, any>
   atividade_pai_id: string | null
   valor_gatilho: string | null
@@ -84,6 +85,9 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
   const [obrigatoria, setObrigatoria] = useState(atividade?.obrigatoria ?? true)
   const [critica, setCritica] = useState(atividade?.critica ?? false)
   const [geraPlanoAcao, setGeraPlanoAcao] = useState(atividade?.gera_plano_acao ?? false)
+  const [planoAcaoSlaHoras, setPlanoAcaoSlaHoras] = useState<string>(
+    atividade?.plano_acao_sla_horas != null ? String(atividade.plano_acao_sla_horas) : ''
+  )
   const [config, setConfig] = useState<Record<string, any>>(atividade?.config ?? {})
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
@@ -255,6 +259,7 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
       obrigatoria,
       critica,
       gera_plano_acao: geraPlanoAcao,
+      plano_acao_sla_horas: geraPlanoAcao && planoAcaoSlaHoras !== '' ? Number(planoAcaoSlaHoras) : null,
       config: configFinal,
       atividade_pai_id: paiId ?? null,
       valor_gatilho: valorGatilho ?? null,
@@ -594,6 +599,27 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
               </label>
             )}
           </div>
+
+          {temValidacao && geraPlanoAcao && (
+            <div className="bg-orange-50 border border-orange-100 rounded-lg px-4 py-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                SLA do plano de ação
+                <span className="text-gray-400 font-normal ml-1">(horas para resolução)</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  value={planoAcaoSlaHoras}
+                  onChange={e => setPlanoAcaoSlaHoras(e.target.value)}
+                  placeholder="Ex: 24"
+                  className="w-28 px-3 py-2 text-sm border border-orange-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-200"
+                />
+                <span className="text-sm text-gray-500">horas</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Deixe em branco se não houver prazo definido.</p>
+            </div>
+          )}
 
           {erro && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{erro}</p>}
 

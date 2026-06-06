@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, use, useRef } from 'react'
-import { Plus, Users, ChevronLeft, MoreVertical, Pencil, PowerOff, X, FileCheck, ChevronRight } from 'lucide-react'
+import { Plus, Users, ChevronLeft, MoreVertical, Pencil, PowerOff, X, FileCheck, ChevronRight, ShieldCheck, Check, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
@@ -103,6 +103,139 @@ function EditarSubgrupoModal({ subgrupo, onClose, onSalvo }: {
   )
 }
 
+// ─── Modal de Funções ──────────────────────────────────────────────────────────
+
+type Funcao = 'operacao' | 'nivel_1' | 'nivel_2' | null
+
+interface UsuarioSubgrupo {
+  usuario_id: string
+  funcao: Funcao
+  usuarios: { nome: string; email: string }
+}
+
+const FUNCOES: { valor: Funcao; label: string; desc: string; cor: string }[] = [
+  { valor: null,       label: '—',         desc: 'Só visualiza',                       cor: 'border-gray-200 text-gray-400 bg-white' },
+  { valor: 'operacao', label: 'Operação',  desc: 'Executa checklists',                 cor: 'border-blue-200 text-blue-600 bg-blue-50' },
+  { valor: 'nivel_1',  label: 'Nível 1',   desc: 'Executa + modera planos de ação',    cor: 'border-amber-300 text-amber-700 bg-amber-50' },
+  { valor: 'nivel_2',  label: 'Nível 2',   desc: 'Executa + N1 + escala planos',       cor: 'border-orange-400 text-orange-700 bg-orange-50' },
+]
+
+function FuncoesModal({ subgrupo, onClose }: { subgrupo: Subgrupo; onClose: () => void }) {
+  const [usuarios, setUsuarios] = useState<UsuarioSubgrupo[]>([])
+  const [loading, setLoading] = useState(true)
+  const [salvando, setSalvando] = useState<string | null>(null) // usuario_id sendo salvo
+
+  useEffect(() => {
+    createClient()
+      .from('usuario_subgrupo')
+      .select('usuario_id, funcao, usuarios(nome, email)')
+      .eq('subgrupo_id', subgrupo.id)
+      .order('usuario_id')
+      .then(({ data }) => {
+        if (data) setUsuarios(data as unknown as UsuarioSubgrupo[])
+        setLoading(false)
+      })
+  }, [subgrupo.id])
+
+  async function alterarFuncao(usuarioId: string, novaFuncao: Funcao) {
+    setSalvando(usuarioId)
+    await createClient()
+      .from('usuario_subgrupo')
+      .update({ funcao: novaFuncao })
+      .eq('subgrupo_id', subgrupo.id)
+      .eq('usuario_id', usuarioId)
+    setUsuarios(prev => prev.map(u => u.usuario_id === usuarioId ? { ...u, funcao: novaFuncao } : u))
+    setSalvando(null)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-xl shadow-xl max-h-[85vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+              <ShieldCheck size={15} className="text-orange-500" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-800">Funções</p>
+              <p className="text-xs text-gray-400">{subgrupo.nome}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+
+        {/* Legenda */}
+        <div className="px-6 py-3 border-b border-gray-50 flex flex-wrap gap-2 flex-shrink-0">
+          {FUNCOES.map(f => (
+            <span key={String(f.valor)} className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border font-medium ${f.cor}`}>
+              {f.label}
+              <span className="font-normal text-gray-400">— {f.desc}</span>
+            </span>
+          ))}
+        </div>
+
+        {/* Lista */}
+        <div className="overflow-y-auto flex-1">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 size={20} className="animate-spin text-gray-300" />
+            </div>
+          ) : usuarios.length === 0 ? (
+            <div className="py-12 text-center">
+              <p className="text-sm text-gray-400">Nenhum usuário alocado nesta área.</p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-50">
+              {usuarios.map(u => {
+                const funcaoAtual = u.funcao
+                const isSalvando = salvando === u.usuario_id
+                return (
+                  <li key={u.usuario_id} className="px-6 py-4">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{u.usuarios?.nome ?? '—'}</p>
+                        <p className="text-xs text-gray-400 truncate">{u.usuarios?.email ?? ''}</p>
+                      </div>
+                      {isSalvando && <Loader2 size={14} className="animate-spin text-orange-400 flex-shrink-0 mt-1" />}
+                    </div>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {FUNCOES.map(f => {
+                        const ativa = funcaoAtual === f.valor
+                        return (
+                          <button
+                            key={String(f.valor)}
+                            onClick={() => { if (!ativa && !isSalvando) alterarFuncao(u.usuario_id, f.valor) }}
+                            disabled={isSalvando}
+                            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50 ${
+                              ativa
+                                ? f.cor + ' ring-1 ring-offset-1 ' + (f.valor === null ? 'ring-gray-300' : f.valor === 'operacao' ? 'ring-blue-300' : f.valor === 'nivel_1' ? 'ring-amber-400' : 'ring-orange-400')
+                                : 'border-gray-200 text-gray-400 bg-white hover:bg-gray-50'
+                            }`}>
+                            {ativa && <Check size={10} />}
+                            {f.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-100 flex-shrink-0">
+          <button onClick={onClose}
+            className="w-full py-2.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SubgruposPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const { subgrupoLabel } = useSession()
@@ -112,6 +245,7 @@ export default function SubgruposPage({ params }: { params: Promise<{ id: string
   const [subgrupos, setSubgrupos] = useState<Subgrupo[]>([])
   const [loading, setLoading] = useState(true)
   const [editando, setEditando] = useState<Subgrupo | null>(null)
+  const [funcoesSubgrupo, setFuncoesSubgrupo] = useState<Subgrupo | null>(null)
 
   async function carregar() {
     setLoading(true)
@@ -190,11 +324,18 @@ export default function SubgruposPage({ params }: { params: Promise<{ id: string
                   <span className="text-gray-500 text-xs">Checklists</span>
                 </div>
               </div>
-              <button
-                onClick={() => router.push(`/gestao/checklists?subgrupo=${sub.id}&subgrupoNome=${encodeURIComponent(sub.nome)}`)}
-                className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-orange-500 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors">
-                Ver checklists <ChevronRight size={13} />
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setFuncoesSubgrupo(sub)}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                  <ShieldCheck size={13} />Funções
+                </button>
+                <button
+                  onClick={() => router.push(`/gestao/checklists?subgrupo=${sub.id}&subgrupoNome=${encodeURIComponent(sub.nome)}`)}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-orange-500 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors">
+                  Ver checklists <ChevronRight size={13} />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -208,6 +349,10 @@ export default function SubgruposPage({ params }: { params: Promise<{ id: string
       {editando && (
         <EditarSubgrupoModal subgrupo={editando}
           onClose={() => setEditando(null)} onSalvo={() => { setEditando(null); carregar() }} />
+      )}
+
+      {funcoesSubgrupo && (
+        <FuncoesModal subgrupo={funcoesSubgrupo} onClose={() => setFuncoesSubgrupo(null)} />
       )}
     </>
   )

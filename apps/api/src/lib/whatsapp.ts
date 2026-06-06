@@ -36,6 +36,41 @@ export async function enviarWhatsApp({ numero, mensagem }: WhatsAppMessage): Pro
   }
 }
 
+/**
+ * Envia imagem com legenda (caption).
+ * Se falhar, tenta enviar só o texto como fallback.
+ */
+export async function enviarWhatsAppMidia({
+  numero, imagemUrl, caption,
+}: {
+  numero: string
+  imagemUrl: string
+  caption: string
+}): Promise<{ ok: boolean; erro?: string }> {
+  try {
+    const res = await fetch(`${EVO_URL}/message/sendMedia/${EVO_INSTANCE}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: EVO_KEY },
+      body: JSON.stringify({
+        number: numero,
+        mediatype: 'image',
+        mimetype: 'image/jpeg',
+        media: imagemUrl,
+        caption,
+        fileName: 'evidencia.jpg',
+      }),
+    })
+    if (!res.ok) {
+      // Fallback: envia só texto
+      return enviarWhatsApp({ numero, mensagem: caption })
+    }
+    return { ok: true }
+  } catch (e: any) {
+    // Fallback: envia só texto
+    return enviarWhatsApp({ numero, mensagem: caption })
+  }
+}
+
 export async function statusInstancia(): Promise<{ conectado: boolean; estado?: string }> {
   try {
     const res = await fetch(`${EVO_URL}/instance/connectionState/${EVO_INSTANCE}`, {

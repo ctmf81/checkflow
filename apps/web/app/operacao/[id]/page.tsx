@@ -3,12 +3,13 @@
 import { use, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { notificarPlanoAberto } from '@/lib/notificacoes'
 import { useSession } from '@/contexts/SessionContext'
 import {
   ArrowLeft, ChevronDown, ChevronUp, CheckCircle2, XCircle,
   Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine,
   CalendarDays, MapPin, AlertCircle, Send, Clock, Locate, Search,
-  QrCode, X, ImagePlus, Video, AlertTriangle, GitBranch
+  QrCode, X, ImagePlus, Video, AlertTriangle, GitBranch, ClipboardList
 } from 'lucide-react'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -27,6 +28,8 @@ interface Atividade {
   tipo: string
   obrigatoria: boolean
   critica: boolean
+  gera_plano_acao: boolean
+  plano_acao_sla_horas: number | null
   config: any
   ordem: number
   secao_id: string | null
@@ -49,6 +52,7 @@ interface Checklist {
   nome: string
   descricao: string | null
   tempo_guarda_meses: number
+  subgrupo_id: string | null
 }
 
 // ─── Icones ───────────────────────────────────────────────────────────────────
@@ -745,10 +749,158 @@ function CampoResposta({ atividade, onChange }: { atividade: Atividade; onChange
   }
 }
 
+// ─── Modal Plano de Ação ──────────────────────────────────────────────────────
+
+interface DadosPlano {
+  observacao: string
+  fotos: { file: File; url: string }[]
+  video: { file: File; url: string } | null
+}
+
+function PlanoAcaoModal({ atividade, dadosIniciais, onClose, onConfirmar }: {
+  atividade: Atividade
+  dadosIniciais?: DadosPlano
+  onClose: () => void
+  onConfirmar: (dados: DadosPlano) => void
+}) {
+  const [observacao, setObservacao] = useState(dadosIniciais?.observacao ?? '')
+  const [fotos, setFotos] = useState<{ file: File; url: string }[]>(dadosIniciais?.fotos ?? [])
+  const [video, setVideo] = useState<{ file: File; url: string } | null>(dadosIniciais?.video ?? null)
+  const fotoInputRef = useRef<HTMLInputElement>(null)
+  const videoInputRef = useRef<HTMLInputElement>(null)
+
+  function adicionarFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setFotos(prev => [...prev, { file, url: URL.createObjectURL(file) }])
+    e.target.value = ''
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+      <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl max-h-[92vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <ClipboardList size={15} className="text-red-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-800">Abrir Plano de Ação</p>
+              <p className="text-xs text-gray-400 truncate max-w-[220px]">{atividade.nome}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 flex-shrink-0"><X size={18} /></button>
+        </div>
+
+        <div className="overflow-y-auto px-5 py-4 space-y-4 flex-1">
+          {/* Observação */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Observação <span className="text-red-400">*</span>
+            </label>
+            <textarea
+              value={observacao}
+              onChange={e => setObservacao(e.target.value)}
+              rows={3}
+              autoFocus
+              placeholder="Descreva o problema encontrado e o contexto..."
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-red-200 resize-none"
+            />
+          </div>
+
+          {/* Evidências */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Evidências</label>
+            <p className="text-xs text-gray-400 mb-3">Adicione <strong>várias fotos</strong> ou <strong>um vídeo</strong> — não os dois.</p>
+
+            {/* Grid de fotos existentes */}
+            {fotos.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 mb-2">
+                {fotos.map((f, i) => (
+                  <div key={i} className="relative aspect-square">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={f.url} alt="" className="w-full h-full object-cover rounded-xl border border-gray-200" />
+                    <button onClick={() => setFotos(prev => prev.filter((_, idx) => idx !== i))}
+                      className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center shadow">
+                      <X size={10} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Botão adicionar foto — disponível se não tiver vídeo */}
+            {video === null && (
+              <>
+                <input ref={fotoInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={adicionarFoto} />
+                <button onClick={() => fotoInputRef.current?.click()}
+                  className="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-500 flex items-center justify-center gap-2 hover:border-red-300 hover:text-red-500 transition-colors mb-2">
+                  <ImagePlus size={15} />
+                  {fotos.length > 0 ? 'Adicionar mais fotos' : 'Adicionar foto'}
+                </button>
+              </>
+            )}
+
+            {/* Separador OU */}
+            {fotos.length === 0 && video === null && (
+              <div className="flex items-center gap-3 my-2">
+                <div className="flex-1 h-px bg-gray-100" />
+                <span className="text-xs text-gray-400">ou</span>
+                <div className="flex-1 h-px bg-gray-100" />
+              </div>
+            )}
+
+            {/* Vídeo — disponível se não tiver fotos */}
+            {fotos.length === 0 && (
+              video ? (
+                <div className="space-y-2">
+                  <video src={video.url} controls className="w-full rounded-xl border border-gray-200 max-h-44 bg-black" />
+                  <button onClick={() => setVideo(null)}
+                    className="w-full py-2 text-xs text-red-500 border border-red-200 rounded-xl hover:bg-red-50 transition-colors">
+                    Remover vídeo
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input ref={videoInputRef} type="file" accept="video/*" className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) setVideo({ file: f, url: URL.createObjectURL(f) }); e.target.value = '' }} />
+                  <button onClick={() => videoInputRef.current?.click()}
+                    className="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-500 flex items-center justify-center gap-2 hover:border-red-300 hover:text-red-500 transition-colors">
+                    <Video size={15} />Adicionar vídeo
+                  </button>
+                </>
+              )
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-4 border-t border-gray-100 flex gap-3 flex-shrink-0">
+          <button onClick={onClose}
+            className="flex-1 py-3 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors font-medium">
+            Cancelar
+          </button>
+          <button
+            onClick={() => { if (observacao.trim()) onConfirmar({ observacao: observacao.trim(), fotos, video }) }}
+            disabled={!observacao.trim()}
+            className="flex-1 py-3 bg-red-500 text-white text-sm font-bold rounded-xl hover:bg-red-600 disabled:opacity-40 transition-colors">
+            Abrir plano
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Item de atividade ────────────────────────────────────────────────────────
 
-function AtividadeItem({ atividade, onResposta, nivel = 0 }: {
-  atividade: Atividade; onResposta: (id: string, val: any) => void; nivel?: number
+function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturados, nivel = 0 }: {
+  atividade: Atividade
+  onResposta: (id: string, val: any) => void
+  onAbrirPlanoAcao: (atv: Atividade) => void
+  planosCapturados: Record<string, DadosPlano>
+  nivel?: number
 }) {
   const respondida = atividade.resposta !== undefined && atividade.resposta !== null && atividade.resposta !== ''
   const validacao = calcularValidacao(atividade)
@@ -782,9 +934,29 @@ function AtividadeItem({ atividade, onResposta, nivel = 0 }: {
           )}
         </div>
         <CampoResposta atividade={atividade} onChange={val => onResposta(atividade.id, val)} />
+
+        {/* Botão plano de ação — aparece quando validação falha e atividade tem gera_plano_acao */}
+        {validacao === false && atividade.gera_plano_acao && (
+          <div className="mt-3">
+            {planosCapturados[atividade.id] ? (
+              <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+                <CheckCircle2 size={14} className="text-amber-500 flex-shrink-0" />
+                <p className="text-xs text-amber-700 font-medium flex-1">Plano de ação registrado</p>
+                <button onClick={() => onAbrirPlanoAcao(atividade)}
+                  className="text-xs text-amber-600 underline font-medium">Editar</button>
+              </div>
+            ) : (
+              <button onClick={() => onAbrirPlanoAcao(atividade)}
+                className="w-full py-2.5 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 hover:bg-red-100 active:scale-[0.99] transition-all">
+                <ClipboardList size={14} />Abrir Plano de Ação
+              </button>
+            )}
+          </div>
+        )}
       </div>
       {dependentesVisiveis.map(dep => (
-        <AtividadeItem key={dep.id} atividade={dep} onResposta={onResposta} nivel={nivel + 1} />
+        <AtividadeItem key={dep.id} atividade={dep} onResposta={onResposta}
+          onAbrirPlanoAcao={onAbrirPlanoAcao} planosCapturados={planosCapturados} nivel={nivel + 1} />
       ))}
     </div>
   )
@@ -806,6 +978,9 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   const [erroFinalizar, setErroFinalizar] = useState<string | null>(null)
   const [concluido, setConcluido] = useState(false)
   const [resultadoFinal, setResultadoFinal] = useState<'aprovado' | 'reprovado' | null>(null)
+  // Planos de ação capturados durante a execução (salvos no finalizar)
+  const [planosCapturados, setPlanosCapturados] = useState<Record<string, DadosPlano>>({})
+  const [modalPlanoAtividade, setModalPlanoAtividade] = useState<Atividade | null>(null)
   // ID do item de workflow que originou esta execução (vem via ?wf_item=)
   const [wfItemId, setWfItemId] = useState<string | null>(null)
 
@@ -821,7 +996,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     const sb = createClient()
 
     const { data: cl, error: clErr } = await sb.from('checklists')
-      .select('id, nome, descricao, tempo_guarda_meses')
+      .select('id, nome, descricao, tempo_guarda_meses, subgrupo_id')
       .eq('id', id)
       .eq('unidade_id', unidadeAtiva?.id ?? '')
       .single()
@@ -832,7 +1007,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       .select('id, nome, ordem').eq('checklist_id', id).order('ordem')
 
     const { data: atvsData, error: atvErr } = await sb.from('checklist_atividades')
-      .select('id, nome, tipo, obrigatoria, critica, config, ordem, atividade_pai_id, valor_gatilho, secao_id')
+      .select('id, nome, tipo, obrigatoria, critica, gera_plano_acao, plano_acao_sla_horas, config, ordem, atividade_pai_id, valor_gatilho, secao_id')
       .eq('checklist_id', id).order('ordem')
 
     if (atvErr) { setErroCarregar(`Erro: ${atvErr.message}`); setLoading(false); return }
@@ -1015,7 +1190,73 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       }
     }))
 
-    await sb.from('checklist_execucao_respostas').insert(linhasRespostas)
+    const { data: respostasInseridas } = await sb.from('checklist_execucao_respostas')
+      .insert(linhasRespostas).select('id, atividade_id')
+
+    // Salva planos de ação capturados durante a execução
+    if (respostasInseridas && checklist.subgrupo_id && Object.keys(planosCapturados).length > 0) {
+      for (const [atividadeId, plano] of Object.entries(planosCapturados)) {
+        const resposta = respostasInseridas.find((r: any) => r.atividade_id === atividadeId)
+        if (!resposta) continue
+        const atv = visiveis.find(a => a.id === atividadeId)
+        const slaHoras = atv?.plano_acao_sla_horas ?? null
+        const slaPrazo = slaHoras ? new Date(agora.getTime() + slaHoras * 3600000).toISOString() : null
+
+        const { data: planoInserido } = await sb.from('planos_acao').insert({
+          unidade_id: unidadeAtiva.id,
+          subgrupo_id: checklist.subgrupo_id,
+          checklist_execucao_id: execId,
+          checklist_execucao_resposta_id: resposta.id,
+          atividade_id: atividadeId,
+          observacao_abertura: plano.observacao,
+          sla_prazo: slaPrazo,
+          criado_por: user?.id ?? null,
+        }).select('id').single()
+
+        if (!planoInserido) continue
+
+        // Upload e registro das evidências
+        const evidencias: { plano_acao_id: string; tipo: string; url: string; ordem: number }[] = []
+        for (let i = 0; i < plano.fotos.length; i++) {
+          const f = plano.fotos[i]
+          const ext = f.file.name.split('.').pop() ?? 'jpg'
+          const path = `planos/${planoInserido.id}/foto_${i}.${ext}`
+          const { error } = await sb.storage.from('execucoes').upload(path, f.file, { contentType: f.file.type, upsert: true })
+          if (!error) {
+            const { data: { publicUrl } } = sb.storage.from('execucoes').getPublicUrl(path)
+            evidencias.push({ plano_acao_id: planoInserido.id, tipo: 'foto', url: publicUrl, ordem: i })
+          }
+        }
+        if (plano.video) {
+          const ext = plano.video.file.name.split('.').pop() ?? 'mp4'
+          const path = `planos/${planoInserido.id}/video.${ext}`
+          const { error } = await sb.storage.from('execucoes').upload(path, plano.video.file, { contentType: plano.video.file.type, upsert: true })
+          if (!error) {
+            const { data: { publicUrl } } = sb.storage.from('execucoes').getPublicUrl(path)
+            evidencias.push({ plano_acao_id: planoInserido.id, tipo: 'video', url: publicUrl, ordem: 0 })
+          }
+        }
+        if (evidencias.length > 0) {
+          await sb.from('plano_acao_evidencias').insert(evidencias)
+        }
+
+        // Primeira movimentação — trilha de auditoria
+        await sb.from('plano_acao_movimentacoes').insert({
+          plano_acao_id: planoInserido.id,
+          usuario_id: user?.id ?? null,
+          acao: 'aberto',
+          observacao: plano.observacao,
+        })
+
+        // Notifica N1/N2 via WhatsApp (fire-and-forget — não bloqueia)
+        const { data: perfil } = await sb.from('usuarios').select('nome').eq('id', user?.id ?? '').single()
+        notificarPlanoAberto({
+          plano_id: planoInserido.id,
+          observacao: plano.observacao,
+          ator_nome: perfil?.nome ?? 'Operador',
+        })
+      }
+    }
 
     // Se vier de workflow: atualiza para 'concluido' com resultado → dispara trigger de avanço
     if (wfItemId) {
@@ -1079,6 +1320,18 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   const progresso = total > 0 ? Math.round((respondidas / total) * 100) : 0
 
   return (
+    <>
+    {modalPlanoAtividade && (
+      <PlanoAcaoModal
+        atividade={modalPlanoAtividade}
+        dadosIniciais={planosCapturados[modalPlanoAtividade.id]}
+        onClose={() => setModalPlanoAtividade(null)}
+        onConfirmar={dados => {
+          setPlanosCapturados(prev => ({ ...prev, [modalPlanoAtividade.id]: dados }))
+          setModalPlanoAtividade(null)
+        }}
+      />
+    )}
     <div className="max-w-2xl mx-auto pb-32">
       {/* Header fixo */}
       <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
@@ -1145,7 +1398,8 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
                     ? <p className="text-xs text-gray-400 py-2 text-center">Nenhuma atividade nesta seção.</p>
                     : <div className="space-y-0">
                         {atvsComResp.map(atv => (
-                          <AtividadeItem key={atv.id} atividade={atv} onResposta={setResposta} />
+                          <AtividadeItem key={atv.id} atividade={atv} onResposta={setResposta}
+                            onAbrirPlanoAcao={setModalPlanoAtividade} planosCapturados={planosCapturados} />
                         ))}
                       </div>
                   }
@@ -1176,5 +1430,6 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
         </div>
       </div>
     </div>
+    </>
   )
 }

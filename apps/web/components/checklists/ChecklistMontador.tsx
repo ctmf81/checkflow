@@ -26,6 +26,7 @@ interface Atividade {
   obrigatoria: boolean
   critica: boolean
   gera_plano_acao: boolean
+  plano_acao_sla_horas: number | null
   config: Record<string, any>
   atividade_pai_id: string | null
   valor_gatilho: string | null
@@ -586,7 +587,11 @@ function AtividadeRow({ atividade, idx, total, onMover, onEditar, onDeletar, onA
           <div className="flex items-center gap-2 mt-0.5">
             <span className="text-xs text-gray-400">{TIPO_LABELS[atividade.tipo]}</span>
             {atividade.critica && <span className="text-xs bg-red-50 text-red-500 px-1.5 py-0.5 rounded">crítica</span>}
-            {atividade.gera_plano_acao && <span className="text-xs bg-orange-50 text-orange-500 px-1.5 py-0.5 rounded">plano de ação</span>}
+            {atividade.gera_plano_acao && (
+              <span className="text-xs bg-orange-50 text-orange-500 px-1.5 py-0.5 rounded">
+                plano de ação{atividade.plano_acao_sla_horas ? ` · ${atividade.plano_acao_sla_horas}h` : ''}
+              </span>
+            )}
             {!atividade.obrigatoria && <span className="text-xs bg-gray-50 text-gray-400 px-1.5 py-0.5 rounded">opcional</span>}
           </div>
         </div>

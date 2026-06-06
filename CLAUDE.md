@@ -2,7 +2,7 @@
 
 ## Project Skills
 
-This project has 8 active skills in `.claude/skills/`. They are **live** — update them at the end of each session by saying "update skills with what we did today".
+This project has 9 active skills in `.claude/skills/`. They are **live** — update them at the end of each session by saying "update skills with what we did today".
 
 | Command | Purpose |
 |---------|---------|
@@ -14,6 +14,7 @@ This project has 8 active skills in `.claude/skills/`. They are **live** — upd
 | `/git` | Git workflow — branching strategy, Conventional Commits |
 | `/status` | Session snapshot — last 5 commits + current modified files |
 | `/security` | Cyber security — RLS patterns, pen test suite, vulnerabilities corrigidas |
+| `/qa` | Quality Assurance — stack de testes, suites por tela/feature, como rodar |
 
 ## Meta-Rule: Skill Auto-Evolution
 
