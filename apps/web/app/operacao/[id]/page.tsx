@@ -454,8 +454,22 @@ function CampoLocalizacao({ atividade, onChange }: { atividade: Atividade; onCha
         onChange({ lat, lng, endereco })
         setBuscando(false)
       },
-      err => { setErroGPS('Não foi possível obter sua localização.'); setBuscando(false) },
-      { enableHighAccuracy: true, timeout: 10000 }
+      err => {
+        let msg = 'Não foi possível obter sua localização.'
+        if (err.code === err.PERMISSION_DENIED) {
+          msg = 'Permissão de localização negada. Habilite o acesso à localização nas configurações do navegador para este site.'
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          msg = 'Localização indisponível neste dispositivo/rede. Tente em um celular com GPS ou em outra rede.'
+        } else if (err.code === err.TIMEOUT) {
+          msg = 'Tempo esgotado ao obter localização. Tente novamente em um local com melhor sinal.'
+        }
+        if (typeof window !== 'undefined' && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+          msg = 'A localização só funciona em conexões seguras (HTTPS). Acesse o sistema via https:// para usar este recurso.'
+        }
+        setErroGPS(msg)
+        setBuscando(false)
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     )
   }
 
