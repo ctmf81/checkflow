@@ -81,6 +81,9 @@ foto:             {}   (no config needed)
 - `agendamentos_processar()` → processes due schedules (`for update skip locked`), calls `workflow_iniciar()` or inserts `checklist_execucoes` (status `'em_andamento'`), recalculates next run
 - **Requires pg_cron**: `select cron.schedule('processar-agendamentos', '*/10 * * * *', $$select agendamentos_processar()$$);`
 
+### Validação de troca de perfil (migration 20260607100800)
+Trigger `trg_validar_troca_perfil` (before update em `usuario_empresa`) chama `validar_troca_perfil()`: bloqueia a troca para um perfil **não público** a menos que quem está fazendo a alteração seja Admin da empresa (`00000000-0000-0000-0000-000000000002`) ou Admin de sistema (`...001`) — reforça em DB a regra que já existe na UI do `UsuarioModal`/`alterarPerfil`, protegendo contra chamadas diretas à API.
+
 ### Permissões — catálogo completo (migration 20260607100332)
 Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem registro em DB, logo marcar não tinha efeito):
 `grupos.adicionar_usuario/gerenciar_usuario`, `subgrupos.gerenciar_funcoes`, `workflows.*`, `turnos.*`, `catalogos.*`, `documentos.*`, `causa_raiz.*`, `nao_execucao.*`, `planos_acao.ver/moderar_n1/moderar_n2`. Concede automaticamente aos perfis `is_system = true`.

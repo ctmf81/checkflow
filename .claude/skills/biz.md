@@ -112,7 +112,8 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - `perfis.publico` (boolean): determina quem pode atribuir aquele perfil a um usuário
   - **Público** = pode ser atribuído por quem gerencia usuários do próprio grupo/setor (ex: substituição temporária de um líder de férias, sem precisar do admin da empresa)
   - **Não público** = só pode ser atribuído pelo Administrador da empresa
-- ✅ Aplicado em `UsuarioModal.tsx`: verifica o `perfil_id` de quem está editando em `usuario_empresa` — se for "Admin da empresa" (`00000000-0000-0000-0000-000000000002`) ou "Admin de sistema" (`...001`), vê todos os perfis; caso contrário, só vê perfis `publico = true` (+ o perfil atual do usuário sendo editado, para não escondê-lo). Nota: é uma restrição de UI — não há policy de banco bloqueando a troca via API direta
+- ✅ Reforçado em DB via trigger `trg_validar_troca_perfil` (migration 20260607100800) — bloqueia a troca para perfil não-público se quem altera não for Admin da empresa/sistema, mesmo via chamada direta à API
+- ✅ Aplicado em `UsuarioModal.tsx`: verifica o `perfil_id` de quem está editando em `usuario_empresa` — se for "Admin da empresa" (`00000000-0000-0000-0000-000000000002`) ou "Admin de sistema" (`...001`), vê todos os perfis; caso contrário, só vê perfis `publico = true` (+ o perfil atual do usuário sendo editado, para não escondê-lo)
 
 ## Regras de Negócio Críticas
 - RLS obrigatório em todas as tabelas de dados de usuário
