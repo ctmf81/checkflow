@@ -82,24 +82,26 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
     setSalvando(true)
     const supabase = createClient()
 
+    async function salvarPermissoes(perfilId: string) {
+      const { data: permsDb } = await supabase.from('permissoes').select('id, recurso, acao')
+      if (!permsDb) return
+      // Substitui o conjunto inteiro: remove as atuais e insere as marcadas agora
+      await supabase.from('perfil_permissoes').delete().eq('perfil_id', perfilId)
+      const inserts = permsDb
+        .filter(p => perms.has(`${p.recurso}.${p.acao}`) || perms.has(p.recurso))
+        .map(p => ({ perfil_id: perfilId, permissao_id: p.id }))
+      if (inserts.length > 0) await supabase.from('perfil_permissoes').insert(inserts)
+    }
+
     if (isEdicao) {
-      const { error } = await supabase.from('perfis').update({ nome }).eq('id', perfil.id)
+      const { error } = await supabase.from('perfis').update({ nome, publico }).eq('id', perfil.id)
       if (error) { setErro('Erro ao salvar perfil.'); setSalvando(false); return }
+      await salvarPermissoes(perfil.id)
     } else {
       const { data: novoPerfil, error } = await supabase
-        .from('perfis').insert({ nome, empresa_id: empresaId, is_system: false }).select('id').single()
+        .from('perfis').insert({ nome, publico, empresa_id: empresaId, is_system: false }).select('id').single()
       if (error || !novoPerfil) { setErro('Erro ao criar perfil.'); setSalvando(false); return }
-
-      // Salva permissões
-      if (perms.size > 0) {
-        const { data: permsDb } = await supabase.from('permissoes').select('id, recurso, acao')
-        if (permsDb) {
-          const inserts = permsDb
-            .filter(p => perms.has(`${p.recurso}.${p.acao}`) || perms.has(p.recurso))
-            .map(p => ({ perfil_id: novoPerfil.id, permissao_id: p.id }))
-          if (inserts.length > 0) await supabase.from('perfil_permissoes').insert(inserts)
-        }
-      }
+      await salvarPermissoes(novoPerfil.id)
     }
 
     setSalvando(false)
