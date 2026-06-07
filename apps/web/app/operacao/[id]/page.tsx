@@ -187,12 +187,12 @@ function CampoTexto({ atividade, onChange }: { atividade: Atividade; onChange: (
       if (mascara[i] === '9' || mascara[i] === '0') {
         // '9' e '0' = wildcard de dígito; procura à frente o próximo dígito válido
         const k = indexOfMatch(input, j, /\d/)
-        if (k === -1) break
+        if (k === -1) continue
         result += input[k]
         j = k + 1
       } else if (mascara[i] === 'A') {
         const k = indexOfMatch(input, j, /[a-zA-Z]/)
-        if (k === -1) break
+        if (k === -1) continue
         result += input[k].toUpperCase()
         j = k + 1
       } else if (mascara[i] === '*') {
@@ -1243,7 +1243,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       unidade_id: unidadeAtiva.id,
       executado_por: user.id,
       data_execucao: agora.toISOString(),
-      data_expiracao: expiracao.toISOString().split('T')[0],
+      data_expiracao: dataExpiracao,
       status: 'nao_executado',
       motivo_nao_execucao_id: motivoChecklistSel,
       motivo_nao_execucao_obs: obsNaoExec.trim() || null,
@@ -1331,7 +1331,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       unidade_id: unidadeAtiva.id,
       executado_por: user.id,
       data_execucao: agora.toISOString(),
-      data_expiracao: expiracao.toISOString().split('T')[0],
+      data_expiracao: dataExpiracao,
       status: statusInicial,
       resultado: wfItemId ? null : resultado,
     }).select('id').single()

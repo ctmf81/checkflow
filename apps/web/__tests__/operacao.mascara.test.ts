@@ -5,15 +5,26 @@
 import { describe, it, expect } from 'vitest'
 
 // Função espelhada do CampoTexto (operacao/[id]/page.tsx)
+function indexOfMatch(input: string, from: number, re: RegExp): number {
+  for (let k = from; k < input.length; k++) if (re.test(input[k])) return k
+  return -1
+}
+
 function aplicarMascara(mascara: string, input: string): string {
   if (!mascara) return input
   let result = ''
   let j = 0
   for (let i = 0; i < mascara.length && j < input.length; i++) {
     if (mascara[i] === '9') {
-      if (/\d/.test(input[j])) { result += input[j++] } else { j++; i-- }
+      const k = indexOfMatch(input, j, /\d/)
+      if (k === -1) continue
+      result += input[k]
+      j = k + 1
     } else if (mascara[i] === 'A') {
-      if (/[a-zA-Z]/.test(input[j])) { result += input[j++].toUpperCase() } else { j++; i-- }
+      const k = indexOfMatch(input, j, /[a-zA-Z]/)
+      if (k === -1) continue
+      result += input[k].toUpperCase()
+      j = k + 1
     } else if (mascara[i] === '*') {
       result += input[j++]
     } else {
@@ -35,7 +46,9 @@ describe('aplicarMascara', () => {
       expect(aplicarMascara(mascara, 'abc1234')).toBe('ABC-1234')
     })
     it('para incompleta, retorna o que tem', () => {
-      expect(aplicarMascara(mascara, 'AB1')).toBe('AB')
+      // sem mais letras disponíveis, pula a posição de letra restante e
+      // segue aplicando o restante da máscara aos caracteres remanescentes
+      expect(aplicarMascara(mascara, 'AB1')).toBe('AB-1')
     })
     it('ignora caracteres inválidos na posição errada', () => {
       // dígito onde deveria ser letra → ignora e tenta avançar

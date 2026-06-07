@@ -7,9 +7,11 @@ import { describe, it, expect } from 'vitest'
 
 // Lógica extraída de finalizar() em operacao/[id]/page.tsx
 function calcularDataExpiracao(dataExecucao: Date, tempoGuardaMeses: number): Date {
-  const expiracao = new Date(dataExecucao)
-  expiracao.setMonth(expiracao.getMonth() + tempoGuardaMeses)
-  return expiracao
+  return new Date(Date.UTC(
+    dataExecucao.getUTCFullYear(),
+    dataExecucao.getUTCMonth() + tempoGuardaMeses,
+    dataExecucao.getUTCDate()
+  ))
 }
 
 function toISODate(d: Date): string {
