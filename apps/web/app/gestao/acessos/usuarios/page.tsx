@@ -17,6 +17,7 @@ interface Usuario {
   perfil: string
   perfilId?: string
   unidades: { id: string; nome: string }[]
+  turnoId?: string | null
 }
 
 interface Perfil { id: string; nome: string }
@@ -71,7 +72,7 @@ export default function UsuariosPage() {
 
     const [ueRes, perfisRes] = await Promise.all([
       supabase.from('usuario_empresa')
-        .select('usuario:usuario_id(id, nome, email, cpf, telefone, status), perfil:perfil_id(id, nome)')
+        .select('usuario:usuario_id(id, nome, email, cpf, telefone, status, turno_id), perfil:perfil_id(id, nome)')
         .eq('empresa_id', empresaAtiva.id),
       supabase.from('perfis').select('id, nome')
         .or(`empresa_id.eq.${empresaAtiva.id},empresa_id.is.null`).order('nome'),
@@ -89,6 +90,7 @@ export default function UsuariosPage() {
           perfil: r.perfil?.nome ?? '',
           perfilId: r.perfil?.id ?? '',
           unidades: [],
+          turnoId: r.usuario.turno_id ?? null,
         })))
     }
     if (perfisRes.data) setPerfis(perfisRes.data)

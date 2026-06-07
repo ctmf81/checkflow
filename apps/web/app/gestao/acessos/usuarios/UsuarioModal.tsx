@@ -16,9 +16,11 @@ interface Usuario {
   perfil: string
   perfilId?: string
   unidades: Unidade[]
+  turnoId?: string | null
 }
 
 interface Perfil { id: string; nome: string }
+interface Turno { id: string; nome: string; tipo: 'administrativo' | 'escala' }
 
 interface Props {
   usuario?: Usuario
@@ -48,8 +50,10 @@ export function UsuarioModal({ usuario, onClose, perfilFixo }: Props) {
   const [telefone, setTelefone] = useState(usuario?.telefone ?? '')
   const [perfilId, setPerfilId] = useState(usuario?.perfilId ?? '')
   const [unidadesSel, setUnidadesSel] = useState<Unidade[]>(usuario?.unidades ?? [])
+  const [turnoId, setTurnoId] = useState(usuario?.turnoId ?? '')
   const [perfis, setPerfis] = useState<Perfil[]>([])
   const [unidades, setUnidades] = useState<Unidade[]>([])
+  const [turnos, setTurnos] = useState<Turno[]>([])
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
 
@@ -68,6 +72,8 @@ export function UsuarioModal({ usuario, onClose, perfilFixo }: Props) {
       }
     })
     supabase.from('unidades').select('id, nome').order('nome').then(({ data }) => { if (data) setUnidades(data) })
+    supabase.from('turnos').select('id, nome, tipo').eq('ativo', true).order('nome')
+      .then(({ data }) => { if (data) setTurnos(data as Turno[]) })
   }, [perfilFixo])
 
   function toggleUnidade(u: Unidade) {
@@ -87,7 +93,7 @@ export function UsuarioModal({ usuario, onClose, perfilFixo }: Props) {
       if (isEdicao) {
         // Atualiza dados do usuário existente
         await supabase.from('usuarios').update({
-          nome, cpf: cpf || null, telefone: telefone || null
+          nome, cpf: cpf || null, telefone: telefone || null, turno_id: turnoId || null
         }).eq('id', usuario.id)
       } else {
         // Cria usuário no Supabase Auth com senha temporária
@@ -167,6 +173,20 @@ export function UsuarioModal({ usuario, onClose, perfilFixo }: Props) {
                 {perfis.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Turno</label>
+            <select value={turnoId} onChange={e => setTurnoId(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
+              <option value="">Sem turno (recebe mensagens a qualquer hora)</option>
+              {turnos.map(t => (
+                <option key={t.id} value={t.id}>{t.nome} ({t.tipo === 'escala' ? 'escala' : 'administrativo'})</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              Fora do turno, o usuário não recebe mensagens de moderação por WhatsApp (mas continua podendo moderar normalmente pelo sistema).
+            </p>
           </div>
 
           {/* Unidades */}

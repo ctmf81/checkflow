@@ -14,6 +14,7 @@ interface SessionState {
   unidadeAtiva: Unidade | null
   unidades: Unidade[]
   empresas: Empresa[]
+  precisaEscolherEmpresa: boolean
   modoEmpresa: boolean
   grupoLabel: string    // ex: "Grupo", "Setor", "Departamento"
   subgrupoLabel: string // ex: "Subgrupo", "Área", "Loja"
@@ -28,6 +29,7 @@ const SessionContext = createContext<SessionState>({
   unidadeAtiva: null,
   unidades: [],
   empresas: [],
+  precisaEscolherEmpresa: false,
   modoEmpresa: false,
   grupoLabel: 'Grupo',
   subgrupoLabel: 'Subgrupo',
@@ -42,6 +44,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [unidadeAtiva, setUnidadeAtivaState] = useState<Unidade | null>(null)
   const [unidades, setUnidades] = useState<Unidade[]>([])
   const [empresas, setEmpresas] = useState<Empresa[]>([])
+  const [precisaEscolherEmpresa, setPrecisaEscolherEmpresa] = useState(false)
   const [modoEmpresa, setModoEmpresa] = useState(false)
   const [grupoLabel, setGrupoLabel] = useState('Grupo')
   const [subgrupoLabel, setSubgrupoLabel] = useState('Subgrupo')
@@ -67,46 +70,49 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         if (ue) setEmpresas(ue.map((r: any) => r.empresa).filter(Boolean))
       }
 
-      // Carrega sessão salva
+      // Carrega sessão salva (empresa NÃO é persistida — só ambiente/unidade)
       const { data: sessao } = await supabase
         .from('sessao_usuario')
-        .select('ultimo_ambiente, ultima_empresa_id, ultima_unidade_id')
+        .select('ultimo_ambiente, ultima_unidade_id')
         .eq('usuario_id', user.id)
         .single()
 
-      if (sessao) {
-        setAmbienteState(sessao.ultimo_ambiente as Ambiente)
+      if (sessao) setAmbienteState(sessao.ultimo_ambiente as Ambiente)
 
-        if (sessao.ultima_empresa_id) {
-          const { data: emp } = await supabase
-            .from('empresas').select('id, nome').eq('id', sessao.ultima_empresa_id).single()
-          if (emp) {
-            setEmpresaAtivaState(emp)
-            if (isAdmin) setModoEmpresa(true)
-            const lista = await carregarUnidades(sessao.ultima_empresa_id, user.id, isAdmin)
+      // Lista de empresas do usuário (já carregada acima em `emps`/`ue`)
+      const minhasEmpresas: Empresa[] = isAdmin
+        ? (await supabase.from('empresas').select('id, nome').order('nome')).data ?? []
+        : empresas
 
-            // Restaura unidade da sessão, ou pega a primeira disponível
-            if (sessao.ultima_unidade_id) {
-              const uni = lista.find(u => u.id === sessao.ultima_unidade_id)
-              if (uni) {
-                setUnidadeAtivaState(uni)
-                carregarLabels(uni.id)
-              } else if (lista.length > 0) {
-                setUnidadeAtivaState(lista[0])
-                carregarLabels(lista[0].id)
-                salvarSessao({ ultima_unidade_id: lista[0].id })
-              }
-            } else if (lista.length > 0) {
-              setUnidadeAtivaState(lista[0])
-              carregarLabels(lista[0].id)
-              salvarSessao({ ultima_unidade_id: lista[0].id })
-            }
-          }
-        }
-      } else {
-        // Sem sessão salva: admin vai para sistema sem unidade,
-        // outros usuários precisam ter empresa/unidade definidas pelo admin
+      if (minhasEmpresas.length > 1) {
+        // Consultor / admin com múltiplas empresas: sempre perguntar qual entrar
+        setPrecisaEscolherEmpresa(true)
+        return
       }
+
+      if (minhasEmpresas.length === 1) {
+        const emp = minhasEmpresas[0]
+        setEmpresaAtivaState(emp)
+        if (isAdmin) setModoEmpresa(true)
+        const lista = await carregarUnidades(emp.id, user.id, isAdmin)
+
+        if (sessao?.ultima_unidade_id) {
+          const uni = lista.find(u => u.id === sessao.ultima_unidade_id)
+          if (uni) {
+            setUnidadeAtivaState(uni)
+            carregarLabels(uni.id)
+          } else if (lista.length > 0) {
+            setUnidadeAtivaState(lista[0])
+            carregarLabels(lista[0].id)
+            salvarSessao({ ultima_unidade_id: lista[0].id })
+          }
+        } else if (lista.length > 0) {
+          setUnidadeAtivaState(lista[0])
+          carregarLabels(lista[0].id)
+          salvarSessao({ ultima_unidade_id: lista[0].id })
+        }
+      }
+      // Sem empresa nenhuma: usuário precisa ser configurado pelo admin
     }
 
     init()
@@ -157,7 +163,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setEmpresaAtivaState(e)
     setUnidadeAtivaState(null)
     setUnidades([])
-    salvarSessao({ ultima_empresa_id: e?.id ?? null, ultima_unidade_id: null })
+    setPrecisaEscolherEmpresa(false)
+    // Empresa NÃO é persistida em sessao_usuario — só a unidade.
+    // Isso garante que, no próximo login, quem tem >1 empresa seja sempre questionado.
+    salvarSessao({ ultima_unidade_id: null })
     if (e) {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
@@ -168,7 +177,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         // Auto-seleciona a primeira unidade (padrão)
         if (lista.length > 0) {
           setUnidadeAtivaState(lista[0])
-          salvarSessao({ ultima_empresa_id: e.id, ultima_unidade_id: lista[0].id })
+          salvarSessao({ ultima_unidade_id: lista[0].id })
         }
       }
     } else {
@@ -186,7 +195,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   return (
     <SessionContext.Provider value={{
       ambiente, empresaAtiva, unidadeAtiva, unidades, empresas,
-      modoEmpresa, grupoLabel, subgrupoLabel,
+      precisaEscolherEmpresa, modoEmpresa, grupoLabel, subgrupoLabel,
       setAmbiente, setEmpresaAtiva, setUnidadeAtiva,
     }}>
       {children}

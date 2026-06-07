@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckSquare, LayoutDashboard } from 'lucide-react'
+import { EscolherEmpresaModal } from '@/components/layout/EscolherEmpresaModal'
 
 function OperacaoHeader() {
   const { empresaAtiva } = useSession() as any
@@ -59,6 +60,7 @@ export default function OperacaoLayout({ children }: { children: React.ReactNode
   return (
     <SessionProvider>
       <div className="min-h-screen bg-gray-50 flex flex-col">
+        <EscolherEmpresaModal />
         <OperacaoHeader />
         <main className="flex-1">
           {children}
