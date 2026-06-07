@@ -81,6 +81,10 @@ foto:             {}   (no config needed)
 - `agendamentos_processar()` → processes due schedules (`for update skip locked`), calls `workflow_iniciar()` or inserts `checklist_execucoes` (status `'em_andamento'`), recalculates next run
 - **Requires pg_cron**: `select cron.schedule('processar-agendamentos', '*/10 * * * *', $$select agendamentos_processar()$$);`
 
+### Termos de Uso (migration 20260607000003)
+`usuarios.termos_aceitos_em` (timestamptz) + `termos_versao_aceita` (text, ex: `'2026-06-07'`).
+Versão vigente centralizada em `VERSAO_TERMOS` (`TermosDeUsoModal.tsx`) — ao revisar o texto, basta trocar essa constante para forçar reaceite de todos os usuários (sem nova migration).
+
 ### Turnos (migration 20260607000002)
 | Table | Description |
 |-------|-------------|

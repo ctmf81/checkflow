@@ -88,6 +88,12 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - Atividade obrigatória com motivos do tipo `'atividade'` associados exibe link "Não consigo executar esta atividade" → seleciona motivo, marca como "Não executado" (conta como respondida), pode desfazer
 - Checklist com motivos do tipo `'checklist'` associados exibe link "Não foi possível executar este checklist" → modal com motivo + observação → cria `checklist_execucoes` direto com `status='nao_executado'`
 
+## Termo de Uso
+- Exibido como modal bloqueante (`TermosGate` + `TermosDeUsoModal`) no primeiro acesso de qualquer usuário (gestão, operação e sistema)
+- Usuário precisa rolar o texto até o fim para habilitar o botão de aceite
+- Aceite grava `usuarios.termos_aceitos_em` + `termos_versao_aceita`
+- Se o texto for revisado, basta trocar a constante `VERSAO_TERMOS` em `TermosDeUsoModal.tsx` — todos os usuários com versão antiga são questionados novamente, sem precisar de nova migration
+
 ## Turnos
 - Cadastro em `/gestao/configuracoes/turnos`, dois tipos:
   - **Administrativo**: horário fixo configurável por dia da semana (ex: seg-sex 08-17h, sábado 08-11h — cada dia com sua própria janela)
