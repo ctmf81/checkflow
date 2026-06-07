@@ -100,7 +100,7 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
     } else {
       const { data: novoPerfil, error } = await supabase
         .from('perfis').insert({ nome, publico, empresa_id: empresaId, is_system: false }).select('id').single()
-      if (error || !novoPerfil) { setErro('Erro ao criar perfil.'); setSalvando(false); return }
+      if (error || !novoPerfil) { console.error('Erro ao criar perfil:', error); setErro(`Erro ao criar perfil${error ? `: ${error.message}` : ''}.`); setSalvando(false); return }
       await salvarPermissoes(novoPerfil.id)
     }
 
