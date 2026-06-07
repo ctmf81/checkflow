@@ -55,7 +55,7 @@ SUPABASE_URL="..." SUPABASE_ANON_KEY="..." SUPABASE_SERVICE_KEY="..." node pente
 ```
 Cria usuários temporários, roda 29 testes e limpa tudo ao final.
 
-**Cobertura atual (29/29 ✅ — última execução 2026-06-06):**
+**Cobertura atual (29/29 ✅ — última execução 2026-06-07, após fix do bucket público):**
 | Categoria | Testes |
 |-----------|--------|
 | Acesso não autenticado (anon) | 5 |
@@ -77,6 +77,7 @@ Rode o pen test após qualquer alteração de RLS ou nova tabela.
 | 2026-06-06 | Chaves service role hardcoded em 3 rotas API | `api/usuarios/criar\|inativar\|importar` |
 | 2026-06-06 | RLS storage sem escopo de unidade | 20260606000005 |
 | 2026-06-06 | IDOR: UPDATE/DELETE sem escopo em `checklists` e `checklist_execucoes` | 20260606000007 |
+| 2026-06-07 | Bucket `execucoes` com policy de leitura `to public` — anon listava (`list()`) evidências de execução de TODAS as empresas (28/29 no pentest) | 20260607110000 — substitui por policy `to authenticated` escopada por unidade (bucket continua `public=true` p/ não quebrar `getPublicUrl()`, mas listagem/enumeração agora exige vínculo com a unidade) |
 
 ## DevOps — Serviços Railway
 | Serviço | URL | Notas |
