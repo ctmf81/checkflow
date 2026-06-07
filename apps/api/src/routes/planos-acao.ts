@@ -125,6 +125,15 @@ export async function planosAcaoRoutes(app: FastifyInstance) {
       return reply.send({ enviados: 0, motivo: 'Nenhum destinatário encontrado' })
     }
 
+    // Turno: usuários com turno cadastrado só recebem WhatsApp se estiverem
+    // dentro do horário do turno agora. Quem não tem turno nunca é restringido.
+    // (Email e visibilidade do plano de ação NÃO são afetados pelo turno.)
+    const foraDoTurno = new Set<string>()
+    await Promise.all(membros.map(async (m: any) => {
+      const { data: dentro } = await sb.rpc('usuario_esta_no_turno', { p_usuario_id: m.usuario_id })
+      if (dentro === false) foraDoTurno.add(m.usuario_id)
+    }))
+
     const baseUrl = process.env.APP_URL ?? 'https://checkflow-production-b19d.up.railway.app'
     const link = `${baseUrl}/gestao/planos-acao/${plano_id}`
 
@@ -139,8 +148,8 @@ export async function planosAcaoRoutes(app: FastifyInstance) {
       const email: string | null = usuario.email ?? null
       const telefone: string | null = usuario.telefone ?? null
 
-      // ── WhatsApp ──
-      if (telefone) {
+      // ── WhatsApp (respeita turno: pula envio se usuário está fora do turno) ──
+      if (telefone && !foraDoTurno.has(m.usuario_id)) {
         const numero = telefone.replace(/\D/g, '').replace(/^0/, '')
         const numeroFinal = numero.startsWith('55') ? numero : `55${numero}`
 
