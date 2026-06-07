@@ -33,7 +33,10 @@ Layout: `gestao/layout.tsx` — sidebar + SessionProvider
 | `/gestao/configuracoes/documentos` | `gestao/configuracoes/documentos/page.tsx` | Document library |
 | `/gestao/configuracoes/nao-execucao` | `gestao/configuracoes/nao-execucao/page.tsx` | Non-execution reasons |
 | `/gestao/configuracoes/causa-raiz` | `gestao/configuracoes/causa-raiz/page.tsx` | Root causes |
+| `/gestao/configuracoes/turnos` | `gestao/configuracoes/turnos/page.tsx` | Turnos (shift windows) — TurnoModal.tsx |
 | `/gestao/configuracoes/catalogos` | `gestao/configuracoes/catalogos/page.tsx` | Catalog management |
+| `/gestao/agendamentos` | `gestao/agendamentos/page.tsx` | Recurring scheduler for workflows/checklists (NovoAgendamentoModal) |
+| `/gestao/workflows/[id]` | `gestao/workflows/[id]/page.tsx` | Workflow editor — PickerModal now has Grupo+Subgrupo selectors |
 | `/gestao/configuracoes/formatacao` | `gestao/configuracoes/formatacao/page.tsx` | Label config |
 
 ### Operação — Mobile execution (`operacao/`)

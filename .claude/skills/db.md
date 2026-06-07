@@ -70,6 +70,34 @@ video:            {}   (no config needed)
 foto:             {}   (no config needed)
 ```
 
+### Agendamentos (migration 20260606000015)
+| Table | Description |
+|-------|-------------|
+| `agendamentos` | Recurring scheduler for workflows/checklists: `tipo_alvo` (workflow/checklist), `intervalo_unidade` (horas/dias/meses), `intervalo_valor`, `referencia_inicio`, `proxima_execucao` (auto-calc via trigger), `ativo`, `ultima_execucao_em` |
+
+**Funções:**
+- `agendamento_calcular_proxima(referencia, unidade, valor, a_partir_de)` → loops adding interval until past target
+- `agendamento_set_proxima()` trigger → recalculates `proxima_execucao` on insert/update of recurrence fields
+- `agendamentos_processar()` → processes due schedules (`for update skip locked`), calls `workflow_iniciar()` or inserts `checklist_execucoes` (status `'em_andamento'`), recalculates next run
+- **Requires pg_cron**: `select cron.schedule('processar-agendamentos', '*/10 * * * *', $$select agendamentos_processar()$$);`
+
+### Turnos (migration 20260607000002)
+| Table | Description |
+|-------|-------------|
+| `turnos` | `nome`, `tipo` (`administrativo`\|`escala`), `config` jsonb, `ativo` |
+
+**`config` shapes:**
+```
+administrativo: { "dias": [ { "dia": 0-6 (0=domingo), "inicio": "HH:MM", "fim": "HH:MM" }, ... ] }
+                 -- cada dia da semana pode ter horário próprio (ex: sáb 08-11h, seg-sex 08-17h)
+escala:         { "data_referencia": "YYYY-MM-DD", "hora_inicio": "HH:MM",
+                  "horas_trabalho": number, "horas_folga": number }
+                 -- ciclo contínuo a partir da referência (ex: 12x36, 24x48)
+```
+
+`usuarios.turno_id` (nullable FK → `turnos`) — vínculo opcional 1 turno por usuário, editável em `UsuarioModal.tsx`.
+Função `usuario_esta_no_turno(p_usuario_id, p_momento default now())` → boolean — calcula se o usuário está dentro do turno **agora**, suportando ambos os tipos (administrativo: olha dia da semana + janela; escala: calcula posição no ciclo trabalho/folga desde `data_referencia`). Sem turno = sempre `true` (não restringe). Usada em `/planos-acao/notificar` (API) para pular o envio de WhatsApp a quem está fora do turno — não afeta e-mail nem a capacidade de moderar pelo sistema.
+
 ### Catálogos
 | Table | Description |
 |-------|-------------|
@@ -102,6 +130,9 @@ foto:             {}   (no config needed)
 - `workflow_avaliar_avanco(p_execucao_id)` → void, chamada pelo trigger
 
 **`checklist_execucoes`** agora tem coluna `resultado text check (resultado in ('aprovado','reprovado'))`
+Também tem (migration 20260606000016): `motivo_nao_execucao_id` (FK `nao_execucao_motivos`), `motivo_nao_execucao_obs text` — usados quando o checklist inteiro não pôde ser executado (`status='nao_executado'`). Motivo de não execução de uma ATIVIDADE individual fica embutido no JSON da resposta: `{ _nao_executavel: true, motivo_id, motivo_descricao, observacao }`.
+
+**Trigger `trg_checklist_bloquear_inativacao`** (migration 20260606000015): impede `update status='inativo'` em checklist usado em workflow `publicado` — lança exceção com contagem de workflows.
 
 ## RLS Policy Patterns
 
@@ -120,6 +151,9 @@ create policy "X_unidade" on T for all using (
   )
 );
 ```
+
+## RLS Gotcha: nullable FK columns
+Policies comparing `unidade_id in (...)` never match `NULL` rows (company-wide records). Always add an explicit `or (unidade_id is null and exists(...))` branch — bug found & fixed in `catalogos`/`catalogo_valores` (migration 20260606000014). Check other tables with nullable `unidade_id` for the same gap.
 
 ## Evolution Rule
 When the user says "Update /db with new table [X]", add X to the table index with a one-line description and migration filename. Keep constraint documentation up to date.

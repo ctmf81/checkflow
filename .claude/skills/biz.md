@@ -77,6 +77,30 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - Status de workflow_execucoes: `em_andamento` → `concluido` (sucesso) | `bloqueado` (reprovado sem condição satisfeita) | `cancelado`
 - Em Operação, itens de workflow `liberados` aparecem na seção "Workflows em andamento" antes dos checklists avulsos
 
+## Agendamentos (recorrência)
+- Tela `/gestao/agendamentos`: cria disparos recorrentes de workflows ou checklists
+- Recorrência personalizada: a cada X horas/dias/meses, a partir de uma data/hora de referência (`referencia_inicio`)
+- `proxima_execucao` calculada automaticamente em Postgres (trigger); processamento via `agendamentos_processar()` chamada periodicamente por `pg_cron`
+- Ativar/pausar e excluir agendamentos pela própria tela
+
+## Motivo de Não Execução
+- Configurado na criação do checklist (`checklist_nao_execucao_motivos`), tipado como `'checklist'` (todo o checklist) ou `'atividade'` (atividade obrigatória individual)
+- Atividade obrigatória com motivos do tipo `'atividade'` associados exibe link "Não consigo executar esta atividade" → seleciona motivo, marca como "Não executado" (conta como respondida), pode desfazer
+- Checklist com motivos do tipo `'checklist'` associados exibe link "Não foi possível executar este checklist" → modal com motivo + observação → cria `checklist_execucoes` direto com `status='nao_executado'`
+
+## Turnos
+- Cadastro em `/gestao/configuracoes/turnos`, dois tipos:
+  - **Administrativo**: horário fixo configurável por dia da semana (ex: seg-sex 08-17h, sábado 08-11h — cada dia com sua própria janela)
+  - **Escala**: ciclo rotativo trabalho/folga a partir de uma data de referência (ex: 12x36, 24x48 — calculado continuamente, sem precisar recadastrar)
+- Vínculo opcional (1 turno por usuário) feito na edição do usuário (`UsuarioModal.tsx` em `/gestao/acessos/usuarios`)
+- Efeito **único**: usuário fora do horário do seu turno não recebe mensagens de moderação por **WhatsApp** (e-mail continua sendo enviado, e ele continua podendo acessar/moderar planos de ação normalmente a qualquer hora)
+- Usuário sem turno cadastrado nunca é restringido — recebe a qualquer hora
+- Aplica-se tanto a moderadores N1 quanto N2 (mesma regra de notificação por não conformidade)
+
+## Workflow + Checklist: regras de integridade
+- Não é possível inativar um checklist em uso por workflow `publicado` (trigger bloqueia com exceção)
+- Quem cria workflows pode usar checklists de outros grupos/subgrupos — picker tem seletor de Grupo + Subgrupo, pré-selecionado com o grupo/subgrupo atual do usuário
+
 ## Regras de Negócio Críticas
 - RLS obrigatório em todas as tabelas de dados de usuário
 - Checklist publicado não pode ter sua estrutura mutada
