@@ -19,7 +19,10 @@ interface Usuario {
   turnoId?: string | null
 }
 
-interface Perfil { id: string; nome: string }
+interface Perfil { id: string; nome: string; publico: boolean; is_system: boolean }
+
+const ADMIN_EMPRESA_ID = '00000000-0000-0000-0000-000000000002'
+const ADMIN_SISTEMA_ID = '00000000-0000-0000-0000-000000000001'
 interface Turno { id: string; nome: string; tipo: 'administrativo' | 'escala' }
 
 interface Props {
@@ -59,18 +62,42 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
 
   useEffect(() => {
     const supabase = createClient()
-    let q = supabase.from('perfis').select('id, nome').order('nome')
-    if (perfilFixo) q = q.eq('nome', perfilFixo) as typeof q
-    q.then(({ data }) => {
-      if (data) {
-        setPerfis(data)
-        // Se não tem perfil selecionado, usa Operação como padrão
-        if (!perfilId) {
-          const operacao = data.find(p => p.nome === 'Operação')
-          if (operacao) setPerfilId(operacao.id)
-        }
+
+    async function carregarPerfis() {
+      // Verifica se quem está editando é Admin da empresa (ou Admin de sistema):
+      // só esses podem atribuir perfis "não públicos". Quem não é admin só
+      // pode escolher entre perfis marcados como público (ex: substituir
+      // temporariamente um líder de férias).
+      const { data: { user } } = await supabase.auth.getUser()
+      let souAdmin = false
+      if (user && empresaId) {
+        const { data: vinculo } = await supabase
+          .from('usuario_empresa')
+          .select('perfil_id')
+          .eq('usuario_id', user.id)
+          .eq('empresa_id', empresaId)
+          .maybeSingle()
+        souAdmin = vinculo?.perfil_id === ADMIN_EMPRESA_ID || vinculo?.perfil_id === ADMIN_SISTEMA_ID
       }
-    })
+
+      let q = supabase.from('perfis').select('id, nome, publico, is_system').order('nome')
+      if (perfilFixo) q = q.eq('nome', perfilFixo) as typeof q
+      const { data } = await q
+      if (!data) return
+
+      const lista = souAdmin
+        ? data
+        : data.filter(p => p.publico || p.id === usuario?.perfilId)
+
+      setPerfis(lista)
+      // Se não tem perfil selecionado, usa Operação como padrão
+      if (!perfilId) {
+        const operacao = lista.find(p => p.nome === 'Operação')
+        if (operacao) setPerfilId(operacao.id)
+      }
+    }
+    carregarPerfis()
+
     let uq = supabase.from('unidades').select('id, nome').order('nome')
     if (empresaId) uq = uq.eq('empresa_id', empresaId) as typeof uq
     uq.then(({ data }) => { if (data) setUnidades(data) })
@@ -78,7 +105,7 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
     let tq = supabase.from('turnos').select('id, nome, tipo').eq('ativo', true).order('nome')
     if (empresaId) tq = tq.eq('empresa_id', empresaId) as typeof tq
     tq.then(({ data }) => { if (data) setTurnos(data as Turno[]) })
-  }, [perfilFixo, empresaId])
+  }, [perfilFixo, empresaId, usuario?.perfilId])
 
   function toggleUnidade(u: Unidade) {
     setUnidadesSel(prev =>
