@@ -82,8 +82,12 @@ foto:             {}   (no config needed)
 - **Requires pg_cron**: `select cron.schedule('processar-agendamentos', '*/10 * * * *', $$select agendamentos_processar()$$);`
 
 ### Termos de Uso (migration 20260607000003)
-`usuarios.termos_aceitos_em` (timestamptz) + `termos_versao_aceita` (text, ex: `'2026-06-07'`).
-Versão vigente centralizada em `VERSAO_TERMOS` (`TermosDeUsoModal.tsx`) — ao revisar o texto, basta trocar essa constante para forçar reaceite de todos os usuários (sem nova migration).
+| Table | Description |
+|-------|-------------|
+| `termos_uso` | Texto único do termo, válido para TODAS as empresas: `texto`, `versao` (string livre, ex timestamp `'2026-06-07 14:30'`), `atualizado_em`, `atualizado_por`. A versão vigente é o registro mais recente (`order by atualizado_em desc limit 1`) — histórico é preservado |
+
+`usuarios.termos_aceitos_em` (timestamptz) + `termos_versao_aceita` (text) — registra o aceite individual.
+Editado pelo admin em `/sistema/termos` (`TermosAdminPage`): salvar **insere uma nova versão** (não faz update), forçando reaceite de todos os usuários automaticamente — sem nova migration. RLS: leitura liberada a todos, escrita restrita a `is_admin_sistema()`.
 
 ### Turnos (migration 20260607000002)
 | Table | Description |

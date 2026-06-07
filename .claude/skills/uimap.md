@@ -55,6 +55,7 @@ Layout: `sistema/layout.tsx`
 | `/sistema` | `sistema/page.tsx` | System overview |
 | `/sistema/empresas/[id]` | `sistema/empresas/[id]/page.tsx` | Company details |
 | `/sistema/whatsapp` | `sistema/whatsapp/page.tsx` | WhatsApp QR / Evolution API config |
+| `/sistema/termos` | `sistema/termos/page.tsx` | Edita o Termo de Uso único (gera nova versão ao salvar) |
 
 ## Key Components (`apps/web/components/`)
 

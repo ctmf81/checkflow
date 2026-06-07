@@ -89,10 +89,11 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - Checklist com motivos do tipo `'checklist'` associados exibe link "Não foi possível executar este checklist" → modal com motivo + observação → cria `checklist_execucoes` direto com `status='nao_executado'`
 
 ## Termo de Uso
+- **Único para todas as empresas** (não é configurável por tenant) — editado centralmente pelo admin do sistema em `/sistema/termos`
 - Exibido como modal bloqueante (`TermosGate` + `TermosDeUsoModal`) no primeiro acesso de qualquer usuário (gestão, operação e sistema)
 - Usuário precisa rolar o texto até o fim para habilitar o botão de aceite
 - Aceite grava `usuarios.termos_aceitos_em` + `termos_versao_aceita`
-- Se o texto for revisado, basta trocar a constante `VERSAO_TERMOS` em `TermosDeUsoModal.tsx` — todos os usuários com versão antiga são questionados novamente, sem precisar de nova migration
+- Ao publicar uma edição em `/sistema/termos`, é criada uma **nova versão** (registro novo, não sobrescreve) — todos os usuários com versão antiga são automaticamente questionados de novo no próximo acesso. Histórico de versões fica visível na própria tela de admin
 
 ## Turnos
 - Cadastro em `/gestao/configuracoes/turnos`, dois tipos:
