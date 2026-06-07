@@ -30,10 +30,10 @@ Layout: `gestao/layout.tsx` — sidebar + SessionProvider
 | `/gestao/acessos/usuarios` | `gestao/acessos/usuarios/page.tsx` | User management |
 | `/gestao/acessos/perfis` | `gestao/acessos/perfis/page.tsx` | Access profiles |
 | `/gestao/acessos/empresa` | `gestao/acessos/empresa/page.tsx` | Company/units config |
+| `/gestao/acessos/turnos` | `gestao/acessos/turnos/page.tsx` | Turnos (shift windows) — TurnoModal.tsx |
 | `/gestao/configuracoes/documentos` | `gestao/configuracoes/documentos/page.tsx` | Document library |
 | `/gestao/configuracoes/nao-execucao` | `gestao/configuracoes/nao-execucao/page.tsx` | Non-execution reasons |
 | `/gestao/configuracoes/causa-raiz` | `gestao/configuracoes/causa-raiz/page.tsx` | Root causes |
-| `/gestao/configuracoes/turnos` | `gestao/configuracoes/turnos/page.tsx` | Turnos (shift windows) — TurnoModal.tsx |
 | `/gestao/configuracoes/catalogos` | `gestao/configuracoes/catalogos/page.tsx` | Catalog management |
 | `/gestao/agendamentos` | `gestao/agendamentos/page.tsx` | Recurring scheduler for workflows/checklists (NovoAgendamentoModal) |
 | `/gestao/workflows/[id]` | `gestao/workflows/[id]/page.tsx` | Workflow editor — PickerModal now has Grupo+Subgrupo selectors |

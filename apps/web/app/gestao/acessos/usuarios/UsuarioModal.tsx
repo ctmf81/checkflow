@@ -42,7 +42,7 @@ function formatTelefone(v: string) {
     .replace(/(\d{1})(\d{4})(\d{4})$/, '$1 $2-$3')
 }
 
-export function UsuarioModal({ usuario, onClose, perfilFixo }: Props) {
+export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props) {
   const isEdicao = !!usuario
   const [nome, setNome] = useState(usuario?.nome ?? '')
   const [email, setEmail] = useState(usuario?.email ?? '')
@@ -71,10 +71,14 @@ export function UsuarioModal({ usuario, onClose, perfilFixo }: Props) {
         }
       }
     })
-    supabase.from('unidades').select('id, nome').order('nome').then(({ data }) => { if (data) setUnidades(data) })
-    supabase.from('turnos').select('id, nome, tipo').eq('ativo', true).order('nome')
-      .then(({ data }) => { if (data) setTurnos(data as Turno[]) })
-  }, [perfilFixo])
+    let uq = supabase.from('unidades').select('id, nome').order('nome')
+    if (empresaId) uq = uq.eq('empresa_id', empresaId) as typeof uq
+    uq.then(({ data }) => { if (data) setUnidades(data) })
+
+    let tq = supabase.from('turnos').select('id, nome, tipo').eq('ativo', true).order('nome')
+    if (empresaId) tq = tq.eq('empresa_id', empresaId) as typeof tq
+    tq.then(({ data }) => { if (data) setTurnos(data as Turno[]) })
+  }, [perfilFixo, empresaId])
 
   function toggleUnidade(u: Unidade) {
     setUnidadesSel(prev =>
