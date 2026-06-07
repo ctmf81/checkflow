@@ -1,6 +1,7 @@
 'use client'
 
 import { Header } from '@/components/layout/Header'
+import { TermosGate } from '@/components/layout/TermosGate'
 import { SessionProvider } from '@/contexts/SessionContext'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -39,6 +40,7 @@ export default function SistemaLayout({ children }: { children: React.ReactNode 
   return (
     <SessionProvider>
       <div className="min-h-screen bg-slate-50 flex flex-col">
+        <TermosGate />
         <Header />
         <SistemaNav />
         <main className="flex-1 p-8 max-w-7xl mx-auto w-full">
