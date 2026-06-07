@@ -9,9 +9,9 @@ description: Quality Assurance for CheckFlow — test strategy, suites por tela/
 
 | Camada | Ferramenta | Status |
 |--------|-----------|--------|
-| Unit / Integration | Vitest + Testing Library | 🔴 não instalado |
+| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` |
 | E2E / Funcional | Playwright | 🔴 não instalado |
-| Pen Test (security) | `pentest/run.mjs` (Node nativo) | ✅ 29/29 |
+| Pen Test (security) | `pentest/run.mjs` (Node nativo) | ✅ 29/29 (2026-06-07, após fix do bucket execucoes) |
 
 ### Instalar Vitest
 ```bash
@@ -62,16 +62,25 @@ npx playwright install chromium
 ## Suites Existentes
 
 ### ✅ Pen Test (`pentest/run.mjs`)
-29 testes de segurança. Ver `/security` para detalhes.
+29 testes de segurança, 29/29 ✅. Ver `/security` para detalhes.
+⚠️ Achou e corrigiu (2026-06-07): bucket `execucoes` permitia `list()` por `anon` — ver migration `20260607110000`.
 
-### 🔴 Unit — `operacao/[id]` (a criar)
+### ✅ Unit — `operacao/[id]` — `tests/unit/operacao/validacao.unit.test.ts` (18 testes)
+`calcularValidacao` foi exportado de `operacao/[id]/page.tsx` (era módulo-privada) e testada diretamente — sim_nao, número (range/limites inclusivos/não-numérico), múltipla escolha (válida/inválida/opção deletada/seleção única vs array), tipos sem validação automática (texto/foto/catálogo → null).
+
+### ✅ Unit — Turnos — `tests/unit/lib/turnos.unit.test.ts` (16 testes)
+Criado `lib/turnos.ts`: espelho TS de `usuario_esta_no_turno()` (SQL, migration 20260607000002) — não dá pra testar a função do Postgres sem banco, então o espelho replica a mesma matemática e é coberto por testes (administrativo com janela cruzando meia-noite, escala 12x36/24x48 em vários pontos do ciclo, sem turno/inativo/sem data_referencia). **Mantenha os dois em sincronia** se a lógica SQL mudar — comentário no topo do arquivo avisa isso.
+
+### ⚠️ Bugs encontrados por testes PRÉ-EXISTENTES (2026-06-07)
+Rodando a suíte completa (`npx vitest run`), 2 testes que já existiam (escritos antes desta sessão) falharam — revelam bugs reais ainda não corrigidos:
+| Teste | Bug | Task spawnada |
+|-------|-----|--------------|
+| `__tests__/execucao.expiracao.test.ts` | `data_expiracao` pode sair com 1 dia de diferença (off-by-one) — `setMonth` em hora local + `toISOString()` em UTC, problema de fuso horário | `task_94d7039b` |
+| `__tests__/operacao.mascara.test.ts` | `aplicarMascara` "come" caracteres demais quando o input tem ruído (ex: dígito onde esperava letra) — comum em leitura de QR/código de barras | `task_df5ac11e` |
+
+### 🔴 Unit — `operacao/[id]` (pendente)
 | Teste | Função | Prioridade |
 |-------|--------|-----------|
-| calcularValidacao — sim_nao conforme/não conforme | `calcularValidacao()` | 🔴 Alta |
-| calcularValidacao — numero fora do range | `calcularValidacao()` | 🔴 Alta |
-| calcularValidacao — multipla_escolha com opção inválida | `calcularValidacao()` | 🔴 Alta |
-| aplicarMascara — dígitos com `9` e `0` | `aplicarMascara()` | 🔴 Alta |
-| aplicarMascara — máscara `A` (letra) | `aplicarMascara()` | 🟡 Média |
 | resultado global — aprovado quando todos conformes | `finalizar()` | 🔴 Alta |
 | resultado global — reprovado quando qualquer não conforme | `finalizar()` | 🔴 Alta |
 | calcularProgresso — conta só atividades visíveis | `calcularProgresso()` | 🟡 Média |

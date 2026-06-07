@@ -94,7 +94,7 @@ function ValidacaoTag({ valido }: { valido: boolean | null }) {
     : <span className="flex items-center gap-1 text-xs text-red-500 font-medium"><XCircle size={12} />Não conforme</span>
 }
 
-function calcularValidacao(atividade: Atividade): boolean | null {
+export function calcularValidacao(atividade: Atividade): boolean | null {
   const val = atividade.resposta
   if (val === null || val === undefined || val === '') return null
   if (typeof val === 'object' && val?._nao_executavel) return null
@@ -174,16 +174,27 @@ function CampoTexto({ atividade, onChange }: { atividade: Atividade; onChange: (
   const val: string = atividade.resposta ?? ''
   const [erroCodigo, setErroCodigo] = useState<string | null>(null)
 
+  function indexOfMatch(input: string, from: number, re: RegExp): number {
+    for (let k = from; k < input.length; k++) if (re.test(input[k])) return k
+    return -1
+  }
+
   function aplicarMascara(input: string): string {
     if (!mascara) return input
     let result = ''
     let j = 0
     for (let i = 0; i < mascara.length && j < input.length; i++) {
       if (mascara[i] === '9' || mascara[i] === '0') {
-        // '9' e '0' = wildcard de dígito
-        if (/\d/.test(input[j])) { result += input[j++] } else { j++; i-- }
+        // '9' e '0' = wildcard de dígito; procura à frente o próximo dígito válido
+        const k = indexOfMatch(input, j, /\d/)
+        if (k === -1) break
+        result += input[k]
+        j = k + 1
       } else if (mascara[i] === 'A') {
-        if (/[a-zA-Z]/.test(input[j])) { result += input[j++].toUpperCase() } else { j++; i-- }
+        const k = indexOfMatch(input, j, /[a-zA-Z]/)
+        if (k === -1) break
+        result += input[k].toUpperCase()
+        j = k + 1
       } else if (mascara[i] === '*') {
         result += input[j++]
       } else {
@@ -1224,8 +1235,8 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     if (!user) { setEnviandoNaoExec(false); return }
 
     const agora = new Date()
-    const expiracao = new Date(agora)
-    expiracao.setMonth(expiracao.getMonth() + (checklist.tempo_guarda_meses ?? 12))
+    const expiracao = new Date(Date.UTC(agora.getFullYear(), agora.getMonth() + (checklist.tempo_guarda_meses ?? 12), agora.getDate()))
+    const dataExpiracao = `${expiracao.getUTCFullYear()}-${String(expiracao.getUTCMonth() + 1).padStart(2, '0')}-${String(expiracao.getUTCDate()).padStart(2, '0')}`
 
     const { error } = await sb.from('checklist_execucoes').insert({
       checklist_id: checklist.id,
@@ -1302,8 +1313,8 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     }
 
     const agora = new Date()
-    const expiracao = new Date(agora)
-    expiracao.setMonth(expiracao.getMonth() + (checklist.tempo_guarda_meses ?? 12))
+    const expiracao = new Date(Date.UTC(agora.getFullYear(), agora.getMonth() + (checklist.tempo_guarda_meses ?? 12), agora.getDate()))
+    const dataExpiracao = `${expiracao.getUTCFullYear()}-${String(expiracao.getUTCMonth() + 1).padStart(2, '0')}-${String(expiracao.getUTCDate()).padStart(2, '0')}`
 
     // Busca o nome do usuário uma única vez (fora do loop de planos)
     const { data: perfil } = await sb.from('usuarios').select('nome').eq('id', user.id).single()
