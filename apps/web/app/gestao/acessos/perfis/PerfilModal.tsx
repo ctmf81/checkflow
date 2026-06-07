@@ -142,6 +142,12 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
                 </button>
               </div>
             </div>
+            <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+              <strong>Perfil público:</strong> pode ser atribuído a um usuário diretamente pela gestão de
+              usuários do grupo/setor (ex: substituição temporária de um líder em férias, sem precisar do
+              administrador da empresa). Perfis <strong>não públicos</strong> só podem ser atribuídos pelo
+              administrador da empresa.
+            </p>
           </div>
 
           {/* Árvore de permissões */}

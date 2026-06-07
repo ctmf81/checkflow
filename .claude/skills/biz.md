@@ -108,6 +108,12 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - Não é possível inativar um checklist em uso por workflow `publicado` (trigger bloqueia com exceção)
 - Quem cria workflows pode usar checklists de outros grupos/subgrupos — picker tem seletor de Grupo + Subgrupo, pré-selecionado com o grupo/subgrupo atual do usuário
 
+## Perfis — flag "público"
+- `perfis.publico` (boolean): determina quem pode atribuir aquele perfil a um usuário
+  - **Público** = pode ser atribuído por quem gerencia usuários do próprio grupo/setor (ex: substituição temporária de um líder de férias, sem precisar do admin da empresa)
+  - **Não público** = só pode ser atribuído pelo Administrador da empresa
+- ⚠️ Toggle existe em `PerfilModal.tsx`, mas a **restrição ainda não é aplicada** em `UsuarioModal.tsx` (o seletor de perfil mostra todos independente de quem está editando) — gap a corrigir
+
 ## Regras de Negócio Críticas
 - RLS obrigatório em todas as tabelas de dados de usuário
 - Checklist publicado não pode ter sua estrutura mutada
