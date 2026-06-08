@@ -111,6 +111,19 @@ export function calcularValidacao(atividade: Atividade): boolean | null {
     if (cfg.max !== null && cfg.max !== undefined && n > cfg.max) return false
     return true
   }
+  if (atividade.tipo === 'padrao') {
+    // resposta: { numero, instancia_id, valor_esperado, margem } — a instância já
+    // foi resolvida no momento da resposta (ver CampoPadrao), com base na
+    // combinação de variáveis escolhida. Sem instância correspondente → null
+    // (não dá pra validar; o sistema não tem um valor esperado pra comparar).
+    if (typeof val !== 'object') return null
+    if (!val.instancia_id) return null
+    const n = Number(val.numero)
+    if (isNaN(n)) return null
+    const esperado = Number(val.valor_esperado)
+    const margem = Number(val.margem) || 0
+    return Math.abs(n - esperado) <= margem
+  }
   if (atividade.tipo === 'multipla_escolha') {
     const opcoes = atividade.opcoesMC ?? []
     if (!opcoes.length) return null
@@ -448,6 +461,102 @@ function CampoCatalogo({ atividade, onChange }: { atividade: Atividade; onChange
   )
 }
 
+// Padrão: o usuário escolhe a combinação de variáveis aplicável e informa o
+// valor numérico medido. O sistema procura a instância com a combinação exata
+// e guarda o valor_esperado/margem resolvidos junto da resposta — assim
+// calcularValidacao() compara sem precisar acessar o banco de novo.
+function CampoPadrao({ atividade, onChange }: { atividade: Atividade; onChange: (v: any) => void }) {
+  const padraoId = atividade.config?.padrao_id
+  const val = atividade.resposta ?? {}
+  const [carregando, setCarregando] = useState(true)
+  const [variaveis, setVariaveis] = useState<{ id: string; nome: string; valores: { id: string; valor: string }[] }[]>([])
+  const [instancias, setInstancias] = useState<{ id: string; valor_esperado: number; margem: number; combinacao: Record<string, string> }[]>([])
+
+  useEffect(() => {
+    if (!padraoId) { setCarregando(false); return }
+    const sb = createClient()
+    Promise.all([
+      sb.from('padrao_variaveis').select('ordem, variavel:variaveis(id, nome, variavel_valores(id, valor, ordem))')
+        .eq('padrao_id', padraoId).order('ordem'),
+      sb.from('padrao_instancias').select('id, valor_esperado, margem, padrao_instancia_valores(variavel_id, valor_id)')
+        .eq('padrao_id', padraoId),
+    ]).then(([{ data: pv }, { data: insts }]) => {
+      setVariaveis((pv ?? []).map((x: any) => ({
+        id: x.variavel.id, nome: x.variavel.nome,
+        valores: (x.variavel.variavel_valores ?? []).sort((a: any, b: any) => a.ordem - b.ordem),
+      })))
+      setInstancias((insts ?? []).map((i: any) => ({
+        id: i.id, valor_esperado: Number(i.valor_esperado), margem: Number(i.margem ?? 0),
+        combinacao: Object.fromEntries((i.padrao_instancia_valores ?? []).map((v: any) => [v.variavel_id, v.valor_id])),
+      })))
+      setCarregando(false)
+    })
+  }, [atividade.id, padraoId])
+
+  if (!padraoId) return <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">Padrão não configurado.</p>
+  if (carregando) return <p className="text-xs text-gray-400 py-2">Carregando padrão...</p>
+
+  const valoresEscolhidos: Record<string, string> = val.valores ?? {}
+  const combinacaoCompleta = variaveis.length > 0 && variaveis.every(v => valoresEscolhidos[v.id])
+  const instanciaResolvida = combinacaoCompleta
+    ? instancias.find(i => variaveis.every(v => i.combinacao[v.id] === valoresEscolhidos[v.id]))
+    : undefined
+
+  function setValorVariavel(variavelId: string, valorId: string) {
+    const novosValores = { ...valoresEscolhidos, [variavelId]: valorId }
+    aplicar(novosValores, val.numero)
+  }
+  function setNumero(numero: string) {
+    aplicar(valoresEscolhidos, numero)
+  }
+  function aplicar(valores: Record<string, string>, numero: any) {
+    const completa = variaveis.length > 0 && variaveis.every(v => valores[v.id])
+    const inst = completa ? instancias.find(i => variaveis.every(v => i.combinacao[v.id] === valores[v.id])) : undefined
+    onChange({
+      valores,
+      numero,
+      instancia_id: inst?.id ?? null,
+      valor_esperado: inst?.valor_esperado ?? null,
+      margem: inst?.margem ?? null,
+    })
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2.5">
+        {variaveis.map(v => (
+          <div key={v.id}>
+            <label className="block text-xs text-gray-500 mb-1">{v.nome}</label>
+            <select value={valoresEscolhidos[v.id] ?? ''} onChange={e => setValorVariavel(v.id, e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-200">
+              <option value="">Selecione...</option>
+              {v.valores.map(o => <option key={o.id} value={o.id}>{o.valor}</option>)}
+            </select>
+          </div>
+        ))}
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Valor medido</label>
+        <input value={val.numero ?? ''} onChange={e => setNumero(e.target.value)}
+          inputMode="decimal" placeholder="Digite o valor..."
+          className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-200" />
+      </div>
+
+      {combinacaoCompleta && !instanciaResolvida && (
+        <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
+          Não há valor de referência cadastrado para essa combinação — a resposta não poderá ser validada automaticamente.
+        </p>
+      )}
+      {instanciaResolvida && val.numero !== '' && val.numero !== undefined && val.numero !== null && (
+        <p className="text-xs text-gray-400">
+          Referência: {instanciaResolvida.valor_esperado}{instanciaResolvida.margem ? ` ± ${instanciaResolvida.margem}` : ''}
+        </p>
+      )}
+    </div>
+  )
+}
+
 // Localização (apenas GPS)
 function CampoLocalizacao({ atividade, onChange }: { atividade: Atividade; onChange: (v: any) => void }) {
   const [buscando, setBuscando] = useState(false)
@@ -772,6 +881,7 @@ function CampoResposta({ atividade, onChange }: { atividade: Atividade; onChange
     case 'sim_nao':          return <CampoSimNao atividade={atividade} onChange={onChange} />
     case 'multipla_escolha': return <CampoMultiplaEscolha atividade={atividade} onChange={onChange} />
     case 'catalogo':         return <CampoCatalogo atividade={atividade} onChange={onChange} />
+    case 'padrao':           return <CampoPadrao atividade={atividade} onChange={onChange} />
     case 'localizacao':      return <CampoLocalizacao atividade={atividade} onChange={onChange} />
     case 'foto':             return <CampoFoto atividade={atividade} onChange={onChange} />
     case 'video':            return <CampoVideo atividade={atividade} onChange={onChange} />
