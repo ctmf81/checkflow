@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 
 interface VariavelOpt { id: string; nome: string; valores: { id: string; valor: string }[] }
-interface Instancia { id?: string; valores: Record<string, string>; valor_esperado: string; margem: string }
+interface Instancia { id?: string; valores: Record<string, string>; valor_min: string; valor_max: string }
 
 function CriarPadraoInner() {
   const router = useRouter()
@@ -71,13 +71,13 @@ function CriarPadraoInner() {
       setVariaveisSelecionadas(varIds)
 
       const { data: insts } = await supabase.from('padrao_instancias')
-        .select('id, valor_esperado, margem, padrao_instancia_valores(variavel_id, valor_id)')
+        .select('id, valor_min, valor_max, padrao_instancia_valores(variavel_id, valor_id)')
         .eq('padrao_id', padraoId)
       if (insts) {
         setInstancias(insts.map((i: any) => ({
           id: i.id,
-          valor_esperado: String(i.valor_esperado),
-          margem: String(i.margem ?? 0),
+          valor_min: i.valor_min === null ? '' : String(i.valor_min),
+          valor_max: i.valor_max === null ? '' : String(i.valor_max),
           valores: Object.fromEntries((i.padrao_instancia_valores ?? []).map((v: any) => [v.variavel_id, v.valor_id])),
         })))
       }
@@ -100,7 +100,7 @@ function CriarPadraoInner() {
   }
 
   function addInstancia() {
-    setInstancias(i => [...i, { valores: {}, valor_esperado: '', margem: '0' }])
+    setInstancias(i => [...i, { valores: {}, valor_min: '', valor_max: '' }])
   }
   function removerInstancia(idx: number) {
     setInstancias(i => i.filter((_, n) => n !== idx))
@@ -108,7 +108,7 @@ function CriarPadraoInner() {
   function setInstanciaValor(idx: number, variavelId: string, valorId: string) {
     setInstancias(i => i.map((inst, n) => n === idx ? { ...inst, valores: { ...inst.valores, [variavelId]: valorId } } : inst))
   }
-  function setInstanciaCampo(idx: number, campo: 'valor_esperado' | 'margem', val: string) {
+  function setInstanciaCampo(idx: number, campo: 'valor_min' | 'valor_max', val: string) {
     setInstancias(i => i.map((inst, n) => n === idx ? { ...inst, [campo]: val } : inst))
   }
 
@@ -118,12 +118,18 @@ function CriarPadraoInner() {
     if (!nomeOk) { setErro('Informe o nome do padrão.'); return }
     if (variaveisSelecionadas.length === 0) { setErro('Selecione ao menos uma variável que compõe este padrão.'); return }
 
-    // valida instâncias: combinação completa + valor numérico
+    // valida instâncias: combinação completa + faixa numérica válida
     for (const [idx, inst] of instancias.entries()) {
       const completo = variaveisSelecionadas.every(vid => inst.valores[vid])
       if (!completo) { setErro(`Instância #${idx + 1}: escolha um valor para cada variável.`); return }
-      if (inst.valor_esperado.trim() === '' || isNaN(Number(inst.valor_esperado))) {
-        setErro(`Instância #${idx + 1}: informe um valor esperado numérico.`); return
+      const minOk = inst.valor_min.trim() === '' || !isNaN(Number(inst.valor_min))
+      const maxOk = inst.valor_max.trim() === '' || !isNaN(Number(inst.valor_max))
+      if (!minOk || !maxOk) { setErro(`Instância #${idx + 1}: valores mínimo/máximo devem ser numéricos.`); return }
+      if (inst.valor_min.trim() === '' && inst.valor_max.trim() === '') {
+        setErro(`Instância #${idx + 1}: informe ao menos o mínimo ou o máximo.`); return
+      }
+      if (inst.valor_min.trim() !== '' && inst.valor_max.trim() !== '' && Number(inst.valor_min) > Number(inst.valor_max)) {
+        setErro(`Instância #${idx + 1}: o mínimo não pode ser maior que o máximo.`); return
       }
     }
     // checa combinações duplicadas
@@ -160,8 +166,8 @@ function CriarPadraoInner() {
     for (const inst of instancias) {
       const { data: novaInst, error } = await supabase.from('padrao_instancias').insert({
         padrao_id: id,
-        valor_esperado: Number(inst.valor_esperado),
-        margem: Number(inst.margem) || 0,
+        valor_min: inst.valor_min.trim() === '' ? null : Number(inst.valor_min),
+        valor_max: inst.valor_max.trim() === '' ? null : Number(inst.valor_max),
       }).select('id').single()
       if (error || !novaInst) continue
       await supabase.from('padrao_instancia_valores').insert(
@@ -272,15 +278,15 @@ function CriarPadraoInner() {
                         </div>
                       ))}
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Valor esperado</label>
-                        <input value={inst.valor_esperado} onChange={e => setInstanciaCampo(idx, 'valor_esperado', e.target.value)}
-                          inputMode="decimal" placeholder="Ex: 1.45"
+                        <label className="block text-xs text-gray-500 mb-1">Valor mínimo</label>
+                        <input value={inst.valor_min} onChange={e => setInstanciaCampo(idx, 'valor_min', e.target.value)}
+                          inputMode="decimal" placeholder="Ex: 1.40"
                           className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-200" />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Margem de tolerância (±)</label>
-                        <input value={inst.margem} onChange={e => setInstanciaCampo(idx, 'margem', e.target.value)}
-                          inputMode="decimal" placeholder="Ex: 0.05"
+                        <label className="block text-xs text-gray-500 mb-1">Valor máximo</label>
+                        <input value={inst.valor_max} onChange={e => setInstanciaCampo(idx, 'valor_max', e.target.value)}
+                          inputMode="decimal" placeholder="Ex: 1.50"
                           className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-200" />
                       </div>
                     </div>

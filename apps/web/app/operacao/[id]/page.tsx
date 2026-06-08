@@ -112,17 +112,17 @@ export function calcularValidacao(atividade: Atividade): boolean | null {
     return true
   }
   if (atividade.tipo === 'padrao') {
-    // resposta: { numero, instancia_id, valor_esperado, margem } — a instância já
+    // resposta: { numero, instancia_id, valor_min, valor_max } — a instância já
     // foi resolvida no momento da resposta (ver CampoPadrao), com base na
     // combinação de variáveis escolhida. Sem instância correspondente → null
-    // (não dá pra validar; o sistema não tem um valor esperado pra comparar).
+    // (não dá pra validar; o sistema não tem uma faixa esperada pra comparar).
     if (typeof val !== 'object') return null
     if (!val.instancia_id) return null
     const n = Number(val.numero)
     if (isNaN(n)) return null
-    const esperado = Number(val.valor_esperado)
-    const margem = Number(val.margem) || 0
-    return Math.abs(n - esperado) <= margem
+    if (val.valor_min !== null && val.valor_min !== undefined && n < Number(val.valor_min)) return false
+    if (val.valor_max !== null && val.valor_max !== undefined && n > Number(val.valor_max)) return false
+    return true
   }
   if (atividade.tipo === 'multipla_escolha') {
     const opcoes = atividade.opcoesMC ?? []
@@ -463,14 +463,14 @@ function CampoCatalogo({ atividade, onChange }: { atividade: Atividade; onChange
 
 // Padrão: o usuário escolhe a combinação de variáveis aplicável e informa o
 // valor numérico medido. O sistema procura a instância com a combinação exata
-// e guarda o valor_esperado/margem resolvidos junto da resposta — assim
+// e guarda a faixa [valor_min, valor_max] resolvida junto da resposta — assim
 // calcularValidacao() compara sem precisar acessar o banco de novo.
 function CampoPadrao({ atividade, onChange }: { atividade: Atividade; onChange: (v: any) => void }) {
   const padraoId = atividade.config?.padrao_id
   const val = atividade.resposta ?? {}
   const [carregando, setCarregando] = useState(true)
   const [variaveis, setVariaveis] = useState<{ id: string; nome: string; valores: { id: string; valor: string }[] }[]>([])
-  const [instancias, setInstancias] = useState<{ id: string; valor_esperado: number; margem: number; combinacao: Record<string, string> }[]>([])
+  const [instancias, setInstancias] = useState<{ id: string; valor_min: number | null; valor_max: number | null; combinacao: Record<string, string> }[]>([])
 
   useEffect(() => {
     if (!padraoId) { setCarregando(false); return }
@@ -478,7 +478,7 @@ function CampoPadrao({ atividade, onChange }: { atividade: Atividade; onChange: 
     Promise.all([
       sb.from('padrao_variaveis').select('ordem, variavel:variaveis(id, nome, variavel_valores(id, valor, ordem))')
         .eq('padrao_id', padraoId).order('ordem'),
-      sb.from('padrao_instancias').select('id, valor_esperado, margem, padrao_instancia_valores(variavel_id, valor_id)')
+      sb.from('padrao_instancias').select('id, valor_min, valor_max, padrao_instancia_valores(variavel_id, valor_id)')
         .eq('padrao_id', padraoId),
     ]).then(([{ data: pv }, { data: insts }]) => {
       setVariaveis((pv ?? []).map((x: any) => ({
@@ -486,7 +486,9 @@ function CampoPadrao({ atividade, onChange }: { atividade: Atividade; onChange: 
         valores: (x.variavel.variavel_valores ?? []).sort((a: any, b: any) => a.ordem - b.ordem),
       })))
       setInstancias((insts ?? []).map((i: any) => ({
-        id: i.id, valor_esperado: Number(i.valor_esperado), margem: Number(i.margem ?? 0),
+        id: i.id,
+        valor_min: i.valor_min === null ? null : Number(i.valor_min),
+        valor_max: i.valor_max === null ? null : Number(i.valor_max),
         combinacao: Object.fromEntries((i.padrao_instancia_valores ?? []).map((v: any) => [v.variavel_id, v.valor_id])),
       })))
       setCarregando(false)
@@ -516,8 +518,8 @@ function CampoPadrao({ atividade, onChange }: { atividade: Atividade; onChange: 
       valores,
       numero,
       instancia_id: inst?.id ?? null,
-      valor_esperado: inst?.valor_esperado ?? null,
-      margem: inst?.margem ?? null,
+      valor_min: inst?.valor_min ?? null,
+      valor_max: inst?.valor_max ?? null,
     })
   }
 
@@ -550,7 +552,7 @@ function CampoPadrao({ atividade, onChange }: { atividade: Atividade; onChange: 
       )}
       {instanciaResolvida && val.numero !== '' && val.numero !== undefined && val.numero !== null && (
         <p className="text-xs text-gray-400">
-          Referência: {instanciaResolvida.valor_esperado}{instanciaResolvida.margem ? ` ± ${instanciaResolvida.margem}` : ''}
+          Faixa de referência: {instanciaResolvida.valor_min ?? '–'} a {instanciaResolvida.valor_max ?? '–'}
         </p>
       )}
     </div>
