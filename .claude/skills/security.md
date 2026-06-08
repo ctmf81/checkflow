@@ -69,6 +69,16 @@ Cria usuários temporários, roda 29 testes e limpa tudo ao final.
 
 Rode o pen test após qualquer alteração de RLS ou nova tabela.
 
+## HTTP Security Probe (black-box)
+Localização: `pentest/http_probe.mjs` (criado 2026-06-08, sem credenciais de banco)
+Execução:
+```bash
+node pentest/http_probe.mjs
+```
+Cobre: headers de segurança (HSTS/X-Frame-Options/nosniff), CORS, cookies de sessão, exposição de erro/path interno, TLS básico, XSS refletido (heurística), SQLi (heurística), acesso anônimo a rotas da API. Categorias adaptadas do relatório de pentest "SENAI CONECTA" (app externo) ao stack do CheckFlow.
+
+Último resultado (2026-06-08, pós-correções): 25/26 pass — único warn residual é o banner `Server: railway-hikari` (infra Railway, aceito como risco residual). Relatório completo em `RELATORIO_SEGURANCA_2026-06-08.md`.
+
 ## Vulnerabilidades Corrigidas
 | Data | Issue | Migration |
 |------|-------|-----------|
@@ -78,11 +88,13 @@ Rode o pen test após qualquer alteração de RLS ou nova tabela.
 | 2026-06-06 | RLS storage sem escopo de unidade | 20260606000005 |
 | 2026-06-06 | IDOR: UPDATE/DELETE sem escopo em `checklists` e `checklist_execucoes` | 20260606000007 |
 | 2026-06-07 | Bucket `execucoes` com policy de leitura `to public` — anon listava (`list()`) evidências de execução de TODAS as empresas (28/29 no pentest) | 20260607110000 — substitui por policy `to authenticated` escopada por unidade (bucket continua `public=true` p/ não quebrar `getPublicUrl()`, mas listagem/enumeração agora exige vínculo com a unidade) |
+| 2026-06-08 | CORS da API refletia qualquer `Origin` (`origin: true`) — qualquer site externo podia fazer requests cross-origin com credenciais do usuário (CSRF/exfiltração) | `apps/api/src/server.ts` — substituído por allowlist de origens conhecidas (commit `733a0fd`) |
+| 2026-06-08 | Web sem headers de segurança (HSTS, X-Frame-Options/clickjacking, X-Content-Type-Options: nosniff) | `apps/web/next.config.ts` — adicionado `headers()` (commit `3ce612d`), validado em produção pós-deploy |
 
 ## DevOps — Serviços Railway
 | Serviço | URL | Notas |
 |---------|-----|-------|
-| Web (Next.js) | `checkflow-production-b19d.up.railway.app` | Branch `main` → auto-deploy |
+| Web (Next.js) | `web-production-36880.up.railway.app` | Branch `main` → auto-deploy |
 | API (Fastify) | `api-production-5bce.up.railway.app` | WhatsApp proxy |
 
 ## Env Vars Necessárias (nomes, nunca valores)
