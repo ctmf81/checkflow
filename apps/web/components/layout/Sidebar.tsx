@@ -31,7 +31,6 @@ const nav: NavItem[] = [
     label: 'Padrão',
     icon: Network,
     children: [
-      { label: 'Criar padrão', href: '/gestao/padrao/criar' },
       { label: 'Variáveis',    href: '/gestao/padrao/variaveis' },
       { label: 'Padrões',      href: '/gestao/padrao/padroes' },
     ],
