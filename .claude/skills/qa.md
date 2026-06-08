@@ -78,13 +78,16 @@ Rodando a suíte completa (`npx vitest run`), 2 testes que já existiam (escrito
 | `__tests__/execucao.expiracao.test.ts` | `data_expiracao` pode sair com 1 dia de diferença (off-by-one) — `setMonth` em hora local + `toISOString()` em UTC, problema de fuso horário | `task_94d7039b` |
 | `__tests__/operacao.mascara.test.ts` | `aplicarMascara` "come" caracteres demais quando o input tem ruído (ex: dígito onde esperava letra) — comum em leitura de QR/código de barras | `task_df5ac11e` |
 
+### ✅ Unit — Engine de checklist — `tests/unit/lib/checklistEngine.unit.test.ts` (13 testes)
+Criado `lib/checklistEngine.ts`: espelho TS de 3 closures de `operacao/[id]/page.tsx` (`calcularProgresso`, `listarAtividadesVisiveis`, cálculo de `resultado` em `finalizar()`) extraídas como funções puras. Cobre: visibilidade de dependentes por gatilho (resposta string e array/múltipla-escolha, cadeias aninhadas), contagem de progresso só de visíveis, resultado global aprovado/reprovado (qualquer não-conforme reprova; indeterminados não reprovam; ocultos não entram na conta). **Mantenha em sincronia com o componente** — aviso no topo do arquivo.
+
+### ✅ Unit — `calcularValidacao` tipo `padrao` (7 testes, em `validacao.unit.test.ts`)
+Cobre a validação por faixa [min, max] resolvida via combinação de variáveis (feature "Padrões e Variáveis"): dentro/fora da faixa, limites inclusivos, faixa só-min ou só-max, sem instância correspondente → null, valor não numérico → null, formato de resposta inesperado → null.
+
 ### 🔴 Unit — `operacao/[id]` (pendente)
-| Teste | Função | Prioridade |
-|-------|--------|-----------|
-| resultado global — aprovado quando todos conformes | `finalizar()` | 🔴 Alta |
-| resultado global — reprovado quando qualquer não conforme | `finalizar()` | 🔴 Alta |
-| calcularProgresso — conta só atividades visíveis | `calcularProgresso()` | 🟡 Média |
-| dependentes — visível quando gatilho bate | lógica de gatilho | 🟡 Média |
+| Teste | O que testa | Prioridade |
+|-------|-------------|-----------|
+| upload de evidências — validação de tamanho (foto/vídeo) | `finalizar()` | 🟢 Baixa |
 
 ### 🔴 Unit — `checklists/page` (a criar)
 | Teste | O que testa | Prioridade |

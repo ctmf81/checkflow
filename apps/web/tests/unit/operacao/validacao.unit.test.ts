@@ -112,6 +112,48 @@ describe('calcularValidacao — multipla_escolha', () => {
   })
 })
 
+describe('calcularValidacao — padrao (combinação de variáveis → faixa min/max)', () => {
+  // resposta resolvida pelo CampoPadrao: { numero, instancia_id, valor_min, valor_max }
+  function respostaPadrao(overrides: any) {
+    return { numero: '10', instancia_id: 'inst-1', valor_min: 5, valor_max: 15, ...overrides }
+  }
+
+  it('conforme quando o valor medido está dentro da faixa [min, max]', () => {
+    const a = atividade({ tipo: 'padrao', resposta: respostaPadrao({ numero: '10' }) })
+    expect(calcularValidacao(a)).toBe(true)
+  })
+
+  it('limites são inclusivos', () => {
+    expect(calcularValidacao(atividade({ tipo: 'padrao', resposta: respostaPadrao({ numero: '5' }) }))).toBe(true)
+    expect(calcularValidacao(atividade({ tipo: 'padrao', resposta: respostaPadrao({ numero: '15' }) }))).toBe(true)
+  })
+
+  it('não conforme quando abaixo do mínimo ou acima do máximo', () => {
+    expect(calcularValidacao(atividade({ tipo: 'padrao', resposta: respostaPadrao({ numero: '4.9' }) }))).toBe(false)
+    expect(calcularValidacao(atividade({ tipo: 'padrao', resposta: respostaPadrao({ numero: '15.1' }) }))).toBe(false)
+  })
+
+  it('faixa com só mínimo ou só máximo (o outro lado é null) valida só o lado configurado', () => {
+    expect(calcularValidacao(atividade({ tipo: 'padrao', resposta: respostaPadrao({ numero: '1000', valor_min: 5, valor_max: null }) }))).toBe(true)
+    expect(calcularValidacao(atividade({ tipo: 'padrao', resposta: respostaPadrao({ numero: '1', valor_min: 5, valor_max: null }) }))).toBe(false)
+    expect(calcularValidacao(atividade({ tipo: 'padrao', resposta: respostaPadrao({ numero: '1', valor_min: null, valor_max: 15 }) }))).toBe(true)
+  })
+
+  it('retorna null quando não há instância correspondente à combinação escolhida', () => {
+    const a = atividade({ tipo: 'padrao', resposta: respostaPadrao({ instancia_id: null, valor_min: null, valor_max: null }) })
+    expect(calcularValidacao(a)).toBeNull()
+  })
+
+  it('retorna null quando o valor medido não é numérico', () => {
+    const a = atividade({ tipo: 'padrao', resposta: respostaPadrao({ numero: 'abc' }) })
+    expect(calcularValidacao(a)).toBeNull()
+  })
+
+  it('retorna null quando a resposta ainda não tem o formato esperado (objeto)', () => {
+    expect(calcularValidacao(atividade({ tipo: 'padrao', resposta: '10' }))).toBeNull()
+  })
+})
+
 describe('calcularValidacao — tipos sem validação automática', () => {
   it('retorna null para tipos como texto, foto, catalogo etc', () => {
     expect(calcularValidacao(atividade({ tipo: 'texto', resposta: 'qualquer coisa' }))).toBeNull()
