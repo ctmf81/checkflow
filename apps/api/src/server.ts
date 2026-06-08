@@ -11,8 +11,20 @@ import { planosAcaoRoutes } from './routes/planos-acao'
 const app = Fastify({ logger: true })
 
 app.register(helmet)
+// Allowlist de origens — pentest (2026-06-08) detectou `origin: true`
+// refletindo qualquer Origin (incluindo domínios arbitrários/maliciosos).
+// Restrito às origens conhecidas do CheckFlow + dev local.
+const allowedOrigins = [
+  'https://web-production-36880.up.railway.app',
+  'http://localhost:3000',
+  ...(process.env.CORS_EXTRA_ORIGINS?.split(',').map(s => s.trim()).filter(Boolean) ?? []),
+]
 app.register(cors, {
-  origin: true, // permite qualquer origem — restringir após confirmar funcionamento
+  origin(origin, cb) {
+    // requests sem Origin (curl, server-to-server, health checks) são permitidas
+    if (!origin || allowedOrigins.includes(origin)) cb(null, true)
+    else cb(new Error('Origin não permitida pelo CORS'), false)
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 })
 
