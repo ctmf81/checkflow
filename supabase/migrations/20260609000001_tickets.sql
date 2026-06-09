@@ -264,7 +264,7 @@ alter table ticket_evidencias   enable row level security;
 create policy "ticket_categorias_leitura" on ticket_categorias
   for select using (
     exists (
-      select 1 from usuario_unidades uu
+      select 1 from usuario_unidade uu
       where uu.usuario_id = auth.uid() and uu.unidade_id = ticket_categorias.unidade_id
     )
   );
@@ -277,7 +277,7 @@ create policy "ticket_categorias_escrita" on ticket_categorias
 create policy "ticket_sla_leitura" on ticket_sla_config
   for select using (
     exists (
-      select 1 from usuario_unidades uu
+      select 1 from usuario_unidade uu
       where uu.usuario_id = auth.uid() and uu.unidade_id = ticket_sla_config.unidade_id
     )
   );
@@ -290,7 +290,7 @@ create policy "ticket_sla_escrita" on ticket_sla_config
 create policy "tickets_leitura" on tickets
   for select using (
     exists (
-      select 1 from usuario_unidades uu
+      select 1 from usuario_unidade uu
       where uu.usuario_id = auth.uid() and uu.unidade_id = tickets.unidade_id
     )
   );
@@ -298,7 +298,7 @@ create policy "tickets_leitura" on tickets
 create policy "tickets_criar" on tickets
   for insert with check (
     exists (
-      select 1 from usuario_unidades uu
+      select 1 from usuario_unidade uu
       where uu.usuario_id = auth.uid() and uu.unidade_id = tickets.unidade_id
     )
   );
@@ -316,7 +316,7 @@ create policy "ticket_eventos_leitura" on ticket_eventos
   for select using (
     exists (
       select 1 from tickets t
-      join usuario_unidades uu on uu.unidade_id = t.unidade_id
+      join usuario_unidade uu on uu.unidade_id = t.unidade_id
       where t.id = ticket_eventos.ticket_id and uu.usuario_id = auth.uid()
     )
   );
@@ -324,7 +324,7 @@ create policy "ticket_eventos_inserir" on ticket_eventos
   for insert with check (
     exists (
       select 1 from tickets t
-      join usuario_unidades uu on uu.unidade_id = t.unidade_id
+      join usuario_unidade uu on uu.unidade_id = t.unidade_id
       where t.id = ticket_eventos.ticket_id and uu.usuario_id = auth.uid()
     )
   );
@@ -334,7 +334,7 @@ create policy "ticket_evidencias_leitura" on ticket_evidencias
   for select using (
     exists (
       select 1 from tickets t
-      join usuario_unidades uu on uu.unidade_id = t.unidade_id
+      join usuario_unidade uu on uu.unidade_id = t.unidade_id
       where t.id = ticket_evidencias.ticket_id and uu.usuario_id = auth.uid()
     )
   );
@@ -342,7 +342,7 @@ create policy "ticket_evidencias_inserir" on ticket_evidencias
   for insert with check (
     exists (
       select 1 from tickets t
-      join usuario_unidades uu on uu.unidade_id = t.unidade_id
+      join usuario_unidade uu on uu.unidade_id = t.unidade_id
       where t.id = ticket_evidencias.ticket_id and uu.usuario_id = auth.uid()
     )
   );
