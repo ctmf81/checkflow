@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { notificarTicket } from '@/lib/notificacoes'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -187,6 +188,11 @@ export default function TicketDetalhe() {
           })
         }
       }
+    }
+
+    // notifica as partes envolvidas (fire-and-forget)
+    if (userId) {
+      notificarTicket({ ticket_id: id, evento: acao.tipo, ator_id: userId, texto: texto.trim() })
     }
 
     setTexto(''); setArquivos([]); setAcaoOpen(false); setEnviando(false)

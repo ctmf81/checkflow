@@ -49,3 +49,26 @@ export function notificarPlanoEnviadoN2(params: {
 }): void {
   notificarPlanoAcao({ ...params, evento: 'enviado_n2' })
 }
+
+// ─── Tickets ──────────────────────────────────────────────────────────────────
+
+/**
+ * Dispara WhatsApp + Email para o evento de um ticket.
+ * Fire-and-forget — nunca bloqueia o fluxo principal.
+ *
+ * evento 'aberto'   → notifica todos do grupo/subgrupo destino no turno
+ * outros eventos    → notifica abridor + assignee (exceto o ator)
+ */
+export function notificarTicket(params: {
+  ticket_id: string
+  evento: string
+  ator_id: string
+  texto: string
+}): void {
+  if (!API_URL) return
+  fetch(`${API_URL}/tickets/notificar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  }).catch(() => {}) // silencioso
+}

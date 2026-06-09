@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { X, AlertTriangle, Upload, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { notificarTicket } from '@/lib/notificacoes'
 
 interface Grupo    { id: string; nome: string }
 interface Subgrupo { id: string; nome: string; grupo_id: string }
@@ -114,6 +115,12 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
           ticket_id: ticket.id, url: pub.publicUrl, tipo, nome: file.name,
         })
       }
+    }
+
+    // notifica grupo/subgrupo destino (fire-and-forget)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      notificarTicket({ ticket_id: ticket.id, evento: 'aberto', ator_id: user.id, texto: descricao.trim() })
     }
 
     setSalvando(false)

@@ -1,5 +1,5 @@
 /**
- * Templates HTML de email para notificações de Plano de Ação
+ * Templates HTML de email para notificações de Plano de Ação e Tickets
  */
 
 const APP_URL = process.env.APP_URL ?? 'https://checkflow-production-b19d.up.railway.app'
@@ -147,6 +147,124 @@ export function emailPlanoEnviadoN2(dados: {
 
   return {
     assunto: `🟠 Plano de Ação escalado para você — ${dados.nomeAtividade}`,
+    html,
+  }
+}
+
+// ─── Template: Ticket aberto → membros do grupo/subgrupo ─────────────────────
+
+export function emailTicketAberto(dados: {
+  nomeDestinatario: string
+  numero: string
+  titulo: string
+  descricao: string
+  prioridade: string
+  nomeGrupo: string
+  nomeSubgrupo: string
+  categoria: string | null
+  atorNome: string
+  fotoUrl?: string | null
+  ticketId: string
+}): { assunto: string; html: string } {
+  const link = `${APP_URL}/gestao/tickets/${dados.ticketId}`
+  const PRIORIDADE_COR: Record<string, string> = {
+    critica: '#dc2626', alta: '#ea580c', media: '#ca8a04', baixa: '#16a34a',
+  }
+  const PRIORIDADE_EMOJI: Record<string, string> = {
+    critica: '🔴', alta: '🟠', media: '🟡', baixa: '🟢',
+  }
+  const cor   = PRIORIDADE_COR[dados.prioridade] ?? '#6b7280'
+  const emoji = PRIORIDADE_EMOJI[dados.prioridade] ?? '⚪'
+  const cat   = dados.categoria ? row('Categoria', dados.categoria) : ''
+  const fotoBloco = dados.fotoUrl
+    ? `<div style="margin-top:16px;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb">
+        <img src="${dados.fotoUrl}" alt="Evidência" style="width:100%;max-height:300px;object-fit:cover;display:block" />
+        <p style="margin:0;padding:6px 12px;font-size:11px;color:#9ca3af;background:#f9fafb;border-top:1px solid #e5e7eb">📷 Evidência</p>
+       </div>`
+    : ''
+
+  const html = base(`
+    <div style="display:inline-block;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:6px 12px;margin-bottom:20px">
+      <span style="color:${cor};font-size:13px;font-weight:700">${emoji} Novo Ticket — Prioridade ${dados.prioridade.charAt(0).toUpperCase() + dados.prioridade.slice(1)}</span>
+    </div>
+
+    <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#111827">Olá, ${dados.nomeDestinatario}!</p>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280">Um novo ticket foi aberto para a sua área e aguarda ser assumido.</p>
+
+    <div style="background:#f9fafb;border-left:4px solid ${cor};border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:20px">
+      <p style="margin:0 0 2px;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em">#${dados.numero}</p>
+      <p style="margin:0;font-size:16px;font-weight:700;color:#111827">${dados.titulo}</p>
+    </div>
+
+    <table cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #f3f4f6;margin-bottom:8px">
+      ${row('Destino', `${dados.nomeGrupo} / ${dados.nomeSubgrupo}`)}
+      ${cat}
+      ${row('Aberto por', dados.atorNome)}
+    </table>
+
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-top:16px">
+      <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em">Descrição</p>
+      <p style="margin:0;font-size:14px;color:#374151;line-height:1.5">${dados.descricao}</p>
+    </div>
+
+    ${fotoBloco}
+    ${btnLink(link, 'Ver Ticket →', cor)}
+  `)
+
+  return {
+    assunto: `${emoji} Ticket #${dados.numero} aberto — ${dados.titulo}`,
+    html,
+  }
+}
+
+// ─── Template: Ticket movimentado → partes envolvidas ────────────────────────
+
+export function emailTicketMovimentado(dados: {
+  nomeDestinatario: string
+  numero: string
+  titulo: string
+  eventoLabel: string
+  atorNome: string
+  texto: string
+  fotoUrl?: string | null
+  ticketId: string
+}): { assunto: string; html: string } {
+  const link = `${APP_URL}/gestao/tickets/${dados.ticketId}`
+  const fotoBloco = dados.fotoUrl
+    ? `<div style="margin-top:16px;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb">
+        <img src="${dados.fotoUrl}" alt="Evidência" style="width:100%;max-height:300px;object-fit:cover;display:block" />
+       </div>`
+    : ''
+
+  const html = base(`
+    <div style="display:inline-block;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:6px 12px;margin-bottom:20px">
+      <span style="color:#2563eb;font-size:13px;font-weight:700">📋 ${dados.eventoLabel}</span>
+    </div>
+
+    <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#111827">Olá, ${dados.nomeDestinatario}!</p>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280">Houve uma movimentação no ticket que envolve você.</p>
+
+    <div style="background:#f9fafb;border-left:4px solid #3b82f6;border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:20px">
+      <p style="margin:0 0 2px;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em">#${dados.numero}</p>
+      <p style="margin:0;font-size:16px;font-weight:700;color:#111827">${dados.titulo}</p>
+    </div>
+
+    <table cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #f3f4f6;margin-bottom:8px">
+      ${row('Ação', dados.eventoLabel)}
+      ${row('Por', dados.atorNome)}
+    </table>
+
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-top:16px">
+      <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em">Observação</p>
+      <p style="margin:0;font-size:14px;color:#374151;line-height:1.5">${dados.texto}</p>
+    </div>
+
+    ${fotoBloco}
+    ${btnLink(link, 'Ver Ticket →', '#2563eb')}
+  `)
+
+  return {
+    assunto: `📋 Ticket #${dados.numero} — ${dados.eventoLabel}`,
     html,
   }
 }
