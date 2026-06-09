@@ -60,7 +60,7 @@ const TIPO_META: Record<Tipo, { label: string; desc: string; vars: { chave: stri
   },
   plano_aberto: {
     label: 'Plano de Ação aberto',
-    desc: 'Enviado para moderadores N1/N2 do subgrupo quando um plano de ação é criado.',
+    desc: 'Enviado apenas para moderadores N1 do subgrupo quando um plano de ação é criado.',
     vars: [
       { chave: 'destinatario', desc: 'Nome do destinatário' },
       { chave: 'atividade',    desc: 'Nome da atividade do checklist' },

@@ -114,8 +114,8 @@ export async function planosAcaoRoutes(app: FastifyInstance) {
 
     // 3. Destinatários conforme evento
     const funcoesAlvo = evento === 'aberto'
-      ? ['nivel_1', 'nivel_2']  // N2 também modera como N1
-      : ['nivel_2']
+      ? ['nivel_1']   // apenas N1 recebe quando o plano é aberto
+      : ['nivel_2']   // N2 só recebe quando N1 escala
 
     const { data: membros } = await sb.from('usuario_subgrupo')
       .select('usuario_id, funcao, usuarios(nome, email, telefone)')
