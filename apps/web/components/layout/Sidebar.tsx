@@ -65,6 +65,7 @@ const nav: NavItem[] = [
       { label: 'Relatórios',    href: '/gestao/configuracoes/relatorios' },
       { label: 'Dashboards',    href: '/gestao/configuracoes/dashboards' },
       { label: 'Causa raiz',    href: '/gestao/configuracoes/causa-raiz' },
+      { label: 'Notificações',  href: '/gestao/configuracoes/notificacoes' },
     ],
   },
 ]

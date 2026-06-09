@@ -3,54 +3,31 @@ import { createClient } from '@supabase/supabase-js'
 import { enviarWhatsApp, enviarWhatsAppMidia } from '../lib/whatsapp'
 import { enviarEmail } from '../lib/email'
 import { emailTicketAberto, emailTicketMovimentado } from '../lib/email-templates'
+import {
+  buscarTemplate, renderizar, empresaDeUnidade,
+  type NotificacaoTipo,
+} from '../lib/notificacao-templates'
 
-// ─── Mensagens WhatsApp ───────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const PRIORIDADE_EMOJI: Record<string, string> = {
   critica: '🔴', alta: '🟠', media: '🟡', baixa: '🟢',
 }
 
-function waMensagemAberto(dados: {
-  numero: string
-  titulo: string
-  descricao: string
-  prioridade: string
-  nomeGrupo: string
-  nomeSubgrupo: string
-  categoria: string | null
-  atorNome: string
-  link: string
-}): string {
-  const emoji = PRIORIDADE_EMOJI[dados.prioridade] ?? '⚪'
-  const cat   = dados.categoria ? `\n*Categoria:* ${dados.categoria}` : ''
-  return (
-    `${emoji} *Novo Ticket aberto — ${dados.prioridade.toUpperCase()}*\n\n` +
-    `*#${dados.numero} ${dados.titulo}*\n\n` +
-    `*Destino:* ${dados.nomeGrupo} / ${dados.nomeSubgrupo}${cat}\n` +
-    `*Aberto por:* ${dados.atorNome}\n\n` +
-    `_${dados.descricao.slice(0, 200)}${dados.descricao.length > 200 ? '…' : ''}_\n\n` +
-    `🔗 ${dados.link}`
-  )
+const PRIORIDADE_COR: Record<string, string> = {
+  critica: '#dc2626', alta: '#ea580c', media: '#ca8a04', baixa: '#16a34a',
 }
 
-function waMensagemMovimentacao(dados: {
-  numero: string
-  titulo: string
-  evento: string
-  atorNome: string
-  texto: string
-  link: string
-}): string {
-  return (
-    `📋 *Ticket #${dados.numero} — ${dados.evento}*\n\n` +
-    `*${dados.titulo}*\n` +
-    `*Por:* ${dados.atorNome}\n\n` +
-    `_${dados.texto.slice(0, 200)}${dados.texto.length > 200 ? '…' : ''}_\n\n` +
-    `🔗 ${dados.link}`
-  )
+const EVENTO_LABEL: Record<string, string> = {
+  aceite:             'Ticket assumido',
+  devolucao:          'Devolução — aguardando informação',
+  resposta_devolucao: 'Resposta enviada',
+  conclusao_proposta: 'Conclusão proposta',
+  validacao:          'Ticket validado',
+  reabertura:         'Ticket reaberto',
+  cancelamento:       'Ticket cancelado',
+  comentario:         'Novo comentário',
 }
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatarNumero(tel: string): string {
   const n = tel.replace(/\D/g, '').replace(/^0/, '')
@@ -61,21 +38,6 @@ function formatarNumero(tel: string): string {
 
 export async function ticketsRoutes(app: FastifyInstance) {
 
-  /**
-   * POST /tickets/notificar
-   *
-   * Body:
-   *   ticket_id — UUID do ticket
-   *   evento    — 'aberto' | 'aceite' | 'devolucao' | 'conclusao_proposta' |
-   *               'validacao' | 'reabertura' | 'cancelamento' | 'comentario'
-   *   ator_id   — UUID do usuário que disparou
-   *   texto     — observação do evento
-   *
-   * Para 'aberto': notifica todos do grupo+subgrupo destino que estão no turno.
-   * Para outros eventos: notifica abridor + assignee (os dois lados do ticket).
-   * WhatsApp: respeita turno. Email: sempre, independente de turno.
-   * Fire-and-forget: erros são registrados mas não quebram o fluxo.
-   */
   app.post('/tickets/notificar', async (req, reply) => {
     const { ticket_id, evento, ator_id, texto } = req.body as {
       ticket_id: string
@@ -93,10 +55,10 @@ export async function ticketsRoutes(app: FastifyInstance) {
       process.env.SUPABASE_SECRET_KEY!
     )
 
-    // 1. Carrega o ticket com contexto completo
+    // 1. Carrega o ticket
     const { data: ticket } = await sb.from('tickets').select(`
       id, numero, titulo, descricao, prioridade, status,
-      grupo_id, subgrupo_id,
+      unidade_id, grupo_id, subgrupo_id,
       grupo:grupos(nome),
       subgrupo:subgrupos(nome),
       categoria:ticket_categorias(nome),
@@ -107,39 +69,40 @@ export async function ticketsRoutes(app: FastifyInstance) {
     if (!ticket) return reply.status(404).send({ error: 'Ticket não encontrado' })
 
     const t = ticket as any
-    const nomeGrupo    = t.grupo?.nome ?? '—'
-    const nomeSubgrupo = t.subgrupo?.nome ?? '—'
+    const nomeGrupo     = t.grupo?.nome ?? '—'
+    const nomeSubgrupo  = t.subgrupo?.nome ?? '—'
     const nomeCategoria = t.categoria?.nome ?? null
-    const numeroStr    = String(t.numero).padStart(4, '0')
+    const numeroStr     = String(t.numero).padStart(4, '0')
+    const emoji         = PRIORIDADE_EMOJI[t.prioridade] ?? '⚪'
+    const cor           = PRIORIDADE_COR[t.prioridade] ?? '#6b7280'
+    const eventoLabel   = EVENTO_LABEL[evento] ?? evento
 
     const baseUrl = process.env.APP_URL ?? 'https://web-production-36880.up.railway.app'
     const link    = `${baseUrl}/gestao/tickets/${ticket_id}`
 
-    // 2. Determina destinatários por tipo de evento
+    // 2. Empresa do ticket
+    const empresaId = await empresaDeUnidade(sb, t.unidade_id)
+
+    // 3. Nome do ator
+    const { data: atorUser } = await sb.from('usuarios').select('nome').eq('id', ator_id).single()
+    const atorNome = (atorUser as any)?.nome ?? 'Sistema'
+
+    // 4. Destinatários
     let destinatarios: { id: string; nome: string; email: string | null; telefone: string | null }[] = []
 
     if (evento === 'aberto') {
-      // Notifica todos do grupo/subgrupo destino (membros do subgrupo)
       const { data: membros } = await sb.from('usuario_subgrupo')
         .select('usuario_id, usuarios(id, nome, email, telefone)')
         .eq('subgrupo_id', t.subgrupo_id)
-
-      destinatarios = (membros ?? [])
-        .map((m: any) => m.usuarios)
-        .filter(Boolean)
-        .filter((u: any) => u.id !== ator_id) // não notifica quem abriu
-
+      destinatarios = (membros ?? []).map((m: any) => m.usuarios).filter(Boolean).filter((u: any) => u.id !== ator_id)
     } else {
-      // Notifica o outro lado: abridor + assignee (exceto o ator atual)
       const candidatos = [t.aberto_por, t.assignee].filter(Boolean)
       destinatarios = candidatos.filter((u: any) => u?.id && u.id !== ator_id)
     }
 
-    if (!destinatarios.length) {
-      return reply.send({ wa_enviados: 0, email_enviados: 0, motivo: 'Sem destinatários' })
-    }
+    if (!destinatarios.length) return reply.send({ wa_enviados: 0, email_enviados: 0, motivo: 'Sem destinatários' })
 
-    // 3. Verifica turno para WhatsApp (só restringe WA, não email)
+    // 5. Turno (só para WA no evento 'aberto')
     const foraDoTurno = new Set<string>()
     if (evento === 'aberto') {
       await Promise.all(destinatarios.map(async (u) => {
@@ -148,90 +111,105 @@ export async function ticketsRoutes(app: FastifyInstance) {
       }))
     }
 
-    // 4. Primeira evidência do ticket (foto) para enriquecer notificações
+    // 6. Primeira foto de evidência
     const { data: evids } = await sb.from('ticket_evidencias')
-      .select('url, tipo')
-      .eq('ticket_id', ticket_id)
-      .eq('tipo', 'foto')
-      .order('criado_em', { ascending: true })
-      .limit(1)
+      .select('url, tipo').eq('ticket_id', ticket_id).eq('tipo', 'foto')
+      .order('criado_em', { ascending: true }).limit(1)
     const primeiraFoto: string | null = evids?.[0]?.url ?? null
 
-    // 5. Nome do evento para exibição
-    const EVENTO_LABEL: Record<string, string> = {
-      aceite:            'Ticket assumido',
-      devolucao:         'Devolução — aguardando informação',
-      resposta_devolucao:'Resposta enviada',
-      conclusao_proposta:'Conclusão proposta',
-      validacao:         'Ticket validado',
-      reabertura:        'Ticket reaberto',
-      cancelamento:      'Ticket cancelado',
-      comentario:        'Novo comentário',
+    // 7. Busca templates da empresa
+    const tipoNotif: NotificacaoTipo = evento === 'aberto' ? 'ticket_aberto' : 'ticket_movimentado'
+    const [tmplWa, tmplEmail] = empresaId
+      ? await Promise.all([
+          buscarTemplate(sb, empresaId, tipoNotif, 'whatsapp'),
+          buscarTemplate(sb, empresaId, tipoNotif, 'email'),
+        ])
+      : [null, null]
+
+    // Variáveis comuns de interpolação
+    const varsBase = {
+      numero: numeroStr,
+      titulo: t.titulo,
+      descricao: t.descricao ?? '',
+      prioridade: t.prioridade,
+      emoji_prioridade: emoji,
+      grupo: nomeGrupo,
+      subgrupo: nomeSubgrupo,
+      linha_categoria: nomeCategoria ? `\nCategoria: ${nomeCategoria}` : '',
+      ator: atorNome,
+      evento: eventoLabel,
+      observacao: texto ?? '',
+      link,
     }
-    const eventoLabel = EVENTO_LABEL[evento] ?? evento
 
-    // Nome do ator
-    const { data: atorUser } = await sb.from('usuarios').select('nome').eq('id', ator_id).single()
-    const atorNome = (atorUser as any)?.nome ?? 'Sistema'
-
-    // 6. Dispara notificações
+    // 8. Dispara para cada destinatário
     let waEnviados = 0, emailEnviados = 0
     const erros: string[] = []
 
     await Promise.all(destinatarios.map(async (u) => {
+      const vars = { ...varsBase, destinatario: u.nome }
+
       // ── WhatsApp ──
       if (u.telefone && !foraDoTurno.has(u.id)) {
         const numero = formatarNumero(u.telefone)
 
-        const mensagem = evento === 'aberto'
-          ? waMensagemAberto({
-              numero: numeroStr, titulo: t.titulo, descricao: t.descricao,
-              prioridade: t.prioridade, nomeGrupo, nomeSubgrupo, categoria: nomeCategoria,
-              atorNome, link,
-            })
-          : waMensagemMovimentacao({
-              numero: numeroStr, titulo: t.titulo, evento: eventoLabel,
-              atorNome, texto, link,
-            })
+        // Usa template do banco se disponível e ativo; senão, hardcoded
+        let mensagemWa: string | null = null
+        if (tmplWa && tmplWa.ativo) {
+          mensagemWa = renderizar(tmplWa.corpo, vars)
+        } else if (!tmplWa) {
+          // fallback hardcoded (empresa sem template — não deveria acontecer após seed)
+          mensagemWa = evento === 'aberto'
+            ? `${emoji} *Novo Ticket #${numeroStr} — ${t.prioridade}*\n\n*${t.titulo}*\n\n*Destino:* ${nomeGrupo} / ${nomeSubgrupo}\n*Aberto por:* ${atorNome}\n\n${t.descricao}\n\n🔗 ${link}`
+            : `📋 *Ticket #${numeroStr} — ${eventoLabel}*\n\n*${t.titulo}*\n*Por:* ${atorNome}\n\n${texto}\n\n🔗 ${link}`
+        }
+        // tmplWa.ativo === false → não envia WA
 
-        const { ok, erro } = primeiraFoto && evento === 'aberto'
-          ? await enviarWhatsAppMidia({ numero, imagemUrl: primeiraFoto, caption: mensagem })
-          : await enviarWhatsApp({ numero, mensagem })
-
-        if (ok) waEnviados++
-        else erros.push(`WA ${u.nome}: ${erro}`)
+        if (mensagemWa) {
+          const { ok, erro } = primeiraFoto && evento === 'aberto'
+            ? await enviarWhatsAppMidia({ numero, imagemUrl: primeiraFoto, caption: mensagemWa })
+            : await enviarWhatsApp({ numero, mensagem: mensagemWa })
+          if (ok) waEnviados++
+          else erros.push(`WA ${u.nome}: ${erro}`)
+        }
       }
 
       // ── Email ──
       if (u.email) {
-        const template = evento === 'aberto'
-          ? emailTicketAberto({
-              nomeDestinatario: u.nome,
-              numero: numeroStr,
-              titulo: t.titulo,
-              descricao: t.descricao,
-              prioridade: t.prioridade,
-              nomeGrupo,
-              nomeSubgrupo,
-              categoria: nomeCategoria,
-              atorNome,
-              fotoUrl: primeiraFoto,
-              ticketId: ticket_id,
-            })
-          : emailTicketMovimentado({
-              nomeDestinatario: u.nome,
-              numero: numeroStr,
-              titulo: t.titulo,
-              eventoLabel,
-              atorNome,
-              texto,
-              fotoUrl: primeiraFoto,
-              ticketId: ticket_id,
-            })
+        let assunto: string | null = null
+        let htmlBody: string | null = null
 
-        const { ok, erro } = await enviarEmail({ para: u.email, ...template })
-        if (ok) emailEnviados++
-        else erros.push(`Email ${u.nome}: ${erro}`)
+        if (tmplEmail && tmplEmail.ativo) {
+          assunto  = renderizar(tmplEmail.assunto ?? `Ticket #${numeroStr}`, vars)
+          // Converte plain text em HTML simples (mantém quebras de linha)
+          const corpoHtml = renderizar(tmplEmail.corpo, vars)
+            .split('\n').map(l => `<p style="margin:0 0 8px;font-size:14px;color:#374151;line-height:1.6">${l || '&nbsp;'}</p>`).join('')
+          // Monta email com o template base existente
+          const { emailTicketAberto: _ea, emailTicketMovimentado: _em, ..._ } = await import('../lib/email-templates')
+          // Usa template genérico da empresa — constrói o html inline
+          htmlBody = buildEmailHtml(assunto, corpoHtml, link, cor)
+        } else if (!tmplEmail) {
+          // fallback hardcoded
+          const tpl = evento === 'aberto'
+            ? emailTicketAberto({
+                nomeDestinatario: u.nome, numero: numeroStr, titulo: t.titulo,
+                descricao: t.descricao ?? '', prioridade: t.prioridade, nomeGrupo,
+                nomeSubgrupo, categoria: nomeCategoria, atorNome,
+                fotoUrl: primeiraFoto, ticketId: ticket_id,
+              })
+            : emailTicketMovimentado({
+                nomeDestinatario: u.nome, numero: numeroStr, titulo: t.titulo,
+                eventoLabel, atorNome, texto, fotoUrl: primeiraFoto, ticketId: ticket_id,
+              })
+          assunto  = tpl.assunto
+          htmlBody = tpl.html
+        }
+
+        if (assunto && htmlBody) {
+          const { ok, erro } = await enviarEmail({ para: u.email, assunto, html: htmlBody })
+          if (ok) emailEnviados++
+          else erros.push(`Email ${u.nome}: ${erro}`)
+        }
       }
     }))
 
@@ -242,4 +220,30 @@ export async function ticketsRoutes(app: FastifyInstance) {
       erros: erros.length ? erros : undefined,
     })
   })
+}
+
+// ─── Wrapper HTML genérico para templates editados pela empresa ───────────────
+
+function buildEmailHtml(assunto: string, corpoHtml: string, link: string, cor: string): string {
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:Inter,Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr><td align="center" style="padding:32px 16px">
+      <table width="100%" style="max-width:560px;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb">
+        <tr><td style="background:#f97316;padding:20px 28px">
+          <p style="margin:0;color:#fff;font-size:20px;font-weight:700;letter-spacing:-0.5px">CheckFlow</p>
+        </td></tr>
+        <tr><td style="padding:28px">
+          ${corpoHtml}
+          <a href="${link}" style="display:inline-block;margin-top:20px;padding:12px 24px;background:${cor};color:#fff;font-size:14px;font-weight:600;text-decoration:none;border-radius:10px">Ver no CheckFlow →</a>
+        </td></tr>
+        <tr><td style="padding:16px 28px;border-top:1px solid #f3f4f6;background:#fafafa">
+          <p style="margin:0;font-size:11px;color:#9ca3af">Email automático — não responda.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
 }

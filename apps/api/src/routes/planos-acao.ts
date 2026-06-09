@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { enviarWhatsApp, enviarWhatsAppMidia } from '../lib/whatsapp'
 import { enviarEmail } from '../lib/email'
 import { emailPlanoAberto, emailPlanoEnviadoN2 } from '../lib/email-templates'
+import { buscarTemplate, renderizar, empresaDeSubgrupo } from '../lib/notificacao-templates'
 
 // ─── Mensagens WhatsApp ───────────────────────────────────────────────────────
 
@@ -134,10 +135,33 @@ export async function planosAcaoRoutes(app: FastifyInstance) {
       if (dentro === false) foraDoTurno.add(m.usuario_id)
     }))
 
-    const baseUrl = process.env.APP_URL ?? 'https://checkflow-production-b19d.up.railway.app'
+    const baseUrl = process.env.APP_URL ?? 'https://web-production-36880.up.railway.app'
     const link = `${baseUrl}/gestao/planos-acao/${plano_id}`
 
-    // 3. Envia WhatsApp + Email em paralelo para cada destinatário
+    // 3. Busca templates da empresa
+    const empresaId = await empresaDeSubgrupo(sb, plano.subgrupo_id)
+    const tipoNotif = evento === 'aberto' ? 'plano_aberto' as const : 'plano_enviado_n2' as const
+    const [tmplWa, tmplEmail] = empresaId
+      ? await Promise.all([
+          buscarTemplate(sb, empresaId, tipoNotif, 'whatsapp'),
+          buscarTemplate(sb, empresaId, tipoNotif, 'email'),
+        ])
+      : [null, null]
+
+    // Variáveis de interpolação
+    const varsBase = {
+      atividade: nomeAtividade,
+      checklist: nomeChecklist,
+      subgrupo: nomeSubgrupo,
+      ator: ator_nome,
+      n1: ator_nome,
+      observacao,
+      sla: slaFormatado ?? '',
+      linha_sla: slaFormatado ? `\nSLA: ${slaFormatado}` : '',
+      link,
+    }
+
+    // 4. Envia WhatsApp + Email em paralelo para cada destinatário
     let waEnviados = 0
     let emailEnviados = 0
     const erros: string[] = []
@@ -147,34 +171,54 @@ export async function planosAcaoRoutes(app: FastifyInstance) {
       const nome: string = usuario.nome ?? '—'
       const email: string | null = usuario.email ?? null
       const telefone: string | null = usuario.telefone ?? null
+      const vars = { ...varsBase, destinatario: nome }
 
-      // ── WhatsApp (respeita turno: pula envio se usuário está fora do turno) ──
+      // ── WhatsApp ──
       if (telefone && !foraDoTurno.has(m.usuario_id)) {
         const numero = telefone.replace(/\D/g, '').replace(/^0/, '')
         const numeroFinal = numero.startsWith('55') ? numero : `55${numero}`
 
-        const caption = evento === 'aberto'
-          ? waMensagemAberto({ atorNome: ator_nome, nomeAtividade, nomeChecklist, nomeSubgrupo, observacao, sla: slaFormatado, link })
-          : waMensagemEnviadoN2({ n1Nome: ator_nome, nomeAtividade, nomeChecklist, nomeSubgrupo, observacao, link })
+        let mensagemWa: string | null = null
+        if (tmplWa && tmplWa.ativo) {
+          mensagemWa = renderizar(tmplWa.corpo, vars)
+        } else if (!tmplWa) {
+          mensagemWa = evento === 'aberto'
+            ? waMensagemAberto({ atorNome: ator_nome, nomeAtividade, nomeChecklist, nomeSubgrupo, observacao, sla: slaFormatado, link })
+            : waMensagemEnviadoN2({ n1Nome: ator_nome, nomeAtividade, nomeChecklist, nomeSubgrupo, observacao, link })
+        }
 
-        // Envia com imagem se tiver foto, senão envia só texto
-        const { ok, erro } = primeiraFoto
-          ? await enviarWhatsAppMidia({ numero: numeroFinal, imagemUrl: primeiraFoto, caption })
-          : await enviarWhatsApp({ numero: numeroFinal, mensagem: caption })
-
-        if (ok) waEnviados++
-        else erros.push(`WA ${nome}: ${erro}`)
+        if (mensagemWa) {
+          const { ok, erro } = primeiraFoto
+            ? await enviarWhatsAppMidia({ numero: numeroFinal, imagemUrl: primeiraFoto, caption: mensagemWa })
+            : await enviarWhatsApp({ numero: numeroFinal, mensagem: mensagemWa })
+          if (ok) waEnviados++
+          else erros.push(`WA ${nome}: ${erro}`)
+        }
       }
 
       // ── Email ──
       if (email) {
-        const template = evento === 'aberto'
-          ? emailPlanoAberto({ nomeDestinatario: nome, nomeAtividade, nomeChecklist, nomeSubgrupo, observacao, atorNome: ator_nome, sla: slaFormatado, planoId: plano_id, fotoUrl: primeiraFoto })
-          : emailPlanoEnviadoN2({ nomeDestinatario: nome, nomeAtividade, nomeChecklist, nomeSubgrupo, observacao, n1Nome: ator_nome, planoId: plano_id, fotoUrl: primeiraFoto })
+        let assunto: string | null = null
+        let html: string | null = null
 
-        const { ok, erro } = await enviarEmail({ para: email, ...template })
-        if (ok) emailEnviados++
-        else erros.push(`Email ${nome}: ${erro}`)
+        if (tmplEmail && tmplEmail.ativo) {
+          assunto = renderizar(tmplEmail.assunto ?? `Plano de Ação — ${nomeAtividade}`, vars)
+          const corpoHtml = renderizar(tmplEmail.corpo, vars)
+            .split('\n').map(l => `<p style="margin:0 0 8px;font-size:14px;color:#374151;line-height:1.6">${l || '&nbsp;'}</p>`).join('')
+          html = buildEmailHtml(assunto, corpoHtml, link)
+        } else if (!tmplEmail) {
+          const tpl = evento === 'aberto'
+            ? emailPlanoAberto({ nomeDestinatario: nome, nomeAtividade, nomeChecklist, nomeSubgrupo, observacao, atorNome: ator_nome, sla: slaFormatado, planoId: plano_id, fotoUrl: primeiraFoto })
+            : emailPlanoEnviadoN2({ nomeDestinatario: nome, nomeAtividade, nomeChecklist, nomeSubgrupo, observacao, n1Nome: ator_nome, planoId: plano_id, fotoUrl: primeiraFoto })
+          assunto = tpl.assunto
+          html = tpl.html
+        }
+
+        if (assunto && html) {
+          const { ok, erro } = await enviarEmail({ para: email, assunto, html })
+          if (ok) emailEnviados++
+          else erros.push(`Email ${nome}: ${erro}`)
+        }
       }
     }))
 
@@ -185,4 +229,28 @@ export async function planosAcaoRoutes(app: FastifyInstance) {
       erros: erros.length > 0 ? erros : undefined,
     })
   })
+}
+
+function buildEmailHtml(assunto: string, corpoHtml: string, link: string): string {
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:Inter,Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr><td align="center" style="padding:32px 16px">
+      <table width="100%" style="max-width:560px;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb">
+        <tr><td style="background:#f97316;padding:20px 28px">
+          <p style="margin:0;color:#fff;font-size:20px;font-weight:700;letter-spacing:-0.5px">CheckFlow</p>
+        </td></tr>
+        <tr><td style="padding:28px">
+          ${corpoHtml}
+          <a href="${link}" style="display:inline-block;margin-top:20px;padding:12px 24px;background:#f97316;color:#fff;font-size:14px;font-weight:600;text-decoration:none;border-radius:10px">Ver no CheckFlow →</a>
+        </td></tr>
+        <tr><td style="padding:16px 28px;border-top:1px solid #f3f4f6;background:#fafafa">
+          <p style="margin:0;font-size:11px;color:#9ca3af">Email automático — não responda.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
 }
