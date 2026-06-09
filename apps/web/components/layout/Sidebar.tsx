@@ -90,6 +90,7 @@ export function Sidebar() {
   }
 
   function isActive(href: string) {
+    if (href === '/gestao') return pathname === '/gestao'
     return pathname === href || pathname.startsWith(href + '/')
   }
 
