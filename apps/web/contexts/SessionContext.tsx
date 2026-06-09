@@ -70,10 +70,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         if (ue) setEmpresas(ue.map((r: any) => r.empresa).filter(Boolean))
       }
 
-      // Carrega sessão salva (empresa NÃO é persistida — só ambiente/unidade)
+      // Carrega sessão salva
       const { data: sessao } = await supabase
         .from('sessao_usuario')
-        .select('ultimo_ambiente, ultima_unidade_id')
+        .select('ultimo_ambiente, ultima_unidade_id, ultima_empresa_id')
         .eq('usuario_id', user.id)
         .single()
 
@@ -85,7 +85,28 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         : empresas
 
       if (minhasEmpresas.length > 1) {
-        // Consultor / admin com múltiplas empresas: sempre perguntar qual entrar
+        // Tenta restaurar a última empresa usada
+        const ultimaEmpresa = sessao?.ultima_empresa_id
+          ? minhasEmpresas.find(e => e.id === sessao.ultima_empresa_id) ?? null
+          : null
+
+        if (ultimaEmpresa) {
+          // Restaura sem perguntar
+          setEmpresaAtivaState(ultimaEmpresa)
+          if (isAdmin) setModoEmpresa(true)
+          const lista = await carregarUnidades(ultimaEmpresa.id, user.id, isAdmin)
+          if (sessao?.ultima_unidade_id) {
+            const uni = lista.find(u => u.id === sessao.ultima_unidade_id)
+            if (uni) { setUnidadeAtivaState(uni); carregarLabels(uni.id) }
+            else if (lista.length > 0) { setUnidadeAtivaState(lista[0]); carregarLabels(lista[0].id) }
+          } else if (lista.length > 0) {
+            setUnidadeAtivaState(lista[0])
+            carregarLabels(lista[0].id)
+          }
+          return
+        }
+
+        // Sem sessão salva: pede escolha
         setPrecisaEscolherEmpresa(true)
         return
       }
@@ -164,9 +185,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setUnidadeAtivaState(null)
     setUnidades([])
     setPrecisaEscolherEmpresa(false)
-    // Empresa NÃO é persistida em sessao_usuario — só a unidade.
-    // Isso garante que, no próximo login, quem tem >1 empresa seja sempre questionado.
-    salvarSessao({ ultima_unidade_id: null })
+    salvarSessao({ ultima_empresa_id: e?.id ?? null, ultima_unidade_id: null })
     if (e) {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
