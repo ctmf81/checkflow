@@ -9,8 +9,9 @@ import {
   GitBranch, Play, History, FileText, X, ChevronDown, ChevronUp,
   ClipboardList, Clock, User, CheckCircle, XCircle, AlertTriangle,
   RotateCcw, ExternalLink, Image as ImageIcon, Video,
-  Bot, Send, Loader2, MessageSquare,
+  Bot, Send, Loader2, MessageSquare, Ticket,
 } from 'lucide-react'
+import NovoTicketModal from '@/components/tickets/NovoTicketModal'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -830,6 +831,7 @@ export default function OperacaoPage() {
   const { unidadeAtiva } = useSession()
   const router = useRouter()
   const [aba, setAba] = useState<Aba>('checklists')
+  const [ticketModalOpen, setTicketModalOpen] = useState(false)
   const [grupos, setGrupos] = useState<GrupoAgrupado[]>([])
   const [semGrupo, setSemGrupo] = useState<Checklist[]>([])
   const [itensWorkflow, setItensWorkflow] = useState<ItemWorkflowLiberado[]>([])
@@ -958,6 +960,18 @@ export default function OperacaoPage() {
           {aba === 'documentos' && <AbaDocumentos unidadeId={unidadeAtiva.id} />}
         </>
       )}
+
+      {/* FAB — Abrir Ticket avulso */}
+      <button
+        onClick={() => setTicketModalOpen(true)}
+        className="fixed bottom-6 right-4 z-40 flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium px-3.5 py-2.5 rounded-full shadow-lg hover:shadow-xl hover:bg-gray-50 transition-all active:scale-95">
+        <Ticket size={15} className="text-blue-600" /> Abrir Ticket
+      </button>
+
+      <NovoTicketModal
+        open={ticketModalOpen}
+        onClose={() => setTicketModalOpen(false)}
+      />
     </div>
   )
 }
