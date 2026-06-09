@@ -116,6 +116,17 @@ export const recursos: Recurso[] = [
     ],
   },
   {
+    key: 'ticket',
+    label: 'Tickets / Chamados',
+    acoes: [
+      { key: 'ver',              label: 'Visualizar tickets' },
+      { key: 'criar',            label: 'Abrir novos tickets' },
+      { key: 'tratar',           label: 'Assumir e tratar tickets' },
+      { key: 'cancelar',         label: 'Cancelar / marcar improcedente' },
+      { key: 'categorias_gerir', label: 'Gerenciar categorias de tickets' },
+    ],
+  },
+  {
     key: 'planos_acao',
     label: 'Planos de ação / Moderação',
     acoes: [
