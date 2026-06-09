@@ -70,7 +70,7 @@ begin
   -- ── ticket_aberto / whatsapp ──────────────────────────────
   insert into notificacao_templates (empresa_id, tipo, canal, assunto, corpo) values
   (p_empresa_id, 'ticket_aberto', 'whatsapp', null,
-$$tpl${{emoji_prioridade}} *Novo Ticket #{{numero}} — {{prioridade}}*
+$tpl${{emoji_prioridade}} *Novo Ticket #{{numero}} — {{prioridade}}*
 
 *{{titulo}}*
 
@@ -79,14 +79,14 @@ $$tpl${{emoji_prioridade}} *Novo Ticket #{{numero}} — {{prioridade}}*
 
 {{descricao}}
 
-🔗 {{link}}$$tpl$)
+🔗 {{link}}$tpl$)
   on conflict (empresa_id, tipo, canal) do nothing;
 
   -- ── ticket_aberto / email ─────────────────────────────────
   insert into notificacao_templates (empresa_id, tipo, canal, assunto, corpo) values
   (p_empresa_id, 'ticket_aberto', 'email',
    '{{emoji_prioridade}} Ticket #{{numero}} aberto — {{titulo}}',
-$$tpl$Olá, {{destinatario}}!
+$tpl$Olá, {{destinatario}}!
 
 Um novo ticket foi aberto para a sua área e aguarda ser assumido.
 
@@ -95,27 +95,27 @@ Destino: {{grupo}} / {{subgrupo}}{{linha_categoria}}
 Prioridade: {{prioridade}}
 Aberto por: {{ator}}
 
-{{descricao}}$$tpl$)
+{{descricao}}$tpl$)
   on conflict (empresa_id, tipo, canal) do nothing;
 
   -- ── ticket_movimentado / whatsapp ─────────────────────────
   insert into notificacao_templates (empresa_id, tipo, canal, assunto, corpo) values
   (p_empresa_id, 'ticket_movimentado', 'whatsapp', null,
-$$tpl$📋 *Ticket #{{numero}} — {{evento}}*
+$tpl$📋 *Ticket #{{numero}} — {{evento}}*
 
 *{{titulo}}*
 *Por:* {{ator}}
 
 {{observacao}}
 
-🔗 {{link}}$$tpl$)
+🔗 {{link}}$tpl$)
   on conflict (empresa_id, tipo, canal) do nothing;
 
   -- ── ticket_movimentado / email ────────────────────────────
   insert into notificacao_templates (empresa_id, tipo, canal, assunto, corpo) values
   (p_empresa_id, 'ticket_movimentado', 'email',
    '📋 Ticket #{{numero}} — {{evento}}',
-$$tpl$Olá, {{destinatario}}!
+$tpl$Olá, {{destinatario}}!
 
 Houve uma movimentação no ticket que envolve você.
 
@@ -123,13 +123,13 @@ Ticket: #{{numero}} — {{titulo}}
 Ação: {{evento}}
 Por: {{ator}}
 
-{{observacao}}$$tpl$)
+{{observacao}}$tpl$)
   on conflict (empresa_id, tipo, canal) do nothing;
 
   -- ── plano_aberto / whatsapp ───────────────────────────────
   insert into notificacao_templates (empresa_id, tipo, canal, assunto, corpo) values
   (p_empresa_id, 'plano_aberto', 'whatsapp', null,
-$$tpl$🔴 *Novo Plano de Ação aberto*
+$tpl$🔴 *Novo Plano de Ação aberto*
 
 *Área:* {{subgrupo}}
 *Atividade:* {{atividade}}
@@ -137,14 +137,14 @@ $$tpl$🔴 *Novo Plano de Ação aberto*
 *Aberto por:* {{ator}}
 *Observação:* {{observacao}}{{linha_sla}}
 
-🔗 {{link}}$$tpl$)
+🔗 {{link}}$tpl$)
   on conflict (empresa_id, tipo, canal) do nothing;
 
   -- ── plano_aberto / email ──────────────────────────────────
   insert into notificacao_templates (empresa_id, tipo, canal, assunto, corpo) values
   (p_empresa_id, 'plano_aberto', 'email',
    '🔴 Plano de Ação aberto — {{atividade}}',
-$$tpl$Olá, {{destinatario}}!
+$tpl$Olá, {{destinatario}}!
 
 Um novo plano de ação foi aberto na sua área e precisa de moderação.
 
@@ -155,13 +155,13 @@ Aberto por: {{ator}}
 {{linha_sla}}
 
 Observação:
-{{observacao}}$$tpl$)
+{{observacao}}$tpl$)
   on conflict (empresa_id, tipo, canal) do nothing;
 
   -- ── plano_enviado_n2 / whatsapp ───────────────────────────
   insert into notificacao_templates (empresa_id, tipo, canal, assunto, corpo) values
   (p_empresa_id, 'plano_enviado_n2', 'whatsapp', null,
-$$tpl$🟠 *Plano de Ação escalado para você (N2)*
+$tpl$🟠 *Plano de Ação escalado para você (N2)*
 
 *Área:* {{subgrupo}}
 *Atividade:* {{atividade}}
@@ -169,14 +169,14 @@ $$tpl$🟠 *Plano de Ação escalado para você (N2)*
 *Enviado por (N1):* {{n1}}
 *Observação:* {{observacao}}
 
-🔗 {{link}}$$tpl$)
+🔗 {{link}}$tpl$)
   on conflict (empresa_id, tipo, canal) do nothing;
 
   -- ── plano_enviado_n2 / email ──────────────────────────────
   insert into notificacao_templates (empresa_id, tipo, canal, assunto, corpo) values
   (p_empresa_id, 'plano_enviado_n2', 'email',
    '🟠 Plano de Ação escalado para você — {{atividade}}',
-$$tpl$Olá, {{destinatario}}!
+$tpl$Olá, {{destinatario}}!
 
 O moderador N1 escalou um plano de ação para sua análise.
 
@@ -186,33 +186,33 @@ Checklist: {{checklist}}
 Enviado por (N1): {{n1}}
 
 Observação do N1:
-{{observacao}}$$tpl$)
+{{observacao}}$tpl$)
   on conflict (empresa_id, tipo, canal) do nothing;
 
   -- ── reset_senha / whatsapp ────────────────────────────────
   insert into notificacao_templates (empresa_id, tipo, canal, assunto, corpo) values
   (p_empresa_id, 'reset_senha', 'whatsapp', null,
-$$tpl$Olá{{linha_nome}}! 👋
+$tpl$Olá{{linha_nome}}! 👋
 
 Você solicitou a recuperação de senha do *CheckFlow*.
 
 Clique no link abaixo para criar uma nova senha:
 {{link}}
 
-_Este link expira em 1 hora._$$tpl$)
+_Este link expira em 1 hora._$tpl$)
   on conflict (empresa_id, tipo, canal) do nothing;
 
   -- ── reset_senha / email ───────────────────────────────────
   insert into notificacao_templates (empresa_id, tipo, canal, assunto, corpo) values
   (p_empresa_id, 'reset_senha', 'email',
    'Recuperação de senha — CheckFlow',
-$$tpl$Olá{{linha_nome}}!
+$tpl$Olá{{linha_nome}}!
 
 Você solicitou a recuperação de senha do CheckFlow.
 
 Clique no botão abaixo para criar uma nova senha. O link expira em 1 hora.
 
-{{link}}$$tpl$)
+{{link}}$tpl$)
   on conflict (empresa_id, tipo, canal) do nothing;
 
 end;
