@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { ONBOARDING_PLANOS_ACAO } from '@/components/onboarding/configs'
 import {
   ClipboardList, Clock, CheckCircle2, XCircle, AlertTriangle,
   ChevronRight, Loader2, RefreshCw
@@ -111,6 +113,7 @@ export default function PlanosAcaoPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
+      <Onboarding pageId="planos-acao" titulo="Planos de Ação" cards={ONBOARDING_PLANOS_ACAO} />
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

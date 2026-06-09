@@ -7,6 +7,8 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { ONBOARDING_CHECKLISTS } from '@/components/onboarding/configs'
 
 interface Checklist {
   id: string
@@ -145,6 +147,7 @@ function ChecklistsContent() {
 
   return (
     <>
+      <Onboarding pageId="checklists" titulo="Checklists" cards={ONBOARDING_CHECKLISTS} />
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           {filtroSubgrupoId && (

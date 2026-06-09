@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/Button'
 import { PerfilModal } from './PerfilModal'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { ONBOARDING_PERFIS } from '@/components/onboarding/configs'
 
 interface Perfil {
   id: string
@@ -80,6 +82,7 @@ export default function PerfisPage() {
 
   return (
     <>
+      <Onboarding pageId="perfis" titulo="Perfis de Acesso" cards={ONBOARDING_PERFIS} />
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>

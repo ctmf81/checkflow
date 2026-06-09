@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import NovoTicketModal from '@/components/tickets/NovoTicketModal'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { ONBOARDING_TICKETS } from '@/components/onboarding/configs'
 
 interface TicketRow {
   id: string
@@ -113,6 +115,7 @@ export default function TicketsPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
+      <Onboarding pageId="tickets" titulo="Tickets / Chamados" cards={ONBOARDING_TICKETS} />
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

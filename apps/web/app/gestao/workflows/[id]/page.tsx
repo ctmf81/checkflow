@@ -8,6 +8,8 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { ONBOARDING_WORKFLOWS } from '@/components/onboarding/configs'
 
 // ─── Tipos locais ─────────────────────────────────────────────────────────────
 
@@ -488,6 +490,7 @@ export default function WorkflowEditorPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="max-w-3xl mx-auto" ref={menuRef}>
+      <Onboarding pageId="workflows" titulo="Workflows" cards={ONBOARDING_WORKFLOWS} />
       {/* Topo */}
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => router.push('/gestao/workflows')}
