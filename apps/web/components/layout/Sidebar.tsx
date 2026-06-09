@@ -22,7 +22,15 @@ interface NavItem {
 const nav: NavItem[] = [
   { label: 'Home',         href: '/gestao',                icon: Home },
   { label: 'Grupos',       href: '/gestao/grupos',         icon: Layers },
-  { label: 'Tickets',       href: '/gestao/tickets',       icon: Ticket },
+  {
+    label: 'Tickets',
+    icon: Ticket,
+    children: [
+      { label: 'Chamados',    href: '/gestao/tickets' },
+      { label: 'Categorias',  href: '/gestao/tickets/categorias' },
+      { label: 'Config. SLA', href: '/gestao/tickets/sla' },
+    ],
+  },
   { label: 'Planos de Ação', href: '/gestao/planos-acao',  icon: ClipboardList },
   { label: 'Checklists',   href: '/gestao/checklists',     icon: CheckSquare },
   { label: 'Workflows',    href: '/gestao/workflows',      icon: GitBranch },
