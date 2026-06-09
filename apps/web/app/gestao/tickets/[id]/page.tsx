@@ -1,0 +1,323 @@
+'use client'
+
+import { useEffect, useState, useRef } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import {
+  ArrowLeft, CheckCircle2, XCircle, RotateCcw, MessageSquare,
+  Upload, AlertTriangle, Loader2, UserCheck, AlertCircle, ChevronDown
+} from 'lucide-react'
+import { createClient } from '@/lib/supabase'
+import { useSession } from '@/contexts/SessionContext'
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
+type TicketStatus =
+  | 'aberto' | 'em_tratamento' | 'aguardando_informacao'
+  | 'aguardando_validacao' | 'corrigido' | 'nao_corrigido'
+  | 'corrigido_parcialmente' | 'cancelado' | 'improcedente'
+
+interface Ticket {
+  id: string; numero: number; titulo: string; descricao: string
+  prioridade: string; status: TicketStatus
+  sla_deadline_at: string | null; sla_segundos_pausados: number; sla_pausado_em: string | null
+  criado_em: string
+  grupo: { nome: string }; subgrupo: { nome: string }
+  categoria: { nome: string } | null
+  aberto_por: { id: string; nome: string }
+  assignee: { id: string; nome: string } | null
+}
+
+interface Evento {
+  id: string; tipo: string; texto: string; criado_em: string
+  autor: { nome: string }
+  evidencias: { id: string; url: string; tipo: string; nome: string | null }[]
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const TIPO_EVENTO: Record<string, { label: string; cor: string }> = {
+  abertura:           { label: 'Ticket aberto',              cor: 'text-blue-600' },
+  aceite:             { label: 'Assumido',                   cor: 'text-purple-600' },
+  comentario:         { label: 'Comentário',                 cor: 'text-gray-600' },
+  devolucao:          { label: 'Devolvido para informação',  cor: 'text-yellow-600' },
+  resposta_devolucao: { label: 'Resposta enviada',           cor: 'text-blue-500' },
+  transferencia:      { label: 'Transferido',                cor: 'text-indigo-600' },
+  conclusao_proposta: { label: 'Conclusão proposta',         cor: 'text-orange-600' },
+  validacao:          { label: 'Validado',                   cor: 'text-green-600' },
+  reabertura:         { label: 'Reaberto',                   cor: 'text-red-500' },
+  cancelamento:       { label: 'Cancelado',                  cor: 'text-gray-400' },
+  improcedencia:      { label: 'Improcedente',               cor: 'text-gray-400' },
+  escalada:           { label: 'Escalado',                   cor: 'text-red-600' },
+}
+
+const PRIORIDADE_COR: Record<string, string> = {
+  critica: 'bg-red-500 text-white',
+  alta:    'bg-orange-400 text-white',
+  media:   'bg-yellow-400 text-gray-800',
+  baixa:   'bg-green-400 text-white',
+}
+
+function formatarTempo(iso: string) {
+  const d = new Date(iso)
+  return d.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
+}
+
+// ─── Componente ───────────────────────────────────────────────────────────────
+
+export default function TicketDetalhe() {
+  const { id } = useParams<{ id: string }>()
+  const router = useRouter()
+  const { unidadeAtiva } = useSession()
+  const supabase = createClient()
+  const endRef = useRef<HTMLDivElement>(null)
+
+  const [ticket,   setTicket]   = useState<Ticket | null>(null)
+  const [eventos,  setEventos]  = useState<Evento[]>([])
+  const [loading,  setLoading]  = useState(true)
+  const [userId,   setUserId]   = useState<string | null>(null)
+
+  // Formulário de ação
+  const [texto,    setTexto]    = useState('')
+  const [arquivos, setArquivos] = useState<File[]>([])
+  const [acaoOpen, setAcaoOpen] = useState(false)
+  const [enviando, setEnviando] = useState(false)
+  const [erro,     setErro]     = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null))
+  }, [])
+
+  async function carregar() {
+    const [{ data: t }, { data: ev }] = await Promise.all([
+      supabase.from('tickets').select(`
+        id, numero, titulo, descricao, prioridade, status, criado_em,
+        sla_deadline_at, sla_segundos_pausados, sla_pausado_em,
+        grupo:grupos(nome), subgrupo:subgrupos(nome),
+        categoria:ticket_categorias(nome),
+        aberto_por:usuarios!tickets_aberto_por_id_fkey(id, nome),
+        assignee:usuarios!tickets_assignee_id_fkey(id, nome)
+      `).eq('id', id).single(),
+      supabase.from('ticket_eventos').select(`
+        id, tipo, texto, criado_em,
+        autor:usuarios(nome),
+        evidencias:ticket_evidencias(id, url, tipo, nome)
+      `).eq('ticket_id', id).order('criado_em', { ascending: true }),
+    ])
+    setTicket(t as any)
+    setEventos((ev as any) ?? [])
+    setLoading(false)
+    setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+  }
+
+  useEffect(() => { if (id) carregar() }, [id])
+
+  const ehAssignee   = ticket?.assignee?.id === userId
+  const ehAbridor    = ticket?.aberto_por?.id === userId
+  const semAssignee  = !ticket?.assignee
+
+  // ─── Ações disponíveis por status + papel ─────────────────────────────────
+
+  type Acao = { label: string; tipo: string; novoStatus: TicketStatus; variante: 'primary' | 'danger' | 'ghost' }
+
+  function acoesDisponiveis(): Acao[] {
+    if (!ticket) return []
+    const s = ticket.status
+    const acoes: Acao[] = []
+
+    if (s === 'aberto') {
+      acoes.push({ label: 'Assumir ticket', tipo: 'aceite', novoStatus: 'em_tratamento', variante: 'primary' })
+    }
+    if (s === 'em_tratamento' && ehAssignee) {
+      acoes.push({ label: 'Solicitar informação', tipo: 'devolucao', novoStatus: 'aguardando_informacao', variante: 'ghost' })
+      acoes.push({ label: 'Propor conclusão', tipo: 'conclusao_proposta', novoStatus: 'aguardando_validacao', variante: 'primary' })
+      acoes.push({ label: 'Marcar improcedente', tipo: 'improcedencia', novoStatus: 'improcedente', variante: 'danger' })
+    }
+    if (s === 'aguardando_informacao' && ehAbridor) {
+      acoes.push({ label: 'Responder e retomar', tipo: 'resposta_devolucao', novoStatus: 'em_tratamento', variante: 'primary' })
+    }
+    if (s === 'aguardando_validacao' && ehAbridor) {
+      acoes.push({ label: 'Confirmar: corrigido',          tipo: 'validacao', novoStatus: 'corrigido',              variante: 'primary' })
+      acoes.push({ label: 'Confirmar: corrigido parcial',  tipo: 'validacao', novoStatus: 'corrigido_parcialmente', variante: 'ghost' })
+      acoes.push({ label: 'Devolver: não corrigido',       tipo: 'validacao', novoStatus: 'nao_corrigido',          variante: 'danger' })
+    }
+    const fechados = ['corrigido', 'nao_corrigido', 'corrigido_parcialmente']
+    if (fechados.includes(s) && ehAbridor) {
+      acoes.push({ label: 'Reabrir ticket', tipo: 'reabertura', novoStatus: 'em_tratamento', variante: 'ghost' })
+    }
+    // Comentário sempre disponível em tickets abertos
+    const abertos = ['aberto','em_tratamento','aguardando_informacao','aguardando_validacao']
+    if (abertos.includes(s)) {
+      acoes.push({ label: 'Comentar', tipo: 'comentario', novoStatus: s, variante: 'ghost' })
+    }
+    // Cancelar: abridor ou admin, tickets não finalizados
+    const naoFinalizados = ['aberto','em_tratamento','aguardando_informacao','aguardando_validacao']
+    if (naoFinalizados.includes(s) && (ehAbridor || ehAssignee)) {
+      acoes.push({ label: 'Cancelar ticket', tipo: 'cancelamento', novoStatus: 'cancelado', variante: 'danger' })
+    }
+    return acoes
+  }
+
+  async function executarAcao(acao: Acao) {
+    if (!texto.trim()) { setErro('Observação é obrigatória para registrar a ação.'); return }
+    setEnviando(true); setErro(null)
+
+    // Se está assumindo, atualiza assignee
+    if (acao.tipo === 'aceite') {
+      await supabase.from('tickets').update({ assignee_id: userId, status: acao.novoStatus }).eq('id', id)
+    } else if (acao.novoStatus !== ticket!.status) {
+      await supabase.from('tickets').update({ status: acao.novoStatus }).eq('id', id)
+    }
+
+    // Cria evento
+    const { data: evento } = await supabase.from('ticket_eventos').insert({
+      ticket_id: id, tipo: acao.tipo, texto: texto.trim(),
+    }).select('id').single()
+
+    // Upload evidências
+    if (evento) {
+      for (const file of arquivos) {
+        const ext  = file.name.split('.').pop()
+        const path = `tickets/${id}/${Date.now()}.${ext}`
+        const { data: up } = await supabase.storage.from('execucoes').upload(path, file, { upsert: false })
+        if (up) {
+          const { data: pub } = supabase.storage.from('execucoes').getPublicUrl(path)
+          const tipo = file.type.startsWith('video') ? 'video' : file.type.startsWith('image') ? 'foto' : 'documento'
+          await supabase.from('ticket_evidencias').insert({
+            ticket_id: id, evento_id: evento.id, url: pub.publicUrl, tipo, nome: file.name,
+          })
+        }
+      }
+    }
+
+    setTexto(''); setArquivos([]); setAcaoOpen(false); setEnviando(false)
+    carregar()
+  }
+
+  if (loading) return <div className="py-16 text-center text-sm text-gray-400">Carregando…</div>
+  if (!ticket) return <div className="py-16 text-center text-sm text-red-400">Ticket não encontrado.</div>
+
+  const acoes = acoesDisponiveis()
+
+  return (
+    <div className="max-w-2xl mx-auto p-4 pb-32">
+      {/* Voltar */}
+      <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4">
+        <ArrowLeft size={15} /> Voltar
+      </button>
+
+      {/* Cabeçalho do ticket */}
+      <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4">
+        <div className="flex items-start justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-xs text-gray-400">#{String(ticket.numero).padStart(4,'0')}</span>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${PRIORIDADE_COR[ticket.prioridade]}`}>
+              {ticket.prioridade}
+            </span>
+          </div>
+          <span className="text-xs text-gray-400">{formatarTempo(ticket.criado_em)}</span>
+        </div>
+        <h1 className="text-base font-semibold text-gray-800 mt-2">{ticket.titulo}</h1>
+        <p className="text-sm text-gray-600 mt-1">{ticket.descricao}</p>
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+          <span>Destino: <strong>{ticket.grupo.nome} / {ticket.subgrupo.nome}</strong></span>
+          {ticket.categoria && <span>Categoria: <strong>{ticket.categoria.nome}</strong></span>}
+          <span>Aberto por: <strong>{ticket.aberto_por.nome}</strong></span>
+          {ticket.assignee && <span>Responsável: <strong>{ticket.assignee.nome}</strong></span>}
+        </div>
+        {semAssignee && ticket.status === 'aberto' && (
+          <div className="mt-3 flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2">
+            <UserCheck size={13} /> Aguardando alguém assumir este ticket
+          </div>
+        )}
+      </div>
+
+      {/* Timeline */}
+      <div className="space-y-3 mb-4">
+        {eventos.map((ev, i) => {
+          const conf = TIPO_EVENTO[ev.tipo] ?? { label: ev.tipo, cor: 'text-gray-500' }
+          return (
+            <div key={ev.id} className="bg-white rounded-xl border border-gray-100 p-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className={`text-xs font-semibold ${conf.cor}`}>{conf.label}</span>
+                <span className="text-xs text-gray-400">{formatarTempo(ev.criado_em)}</span>
+              </div>
+              <p className="text-sm text-gray-700">{ev.texto}</p>
+              <p className="text-xs text-gray-400 mt-1.5">{ev.autor?.nome}</p>
+              {ev.evidencias?.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {ev.evidencias.map(e => (
+                    <a key={e.id} href={e.url} target="_blank" rel="noreferrer"
+                      className="text-xs text-blue-600 underline underline-offset-2 hover:text-blue-800">
+                      {e.nome ?? e.tipo}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
+        <div ref={endRef} />
+      </div>
+
+      {/* Painel de ação fixo no rodapé */}
+      {acoes.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-40">
+          <div className="max-w-2xl mx-auto flex flex-col gap-3">
+            <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={2}
+              placeholder="Observação obrigatória para registrar qualquer ação…"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer border border-dashed border-gray-300 rounded-lg px-2.5 py-1.5 hover:bg-gray-50">
+                <Upload size={12} />
+                {arquivos.length > 0 ? `${arquivos.length} arq.` : 'Evidência'}
+                <input type="file" multiple accept="image/*,video/*" className="hidden"
+                  onChange={e => setArquivos(Array.from(e.target.files ?? []))} />
+              </label>
+
+              <div className="flex-1 flex gap-2 justify-end flex-wrap">
+                {acoes.filter(a => a.variante !== 'ghost').map(a => (
+                  <button key={a.tipo + a.novoStatus}
+                    onClick={() => executarAcao(a)}
+                    disabled={enviando}
+                    className={`text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50 flex items-center gap-1.5 ${
+                      a.variante === 'primary' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-red-50 text-red-600 hover:bg-red-100'
+                    }`}>
+                    {enviando && <Loader2 size={13} className="animate-spin" />}
+                    {a.label}
+                  </button>
+                ))}
+                {acoes.filter(a => a.variante === 'ghost').length > 0 && (
+                  <div className="relative">
+                    <button onClick={() => setAcaoOpen(o => !o)}
+                      className="flex items-center gap-1 text-sm font-medium px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+                      Mais <ChevronDown size={13} />
+                    </button>
+                    {acaoOpen && (
+                      <div className="absolute bottom-full right-0 mb-1 bg-white rounded-xl shadow-lg border border-gray-100 py-1 min-w-48 z-50">
+                        {acoes.filter(a => a.variante === 'ghost').map(a => (
+                          <button key={a.tipo + a.novoStatus}
+                            onClick={() => { setAcaoOpen(false); executarAcao(a) }}
+                            disabled={enviando}
+                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                            {a.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {erro && (
+              <div className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">
+                <AlertTriangle size={12} /> {erro}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

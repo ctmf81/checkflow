@@ -1,0 +1,211 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { Plus, Search, Ticket, Clock, AlertCircle, CheckCircle2, XCircle, RotateCcw, Filter } from 'lucide-react'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase'
+import { useSession } from '@/contexts/SessionContext'
+import NovoTicketModal from '@/components/tickets/NovoTicketModal'
+
+interface TicketRow {
+  id: string
+  numero: number
+  titulo: string
+  prioridade: 'critica' | 'alta' | 'media' | 'baixa'
+  status: string
+  criado_em: string
+  sla_deadline_at: string | null
+  sla_segundos_pausados: number
+  sla_pausado_em: string | null
+  grupo: { nome: string }
+  subgrupo: { nome: string }
+  categoria: { nome: string } | null
+  aberto_por: { nome: string }
+  assignee: { nome: string } | null
+}
+
+const STATUS_CONFIG: Record<string, { label: string; cor: string; icon: any }> = {
+  aberto:                 { label: 'Aberto',               cor: 'bg-blue-100 text-blue-700',   icon: Ticket },
+  em_tratamento:          { label: 'Em tratamento',        cor: 'bg-purple-100 text-purple-700', icon: RotateCcw },
+  aguardando_informacao:  { label: 'Aguard. informação',   cor: 'bg-yellow-100 text-yellow-700', icon: Clock },
+  aguardando_validacao:   { label: 'Aguard. validação',    cor: 'bg-orange-100 text-orange-700', icon: AlertCircle },
+  corrigido:              { label: 'Corrigido',            cor: 'bg-green-100 text-green-700',   icon: CheckCircle2 },
+  nao_corrigido:          { label: 'Não corrigido',        cor: 'bg-red-100 text-red-700',       icon: XCircle },
+  corrigido_parcialmente: { label: 'Corrigido parcial',    cor: 'bg-teal-100 text-teal-700',     icon: CheckCircle2 },
+  cancelado:              { label: 'Cancelado',            cor: 'bg-gray-100 text-gray-500',     icon: XCircle },
+  improcedente:           { label: 'Improcedente',         cor: 'bg-gray-100 text-gray-500',     icon: XCircle },
+}
+
+const PRIORIDADE_CONFIG: Record<string, { label: string; cor: string }> = {
+  critica: { label: 'Crítica', cor: 'bg-red-500 text-white' },
+  alta:    { label: 'Alta',    cor: 'bg-orange-400 text-white' },
+  media:   { label: 'Média',   cor: 'bg-yellow-400 text-gray-800' },
+  baixa:   { label: 'Baixa',   cor: 'bg-green-400 text-white' },
+}
+
+function slaStatus(ticket: TicketRow): 'verde' | 'amarelo' | 'vermelho' | null {
+  if (!ticket.sla_deadline_at) return null
+  const fechados = ['corrigido', 'nao_corrigido', 'corrigido_parcialmente', 'cancelado', 'improcedente']
+  if (fechados.includes(ticket.status)) return null
+  const agora   = Date.now()
+  const pausa   = ticket.sla_pausado_em ? agora - new Date(ticket.sla_pausado_em).getTime() : 0
+  const deadline = new Date(ticket.sla_deadline_at).getTime() + (ticket.sla_segundos_pausados * 1000) + pausa
+  const total    = deadline - new Date(ticket.criado_em).getTime()
+  const restante = deadline - agora
+  const pct      = 1 - restante / total
+  if (pct >= 1)    return 'vermelho'
+  if (pct >= 0.8)  return 'amarelo'
+  return 'verde'
+}
+
+const SLA_DOT: Record<string, string> = {
+  verde:    'bg-green-400',
+  amarelo:  'bg-yellow-400',
+  vermelho: 'bg-red-500 animate-pulse',
+}
+
+const ABERTOS = ['aberto', 'em_tratamento', 'aguardando_informacao', 'aguardando_validacao']
+
+export default function TicketsPage() {
+  const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
+  const supabase = createClient()
+
+  const [tickets, setTickets]     = useState<TicketRow[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [busca,   setBusca]       = useState('')
+  const [filtroStatus, setFiltroStatus] = useState<'abertos' | 'fechados' | 'todos'>('abertos')
+  const [novoOpen, setNovoOpen]   = useState(false)
+
+  async function carregar() {
+    if (!unidadeAtiva) return
+    setLoading(true)
+    const { data } = await supabase
+      .from('tickets')
+      .select(`
+        id, numero, titulo, prioridade, status, criado_em,
+        sla_deadline_at, sla_segundos_pausados, sla_pausado_em,
+        grupo:grupos(nome), subgrupo:subgrupos(nome),
+        categoria:ticket_categorias(nome),
+        aberto_por:usuarios!tickets_aberto_por_id_fkey(nome),
+        assignee:usuarios!tickets_assignee_id_fkey(nome)
+      `)
+      .eq('unidade_id', unidadeAtiva.id)
+      .order('criado_em', { ascending: false })
+    setTickets((data as any) ?? [])
+    setLoading(false)
+  }
+
+  useEffect(() => { carregar() }, [unidadeAtiva])
+
+  const filtrados = tickets.filter(t => {
+    const matchStatus = filtroStatus === 'todos' ? true
+      : filtroStatus === 'abertos' ? ABERTOS.includes(t.status) : !ABERTOS.includes(t.status)
+    const matchBusca = !busca || t.titulo.toLowerCase().includes(busca.toLowerCase())
+      || String(t.numero).includes(busca)
+    return matchStatus && matchBusca
+  })
+
+  const contadores = {
+    abertos:  tickets.filter(t => ABERTOS.includes(t.status)).length,
+    fechados: tickets.filter(t => !ABERTOS.includes(t.status)).length,
+    criticos: tickets.filter(t => t.prioridade === 'critica' && ABERTOS.includes(t.status)).length,
+  }
+
+  return (
+    <div className="p-6 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-800">Tickets</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Chamados e ocorrências</p>
+        </div>
+        <button onClick={() => setNovoOpen(true)}
+          className="flex items-center gap-2 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700">
+          <Plus size={16} /> Novo Ticket
+        </button>
+      </div>
+
+      {/* Cards de resumo */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="bg-white rounded-xl border border-gray-100 p-4">
+          <div className="text-2xl font-bold text-gray-800">{contadores.abertos}</div>
+          <div className="text-xs text-gray-500 mt-0.5">Em aberto</div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 p-4">
+          <div className="text-2xl font-bold text-red-600">{contadores.criticos}</div>
+          <div className="text-xs text-gray-500 mt-0.5">Críticos em aberto</div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 p-4">
+          <div className="text-2xl font-bold text-gray-800">{contadores.fechados}</div>
+          <div className="text-xs text-gray-500 mt-0.5">Finalizados</div>
+        </div>
+      </div>
+
+      {/* Filtros */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="relative flex-1 min-w-48">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por título ou #número…"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+          {(['abertos', 'fechados', 'todos'] as const).map(f => (
+            <button key={f} onClick={() => setFiltroStatus(f)}
+              className={`px-3 py-2 font-medium transition-colors ${filtroStatus === f ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              {f === 'abertos' ? 'Em aberto' : f === 'fechados' ? 'Finalizados' : 'Todos'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Lista */}
+      {loading ? (
+        <div className="py-16 text-center text-sm text-gray-400">Carregando…</div>
+      ) : filtrados.length === 0 ? (
+        <div className="py-16 text-center text-sm text-gray-400">Nenhum ticket encontrado.</div>
+      ) : (
+        <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
+          {filtrados.map(t => {
+            const sla    = slaStatus(t)
+            const stConf = STATUS_CONFIG[t.status] ?? STATUS_CONFIG['aberto']
+            const prConf = PRIORIDADE_CONFIG[t.prioridade]
+            const Icon   = stConf.icon
+            return (
+              <Link key={t.id} href={`/gestao/tickets/${t.id}`}
+                className="flex items-start gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors">
+                {/* Prioridade pill */}
+                <span className={`mt-0.5 shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${prConf.cor}`}>
+                  {prConf.label}
+                </span>
+                {/* Conteúdo */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-gray-400 font-mono">#{String(t.numero).padStart(4,'0')}</span>
+                    <span className="text-sm font-medium text-gray-800 truncate">{t.titulo}</span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+                    <span>{t.grupo?.nome} / {t.subgrupo?.nome}</span>
+                    {t.categoria && <><span>·</span><span>{t.categoria.nome}</span></>}
+                    <span>·</span>
+                    <span>por {t.aberto_por?.nome}</span>
+                    {t.assignee && <><span>·</span><span>→ {t.assignee.nome}</span></>}
+                  </div>
+                </div>
+                {/* Status + SLA */}
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${stConf.cor}`}>
+                    <Icon size={11} />{stConf.label}
+                  </span>
+                  {sla && <span className={`w-2 h-2 rounded-full ${SLA_DOT[sla]}`} title="SLA" />}
+                </div>
+              </Link>
+            )
+          })}
+        </div>
+      )}
+
+      <NovoTicketModal open={novoOpen} onClose={() => setNovoOpen(false)}
+        onCriado={() => carregar()} />
+    </div>
+  )
+}

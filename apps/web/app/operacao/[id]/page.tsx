@@ -9,8 +9,9 @@ import {
   ArrowLeft, ChevronDown, ChevronUp, CheckCircle2, XCircle,
   Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine,
   CalendarDays, MapPin, AlertCircle, Send, Clock, Locate, Search,
-  QrCode, X, ImagePlus, Video, AlertTriangle, GitBranch, ClipboardList, Loader2
+  QrCode, X, ImagePlus, Video, AlertTriangle, GitBranch, ClipboardList, Loader2, Ticket
 } from 'lucide-react'
+import NovoTicketModal from '@/components/tickets/NovoTicketModal'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -1198,6 +1199,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   const [motivoChecklistSel, setMotivoChecklistSel] = useState('')
   const [obsNaoExec, setObsNaoExec] = useState('')
   const [enviandoNaoExec, setEnviandoNaoExec] = useState(false)
+  const [ticketModalOpen, setTicketModalOpen] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -1788,6 +1790,12 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
         })}
       </div>
 
+      {/* FAB — Abrir Ticket */}
+      <button onClick={() => setTicketModalOpen(true)}
+        className="fixed bottom-24 right-4 z-40 flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium px-3.5 py-2.5 rounded-full shadow-lg hover:shadow-xl hover:bg-gray-50 transition-all active:scale-95">
+        <Ticket size={15} className="text-blue-600" /> Abrir Ticket
+      </button>
+
       {/* Botão finalizar fixo */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-30">
         {erroFinalizar && (
@@ -1808,6 +1816,11 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
         </div>
       </div>
     </div>
+
+      <NovoTicketModal
+        open={ticketModalOpen}
+        onClose={() => setTicketModalOpen(false)}
+      />
     </>
   )
 }
