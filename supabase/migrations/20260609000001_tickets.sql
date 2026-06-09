@@ -141,9 +141,16 @@ create trigger trg_tickets_sla
   for each row execute function tickets_set_sla();
 
 -- atualizado_em automático
+create or replace function tickets_set_atualizado_em()
+returns trigger language plpgsql as $$
+begin
+  new.atualizado_em := now();
+  return new;
+end;
+$$;
 create trigger trg_tickets_updated_at
   before update on tickets
-  for each row execute function moddatetime(atualizado_em);
+  for each row execute function tickets_set_atualizado_em();
 
 -- Pausa/retoma SLA automaticamente por status
 create or replace function tickets_gerenciar_sla_pausa()
