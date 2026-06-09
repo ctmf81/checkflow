@@ -88,6 +88,38 @@ Trigger `trg_validar_troca_perfil` (before update em `usuario_empresa`) chama `v
 Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem registro em DB, logo marcar não tinha efeito):
 `grupos.adicionar_usuario/gerenciar_usuario`, `subgrupos.gerenciar_funcoes`, `workflows.*`, `turnos.*`, `catalogos.*`, `documentos.*`, `causa_raiz.*`, `nao_execucao.*`, `planos_acao.ver/moderar_n1/moderar_n2`. Concede automaticamente aos perfis `is_system = true`.
 
+### Tickets / Chamados (migration 20260609000001)
+| Table | Description |
+|-------|-------------|
+| `ticket_categorias` | Árvore self-ref por unidade (`pai_id`, `e_generica`, `ativo`). Unique index: máx 1 categoria genérica por unidade (`where e_generica = true`). Função `garantir_categoria_generica(unidade_id)` cria "Sem categoria" se não existir |
+| `ticket_sla_config` | Config de SLA por unidade+categoria+prioridade (`tempo_aceite_min`, `tempo_resolucao_min`). Unique em `(unidade_id, categoria_id, prioridade)` |
+| `tickets` | Chamado principal: `numero` (sequence), `titulo`, `descricao`, `prioridade` (enum), `status` (enum 9 valores), `aberto_por_id`, `assignee_id`, `sla_deadline_at`, `sla_pausado_em`, `sla_segundos_pausados`, `execucao_id` (origem opcional) |
+| `ticket_eventos` | Timeline imutável — bloqueada por `CREATE RULE ... DO INSTEAD NOTHING` em UPDATE e DELETE |
+| `ticket_evidencias` | Fotos/vídeos/documentos vinculados a ticket ou evento |
+
+**Enums:** `ticket_status` (aberto/em_tratamento/aguardando_informacao/aguardando_validacao/corrigido/nao_corrigido/corrigido_parcialmente/cancelado/improcedente), `ticket_prioridade` (critica/alta/media/baixa), `ticket_evento_tipo` (11 valores)
+
+**Triggers:**
+- `trg_tickets_numero` — auto-incrementa `numero` via `ticket_numero_seq`
+- `trg_tickets_sla` — calcula `sla_deadline_at` no insert (categoria específica → genérica da unidade)
+- `trg_tickets_updated_at` — inline, sem `moddatetime()`
+- `trg_tickets_sla_pausa` — pausa SLA ao entrar em `aguardando_informacao`, acumula segundos ao sair
+
+**RLS:** via `usuario_unidade`. Escrita de categorias/SLA exige `usuario_tem_permissao('ticket','categorias_gerir')`.
+
+### Notificação Templates (migration 20260609010000)
+| Table | Description |
+|-------|-------------|
+| `notificacao_templates` | Um registro por `(empresa_id, tipo, canal)`. Unique em trio. `corpo` usa `{{variavel}}` para interpolação. `assunto` só para email. `ativo` permite desabilitar canal por tipo |
+
+**Enums:** `notificacao_tipo` (ticket_aberto/ticket_movimentado/plano_aberto/plano_enviado_n2/reset_senha), `notificacao_canal` (whatsapp/email)
+
+**Função `seed_notificacao_templates(empresa_id)`** — insere 10 templates padrão (5 tipos × 2 canais) com `on conflict do nothing`. Dollar-quoting correto: `$tpl$...$tpl$` dentro de função `$$...$$`.
+
+**Trigger `trg_empresa_notif_seed`** — executa seed automaticamente em cada novo insert em `empresas`.
+
+⚠️ **Gotcha de dollar-quoting**: dentro de função `$$...$$`, use `$tpl$...$tpl$` para strings multi-linha — nunca `$$tpl$...$tpl$` (o `$$` fecha a função prematuramente).
+
 ### Termos de Uso (migration 20260607000003)
 | Table | Description |
 |-------|-------------|

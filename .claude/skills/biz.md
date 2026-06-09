@@ -115,6 +115,68 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - ✅ Reforçado em DB via trigger `trg_validar_troca_perfil` (migration 20260607100800) — bloqueia a troca para perfil não-público se quem altera não for Admin da empresa/sistema, mesmo via chamada direta à API
 - ✅ Aplicado em `UsuarioModal.tsx`: verifica o `perfil_id` de quem está editando em `usuario_empresa` — se for "Admin da empresa" (`00000000-0000-0000-0000-000000000002`) ou "Admin de sistema" (`...001`), vê todos os perfis; caso contrário, só vê perfis `publico = true` (+ o perfil atual do usuário sendo editado, para não escondê-lo)
 
+## Tickets / Chamados
+
+### Abertura
+- Qualquer usuário autenticado pode abrir um ticket
+- Pode ser aberto de **`/operacao`** (FAB "Abrir Ticket" — avulso, sem vínculo) ou de **`/gestao/tickets`** (listagem)
+- **Grupo + subgrupo são obrigatórios** — destino do chamado
+- Categoria é opcional — fallback automático para "Sem categoria" (criada por `garantir_categoria_generica()`)
+- `execucao_id` registra origem quando aberto dentro de uma execução (campo opcional)
+
+### Fluxo de Status
+```
+aberto → em_tratamento (aceite) → aguardando_informacao ↔ em_tratamento
+       → aguardando_validacao (conclusão proposta)
+       → corrigido | nao_corrigido | corrigido_parcialmente (validação pelo abridor)
+       → cancelado | improcedente (a qualquer momento)
+       → aberto (reabertura)
+```
+- Qualquer membro do grupo/subgrupo destino pode assumir (virar assignee)
+- Cada transição exige **texto de observação obrigatório** + evidências opcionais
+- Timeline de eventos é **imutável** (blocked por CREATE RULE)
+
+### Devolução
+- Assignee solicita informação ao abridor (`aguardando_informacao`)
+- Sem deadline — tempo por participante é rastreado via eventos
+- Abridor responde → volta para `em_tratamento`
+
+### SLA
+- Configurável por categoria + prioridade em `/gestao/tickets/sla`
+- Pausa acumula em `sla_segundos_pausados` enquanto status = `aguardando_informacao`
+- Semáforo visual: >50% restante = verde, 10–50% = amarelo, <10% ou vencido = vermelho
+
+### Notificações
+- Abertura → todos do subgrupo destino (turno respeitado para WA)
+- Qualquer movimentação → abridor + assignee
+
+### Permissões (`recurso = 'ticket'`)
+| Ação | Descrição |
+|------|-----------|
+| `ver` | Visualizar tickets |
+| `criar` | Abrir novos tickets |
+| `tratar` | Assumir e tratar tickets |
+| `cancelar` | Cancelar / marcar improcedente |
+| `categorias_gerir` | Gerenciar categorias de tickets |
+
+## Templates de Notificação
+
+- Cada empresa tem **10 templates** padrão (5 tipos × 2 canais: whatsapp/email)
+- Seed automático ao criar nova empresa (trigger `trg_empresa_notif_seed`)
+- Admin pode editar corpo, assunto (email), e desabilitar canal por tipo
+- Interpolação com `{{variavel}}` — variáveis disponíveis por tipo documentadas na UI
+- Fallback: se template não encontrado no banco → usa mensagem hardcoded na API
+- Gerenciado em `/gestao/configuracoes/notificacoes`
+
+### Regra de destinatários por evento
+| Evento | Destinatários |
+|--------|--------------|
+| `ticket_aberto` | Todos do subgrupo destino |
+| `ticket_movimentado` | Abridor + assignee |
+| `plano_aberto` | **Apenas N1** do subgrupo |
+| `plano_enviado_n2` | **Apenas N2** do subgrupo |
+| `reset_senha` | O próprio usuário (WA + email) |
+
 ## Regras de Negócio Críticas
 - RLS obrigatório em todas as tabelas de dados de usuário
 - Checklist publicado não pode ter sua estrutura mutada

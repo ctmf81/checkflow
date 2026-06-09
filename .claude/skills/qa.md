@@ -86,6 +86,12 @@ Rodando a suíte completa (`npx vitest run`), 2 testes que já existiam (escrito
 ### ✅ Unit — Engine de checklist — `tests/unit/lib/checklistEngine.unit.test.ts` (13 testes)
 Criado `lib/checklistEngine.ts`: espelho TS de 3 closures de `operacao/[id]/page.tsx` (`calcularProgresso`, `listarAtividadesVisiveis`, cálculo de `resultado` em `finalizar()`) extraídas como funções puras. Cobre: visibilidade de dependentes por gatilho (resposta string e array/múltipla-escolha, cadeias aninhadas), contagem de progresso só de visíveis, resultado global aprovado/reprovado (qualquer não-conforme reprova; indeterminados não reprovam; ocultos não entram na conta). **Mantenha em sincronia com o componente** — aviso no topo do arquivo.
 
+### ✅ Unit — Templates de Notificação — `tests/unit/lib/notificacaoTemplates.unit.test.ts` (21 testes)
+Espelho de `renderizar()` de `apps/api/src/lib/notificacao-templates.ts`. Cobre: substituição simples/múltipla/repetida, variável ausente/null/undefined → string vazia (nunca expõe `{{chave}}`), padrão `{{linha_X}}` (aparece/some), templates reais completos (ticket_aberto, ticket_movimentado, reset_senha), caracteres especiais no valor (`$`, `\`). **Mantenha em sincronia** com a função original se a regex mudar.
+
+### ✅ Unit — SLA de Tickets — `tests/unit/lib/ticketSla.unit.test.ts` (19 testes)
+Espelho TS de 3 funções Postgres (migration 20260609000001): `calcularDeadline()`, `calcularSegundosRestantes()` (pausa acumulada + pausa ativa + combinação), `semaforo()` (todas as faixas + limites exatos). Fluxo completo: ticket crítico 60 min → pausa 15 min → SLA vence em T+76 min. **Mantenha em sincronia** com `tickets_set_sla()` e `tickets_gerenciar_sla_pausa()` se a lógica SQL mudar.
+
 ### ✅ Unit — `calcularValidacao` tipo `padrao` (7 testes, em `validacao.unit.test.ts`)
 Cobre a validação por faixa [min, max] resolvida via combinação de variáveis (feature "Padrões e Variáveis"): dentro/fora da faixa, limites inclusivos, faixa só-min ou só-max, sem instância correspondente → null, valor não numérico → null, formato de resposta inesperado → null.
 

@@ -25,7 +25,7 @@ When debugging an error in logs: surface only the **last 20 lines** unless the u
 ## Services
 | Serviço | URL |
 |---------|-----|
-| Web (Next.js) | `checkflow-production-b19d.up.railway.app` |
+| Web (Next.js) | `web-production-36880.up.railway.app` |
 | API (Fastify) | `api-production-5bce.up.railway.app` |
 
 ## Env Vars (nomes — nunca valores no chat)
