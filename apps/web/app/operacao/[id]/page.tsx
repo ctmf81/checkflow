@@ -1820,6 +1820,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       <NovoTicketModal
         open={ticketModalOpen}
         onClose={() => setTicketModalOpen(false)}
+        execucaoId={id}
       />
     </>
   )
