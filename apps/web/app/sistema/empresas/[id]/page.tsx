@@ -2,12 +2,13 @@
 
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ExternalLink, UserPlus } from 'lucide-react'
+import { ChevronLeft, ExternalLink, UserPlus, AlertTriangle, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { UsuarioModal } from '@/app/gestao/acessos/usuarios/UsuarioModal'
+import { ExcluirEmpresaModal } from './ExcluirEmpresaModal'
 
 type Aba = 'administrador' | 'pagamento' | 'configuracoes'
 
@@ -39,6 +40,7 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [modalUsuario, setModalUsuario] = useState(false)
+  const [modalExcluir, setModalExcluir] = useState(false)
 
   // Pagamento
   const [plano, setPlano] = useState('')
@@ -248,6 +250,30 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
         )}
       </div>
 
+      {/* Zona de perigo — exclusão definitiva, somente para empresas inativas */}
+      {aba === 'configuracoes' && empresa.status === 'inativo' && (
+        <div className="max-w-xl mt-6 bg-red-50 border border-red-200 rounded-xl p-5">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={18} className="text-red-500 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-red-700">Zona de perigo</h3>
+              <p className="text-xs text-red-600 mt-1">
+                Excluir esta empresa apaga <strong>permanentemente</strong> todas as unidades, grupos,
+                usuários vinculados, checklists, execuções, planos de ação, tickets e workflows
+                relacionados. Essa ação não pode ser desfeita.
+              </p>
+              <Button
+                onClick={() => setModalExcluir(true)}
+                className="!bg-red-600 hover:!bg-red-700 mt-3"
+              >
+                <Trash2 size={15} />
+                Excluir empresa permanentemente
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de cadastro de novo usuário — restrito ao perfil Admin da empresa */}
       {modalUsuario && (
         <UsuarioModal
@@ -256,6 +282,16 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
             setModalUsuario(false)
             carregarUsuarios()
           }}
+        />
+      )}
+
+      {/* Modal de exclusão definitiva da empresa */}
+      {modalExcluir && (
+        <ExcluirEmpresaModal
+          empresaId={empresa.id}
+          empresaNome={empresa.nome}
+          onClose={() => setModalExcluir(false)}
+          onExcluida={() => router.push('/sistema')}
         />
       )}
     </>

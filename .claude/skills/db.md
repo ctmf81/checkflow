@@ -28,7 +28,7 @@ Generate timestamp: `(Get-Date -Format "yyyyMMddHHmmss")` (PowerShell)
 ### Tenant & Auth
 | Table | Description |
 |-------|-------------|
-| `empresas` | Top-level tenants |
+| `empresas` | Top-level tenants. Exclusão definitiva via RPC `excluir_empresa_cascata(p_empresa_id)` (somente `is_admin_sistema()`, somente status `inativo`) — 20260610040000 ajustou FKs (checklist_execucoes, workflow_execucoes, planos_acao, checklist_execucao_respostas) para `on delete cascade` |
 | `unidades` | Units within a company (`empresa_id`, `grupo_label`, `subgrupo_label`) |
 | `usuarios` | App users linked to `auth.users` |
 | `usuario_empresa` | M:N user ↔ empresa |
