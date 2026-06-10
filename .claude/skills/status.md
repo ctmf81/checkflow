@@ -59,6 +59,13 @@ Next logical step: [one-sentence inference, only if obvious]
 - Sistema completo de agendamentos recorrentes (schema + UI + pg_cron)
 - Motivo de não execução por atividade obrigatória e por checklist inteiro
 
+## Features entregues em 2026-06-10
+- Onboarding contextual em todas as ~30 telas (`gestao/**` e `sistema/**`), atalho "?" reposicionado para canto inferior direito, oculto em mobile
+- Painel admin `/sistema/onboarding`: liga/desliga onboarding por tela e edita conteúdo (JSON) via `onboarding_paginas`
+- "Regra de evolução" documentada em `/uimap` e `/db`: toda tela nova ganha entrada no registry + onboarding + permissões automaticamente
+- Exclusão definitiva de empresa **inativa** com cascata completa (RPC `excluir_empresa_cascata`, fix de 8 FKs sem `on delete cascade`), modal de confirmação não-trivial (digitar nome da empresa + checkbox de ciência) em `/sistema/empresas/[id]`
+- Nova skill `/queries`: biblioteca de SQL de gestão organizada por tela/funcionalidade
+
 ## Features entregues nesta sessão
 - Inativar/Duplicar checklist (com picker de destino)
 - Gravar vídeo via getUserMedia (sem galeria)

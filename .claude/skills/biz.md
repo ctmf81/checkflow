@@ -177,6 +177,17 @@ aberto → em_tratamento (aceite) → aguardando_informacao ↔ em_tratamento
 | `plano_enviado_n2` | **Apenas N2** do subgrupo |
 | `reset_senha` | O próprio usuário (WA + email) |
 
+## Onboarding Contextual
+- Cada tela de `/gestao` e `/sistema` tem um card de onboarding (registry em `apps/web/components/onboarding/registry.ts`), com atalho "?" no canto inferior direito (oculto em mobile)
+- Conteúdo e visibilidade são controláveis pelo admin do sistema em `/sistema/onboarding` (tabela `onboarding_paginas`: `ativo`, `cards_override`)
+- **Regra de evolução**: toda tela/funcionalidade nova precisa (1) entrada no `registry.ts`, (2) renderizar `<Onboarding pageId=... />`, (3) insert em `onboarding_paginas`, (4) entrada correspondente em `permissoes.ts` — ver `/uimap` e `/db`
+
+## Exclusão Definitiva de Empresa
+- Apenas empresas com `status = 'inativo'` podem ser excluídas, e somente por `is_admin_sistema()` — validado na RPC `excluir_empresa_cascata`
+- Apaga em cascata: unidades, grupos, usuários vinculados, checklists, execuções, planos de ação, tickets, workflows
+- Ação **proposital não-trivial**: na tela `/sistema/empresas/[id]` (aba Configurações, "Zona de perigo"), exige digitar o nome exato da empresa + marcar checkbox de ciência antes de habilitar o botão — evita exclusão acidental de uma operação tão pesada
+- Irreversível — sem soft delete/recuperação
+
 ## Regras de Negócio Críticas
 - RLS obrigatório em todas as tabelas de dados de usuário
 - Checklist publicado não pode ter sua estrutura mutada

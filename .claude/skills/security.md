@@ -91,6 +91,14 @@ Cobre: headers de segurança (HSTS/X-Frame-Options/nosniff), CORS, cookies de se
 | 2026-06-08 | CORS da API refletia qualquer `Origin` (`origin: true`) — qualquer site externo podia fazer requests cross-origin com credenciais do usuário (CSRF/exfiltração) | `apps/api/src/server.ts` — substituído por allowlist de origens conhecidas (commit `733a0fd`) |
 | 2026-06-08 | Web sem headers de segurança (HSTS, X-Frame-Options/clickjacking, X-Content-Type-Options: nosniff) | `apps/web/next.config.ts` — adicionado `headers()` (commit `3ce612d`), validado em produção pós-deploy |
 
+## RPCs Sensíveis (Security Definer)
+| Função | Proteção | Migration |
+|--------|----------|-----------|
+| `buscar_email_por_cpf` | retorna só email, sem expor tabela `usuarios` ao anon | 20260606000005 |
+| `excluir_empresa_cascata(p_empresa_id)` | exige `is_admin_sistema()` E `status = 'inativo'`; apaga em cascata (8 FKs ajustadas para `on delete cascade` em 20260610040000) | 20260610040000 |
+
+⚠️ Padrão para novas RPCs `security definer`: sempre `revoke all ... from public` + `grant execute ... to authenticated`, e validar role/condições de negócio **dentro** da função (nunca confiar só na UI).
+
 ## DevOps — Serviços Railway
 | Serviço | URL | Notas |
 |---------|-----|-------|

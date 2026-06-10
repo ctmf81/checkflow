@@ -127,6 +127,8 @@ Cobre a validação por faixa [min, max] resolvida via combinação de variávei
 | Executar checklist completo → tela de aprovado | `operacao.spec.ts` | 🔴 Alta |
 | Criar workflow → publicar → iniciar execução | `workflow.spec.ts` | 🟡 Média |
 | Duplicar checklist para outra unidade | `checklists.spec.ts` | 🟡 Média |
+| Excluir empresa inativa — bloqueado sem digitar nome/checkbox; sucesso apaga toda a árvore de dados | `empresas.exclusao.spec.ts` | 🟡 Média |
+| Onboarding — toggle `ativo` em `/sistema/onboarding` esconde/mostra card na tela alvo | `onboarding.spec.ts` | 🟢 Baixa |
 
 ---
 
