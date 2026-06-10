@@ -2,7 +2,7 @@
 
 ## Project Skills
 
-This project has 10 active skills in `.claude/skills/`. They are **live** — update them at the end of each session by saying "update skills with what we did today".
+This project has 11 active skills in `.claude/skills/`. They are **live** — update them at the end of each session by saying "update skills with what we did today".
 
 | Command | Purpose |
 |---------|---------|
@@ -16,6 +16,7 @@ This project has 10 active skills in `.claude/skills/`. They are **live** — up
 | `/security` | Cyber security — RLS patterns, pen test suite, vulnerabilities corrigidas |
 | `/qa` | Quality Assurance — stack de testes, suites por tela/feature, como rodar |
 | `/launch` | **Pre-launch checklist** — bloqueadores técnicos, planos/precificação, WhatsApp, IA, onboarding |
+| `/queries` | Biblioteca de SQL pronto para gestão/suporte, organizado por tela/funcionalidade |
 
 ## Meta-Rule: Skill Auto-Evolution
 
