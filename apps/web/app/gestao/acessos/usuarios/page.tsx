@@ -7,6 +7,8 @@ import { UsuarioModal } from './UsuarioModal'
 import { ImportarUsuariosModal } from './ImportarUsuariosModal'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 
 interface Usuario {
   id: string
@@ -133,8 +135,11 @@ export default function UsuariosPage() {
     </div>
   )
 
+  const cfg = getOnboardingConfig('acessos-usuarios')!
+
   return (
     <>
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>

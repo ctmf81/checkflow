@@ -8,6 +8,8 @@ import {
   ChevronRight, Loader2, RefreshCw, FileText, BarChart2,
   Filter, TrendingDown,
 } from 'lucide-react'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -225,8 +227,12 @@ export default function GestaoHomePage() {
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
+  const cfg = getOnboardingConfig('gestao-home')!
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-10">
+
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between">

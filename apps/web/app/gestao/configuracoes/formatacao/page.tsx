@@ -5,6 +5,8 @@ import { AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 
 export default function FormatacaoPage() {
   const { unidadeAtiva, setUnidadeAtiva } = useSession()
@@ -50,8 +52,11 @@ export default function FormatacaoPage() {
 
   if (loading) return <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
 
+  const cfg = getOnboardingConfig('config-formatacao')!
+
   return (
     <div className="max-w-lg">
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <h1 className="text-xl font-semibold text-gray-800 mb-1">Formatação</h1>
       <p className="text-sm text-gray-500 mb-6">
         Defina como grupos e subgrupos são chamados na unidade <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span>.

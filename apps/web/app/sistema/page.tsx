@@ -8,6 +8,8 @@ import { useSession } from '@/contexts/SessionContext'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { NovaEmpresaModal } from '@/components/modals/NovaEmpresaModal'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 
 type StatusEmpresa = 'ativo' | 'inativo' | 'pendente' | 'bloqueada'
 
@@ -62,8 +64,11 @@ export default function SistemaPage() {
     return matchBusca && matchStatus
   })
 
+  const cfg = getOnboardingConfig('sistema-empresas')!
+
   return (
     <>
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Painel de sistema</h1>

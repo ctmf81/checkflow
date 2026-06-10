@@ -5,6 +5,8 @@ import { Plus, AlertCircle, Database, ChevronRight, MoreVertical, Pencil, Copy, 
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { NovoCatalogoModal, Catalogo } from './NovoCatalogoModal'
 import { ValoresModal } from './ValoresModal'
 import { DuplicarCatalogoModal } from './DuplicarCatalogoModal'
@@ -105,8 +107,11 @@ export default function CatalogosPage() {
     </div>
   )
 
+  const cfg = getOnboardingConfig('config-catalogos')!
+
   return (
     <>
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-800">Catálogos</h1>

@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 import {
   BarChart2, ArrowLeft, Loader2, RefreshCw,
   TrendingDown, ClipboardList, Zap, Trophy,
@@ -251,8 +253,12 @@ export default function IndicadoresPage() {
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
+  const cfg = getOnboardingConfig('indicadores')!
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-10">
+
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
 
       {/* Header */}
       <div className="flex items-center gap-3">

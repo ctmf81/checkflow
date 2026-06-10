@@ -11,6 +11,8 @@ import { EditarGrupoModal } from './EditarGrupoModal'
 import { UsuariosGrupoModal } from './UsuariosGrupoModal'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 
 interface Grupo {
   id: string
@@ -69,8 +71,11 @@ export default function GruposPage() {
     </div>
   )
 
+  const cfg = getOnboardingConfig('grupos')!
+
   return (
     <>
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-800">{grupoLabel}</h1>

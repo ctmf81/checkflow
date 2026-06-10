@@ -61,6 +61,26 @@ Layout: `sistema/layout.tsx`
 | `/sistema/empresas/[id]` | `sistema/empresas/[id]/page.tsx` | Company details |
 | `/sistema/whatsapp` | `sistema/whatsapp/page.tsx` | WhatsApp QR / Evolution API config |
 | `/sistema/termos` | `sistema/termos/page.tsx` | Edita o Termo de Uso único (gera nova versão ao salvar) |
+| `/sistema/onboarding` | `sistema/onboarding/page.tsx` | Ativa/desativa e edita (JSON) o conteúdo do onboarding contextual de cada tela |
+
+## Onboarding Contextual (`apps/web/components/onboarding/`)
+
+| File | Purpose |
+|------|---------|
+| `Onboarding.tsx` | Wrapper — `<Onboarding pageId titulo cards />`. Renderiza painel + ícone "?" (canto inferior direito, oculto em mobile) |
+| `OnboardingPanel.tsx` | Painel deslizante com cards (icon, titulo, texto, dicas?, fluxo?) |
+| `OnboardingIcon.tsx` | Botão "?" fixo, reabre o painel |
+| `registry.ts` | **`ONBOARDING_REGISTRY`** — lista central `{ pageId, titulo, cards }` de TODAS as telas. `getOnboardingConfig(pageId)` |
+| `configs.ts` | Conteúdo "rico" original das 6 primeiras telas (importado pelo registry) |
+| `hooks/useOnboarding.ts` | Estado local (localStorage `checkflow_onboarding_visto`) + busca `ativo`/`cards_override` na tabela `onboarding_paginas` |
+
+Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`): `page_id` (pk), `titulo`, `ativo`, `cards_override` (jsonb, null = usa o padrão do registry). Editável via `/sistema/onboarding` (somente `is_admin_sistema()`).
+
+### ⚠️ Regra de evolução — toda tela/funcionalidade nova
+1. Adicionar entrada em `registry.ts` (`pageId`, `titulo`, `cards`).
+2. Renderizar `<Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />` como primeiro elemento do JSX da página (via `getOnboardingConfig('pageId')!`).
+3. Adicionar `insert ... on conflict do nothing` em uma migration para a nova `page_id` em `onboarding_paginas`.
+4. Se a tela expõe um recurso/ação novo, adicionar em `apps/web/app/gestao/acessos/perfis/permissoes.ts`.
 
 ## Key Components (`apps/web/components/`)
 

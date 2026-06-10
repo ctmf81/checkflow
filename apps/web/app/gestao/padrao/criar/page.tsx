@@ -6,6 +6,8 @@ import { Plus, Trash2, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 
 interface VariavelOpt { id: string; nome: string; valores: { id: string; valor: string }[] }
 interface Instancia { id?: string; valores: Record<string, string>; valor_min: string; valor_max: string }
@@ -183,8 +185,11 @@ function CriarPadraoInner() {
 
   if (carregando) return <div className="p-6"><p className="text-sm text-gray-400">Carregando...</p></div>
 
+  const cfg = getOnboardingConfig('padrao-criar')!
+
   return (
     <div className="p-6 max-w-3xl mx-auto pb-24">
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <button onClick={() => router.push('/gestao/padrao/padroes')}
         className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4">
         <ArrowLeft size={15} />Voltar para padrões

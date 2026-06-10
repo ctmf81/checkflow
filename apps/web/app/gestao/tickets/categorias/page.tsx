@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, ChevronRight, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 
 interface Categoria { id: string; nome: string; pai_id: string | null; e_generica: boolean; ativo: boolean }
 
@@ -58,8 +60,11 @@ export default function TicketCategoriasPage() {
   const raizes = cats.filter(c => !c.pai_id)
   const filhos = (paiId: string) => cats.filter(c => c.pai_id === paiId)
 
+  const cfg = getOnboardingConfig('tickets-categorias')!
+
   return (
     <div className="p-6 max-w-2xl mx-auto">
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-800">Categorias de Tickets</h1>

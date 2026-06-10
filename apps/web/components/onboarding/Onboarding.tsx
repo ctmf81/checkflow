@@ -25,7 +25,9 @@ interface Props {
  * - Ícone "?" sempre disponível para rever as dicas
  */
 export function Onboarding({ pageId, titulo, cards }: Props) {
-  const { aberto, jaViu, cardAtual, abrir, fechar, proximo, anterior } = useOnboarding(pageId)
+  const { aberto, jaViu, cardAtual, ativo, cards: cardsAtivos, abrir, fechar, proximo, anterior } = useOnboarding(pageId, cards)
+
+  if (!ativo) return null
 
   return (
     <>
@@ -36,12 +38,12 @@ export function Onboarding({ pageId, titulo, cards }: Props) {
       <OnboardingPanel
         pageId={pageId}
         titulo={titulo}
-        cards={cards}
+        cards={cardsAtivos}
         aberto={aberto}
         jaViu={jaViu}
         cardAtual={cardAtual}
         onFechar={fechar}
-        onProximo={() => proximo(cards.length)}
+        onProximo={() => proximo(cardsAtivos.length)}
         onAnterior={anterior}
       />
     </>

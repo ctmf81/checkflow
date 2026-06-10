@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { TurnoModal } from './TurnoModal'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 
 interface Turno {
   id: string
@@ -79,8 +81,11 @@ export default function TurnosPage() {
     </div>
   )
 
+  const cfg = getOnboardingConfig('acessos-turnos')!
+
   return (
     <>
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-800">Turnos</h1>

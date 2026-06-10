@@ -5,6 +5,8 @@ import { Plus, FileText, Search, MoreVertical, AlertCircle, Pencil, Layers, Powe
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { NovoDocumentoModal, DocumentoBase } from './NovoDocumentoModal'
 import { EditarDocumentoModal } from './EditarDocumentoModal'
 import { DuplicarDocumentoModal } from './DuplicarDocumentoModal'
@@ -167,8 +169,11 @@ export default function DocumentosPage() {
     </div>
   )
 
+  const cfg = getOnboardingConfig('config-documentos')!
+
   return (
     <>
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-800">Documentos</h1>

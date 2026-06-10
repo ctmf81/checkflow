@@ -5,6 +5,8 @@ import { Plus, Pencil, Trash2, AlertCircle, GitBranch } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { CausaRaizModal } from './CausaRaizModal'
 
 interface CausaRaiz {
@@ -79,8 +81,11 @@ export default function CausaRaizPage() {
     </div>
   )
 
+  const cfg = getOnboardingConfig('config-causa-raiz')!
+
   return (
     <>
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-800">Causa Raiz</h1>

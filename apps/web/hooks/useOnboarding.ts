@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { createClient } from '@/lib/supabase'
+import { OnboardingCardData } from '@/components/onboarding/OnboardingPanel'
 
 const STORAGE_KEY = 'checkflow_onboarding_visto'
 
@@ -20,10 +22,37 @@ function marcarComoVista(pageId: string) {
   }
 }
 
-export function useOnboarding(pageId: string) {
+export function useOnboarding(pageId: string, cardsPadrao: OnboardingCardData[]) {
   const [aberto, setAberto] = useState(false)
   const [jaViu, setJaViu] = useState(true) // começa true para evitar flash
   const [cardAtual, setCardAtual] = useState(0)
+  const [ativo, setAtivo] = useState(true)
+  const [cards, setCards] = useState<OnboardingCardData[]>(cardsPadrao)
+
+  // Carrega config (ativo / conteúdo customizado) do painel /sistema/onboarding
+  useEffect(() => {
+    let cancelado = false
+    async function carregarConfig() {
+      try {
+        const supabase = createClient()
+        const { data } = await supabase
+          .from('onboarding_paginas')
+          .select('ativo, cards_override')
+          .eq('page_id', pageId)
+          .maybeSingle()
+
+        if (cancelado || !data) return
+        setAtivo(data.ativo ?? true)
+        if (data.cards_override && Array.isArray(data.cards_override) && data.cards_override.length > 0) {
+          setCards(data.cards_override as OnboardingCardData[])
+        }
+      } catch {
+        // Em caso de erro, mantém ativo + conteúdo padrão
+      }
+    }
+    carregarConfig()
+    return () => { cancelado = true }
+  }, [pageId])
 
   useEffect(() => {
     const vistas = getPagesVistas()
@@ -57,5 +86,5 @@ export function useOnboarding(pageId: string) {
     setCardAtual(c => Math.max(c - 1, 0))
   }, [])
 
-  return { aberto, jaViu, cardAtual, abrir, fechar, proximo, anterior }
+  return { aberto, jaViu, cardAtual, ativo, cards, abrir, fechar, proximo, anterior }
 }

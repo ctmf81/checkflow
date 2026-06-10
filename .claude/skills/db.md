@@ -107,6 +107,16 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 
 **RLS:** via `usuario_unidade`. Escrita de categorias/SLA exige `usuario_tem_permissao('ticket','categorias_gerir')`.
 
+## Onboarding
+
+| Table | Notes |
+|-------|-------|
+| `onboarding_paginas` | `page_id` (pk), `titulo`, `ativo`, `cards_override` (jsonb, null = usa default do `registry.ts`) — 20260610030000 |
+
+**RLS:** select para qualquer `authenticated`; insert/update/delete só `is_admin_sistema()`. Editável via `/sistema/onboarding`.
+
+**Toda nova tela** deve ganhar uma linha aqui (insert `on conflict do nothing`) com o `page_id` usado em `registry.ts`.
+
 ### Notificação Templates (migration 20260609010000)
 | Table | Description |
 |-------|-------------|

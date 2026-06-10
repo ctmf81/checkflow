@@ -6,6 +6,8 @@ import { Plus, Ruler, Trash2, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 
 interface PadraoCard {
   id: string; nome: string; descricao: string | null
@@ -45,8 +47,11 @@ export default function PadroesPage() {
     carregar()
   }
 
+  const cfg = getOnboardingConfig('padrao-padroes')!
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Padrões</h1>

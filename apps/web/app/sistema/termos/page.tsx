@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { ShieldCheck, Save, History } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 
 interface Versao { id: string; versao: string; atualizado_em: string }
 
@@ -57,8 +59,11 @@ export default function TermosAdminPage() {
 
   if (loading) return <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
 
+  const cfg = getOnboardingConfig('sistema-termos')!
+
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <div className="flex items-center gap-2 mb-1">
         <ShieldCheck size={20} className="text-orange-500" />
         <h1 className="text-xl font-semibold text-gray-800">Termo de Uso</h1>

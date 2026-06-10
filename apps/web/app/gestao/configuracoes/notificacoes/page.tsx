@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { Save, Loader2, MessageCircle, Mail, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, Info } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -176,8 +178,11 @@ export default function NotificacoesPage() {
 
   if (loading) return <div className="py-16 text-center text-sm text-gray-400">Carregando…</div>
 
+  const cfg = getOnboardingConfig('config-notificacoes')!
+
   return (
     <div className="p-6 max-w-3xl mx-auto">
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-gray-800">Templates de Notificação</h1>
         <p className="text-sm text-gray-500 mt-0.5">

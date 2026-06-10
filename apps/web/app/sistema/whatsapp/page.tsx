@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from 'react'
 import QRCode from 'qrcode'
 import { RefreshCw, CheckCircle, XCircle, Smartphone, Settings, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api-production-5bce.up.railway.app'
 const CONFIG_KEY = 'checkflow_evo_config'
@@ -102,8 +104,11 @@ export default function WhatsAppPage() {
     return () => clearInterval(interval)
   }, [config.url, config.apiKey, config.instancia])
 
+  const cfg = getOnboardingConfig('sistema-whatsapp')!
+
   return (
     <div className="max-w-lg space-y-4">
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <div className="flex items-center gap-3 mb-2">
         <h1 className="text-xl font-bold text-gray-800">WhatsApp</h1>
         <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${

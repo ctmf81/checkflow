@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/Badge'
 import { UnidadeModal } from './UnidadeModal'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 
 interface Empresa {
   id: string
@@ -84,8 +86,11 @@ export default function EmpresaPage() {
     </div>
   )
 
+  const cfg = getOnboardingConfig('acessos-empresa')!
+
   return (
     <>
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <div className="space-y-6 max-w-2xl">
 
         {/* Card dados da empresa */}

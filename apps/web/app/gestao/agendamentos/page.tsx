@@ -8,6 +8,8 @@ import {
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Button } from '@/components/ui/Button'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -286,8 +288,11 @@ export default function AgendamentosPage() {
     </div>
   )
 
+  const cfg = getOnboardingConfig('agendamentos')!
+
   return (
     <>
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-800">Agendamentos</h1>

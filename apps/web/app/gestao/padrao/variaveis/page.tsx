@@ -5,6 +5,8 @@ import { Plus, Variable, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { VariavelModal, Variavel } from './VariavelModal'
 
 export default function VariaveisPage() {
@@ -39,8 +41,11 @@ export default function VariaveisPage() {
     carregar()
   }
 
+  const cfg = getOnboardingConfig('padrao-variaveis')!
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Variáveis</h1>

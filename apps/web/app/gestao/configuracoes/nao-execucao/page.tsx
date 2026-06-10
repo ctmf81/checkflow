@@ -5,6 +5,8 @@ import { Plus, Pencil, PowerOff, AlertCircle, Ban } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { MotivoModal } from './MotivoModal'
 
 interface Motivo {
@@ -68,8 +70,11 @@ export default function NaoExecucaoPage() {
     </div>
   )
 
+  const cfg = getOnboardingConfig('config-nao-execucao')!
+
   return (
     <>
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-800">Não execução</h1>
