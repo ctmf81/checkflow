@@ -64,6 +64,11 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
   const [modalParceiro, setModalParceiro] = useState(false)
   const [salvandoParceiro, setSalvandoParceiro] = useState(false)
   const [mensagemParceiro, setMensagemParceiro] = useState('')
+  const [erroParceiro, setErroParceiro] = useState('')
+  // Parceiro recém-cadastrado: boas-vindas só dispara DEPOIS do vínculo ser salvo
+  const [parceiroNovoPendente, setParceiroNovoPendente] = useState(false)
+  const [erroPag, setErroPag] = useState('')
+  const [erroConfig, setErroConfig] = useState('')
 
   // Config
   const [nomeEmp, setNomeEmp] = useState('')
@@ -115,50 +120,99 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
 
   async function salvarConfig() {
     setSalvando(true)
+    setErroConfig('')
     const supabase = createClient()
-    await supabase.from('empresas').update({
+    const { error } = await supabase.from('empresas').update({
       nome: nomeEmp, cnpj, status: statusEmp,
       atualizado_em: new Date().toISOString()
     }).eq('id', id)
     setSalvando(false)
+    if (error) setErroConfig(`Erro ao salvar: ${error.message}`)
+  }
+
+  // Aceita "1.234,56", "1234,56" e "1234.56" — retorna null se inválido
+  function parseValorBR(v: string): number | null {
+    const limpo = v.trim()
+    if (!limpo) return null
+    const normalizado = limpo.includes(',')
+      ? limpo.replace(/\./g, '').replace(',', '.')
+      : limpo
+    const n = Number(normalizado)
+    return Number.isFinite(n) ? n : NaN
   }
 
   async function salvarPagamento() {
+    setErroPag('')
+    const valorNum = parseValorBR(valor)
+    if (valorNum !== null && Number.isNaN(valorNum)) {
+      setErroPag('Valor inválido. Use o formato 1234,56.')
+      return
+    }
     setSalvandoPag(true)
     const supabase = createClient()
-    await supabase.from('empresas').update({
+    const { error } = await supabase.from('empresas').update({
       plano: plano || null,
-      valor_mensalidade: valor ? Number(valor.replace(',', '.')) : null,
+      valor_mensalidade: valorNum,
       pagamento_vencimento: vencimento || null,
       status_pagamento: statusPag || 'pendente',
       atualizado_em: new Date().toISOString()
     }).eq('id', id)
     setSalvandoPag(false)
+    if (error) setErroPag(`Erro ao salvar: ${error.message}`)
   }
 
   async function salvarParceiro() {
-    setSalvandoParceiro(true)
     setMensagemParceiro('')
+    setErroParceiro('')
+
+    const pctNum = parseValorBR(percentual)
+    if (parceiroAtual && pctNum !== null && (Number.isNaN(pctNum) || pctNum < 0 || pctNum > 100)) {
+      setErroParceiro('Percentual inválido — informe um número entre 0 e 100.')
+      return
+    }
+
+    setSalvandoParceiro(true)
     const supabase = createClient()
-    await supabase.from('empresas').update({
+    const { error } = await supabase.from('empresas').update({
       parceiro_id: parceiroAtual?.id ?? null,
-      parceiro_percentual: percentual ? Number(percentual.replace(',', '.')) : null,
+      // Sem parceiro não existe percentual — evita percentual órfão no banco
+      parceiro_percentual: parceiroAtual ? pctNum : null,
       atualizado_em: new Date().toISOString()
     }).eq('id', id)
+
+    if (error) {
+      setSalvandoParceiro(false)
+      setErroParceiro(`Erro ao salvar: ${error.message}`)
+      return
+    }
+
+    // Boas-vindas: só depois do vínculo estar de fato salvo no banco
+    if (parceiroAtual && parceiroNovoPendente) {
+      try {
+        const res = await fetch(`${API_URL}/parceiros/boas-vindas`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ parceiroId: parceiroAtual.id, empresaId: id }),
+        })
+        if (res.ok) {
+          setParceiroNovoPendente(false)
+          setMensagemParceiro('Parceiro salvo e e-mail de boas-vindas enviado.')
+        } else {
+          setMensagemParceiro('Parceiro salvo, mas o e-mail de boas-vindas falhou — reenvie pela tela Parceiros.')
+        }
+      } catch {
+        setMensagemParceiro('Parceiro salvo, mas o e-mail de boas-vindas falhou — reenvie pela tela Parceiros.')
+      }
+    } else {
+      setMensagemParceiro('Parceiro salvo com sucesso.')
+    }
     setSalvandoParceiro(false)
-    setMensagemParceiro('Parceiro salvo com sucesso.')
   }
 
   function onParceiroSelecionado(parceiro: ParceiroSelecionado) {
     setParceiroAtual({ id: parceiro.id, nome: parceiro.nome, email: parceiro.email })
+    setParceiroNovoPendente(parceiro.novo)
     setModalParceiro(false)
-    if (parceiro.novo) {
-      fetch(`${API_URL}/parceiros/boas-vindas`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ parceiroId: parceiro.id, empresaId: id }),
-      }).catch(() => {})
-    }
   }
 
   const abas: { key: Aba; label: string }[] = [
@@ -278,6 +332,9 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
               </div>
             </div>
+            {erroPag && (
+              <div className="text-xs bg-red-50 border border-red-200 text-red-600 rounded-lg px-3 py-2">{erroPag}</div>
+            )}
             <div className="flex justify-end pt-2">
               <Button onClick={salvarPagamento} disabled={salvandoPag}>
                 {salvandoPag ? 'Salvando...' : 'Salvar pagamento'}
@@ -331,6 +388,9 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
             {mensagemParceiro && (
               <div className="text-xs bg-green-50 border border-green-200 text-green-700 rounded-lg px-3 py-2">{mensagemParceiro}</div>
             )}
+            {erroParceiro && (
+              <div className="text-xs bg-red-50 border border-red-200 text-red-600 rounded-lg px-3 py-2">{erroParceiro}</div>
+            )}
 
             <div className="flex justify-end pt-2">
               <Button onClick={salvarParceiro} disabled={salvandoParceiro}>
@@ -363,6 +423,9 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
                 <option value="bloqueada">Bloqueada</option>
               </select>
             </div>
+            {erroConfig && (
+              <div className="text-xs bg-red-50 border border-red-200 text-red-600 rounded-lg px-3 py-2">{erroConfig}</div>
+            )}
             <div className="flex justify-end pt-2">
               <Button onClick={salvarConfig} disabled={salvando}>
                 {salvando ? 'Salvando...' : 'Salvar configurações'}

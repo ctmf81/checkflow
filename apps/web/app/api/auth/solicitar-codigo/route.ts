@@ -35,18 +35,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(RESPOSTA_GENERICA)
     }
 
+    // Sem telefone não há como entregar o código — mas a resposta continua
+    // genérica para não revelar que o CPF existe (anti-enumeração).
+    // O usuário legado sem telefone aparece na view `usuarios_sem_contato`.
     if (!usuario.telefone) {
-      return NextResponse.json({
-        message: 'Este usuário não possui telefone cadastrado para recuperação. Procure o administrador da sua empresa.',
-      }, { status: 422 })
+      console.warn(`[solicitar-codigo] usuário ${usuario.id} sem telefone — código não enviado`)
+      return NextResponse.json(RESPOSTA_GENERICA)
     }
 
-    // Anti-abuso: máx. 3 solicitações por hora
+    // Anti-abuso: máx. 3 solicitações por hora. Resposta genérica também aqui —
+    // um 429 só para CPFs existentes permitiria enumeração.
     const recentes = await contarSolicitacoesRecentes(supabaseAdmin, usuario.id, 'self_service')
     if (recentes >= 3) {
-      return NextResponse.json({
-        message: 'Muitas solicitações. Aguarde alguns minutos e tente novamente.',
-      }, { status: 429 })
+      console.warn(`[solicitar-codigo] rate limit atingido para usuário ${usuario.id}`)
+      return NextResponse.json(RESPOSTA_GENERICA)
     }
 
     const codigo = await criarCodigoOtp(supabaseAdmin, usuario.id, 'self_service')

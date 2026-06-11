@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Handshake, Mail, ExternalLink } from 'lucide-react'
+import { Search, Handshake, Mail, ExternalLink, Send } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { Badge } from '@/components/ui/Badge'
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api-production-5bce.up.railway.app'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 
@@ -37,6 +39,32 @@ export default function ParceirosPage() {
   const [parceiros, setParceiros] = useState<Parceiro[]>([])
   const [busca, setBusca] = useState('')
   const [loading, setLoading] = useState(true)
+  const [reenviando, setReenviando] = useState<string | null>(null)
+  const [avisoReenvio, setAvisoReenvio] = useState('')
+
+  async function reenviarBoasVindas(p: Parceiro) {
+    setReenviando(p.id)
+    setAvisoReenvio('')
+    try {
+      const empresaId = p.empresas[0]?.id
+      const res = await fetch(`${API_URL}/parceiros/boas-vindas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parceiroId: p.id, empresaId }),
+      })
+      if (res.ok) {
+        setParceiros(prev => prev.map(x =>
+          x.id === p.id ? { ...x, email_boasvindas_enviado_em: new Date().toISOString() } : x
+        ))
+      } else {
+        const body = await res.json().catch(() => null)
+        setAvisoReenvio(`Falha ao enviar boas-vindas para ${p.nome}: ${body?.error ?? res.statusText}`)
+      }
+    } catch {
+      setAvisoReenvio(`Falha ao enviar boas-vindas para ${p.nome}. Verifique a API.`)
+    }
+    setReenviando(null)
+  }
 
   useEffect(() => {
     async function carregar() {
@@ -88,6 +116,10 @@ export default function ParceirosPage() {
         <span className="text-sm text-gray-500 ml-auto">{filtrados.length} parceiro{filtrados.length !== 1 ? 's' : ''}</span>
       </div>
 
+      {avisoReenvio && (
+        <div className="mb-4 text-xs bg-red-50 border border-red-200 text-red-600 rounded-lg px-3 py-2">{avisoReenvio}</div>
+      )}
+
       {loading ? (
         <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
       ) : filtrados.length === 0 ? (
@@ -117,7 +149,14 @@ export default function ParceirosPage() {
                   {p.email_boasvindas_enviado_em ? (
                     <span className="text-green-600">E-mail de boas-vindas enviado</span>
                   ) : (
-                    <span className="text-gray-400">Boas-vindas pendente</span>
+                    <button
+                      onClick={() => reenviarBoasVindas(p)}
+                      disabled={reenviando === p.id}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-orange-200 text-orange-600 hover:bg-orange-50 transition-colors disabled:opacity-50"
+                    >
+                      <Send size={12} />
+                      {reenviando === p.id ? 'Enviando...' : 'Enviar boas-vindas'}
+                    </button>
                   )}
                 </div>
               </div>
