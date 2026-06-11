@@ -32,7 +32,7 @@ When debugging an error in logs: surface only the **last 20 lines** unless the u
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `CRON_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`
 
 ## Cron do resumo mensal de parceiros
-`POST /cron/parceiros/resumo-mensal` é chamado 1x/dia pelo GitHub Actions (`.github/workflows/cron-parceiros.yml`, 21:00 UTC) com header `x-cron-secret`. A rota só age no último dia do mês (idempotente por mês). Requer secret `CRON_SECRET` no GitHub (Settings → Secrets → Actions) **e** no Railway (serviço API) — mesmo valor. Disparo manual: aba Actions → "Cron — resumo mensal parceiros" → Run workflow.
+`POST /cron/parceiros/resumo-mensal` é chamado 1x/dia pelo **cron-job.org** (conta do usuário) com header `x-cron-secret: $CRON_SECRET`. A rota só age no último dia do mês (idempotente por mês — nos demais dias responde `skip`). `CRON_SECRET` precisa estar no Railway (serviço API) e no job do cron-job.org com o mesmo valor. Teste manual fora do último dia: body JSON `{"force": true}`.
 
 ## Evolution Rule
 When a new service, env var name, or deploy command is established, add it here. Keep the file under 40 lines.
