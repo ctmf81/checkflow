@@ -37,8 +37,10 @@ Next logical step: [one-sentence inference, only if obvious]
 |---|-------|-----------|
 | 1 | WhatsApp QR Code ainda não funciona (Evolution API + Redis) | 🟠 Alto |
 | 3 | `user` no SessionContext acessado via `as any` → pode ser undefined | 🟠 Alto |
-| 4 | Checklist publicado pode ter atividades editadas (sem proteção no montador) | 🟡 Médio |
 | 5 | Redirect para login ausente quando sessão expira na Operação | 🟡 Médio |
+| 6 | Permissões `ticket.ver`/`ticket.criar` existem no catálogo mas não são aplicadas (leitura/criação são por unidade) | 🟡 Médio |
+
+~~#4 (checklist publicado editável)~~ corrigido em 2026-06-11: montador abre publicado em somente-leitura, "Liberar edição" com confirm + banner exigindo republicação.
 
 ## Migrations aplicadas em produção (Supabase)
 - `20260606000005_security_hardening.sql` ✅ aplicada
@@ -49,6 +51,7 @@ Next logical step: [one-sentence inference, only if obvious]
 - `20260607000001_permissao_agendamentos.sql` ✅ aplicada
 - `20260607000002_turnos.sql` ✅ aplicada
 - `20260610080000_parceiros.sql` ⏳ NÃO aplicada — programa de parceiros (tabelas `parceiros`, `empresa_status_eventos`, `parceiro_emails_log` + colunas novas em `empresas`)
+- `20260611134557_hardening_regras_negocio.sql` ⏳ NÃO aplicada — policy tickets `tratar` com escopo de unidade; resultado nulo = reprovado no motor de workflow; execuções agendadas com `executado_por` nulo + `agendamento_id` + `data_expiracao`
 
 ## Features entregues em 2026-06-07
 - Fix build (parens nullish coalescing, cast PdfExecucao `as any`)

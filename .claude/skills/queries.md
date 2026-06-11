@@ -309,6 +309,31 @@ select workflow_avaliar_avanco('<execucao_id>');
 
 ## 9. Agendamentos (`/gestao/agendamentos`)
 
+### Execuções agendadas pendentes (aguardando operador)
+```sql
+-- Criadas por agendamentos_processar() com executado_por nulo (20260611134557)
+select ce.id, c.nome as checklist, ce.data_execucao, u.nome as unidade
+from checklist_execucoes ce
+join checklists c on c.id = ce.checklist_id
+join unidades u on u.id = ce.unidade_id
+where ce.status = 'em_andamento' and ce.executado_por is null
+  and ce.agendamento_id is not null
+order by ce.data_execucao;
+```
+
+### Execuções órfãs do comportamento ANTIGO (pré-20260611134557)
+```sql
+-- Em andamento, sem respostas, executado_por = criador do agendamento.
+-- Inspecionar antes de excluir — pode haver execuções manuais abandonadas.
+select ce.id, c.nome as checklist, ce.data_execucao, ce.executado_por
+from checklist_execucoes ce
+join checklists c on c.id = ce.checklist_id
+left join checklist_execucao_respostas r on r.execucao_id = ce.id
+where ce.status = 'em_andamento' and ce.agendamento_id is null
+  and r.id is null
+order by ce.data_execucao;
+```
+
 ### Próximos disparos
 ```sql
 select id, tipo_alvo, intervalo_unidade, intervalo_valor, proxima_execucao, ativo

@@ -96,7 +96,7 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - Ao publicar uma edição em `/sistema/termos`, é criada uma **nova versão** (registro novo, não sobrescreve) — todos os usuários com versão antiga são automaticamente questionados de novo no próximo acesso. Histórico de versões fica visível na própria tela de admin
 
 ## Turnos
-- Cadastro em `/gestao/configuracoes/turnos`, dois tipos:
+- Cadastro em `/gestao/acessos/turnos`, dois tipos:
   - **Administrativo**: horário fixo configurável por dia da semana (ex: seg-sex 08-17h, sábado 08-11h — cada dia com sua própria janela)
   - **Escala**: ciclo rotativo trabalho/folga a partir de uma data de referência (ex: 12x36, 24x48 — calculado continuamente, sem precisar recadastrar)
 - Vínculo opcional (1 turno por usuário) feito na edição do usuário (`UsuarioModal.tsx` em `/gestao/acessos/usuarios`)
