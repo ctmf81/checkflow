@@ -7,11 +7,8 @@ import { CheckCircle2, Circle } from 'lucide-react'
 import { CheckFlowLogo } from '@/components/auth/CheckFlowLogo'
 import { createClient } from '@/lib/supabase'
 
-type LoginMode = 'cpf' | 'email'
-
 export default function LoginPage() {
   const router = useRouter()
-  const [mode, setMode] = useState<LoginMode>('cpf')
   const [identificador, setIdentificador] = useState('')
   const [senha, setSenha] = useState('')
   const [manter, setManter] = useState(true)
@@ -26,13 +23,10 @@ export default function LoginPage() {
   }
 
   function handleIdentificador(e: React.ChangeEvent<HTMLInputElement>) {
-    const v = e.target.value
-    setIdentificador(mode === 'cpf' ? formatCPF(v) : v)
+    setIdentificador(formatCPF(e.target.value))
   }
 
   async function resolverEmail(): Promise<string | null> {
-    if (mode === 'email') return identificador
-
     // Usa função RPC security-definer para não expor a tabela usuarios via anon
     const supabase = createClient()
     const { data } = await supabase.rpc('buscar_email_por_cpf', { p_cpf: identificador })
@@ -56,7 +50,7 @@ export default function LoginPage() {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha })
 
       if (error) {
-        setErro('E-mail, CPF ou senha incorretos.')
+        setErro('CPF ou senha incorretos.')
         setLoading(false)
         return
       }
@@ -101,27 +95,15 @@ export default function LoginPage() {
         Acesse sua conta fornecendo suas credenciais de acesso
       </p>
 
-      <div className="flex gap-4 mb-5">
-        <button type="button" onClick={() => { setMode('cpf'); setIdentificador('') }} className="flex items-center gap-1.5 text-sm font-medium">
-          {mode === 'cpf' ? <CheckCircle2 size={18} className="text-orange-500" /> : <Circle size={18} className="text-gray-300" />}
-          <span className={mode === 'cpf' ? 'text-gray-800' : 'text-gray-400'}>CPF</span>
-        </button>
-        <button type="button" onClick={() => { setMode('email'); setIdentificador('') }} className="flex items-center gap-1.5 text-sm font-medium">
-          {mode === 'email' ? <CheckCircle2 size={18} className="text-orange-500" /> : <Circle size={18} className="text-gray-300" />}
-          <span className={mode === 'email' ? 'text-gray-800' : 'text-gray-400'}>E-mail</span>
-        </button>
-      </div>
-
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {mode === 'cpf' ? 'CPF' : 'E-mail'}
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
           <input
-            type={mode === 'email' ? 'email' : 'text'}
+            type="text"
+            inputMode="numeric"
             value={identificador}
             onChange={handleIdentificador}
-            placeholder={mode === 'cpf' ? 'Digite seu CPF' : 'Digite seu e-mail'}
+            placeholder="Digite seu CPF"
             className="w-full px-4 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200"
             required
           />
