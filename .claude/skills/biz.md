@@ -61,12 +61,13 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - Na execução: busca por texto, card expandido com imagem + todos atributos ao selecionar
 
 ## WhatsApp (Evolution API)
-- Integração via Evolution API v2.2.3 (Baileys)
+- Integração via Evolution API **v2.3.7** (imagem `evoapicloud/evolution-api:v2.3.7` no Railway — atualizada em 2026-06-11; a org `atendai` no Docker Hub está desatualizada)
+- Instância única: `checkflow` (Baileys)
 - Config armazenada em localStorage (`checkflow_evo_config`), não no DB
 - Status verificado a cada 5s via `POST /whatsapp/status`
 - QR gerado via `POST /whatsapp/conectar` (proxy no Fastify)
-- ⚠️ Problema conhecido: `connectionStatus: "close"` se Redis não está disponível
-  → Solução: `CACHE_REDIS_ENABLED=false` nas env vars da Evolution API no Railway
+- ⚠️ Histórico: v2.2.3 tinha bug de loop infinito de reconexão que impedia o QR de ser gerado (issue #2430 do EvolutionAPI, corrigido na v2.3.7) — NÃO fazer downgrade da imagem
+- Env vars relevantes no serviço Evolution: `CONFIG_SESSION_PHONE_VERSION`, `CACHE_REDIS_ENABLED=false`, `CACHE_LOCAL_ENABLED=true`
 
 ## Workflows
 - Pipeline de checklists com estágios **sequenciais** e execução **paralela dentro** de cada estágio

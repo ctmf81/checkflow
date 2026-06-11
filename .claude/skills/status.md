@@ -25,9 +25,9 @@ Next logical step: [one-sentence inference, only if obvious]
 
 ---
 
-## Pendências (atualizado 2026-06-07)
-- Configurar `pg_cron` definitivamente: `select cron.schedule('processar-agendamentos', '*/10 * * * *', $$select agendamentos_processar()$$);` (instruções já passadas ao usuário)
-- Testar fluxo de agendamentos end-to-end (criar agendamento com referência no passado e ver disparo)
+## Pendências (atualizado 2026-06-11)
+- ✅ `pg_cron` configurado em 2026-06-11 (job `processar-agendamentos`, */10 min, jobid 2) — conferir duplicata: `select * from cron.job;`
+- Testar fluxo de agendamentos end-to-end (criar agendamento com referência no passado e ver disparo — agora aparece como pendência da unidade na Operação)
 - Testar "motivo de não execução" (checklist precisa ter motivos associados na criação via ChecklistMontador)
 - Validar em produção: geolocalização desktop, busca catálogo "ads", vídeo quadrado/retângulo
 
@@ -35,7 +35,7 @@ Next logical step: [one-sentence inference, only if obvious]
 
 | # | Issue | Severidade |
 |---|-------|-----------|
-| 1 | WhatsApp QR Code ainda não funciona (Evolution API + Redis) | 🟠 Alto |
+| 1 | ~~WhatsApp QR Code não funciona~~ ✅ RESOLVIDO 2026-06-11 — bug do Evolution 2.2.3 (loop infinito de reconexão, issue #2430); fix = upgrade da imagem para `evoapicloud/evolution-api:v2.3.7` no Railway. QR gera normalmente; instâncias órfãs (`CheckFlow`, `checkflows`) deletadas, restou só `checkflow` | ✅ |
 | 3 | `user` no SessionContext acessado via `as any` → pode ser undefined | 🟠 Alto |
 | 5 | Redirect para login ausente quando sessão expira na Operação | 🟡 Médio |
 | 6 | Permissões `ticket.ver`/`ticket.criar` existem no catálogo mas não são aplicadas (leitura/criação são por unidade) | 🟡 Médio |
