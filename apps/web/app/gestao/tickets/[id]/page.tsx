@@ -76,6 +76,7 @@ export default function TicketDetalhe() {
   const [eventos,  setEventos]  = useState<Evento[]>([])
   const [loading,  setLoading]  = useState(true)
   const [userId,   setUserId]   = useState<string | null>(null)
+  const [podeCancelar, setPodeCancelar] = useState(false)
 
   // Formulário de ação
   const [texto,    setTexto]    = useState('')
@@ -86,6 +87,8 @@ export default function TicketDetalhe() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null))
+    supabase.rpc('usuario_tem_permissao', { p_recurso: 'ticket', p_acao: 'cancelar' })
+      .then(({ data }) => setPodeCancelar(!!data))
   }, [])
 
   async function carregar() {
@@ -131,6 +134,9 @@ export default function TicketDetalhe() {
     if (s === 'em_tratamento' && ehAssignee) {
       acoes.push({ label: 'Solicitar informação', tipo: 'devolucao', novoStatus: 'aguardando_informacao', variante: 'ghost' })
       acoes.push({ label: 'Propor conclusão', tipo: 'conclusao_proposta', novoStatus: 'aguardando_validacao', variante: 'primary' })
+    }
+    // Improcedência exige a permissão ticket.cancelar (regra de negócio)
+    if (s === 'em_tratamento' && ehAssignee && podeCancelar) {
       acoes.push({ label: 'Marcar improcedente', tipo: 'improcedencia', novoStatus: 'improcedente', variante: 'danger' })
     }
     if (s === 'aguardando_informacao' && ehAbridor) {
@@ -141,18 +147,19 @@ export default function TicketDetalhe() {
       acoes.push({ label: 'Confirmar: corrigido parcial',  tipo: 'validacao', novoStatus: 'corrigido_parcialmente', variante: 'ghost' })
       acoes.push({ label: 'Devolver: não corrigido',       tipo: 'validacao', novoStatus: 'nao_corrigido',          variante: 'danger' })
     }
+    // Reabertura volta para 'aberto' (sem assignee) — novo aceite é necessário
     const fechados = ['corrigido', 'nao_corrigido', 'corrigido_parcialmente']
     if (fechados.includes(s) && ehAbridor) {
-      acoes.push({ label: 'Reabrir ticket', tipo: 'reabertura', novoStatus: 'em_tratamento', variante: 'ghost' })
+      acoes.push({ label: 'Reabrir ticket', tipo: 'reabertura', novoStatus: 'aberto', variante: 'ghost' })
     }
     // Comentário sempre disponível em tickets abertos
     const abertos = ['aberto','em_tratamento','aguardando_informacao','aguardando_validacao']
     if (abertos.includes(s)) {
       acoes.push({ label: 'Comentar', tipo: 'comentario', novoStatus: s, variante: 'ghost' })
     }
-    // Cancelar: abridor ou admin, tickets não finalizados
+    // Cancelar: abridor do ticket ou quem tem a permissão ticket.cancelar
     const naoFinalizados = ['aberto','em_tratamento','aguardando_informacao','aguardando_validacao']
-    if (naoFinalizados.includes(s) && (ehAbridor || ehAssignee)) {
+    if (naoFinalizados.includes(s) && (ehAbridor || podeCancelar)) {
       acoes.push({ label: 'Cancelar ticket', tipo: 'cancelamento', novoStatus: 'cancelado', variante: 'danger' })
     }
     return acoes
@@ -162,17 +169,38 @@ export default function TicketDetalhe() {
     if (!texto.trim()) { setErro('Observação é obrigatória para registrar a ação.'); return }
     setEnviando(true); setErro(null)
 
-    // Se está assumindo, atualiza assignee
-    if (acao.tipo === 'aceite') {
-      await supabase.from('tickets').update({ assignee_id: userId, status: acao.novoStatus }).eq('id', id)
-    } else if (acao.novoStatus !== ticket!.status) {
-      await supabase.from('tickets').update({ status: acao.novoStatus }).eq('id', id)
+    // Atualiza o status ANTES de registrar o evento — RLS bloqueia updates
+    // silenciosamente (retorna 0 linhas, sem erro), então confere com .select()
+    // para não gravar na timeline uma transição que não aconteceu.
+    if (acao.tipo === 'aceite' || acao.novoStatus !== ticket!.status) {
+      const patch: Record<string, any> =
+        acao.tipo === 'aceite'     ? { assignee_id: userId, status: acao.novoStatus } :
+        acao.tipo === 'reabertura' ? { assignee_id: null,   status: acao.novoStatus } :
+                                     { status: acao.novoStatus }
+
+      const { data: atualizado, error: upErr } = await supabase
+        .from('tickets').update(patch).eq('id', id).select('id')
+
+      if (upErr || !atualizado || atualizado.length === 0) {
+        setEnviando(false)
+        setErro(upErr
+          ? `Erro ao atualizar o ticket: ${upErr.message}`
+          : 'Você não tem permissão para executar esta ação neste ticket.')
+        return
+      }
     }
 
     // Cria evento
-    const { data: evento } = await supabase.from('ticket_eventos').insert({
+    const { data: evento, error: evErr } = await supabase.from('ticket_eventos').insert({
       ticket_id: id, tipo: acao.tipo, texto: texto.trim(),
     }).select('id').single()
+
+    if (evErr) {
+      setEnviando(false)
+      setErro(`Status atualizado, mas falhou ao registrar o evento: ${evErr.message}`)
+      carregar()
+      return
+    }
 
     // Upload evidências
     if (evento) {

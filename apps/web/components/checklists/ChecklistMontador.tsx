@@ -85,6 +85,19 @@ export default function ChecklistMontador({ checklistId }: Props) {
   const [secoes, setSecoes] = useState<Secao[]>([])
   const [salvando, setSalvando] = useState(false)
   const [id, setId] = useState<string | null>(checklistId)
+  // Guard: checklist publicado abre em modo somente-leitura — a estrutura
+  // publicada não pode ser mutada sem o operador estar ciente de que as
+  // mudanças valem imediatamente e exigem republicação (nova versão)
+  const [edicaoLiberada, setEdicaoLiberada] = useState(false)
+  const bloqueado = status === 'publicado' && !edicaoLiberada
+
+  function liberarEdicao() {
+    if (confirm(
+      'Este checklist está PUBLICADO. Alterações na estrutura passam a valer ' +
+      'imediatamente na Operação.\n\nAo terminar, clique em "Publicar" para ' +
+      'registrar uma nova versão. Deseja liberar a edição?'
+    )) setEdicaoLiberada(true)
+  }
 
   // Modal de atividade
   const [atividadeModal, setAtividadeModal] = useState<{
@@ -178,6 +191,7 @@ export default function ChecklistMontador({ checklistId }: Props) {
 
   async function salvar() {
     if (!nome.trim() || !unidadeAtiva?.id) return
+    if (bloqueado) return // publicado em modo somente-leitura
     setSalvando(true)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -340,14 +354,23 @@ export default function ChecklistMontador({ checklistId }: Props) {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={salvar} disabled={salvando}>
-            <Save size={14} />{salvando ? 'Salvando...' : 'Salvar'}
-          </Button>
-          <Button size="sm" onClick={publicar} disabled={!nome.trim()}>
-            <Send size={14} />Publicar
-          </Button>
+          {bloqueado ? (
+            <Button variant="outline" size="sm" onClick={liberarEdicao}>
+              ✏️ Liberar edição
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={salvar} disabled={salvando}>
+                <Save size={14} />{salvando ? 'Salvando...' : 'Salvar'}
+              </Button>
+              <Button size="sm" onClick={publicar} disabled={!nome.trim()}>
+                <Send size={14} />Publicar
+              </Button>
+            </>
+          )}
         </div>
       </div>
+
 
       {/* Dados gerais */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4 space-y-3">
@@ -447,12 +470,22 @@ export default function ChecklistMontador({ checklistId }: Props) {
         </div>
       )}
 
-      {id && status === 'publicado' && (
+      {id && bloqueado && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-4 flex items-start gap-2">
           <span className="text-blue-500 text-base leading-none mt-0.5">🔒</span>
           <div>
             <p className="text-xs font-semibold text-blue-800">Checklist publicado — somente leitura</p>
-            <p className="text-xs text-blue-600 mt-0.5">Para alterar as atividades, duplique este checklist e publique uma nova versão.</p>
+            <p className="text-xs text-blue-600 mt-0.5">Para alterar, duplique este checklist (gera um rascunho) ou use "Liberar edição" e publique uma nova versão ao terminar.</p>
+          </div>
+        </div>
+      )}
+
+      {id && status === 'publicado' && !bloqueado && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 mb-4 flex items-start gap-2">
+          <span className="text-amber-500 text-base leading-none mt-0.5">⚠️</span>
+          <div>
+            <p className="text-xs font-semibold text-amber-800">Edição liberada em checklist publicado</p>
+            <p className="text-xs text-amber-700 mt-0.5">As mudanças já valem imediatamente na Operação. Clique em "Publicar" ao terminar para registrar a nova versão.</p>
           </div>
         </div>
       )}
@@ -466,13 +499,13 @@ export default function ChecklistMontador({ checklistId }: Props) {
                 <GripVertical size={16} className="text-gray-300 flex-shrink-0" />
                 <input
                   value={secao.nome}
-                  onChange={e => status !== 'publicado' && renomearSecao(secao.id, e.target.value)}
-                  readOnly={status === 'publicado'}
+                  onChange={e => !bloqueado && renomearSecao(secao.id, e.target.value)}
+                  readOnly={bloqueado}
                   className="flex-1 text-sm font-semibold bg-transparent border-none outline-none text-gray-700 focus:bg-white focus:px-2 focus:rounded transition-all read-only:cursor-default"
                 />
                 <span className="text-xs text-gray-400">{secao.atividades.length} atividades</span>
                 <div className="flex items-center gap-1">
-                  {status !== 'publicado' && (
+                  {!bloqueado && (
                     <>
                       <button onClick={() => moverSecao(sIdx, -1)} disabled={sIdx === 0}
                         className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30">
@@ -488,7 +521,7 @@ export default function ChecklistMontador({ checklistId }: Props) {
                     className="p-1 text-gray-400 hover:text-orange-500">
                     {secao.expandida ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                   </button>
-                  {status !== 'publicado' && (
+                  {!bloqueado && (
                     <button onClick={() => deletarSecao(secao.id)} className="p-1 text-gray-400 hover:text-red-500">
                       <Trash2 size={14} />
                     </button>
@@ -502,6 +535,7 @@ export default function ChecklistMontador({ checklistId }: Props) {
                   {secao.atividades.map((atv, aIdx) => (
                     <AtividadeRow
                       key={atv.id} atividade={atv} idx={aIdx} total={secao.atividades.length}
+                      readonly={bloqueado}
                       onMover={(dir) => moverAtividade(secao.id, aIdx, dir)}
                       onEditar={() => setAtividadeModal({ secaoId: secao.id, atividade: atv })}
                       onDeletar={() => deletarAtividade(atv.id, secao.id)}
@@ -511,7 +545,7 @@ export default function ChecklistMontador({ checklistId }: Props) {
                     />
                   ))}
 
-                  {status !== 'publicado' && (
+                  {!bloqueado && (
                     <div className="px-4 py-2">
                       <button
                         onClick={() => setAtividadeModal({ secaoId: secao.id })}
@@ -525,7 +559,7 @@ export default function ChecklistMontador({ checklistId }: Props) {
             </div>
           ))}
 
-          {status !== 'publicado' && (
+          {!bloqueado && (
             <button onClick={adicionarSecao}
               className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:border-orange-300 hover:text-orange-500 transition-colors">
               <Plus size={15} />Adicionar seção
@@ -551,10 +585,11 @@ export default function ChecklistMontador({ checklistId }: Props) {
   )
 }
 
-function AtividadeRow({ atividade, idx, total, onMover, onEditar, onDeletar, onAdicionarDependente, onEditarDependente, onDeletarDependente }: {
+function AtividadeRow({ atividade, idx, total, readonly, onMover, onEditar, onDeletar, onAdicionarDependente, onEditarDependente, onDeletarDependente }: {
   atividade: Atividade
   idx: number
   total: number
+  readonly?: boolean
   onMover: (dir: -1 | 1) => void
   onEditar: () => void
   onDeletar: () => void
@@ -603,10 +638,14 @@ function AtividadeRow({ atividade, idx, total, onMover, onEditar, onDeletar, onA
               <span className="ml-0.5">{atividade.dependentes?.length}</span>
             </button>
           )}
-          <button onClick={() => onMover(-1)} disabled={idx === 0} className="p-1 text-gray-300 hover:text-gray-500 disabled:opacity-30"><ChevronUp size={13} /></button>
-          <button onClick={() => onMover(1)} disabled={idx === total - 1} className="p-1 text-gray-300 hover:text-gray-500 disabled:opacity-30"><ChevronDown size={13} /></button>
-          <button onClick={onEditar} className="p-1 text-gray-400 hover:text-orange-500"><Settings size={13} /></button>
-          <button onClick={onDeletar} className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={13} /></button>
+          {!readonly && (
+            <>
+              <button onClick={() => onMover(-1)} disabled={idx === 0} className="p-1 text-gray-300 hover:text-gray-500 disabled:opacity-30"><ChevronUp size={13} /></button>
+              <button onClick={() => onMover(1)} disabled={idx === total - 1} className="p-1 text-gray-300 hover:text-gray-500 disabled:opacity-30"><ChevronDown size={13} /></button>
+              <button onClick={onEditar} className="p-1 text-gray-400 hover:text-orange-500"><Settings size={13} /></button>
+              <button onClick={onDeletar} className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={13} /></button>
+            </>
+          )}
         </div>
       </div>
 
@@ -626,12 +665,16 @@ function AtividadeRow({ atividade, idx, total, onMover, onEditar, onDeletar, onA
               <TipoIcon tipo={dep.tipo} size="sm" />
               <span className="text-sm text-gray-700 flex-1 truncate">{dep.nome}</span>
               <span className="text-xs text-blue-400 bg-blue-50 px-1.5 py-0.5 rounded flex-shrink-0">dependente</span>
-              <button onClick={() => onEditarDependente(dep)} className="p-1 text-gray-400 hover:text-orange-500"><Settings size={12} /></button>
-              <button onClick={() => onDeletarDependente(dep.id)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
+              {!readonly && (
+                <>
+                  <button onClick={() => onEditarDependente(dep)} className="p-1 text-gray-400 hover:text-orange-500"><Settings size={12} /></button>
+                  <button onClick={() => onDeletarDependente(dep.id)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
+                </>
+              )}
             </div>
           ))}
           {/* Botões para adicionar dependentes */}
-          {atividade.tipo === 'sim_nao' && (
+          {!readonly && atividade.tipo === 'sim_nao' && (
             <div className="flex gap-2 mt-1">
               <button onClick={() => onAdicionarDependente(atividade.id, 'sim')}
                 className="text-xs text-green-600 hover:text-green-700 flex items-center gap-1">
@@ -643,7 +686,7 @@ function AtividadeRow({ atividade, idx, total, onMover, onEditar, onDeletar, onA
               </button>
             </div>
           )}
-          {atividade.tipo === 'multipla_escolha' && opcoesMC.length > 0 && (
+          {!readonly && atividade.tipo === 'multipla_escolha' && opcoesMC.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-1">
               {opcoesMC.map(op => (
                 <button key={op.valor} onClick={() => onAdicionarDependente(atividade.id, op.valor)}
@@ -657,7 +700,7 @@ function AtividadeRow({ atividade, idx, total, onMover, onEditar, onDeletar, onA
       )}
 
       {/* Botão para abrir dependentes se não expandido */}
-      {!expandido && podeTerDependentes && !temDependentes && (
+      {!readonly && !expandido && podeTerDependentes && !temDependentes && (
         <div className="ml-8 mt-1">
           {atividade.tipo === 'sim_nao' && (
             <div className="flex gap-2">
