@@ -65,6 +65,11 @@ Next logical step: [one-sentence inference, only if obvious]
 - "Regra de evolução" documentada em `/uimap` e `/db`: toda tela nova ganha entrada no registry + onboarding + permissões automaticamente
 - Exclusão definitiva de empresa **inativa** com cascata completa (RPC `excluir_empresa_cascata`, fix de 8 FKs sem `on delete cascade`), modal de confirmação não-trivial (digitar nome da empresa + checkbox de ciência) em `/sistema/empresas/[id]`
 - Nova skill `/queries`: biblioteca de SQL de gestão organizada por tela/funcionalidade
+- **Login somente por CPF** (`/login` sem opção de e-mail) + provisionamento exige `cpf`+`telefone` (Fase 1, migration 20260610050000, view `usuarios_sem_contato`)
+- **Login por código (OTP)** completo (Fases 2-6): tabela `password_reset_tokens` (20260610060000), helpers em `apps/web/lib/passwordReset.ts`, rota `apps/api` `/whatsapp/enviar-codigo`, template `reset_senha` migrado para `{{codigo}}` (20260610070000)
+  - `/recuperar-senha` e `/nova-senha` reescritos para fluxo CPF → código → nova senha (sem `resetPasswordForEmail`)
+  - `/primeiro-acesso` (nova página): código de boas-vindas enviado automaticamente na criação/importação de usuário
+  - Botão "Resetar senha" em `/gestao/acessos/usuarios` → `/api/usuarios/resetar-senha` (admin_sistema ou `usuario_tem_permissao('usuarios','editar')`)
 
 ## Features entregues nesta sessão
 - Inativar/Duplicar checklist (com picker de destino)

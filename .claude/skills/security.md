@@ -99,6 +99,13 @@ Cobre: headers de segurança (HSTS/X-Frame-Options/nosniff), CORS, cookies de se
 
 ⚠️ Padrão para novas RPCs `security definer`: sempre `revoke all ... from public` + `grant execute ... to authenticated`, e validar role/condições de negócio **dentro** da função (nunca confiar só na UI).
 
+## Login por Código (OTP) — Anti-abuso (2026-06-10)
+- `password_reset_tokens` (sem RLS, só service role) guarda apenas `codigo_hash` (sha256), nunca o código em texto puro
+- Códigos de 6 dígitos, expiram em 15 min, máx. 5 tentativas (incrementa `tentativas` a cada erro)
+- `/api/auth/solicitar-codigo` (self-service) sempre retorna mensagem genérica — não revela se o CPF existe; limite 3 envios/hora por usuário
+- `/api/usuarios/resetar-senha` (gestor) exige Bearer token + `is_admin_sistema()` ou `usuario_tem_permissao('usuarios','editar')` (RPC chamada com client autenticado via header `Authorization`, para `auth.uid()` resolver corretamente); limite 5 envios/hora por usuário
+- Token de sessão pós-verificação (`sessao_senha`) é de uso único e expira em 10 min — separa "validar código" de "definir senha"
+
 ## DevOps — Serviços Railway
 | Serviço | URL | Notas |
 |---------|-----|-------|

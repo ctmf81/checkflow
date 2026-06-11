@@ -103,6 +103,23 @@ left join usuario_empresa ue on ue.usuario_id = u.id
 where ue.usuario_id is null;
 ```
 
+### Códigos de verificação (OTP) — recuperação/reset/primeiro acesso
+```sql
+select prt.id, u.nome, u.cpf, prt.tipo, prt.usado, prt.tentativas, prt.expira_em, prt.criado_em
+from password_reset_tokens prt
+join usuarios u on u.id = prt.usuario_id
+where u.cpf = '<cpf>'
+order by prt.criado_em desc
+limit 10;
+```
+
+### Forçar expiração de todos os códigos pendentes de um usuário (suporte)
+```sql
+-- ⚠️
+update password_reset_tokens set usado = true
+where usuario_id = '<usuario_id>' and usado = false;
+```
+
 ---
 
 ## 3. Onboarding (`/sistema/onboarding`)

@@ -34,6 +34,7 @@ Generate timestamp: `(Get-Date -Format "yyyyMMddHHmmss")` (PowerShell)
 | `usuario_empresa` | M:N user ↔ empresa |
 | `usuario_unidade` | M:N user ↔ unidade |
 | `sessao_usuario` | Last active empresa/unidade/ambiente per user |
+| `password_reset_tokens` | OTP de 6 dígitos para login por código (20260610060000). `tipo`: `primeiro_acesso`\|`reset_admin`\|`self_service`\|`sessao_senha`. `codigo_hash` (sha256), `expira_em` (15min OTP / 10min sessão), `tentativas` (máx 5), `usado`. Sem RLS policies — só service role (`apps/web/lib/passwordReset.ts`) |
 
 ### Taxonomy
 | Table | Description |
@@ -123,6 +124,8 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 | `notificacao_templates` | Um registro por `(empresa_id, tipo, canal)`. Unique em trio. `corpo` usa `{{variavel}}` para interpolação. `assunto` só para email. `ativo` permite desabilitar canal por tipo |
 
 **Enums:** `notificacao_tipo` (ticket_aberto/ticket_movimentado/plano_aberto/plano_enviado_n2/reset_senha), `notificacao_canal` (whatsapp/email)
+
+⚠️ `reset_senha` agora envia **código de 6 dígitos** (`{{codigo}}`), não link — atualizado em `seed_notificacao_templates` na migration 20260610070000 (também faz `update` nos templates existentes que ainda tinham `{{link}}`).
 
 **Função `seed_notificacao_templates(empresa_id)`** — insere 10 templates padrão (5 tipos × 2 canais) com `on conflict do nothing`. Dollar-quoting correto: `$tpl$...$tpl$` dentro de função `$$...$$`.
 

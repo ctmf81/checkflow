@@ -185,6 +185,16 @@ aberto → em_tratamento (aceite) → aguardando_informacao ↔ em_tratamento
 - Telefone é único no sistema (`usuarios_telefone_key`) — é o canal garantido para reset/recuperação de senha via WhatsApp
 - Usuários legados sem cpf/telefone aparecem na view `usuarios_sem_contato` (ver `/queries`) — precisam ser completados antes de poder fazer login por CPF ou receber reset por WhatsApp
 
+## Login por Código (OTP) — Recuperação, Reset Admin e Primeiro Acesso
+Implementado em 2026-06-10 (Fases 2-6 da estratégia de login). Tudo baseado em `password_reset_tokens` (ver `/db`) + envio via `apps/api` `/whatsapp/enviar-codigo` (WhatsApp + e-mail, template `reset_senha` com `{{codigo}}`).
+
+- **Primeiro acesso**: ao criar usuário (`/api/usuarios/criar`) ou importar (`/api/usuarios/importar`), gera-se automaticamente um código `primeiro_acesso` e dispara por WhatsApp (+ e-mail se houver). Usuário acessa `/primeiro-acesso`, informa CPF + código → recebe um token de sessão → `/nova-senha` define a senha (marca `primeiro_acesso = false`)
+- **Self-service ("esqueci minha senha")**: `/recuperar-senha` (CPF → código → `/nova-senha`). Resposta sempre genérica (`/api/auth/solicitar-codigo`) para não revelar se o CPF existe. Limite: 3 solicitações/hora por usuário
+- **Reset disparado por gestor**: botão "Resetar senha" (ícone chave) em `/gestao/acessos/usuarios`, chama `/api/usuarios/resetar-senha` (gated por `is_admin_sistema()` ou `usuario_tem_permissao('usuarios','editar')`). Envia código `reset_admin` por WhatsApp ao usuário. Limite: 5/hora por usuário
+- Fluxo de verificação é unificado: `/api/auth/verificar-codigo` aceita código de qualquer um dos 3 tipos (`primeiro_acesso`/`reset_admin`/`self_service`), retorna um token de sessão de uso único (`sessao_senha`, 10min) consumido por `/api/auth/definir-senha`
+- Código expira em 15 minutos, máx. 5 tentativas
+- Pré-requisito: usuário precisa ter `telefone` cadastrado (ver provisionamento) — sem telefone, reset/primeiro acesso não funcionam
+
 ## Onboarding Contextual
 - Cada tela de `/gestao` e `/sistema` tem um card de onboarding (registry em `apps/web/components/onboarding/registry.ts`), com atalho "?" no canto inferior direito (oculto em mobile)
 - Conteúdo e visibilidade são controláveis pelo admin do sistema em `/sistema/onboarding` (tabela `onboarding_paginas`: `ativo`, `cards_override`)

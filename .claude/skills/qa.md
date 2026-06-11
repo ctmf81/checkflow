@@ -129,6 +129,15 @@ Cobre a validação por faixa [min, max] resolvida via combinação de variávei
 | Duplicar checklist para outra unidade | `checklists.spec.ts` | 🟡 Média |
 | Excluir empresa inativa — bloqueado sem digitar nome/checkbox; sucesso apaga toda a árvore de dados | `empresas.exclusao.spec.ts` | 🟡 Média |
 | Onboarding — toggle `ativo` em `/sistema/onboarding` esconde/mostra card na tela alvo | `onboarding.spec.ts` | 🟢 Baixa |
+| Recuperação de senha por código (CPF → OTP WhatsApp → nova senha) | `recuperar-senha.spec.ts` | 🔴 Alta |
+| Primeiro acesso (CPF + código de boas-vindas → definir senha) | `primeiro-acesso.spec.ts` | 🔴 Alta |
+| Reset de senha disparado por gestor em `/gestao/acessos/usuarios` (permissão + envio) | `reset-admin.spec.ts` | 🟡 Média |
+
+### 🔴 Unit — `password_reset_tokens` helpers (a criar)
+| Teste | O que testa | Prioridade |
+|-------|-------------|-----------|
+| `validarCodigoOtp` — código certo/errado/expirado/máx tentativas | `lib/passwordReset.ts` | 🔴 Alta |
+| `validarSessaoSenha` — token de sessão de uso único | `lib/passwordReset.ts` | 🟡 Média |
 
 ---
 
