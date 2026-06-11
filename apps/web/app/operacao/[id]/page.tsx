@@ -1192,6 +1192,9 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   const [modalPlanoAtividade, setModalPlanoAtividade] = useState<Atividade | null>(null)
   // ID do item de workflow que originou esta execução (vem via ?wf_item=)
   const [wfItemId, setWfItemId] = useState<string | null>(null)
+  // ID de uma execução agendada pendente (vem via ?exec=) — completa a
+  // execução existente em vez de criar uma nova
+  const [execAgendadaId, setExecAgendadaId] = useState<string | null>(null)
   // Motivos de não execução associados ao checklist (separados por tipo)
   const [motivosChecklist, setMotivosChecklist] = useState<Motivo[]>([])
   const [motivosAtividade, setMotivosAtividade] = useState<Motivo[]>([])
@@ -1203,6 +1206,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     setWfItemId(params.get('wf_item'))
+    setExecAgendadaId(params.get('exec'))
   }, [])
 
   useEffect(() => { carregar() }, [id])
@@ -1437,25 +1441,44 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     const naoConformes = visiveis.filter(a => calcularValidacao({ ...a, resposta: respostas[a.id] }) === false)
     const resultado: 'aprovado' | 'reprovado' = naoConformes.length > 0 ? 'reprovado' : 'aprovado'
 
-    // Insere header da execução
+    // Header da execução: cria uma nova OU completa a execução agendada pendente
     const statusInicial = wfItemId ? 'em_andamento' : 'concluido'
-    const { data: execucao, error: execErr } = await sb.from('checklist_execucoes').insert({
-      checklist_id: checklist.id,
-      unidade_id: unidadeAtiva.id,
-      executado_por: user.id,
-      data_execucao: agora.toISOString(),
-      data_expiracao: dataExpiracao,
-      status: statusInicial,
-      resultado: wfItemId ? null : resultado,
-    }).select('id').single()
+    let execId: string
 
-    if (execErr || !execucao) {
-      setSalvando(false)
-      setErroFinalizar('Erro ao salvar execução. Tente novamente.')
-      return
+    if (execAgendadaId) {
+      // Execução agendada: assume a pendência existente em vez de duplicar
+      const { data: assumida, error: execErr } = await sb.from('checklist_execucoes').update({
+        executado_por: user.id,
+        data_execucao: agora.toISOString(),
+        data_expiracao: dataExpiracao,
+        status: statusInicial,
+        resultado: wfItemId ? null : resultado,
+      }).eq('id', execAgendadaId).eq('status', 'em_andamento').select('id')
+
+      if (execErr || !assumida || assumida.length === 0) {
+        setSalvando(false)
+        setErroFinalizar('Esta execução agendada não está mais disponível (pode já ter sido concluída por outro operador).')
+        return
+      }
+      execId = execAgendadaId
+    } else {
+      const { data: execucao, error: execErr } = await sb.from('checklist_execucoes').insert({
+        checklist_id: checklist.id,
+        unidade_id: unidadeAtiva.id,
+        executado_por: user.id,
+        data_execucao: agora.toISOString(),
+        data_expiracao: dataExpiracao,
+        status: statusInicial,
+        resultado: wfItemId ? null : resultado,
+      }).select('id').single()
+
+      if (execErr || !execucao) {
+        setSalvando(false)
+        setErroFinalizar('Erro ao salvar execução. Tente novamente.')
+        return
+      }
+      execId = execucao.id
     }
-
-    const execId = execucao.id
 
     // Se veio de workflow: linka o item antes de concluir
     if (wfItemId) {
@@ -1473,17 +1496,21 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       return sb.storage.from('execucoes').getPublicUrl(path).data.publicUrl
     }
 
-    // Monta respostas com uploads
+    // Monta respostas com uploads. Falha de upload em atividade OBRIGATÓRIA
+    // aborta a finalização — sem isso, uma foto obrigatória sumia em silêncio.
+    const falhasUpload: string[] = []
     const linhasRespostas = await Promise.all(visiveis.map(async a => {
       let resposta = respostas[a.id] ?? null
       if (a.tipo === 'foto' && resposta?.file instanceof File) {
         const ext = resposta.file.name.split('.').pop() ?? 'jpg'
         const url = await uploadArquivo(resposta.file, `${execId}/${a.id}.${ext}`)
+        if (!url && a.obrigatoria) falhasUpload.push(a.nome)
         resposta = url ? { url, nome: resposta.nome } : { nome: resposta.nome }
       }
       if (a.tipo === 'video' && resposta?.file instanceof File) {
         const ext = resposta.file.name.split('.').pop() ?? 'mp4'
         const url = await uploadArquivo(resposta.file, `${execId}/${a.id}.${ext}`)
+        if (!url && a.obrigatoria) falhasUpload.push(a.nome)
         resposta = url ? { url, nome: resposta.nome, origem: resposta.origem, dataArquivo: resposta.dataArquivo } : { nome: resposta.nome }
       }
       return {
@@ -1494,6 +1521,25 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       }
     }))
 
+    if (falhasUpload.length > 0) {
+      // Reverte o header para não deixar execução fantasma e devolve ao operador
+      if (execAgendadaId) {
+        await sb.from('checklist_execucoes').update({
+          executado_por: null, status: 'em_andamento', resultado: null,
+        }).eq('id', execId)
+      } else {
+        await sb.from('checklist_execucoes').delete().eq('id', execId)
+      }
+      if (wfItemId) {
+        await sb.from('workflow_item_execucoes').update({
+          status: 'liberado', checklist_execucao_id: null, iniciado_em: null,
+        }).eq('id', wfItemId)
+      }
+      setSalvando(false)
+      setErroFinalizar(`Falha ao enviar evidência obrigatória (${falhasUpload.join(', ')}). Verifique sua conexão e tente novamente.`)
+      return
+    }
+
     const { data: respostasInseridas, error: respErr } = await sb
       .from('checklist_execucao_respostas')
       .insert(linhasRespostas)
@@ -1502,6 +1548,12 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     if (respErr || !respostasInseridas) {
       // Execução já foi criada — marca como incompleta para não perder o registro
       await sb.from('checklist_execucoes').update({ status: 'nao_executado' }).eq('id', execId)
+      // Workflow: devolve o item para 'liberado', senão o estágio trava para sempre
+      if (wfItemId) {
+        await sb.from('workflow_item_execucoes').update({
+          status: 'liberado', checklist_execucao_id: null, iniciado_em: null,
+        }).eq('id', wfItemId)
+      }
       setSalvando(false)
       setErroFinalizar('Erro ao salvar respostas. Tente novamente.')
       return

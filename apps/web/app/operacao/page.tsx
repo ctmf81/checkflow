@@ -32,6 +32,10 @@ interface ItemWorkflowLiberado {
   item_execucao_id: string; checklist_id: string; checklist_nome: string
   workflow_nome: string; estagio_nome: string; subgrupo_nome: string | null
 }
+// Execução criada por um agendamento, aguardando que um operador a execute
+interface ExecucaoAgendada {
+  execucao_id: string; checklist_id: string; checklist_nome: string; criado_em: string
+}
 
 interface Execucao {
   id: string; checklist_nome: string; data_execucao: string
@@ -88,9 +92,9 @@ function dataRelativa(iso: string) {
 
 // ─── ABA: Checklists (conteúdo original) ────────────────────────────────────
 
-function AbaChecklists({ grupos, semGrupo, itensWorkflow, busca, setBusca }: {
+function AbaChecklists({ grupos, semGrupo, itensWorkflow, agendadas, busca, setBusca }: {
   grupos: GrupoAgrupado[]; semGrupo: Checklist[]
-  itensWorkflow: ItemWorkflowLiberado[]; busca: string
+  itensWorkflow: ItemWorkflowLiberado[]; agendadas: ExecucaoAgendada[]; busca: string
   setBusca: (v: string) => void
 }) {
   const router = useRouter()
@@ -108,6 +112,33 @@ function AbaChecklists({ grupos, semGrupo, itensWorkflow, busca, setBusca }: {
 
   return (
     <div className="space-y-6">
+      {/* Agendados pendentes */}
+      {agendadas.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <Clock size={16} className="text-amber-500" />
+            <h2 className="text-base font-bold text-gray-800">Agendados pendentes</h2>
+            <span className="text-xs bg-amber-100 text-amber-600 font-semibold px-2 py-0.5 rounded-full">{agendadas.length}</span>
+          </div>
+          <div className="space-y-2">
+            {agendadas.map(ag => (
+              <button key={ag.execucao_id}
+                onClick={() => router.push(`/operacao/${ag.checklist_id}?exec=${ag.execucao_id}`)}
+                className="w-full text-left bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5 flex items-center gap-3 hover:border-amber-400 hover:shadow-sm active:scale-[0.99] transition-all">
+                <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Clock size={16} className="text-amber-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-800 text-sm">{ag.checklist_nome}</p>
+                  <p className="text-xs text-amber-600 mt-0.5">Agendado · {dataRelativa(ag.criado_em)}</p>
+                </div>
+                <ChevronRight size={16} className="text-amber-300 flex-shrink-0" />
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Workflows */}
       {itensWorkflow.length > 0 && (
         <section>
@@ -837,6 +868,7 @@ export default function OperacaoPage() {
   const [grupos, setGrupos] = useState<GrupoAgrupado[]>([])
   const [semGrupo, setSemGrupo] = useState<Checklist[]>([])
   const [itensWorkflow, setItensWorkflow] = useState<ItemWorkflowLiberado[]>([])
+  const [agendadas, setAgendadas] = useState<ExecucaoAgendada[]>([])
   const [busca, setBusca] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -911,6 +943,25 @@ export default function OperacaoPage() {
       }
       setItensWorkflow(liberados)
     }
+
+    // Execuções agendadas pendentes da unidade (criadas por agendamentos_processar,
+    // executado_por nulo = ainda sem operador). Qualquer operador pode assumir.
+    const { data: pendAgendadas } = await sb
+      .from('checklist_execucoes')
+      .select('id, data_execucao, checklist_id, checklists(nome)')
+      .eq('unidade_id', unidadeAtiva!.id)
+      .eq('status', 'em_andamento')
+      .is('executado_por', null)
+      .not('agendamento_id', 'is', null)
+      .order('data_execucao', { ascending: true })
+
+    setAgendadas((pendAgendadas ?? []).map((e: any) => ({
+      execucao_id: e.id,
+      checklist_id: e.checklist_id,
+      checklist_nome: (Array.isArray(e.checklists) ? e.checklists[0] : e.checklists)?.nome ?? '—',
+      criado_em: e.data_execucao,
+    })))
+
     setLoading(false)
   }
 
@@ -957,7 +1008,7 @@ export default function OperacaoPage() {
         <>
           {aba === 'checklists' && (
             <AbaChecklists grupos={grupos} semGrupo={semGrupo}
-              itensWorkflow={itensWorkflow} busca={busca} setBusca={setBusca} />
+              itensWorkflow={itensWorkflow} agendadas={agendadas} busca={busca} setBusca={setBusca} />
           )}
           {aba === 'historico' && <AbaHistorico unidadeId={unidadeAtiva.id} />}
           {aba === 'documentos' && <AbaDocumentos unidadeId={unidadeAtiva.id} />}
