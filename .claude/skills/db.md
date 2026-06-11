@@ -30,7 +30,7 @@ Generate timestamp: `(Get-Date -Format "yyyyMMddHHmmss")` (PowerShell)
 |-------|-------------|
 | `empresas` | Top-level tenants. Exclusão definitiva via RPC `excluir_empresa_cascata(p_empresa_id)` (somente `is_admin_sistema()`, somente status `inativo`) — 20260610040000 ajustou FKs (checklist_execucoes, workflow_execucoes, planos_acao, checklist_execucao_respostas) para `on delete cascade` |
 | `unidades` | Units within a company (`empresa_id`, `grupo_label`, `subgrupo_label`) |
-| `usuarios` | App users linked to `auth.users` |
+| `usuarios` | App users linked to `auth.users`. `cpf` (login, único) e `telefone` (WhatsApp, único quando preenchido — index `usuarios_telefone_key`, 20260610050000) são obrigatórios para novos cadastros (UI/API validam 11/10-11 dígitos); `email` é opcional — sem e-mail real, gera-se `<cpf>@checkflow.local`. View `usuarios_sem_contato` lista cadastros legados sem cpf/telefone |
 | `usuario_empresa` | M:N user ↔ empresa |
 | `usuario_unidade` | M:N user ↔ unidade |
 | `sessao_usuario` | Last active empresa/unidade/ambiente per user |

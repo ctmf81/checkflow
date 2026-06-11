@@ -12,10 +12,24 @@ export async function POST(req: NextRequest) {
   try {
     const { email, nome, cpf, telefone, senhaTemp } = await req.json()
 
+    const cpfDigits = (cpf ?? '').replace(/\D/g, '')
+    const telDigits = (telefone ?? '').replace(/\D/g, '')
+
+    if (cpfDigits.length !== 11) {
+      return NextResponse.json({ message: 'CPF é obrigatório e deve ter 11 dígitos.' }, { status: 400 })
+    }
+    if (telDigits.length < 10 || telDigits.length > 11) {
+      return NextResponse.json({ message: 'Telefone (com DDD) é obrigatório.' }, { status: 400 })
+    }
+
     const supabaseAdmin = makeAdmin()
 
+    // E-mail é opcional. Sem e-mail real, gera um endereço técnico
+    // (não-entregável) só para satisfazer o auth.users — login é por CPF.
+    const emailFinal = (email ?? '').trim() || `${cpfDigits}@checkflow.local`
+
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
+      email: emailFinal,
       password: senhaTemp,
       email_confirm: true,
       user_metadata: { nome, role: 'usuario' },
@@ -31,16 +45,21 @@ export async function POST(req: NextRequest) {
     const { error: dbError } = await supabaseAdmin.from('usuarios').insert({
       id: authData.user.id,
       nome,
-      email,
-      cpf: cpf || null,
-      telefone: telefone || null,
+      email: emailFinal,
+      cpf: cpfDigits,
+      telefone: telDigits,
       status: 'ativo',
       primeiro_acesso: true,
     })
 
     if (dbError) {
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
-      return NextResponse.json({ message: 'Erro ao salvar usuário.' }, { status: 500 })
+      const msg = dbError.code === '23505'
+        ? (dbError.message.includes('telefone')
+            ? 'Já existe um usuário cadastrado com esse telefone.'
+            : 'Já existe um usuário cadastrado com esse CPF ou e-mail.')
+        : 'Erro ao salvar usuário.'
+      return NextResponse.json({ message: msg }, { status: 409 })
     }
 
     return NextResponse.json({ id: authData.user.id }, { status: 201 })

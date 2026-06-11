@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase'
 
 interface UsuarioImport {
   nome: string
-  email: string
+  email?: string
   cpf?: string
   telefone?: string
 }
@@ -85,7 +85,7 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
   const [resultado, setResultado] = useState<{ criados: number; existentes: number; inativados: number; erros: number; detalhes?: any; message?: string } | null>(null)
 
   function baixarModelo() {
-    const csv = 'nome,email,cpf,telefone\nJoão Silva,joao@empresa.com,000.000.000-00,(11) 9 0000-0000'
+    const csv = 'nome,cpf,telefone,email\nJoão Silva,000.000.000-00,(11) 9 0000-0000,joao@empresa.com'
     const blob = new Blob([csv], { type: 'text/csv' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
@@ -101,8 +101,8 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
       const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''))
       const obj: any = {}
       headers.forEach((h, i) => { obj[h] = cols[i] ?? '' })
-      return { nome: obj.nome, email: obj.email, cpf: obj.cpf || undefined, telefone: obj.telefone || undefined }
-    }).filter(u => u.nome && u.email)
+      return { nome: obj.nome, email: obj.email || undefined, cpf: obj.cpf || undefined, telefone: obj.telefone || undefined }
+    }).filter(u => u.nome && (u.cpf || u.telefone))
     setPreview(usuarios)
   }
 
@@ -141,10 +141,10 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
       if (json.preview) {
         const usuarios = json.preview.map((item: any) => ({
           nome: mapeamento.nome ? item[mapeamento.nome] : '',
-          email: mapeamento.email ? item[mapeamento.email] : '',
+          email: mapeamento.email ? item[mapeamento.email] || undefined : undefined,
           cpf: mapeamento.cpf ? item[mapeamento.cpf] : undefined,
           telefone: mapeamento.telefone ? item[mapeamento.telefone] : undefined,
-        })).filter((u: UsuarioImport) => u.nome && u.email)
+        })).filter((u: UsuarioImport) => u.nome && (u.cpf || u.telefone))
         setPreviewApi(usuarios)
       }
     } catch { /* */ }
@@ -290,10 +290,10 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
                   {camposApi.length > 0 && (
                     <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 space-y-2">
                       <p className="text-xs font-medium text-gray-600">Mapeamento</p>
-                      {(['nome', 'email', 'cpf', 'telefone', 'status'] as const).map(campo => (
+                      {(['nome', 'cpf', 'telefone', 'email', 'status'] as const).map(campo => (
                         <div key={campo} className="flex items-center gap-2">
-                          <span className={`text-xs font-medium w-16 ${campo === 'nome' || campo === 'email' ? 'text-orange-600' : 'text-gray-500'}`}>
-                            {campo}{campo === 'nome' || campo === 'email' ? ' *' : ''}{campo === 'status' ? ' 🔵' : ''}
+                          <span className={`text-xs font-medium w-16 ${campo === 'nome' || campo === 'cpf' || campo === 'telefone' ? 'text-orange-600' : 'text-gray-500'}`}>
+                            {campo}{campo === 'nome' || campo === 'cpf' || campo === 'telefone' ? ' *' : ''}{campo === 'status' ? ' 🔵' : ''}
                           </span>
                           <span className="text-gray-400 text-xs">→</span>
                           <select value={mapeamento[campo]} onChange={e => setMapeamento(p => ({ ...p, [campo]: e.target.value }))}
@@ -313,7 +313,7 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
                         className="flex-1 px-2 py-1 text-xs border border-blue-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-300" />
                     </div>
                   )}
-                  {camposApi.length > 0 && mapeamento.nome && mapeamento.email && (
+                  {camposApi.length > 0 && mapeamento.nome && mapeamento.cpf && mapeamento.telefone && (
                     <div className="flex items-center gap-3">
                       <button onClick={verPreviewApi} disabled={carregando}
                         className="flex items-center gap-1.5 text-sm text-orange-500 hover:underline">
@@ -342,9 +342,9 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
                         <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center text-xs text-orange-600 font-bold flex-shrink-0">{i + 1}</div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-gray-800 truncate">{u.nome}</p>
-                          <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                          <p className="text-xs text-gray-500 truncate">{u.cpf || '— sem CPF —'} · {u.telefone || '— sem telefone —'}</p>
                         </div>
-                        {!u.nome || !u.email ? <AlertCircle size={14} className="text-red-400" /> : <Check size={14} className="text-green-400" />}
+                        {!u.nome || !u.cpf || !u.telefone ? <AlertCircle size={14} className="text-red-400" /> : <Check size={14} className="text-green-400" />}
                       </div>
                     ))}
                     {previewAtual.length > 10 && (

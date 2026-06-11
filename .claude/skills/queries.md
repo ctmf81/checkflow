@@ -90,6 +90,11 @@ set perfil_id = '<novo_perfil_id>'
 where usuario_id = '<usuario_id>' and empresa_id = '<empresa_id>';
 ```
 
+### Usuários legados sem CPF e/ou telefone (login/recuperação quebrados)
+```sql
+select * from usuarios_sem_contato;
+```
+
 ### Usuários sem nenhuma empresa vinculada (órfãos)
 ```sql
 select u.id, u.nome, u.email

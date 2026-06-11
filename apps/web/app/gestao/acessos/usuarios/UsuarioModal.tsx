@@ -116,6 +116,18 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErro('')
+
+    const cpfDigits = cpf.replace(/\D/g, '')
+    const telDigits = telefone.replace(/\D/g, '')
+    if (cpfDigits.length !== 11) {
+      setErro('CPF é obrigatório e deve ter 11 dígitos.')
+      return
+    }
+    if (telDigits.length < 10 || telDigits.length > 11) {
+      setErro('Telefone (com DDD) é obrigatório — usado para login e recuperação de senha via WhatsApp.')
+      return
+    }
+
     setSalvando(true)
 
     const supabase = createClient()
@@ -178,23 +190,26 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              E-mail <span className="text-gray-400 font-normal">(opcional)</span>
+            </label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@exemplo.com"
               disabled={isEdicao}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 disabled:opacity-60" required />
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 disabled:opacity-60" />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
             <input value={cpf} onChange={e => setCpf(formatCPF(e.target.value))} placeholder="000.000.000-00"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" required />
+            <p className="text-xs text-gray-400 mt-1">Usado para fazer login no sistema.</p>
           </div>
 
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Telefone (WhatsApp)</label>
               <input value={telefone} onChange={e => setTelefone(formatTelefone(e.target.value))} placeholder="(00) 9 0000-0000"
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" required />
             </div>
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">Perfil</label>
@@ -252,7 +267,7 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
 
           {!isEdicao && (
             <p className="text-xs text-gray-400 bg-gray-50 px-3 py-2 rounded-lg">
-              Uma senha temporária será gerada e o usuário receberá instruções de acesso por e-mail.
+              Uma senha temporária será gerada e o usuário receberá instruções de acesso por WhatsApp{email && ' e e-mail'}.
             </p>
           )}
 

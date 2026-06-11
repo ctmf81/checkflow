@@ -177,6 +177,14 @@ aberto → em_tratamento (aceite) → aguardando_informacao ↔ em_tratamento
 | `plano_enviado_n2` | **Apenas N2** do subgrupo |
 | `reset_senha` | O próprio usuário (WA + email) |
 
+## Provisionamento de Usuários (sem autocadastro)
+- Não há cadastro livre — todo usuário é criado por um admin (sistema/empresa) ou gestor de grupo, individualmente, em lote (CSV) ou via sincronização API
+- **Login é somente por CPF** (tela `/login` não tem mais opção de e-mail)
+- `cpf` (11 dígitos) e `telefone` (DDD + número, WhatsApp) são **obrigatórios** em qualquer via de cadastro — validados em `UsuarioModal`, `ImportarUsuariosModal` e nas rotas `/api/usuarios/criar` e `/api/usuarios/importar`
+- `email` é opcional; se não informado, gera-se um e-mail técnico não-entregável (`<cpf>@checkflow.local`) só para satisfazer `auth.users`
+- Telefone é único no sistema (`usuarios_telefone_key`) — é o canal garantido para reset/recuperação de senha via WhatsApp
+- Usuários legados sem cpf/telefone aparecem na view `usuarios_sem_contato` (ver `/queries`) — precisam ser completados antes de poder fazer login por CPF ou receber reset por WhatsApp
+
 ## Onboarding Contextual
 - Cada tela de `/gestao` e `/sistema` tem um card de onboarding (registry em `apps/web/components/onboarding/registry.ts`), com atalho "?" no canto inferior direito (oculto em mobile)
 - Conteúdo e visibilidade são controláveis pelo admin do sistema em `/sistema/onboarding` (tabela `onboarding_paginas`: `ativo`, `cards_override`)
