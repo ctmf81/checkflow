@@ -11,7 +11,7 @@ description: Quality Assurance for CheckFlow — test strategy, suites por tela/
 |--------|-----------|--------|
 | Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` |
 | E2E / Funcional | Playwright | 🔴 não instalado |
-| Pen Test (security, RLS) | `pentest/run.mjs` (Node nativo) | ✅ 29/29 (2026-06-07, após fix do bucket execucoes) |
+| Pen Test (security, RLS) | `pentest/run.mjs` (Node nativo) | 🔴 atualizado 2026-06-10, não rodado ainda — adicionada seção 9 (`password_reset_tokens` + `/api/auth`) |
 | HTTP Security Probe | `pentest/http_probe.mjs` (Node nativo, sem creds) | ✅ 25/26 (2026-06-08, após fix CORS + headers) |
 
 ### Instalar Vitest
@@ -62,9 +62,17 @@ npx playwright install chromium
 
 ## Suites Existentes
 
-### ✅ Pen Test (`pentest/run.mjs`)
-29 testes de segurança (RLS/multi-tenant, autenticado), 29/29 ✅. Ver `/security` para detalhes.
+### Pen Test (`pentest/run.mjs`)
+29 testes de segurança (RLS/multi-tenant, autenticado) das seções 1-8, 29/29 ✅ em 2026-06-07. Ver `/security` para detalhes.
 ⚠️ Achou e corrigiu (2026-06-07): bucket `execucoes` permitia `list()` por `anon` — ver migration `20260607110000`.
+
+#### 🔴 Seção 9 — Login por código (OTP), adicionada 2026-06-10, ainda não executada
+Cobre `password_reset_tokens` (RLS sem policies = deny-all) e as novas rotas `/api/auth/solicitar-codigo` e `/api/usuarios/resetar-senha`:
+- `anon` e usuário comum (`clientB`) não podem `select`/`insert`/`update` em `password_reset_tokens`
+- `/api/auth/solicitar-codigo` retorna resposta idêntica para CPF existente vs inexistente (anti-enumeração)
+- `/api/usuarios/resetar-senha` sem `Authorization` → 401; com usuário sem `usuarios.editar` → 403
+- Fixture atualizada: `userA` agora tem `cpf`/`telefone` reais (11 dígitos derivados do timestamp) e `status: 'ativo'`; `cpfInexistente` para o teste de enumeração. `BASE` de `testAPIRoutes()` corrigido para `WEB_BASE` (estava apontando para URL de API antiga, fazia os testes da seção 6 caírem em `info()`/network error silenciosamente).
+- Rodar com `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_KEY` do ambiente para validar antes de marcar ✅.
 
 ### ✅ HTTP Security Probe (`pentest/http_probe.mjs`)
 26 checagens black-box via HTTP contra produção (sem credenciais): headers de segurança, CORS, cookies, exposição de erro, TLS, XSS/SQLi heurístico, acesso anônimo à API. Categorias adaptadas do relatório "SENAI CONECTA".
@@ -133,11 +141,8 @@ Cobre a validação por faixa [min, max] resolvida via combinação de variávei
 | Primeiro acesso (CPF + código de boas-vindas → definir senha) | `primeiro-acesso.spec.ts` | 🔴 Alta |
 | Reset de senha disparado por gestor em `/gestao/acessos/usuarios` (permissão + envio) | `reset-admin.spec.ts` | 🟡 Média |
 
-### 🔴 Unit — `password_reset_tokens` helpers (a criar)
-| Teste | O que testa | Prioridade |
-|-------|-------------|-----------|
-| `validarCodigoOtp` — código certo/errado/expirado/máx tentativas | `lib/passwordReset.ts` | 🔴 Alta |
-| `validarSessaoSenha` — token de sessão de uso único | `lib/passwordReset.ts` | 🟡 Média |
+### ✅ Unit — Login por código (OTP) — `tests/unit/lib/passwordReset.unit.test.ts` (21 testes)
+Testa diretamente `lib/passwordReset.ts` (importado, não espelhado) via mock de `SupabaseClient` (chain/thenable que consome respostas em fila por ordem de `.from()`). Cobre: `hashValor` (determinístico, nunca expõe valor original), `criarCodigoOtp` (código de 6 dígitos, grava hash+tipo+expiração ~15min), `contarSolicitacoesRecentes` (anti-abuso), `validarCodigoOtp` (sem token / expirado / máx. tentativas / código errado incrementa `tentativas` / código certo marca `usado=true` e cria `sessao_senha`), `validarSessaoSenha` (sem token / expirado / hash incorreto / sucesso marca usado, uso único), `enviarCodigoUsuario` (payload para `/whatsapp/enviar-codigo`, omite e-mail `@checkflow.local`, omite campos ausentes, não lança em falha de rede).
 
 ---
 
