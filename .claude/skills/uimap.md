@@ -58,7 +58,8 @@ Layout: `sistema/layout.tsx`
 | Route | File | Purpose |
 |-------|------|---------|
 | `/sistema` | `sistema/page.tsx` | System overview |
-| `/sistema/empresas/[id]` | `sistema/empresas/[id]/page.tsx` | Company details |
+| `/sistema/empresas/[id]` | `sistema/empresas/[id]/page.tsx` | Company details — abas Administrador/Pagamento/Parceiro/Configurações. Aba "Pagamento" (plano, valor_mensalidade, status_pagamento, vencimento) e aba "Parceiro" (vínculo com `parceiros`, `parceiro_percentual`, via `ParceiroModal`) persistem em `empresas` |
+| `/sistema/parceiros` | `sistema/parceiros/page.tsx` | Listagem de parceiros (programa de indicação) — empresas vinculadas, plano, valor, percentual, comissão estimada/mês |
 | `/sistema/whatsapp` | `sistema/whatsapp/page.tsx` | WhatsApp QR / Evolution API config |
 | `/sistema/termos` | `sistema/termos/page.tsx` | Edita o Termo de Uso único (gera nova versão ao salvar) |
 | `/sistema/onboarding` | `sistema/onboarding/page.tsx` | Ativa/desativa e edita (JSON) o conteúdo do onboarding contextual de cada tela |
@@ -100,6 +101,11 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 |------|---------|
 | `Button.tsx` | Shared button component |
 
+### `modals/`
+| File | Purpose |
+|------|---------|
+| `ParceiroModal.tsx` | Busca parceiro existente por e-mail ou cadastra novo (`ParceiroSelecionado` com flag `novo`) — usado na aba "Parceiro" de `/sistema/empresas/[id]` |
+
 ## Context & Lib
 | File | Purpose |
 |------|---------|
@@ -112,6 +118,7 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 | `routes/whatsapp.ts` | POST /whatsapp/conectar, POST /whatsapp/status, POST /whatsapp/enviar, POST /whatsapp/recuperar-senha (WA + email, usa DB template) |
 | `routes/tickets.ts` | POST /tickets/notificar — busca template do banco, fallback hardcoded, envia WA+email para subgrupo ou abridor+assignee |
 | `routes/planos-acao.ts` | POST /planos-acao/notificar — N1 somente para aberto, N2 somente para enviado_n2 |
+| `routes/parceiros.ts` | POST /parceiros/boas-vindas (1x por parceiro), POST /cron/parceiros/resumo-mensal (protegido por `x-cron-secret`, último dia do mês) |
 | `lib/whatsapp.ts` | Evolution API helper (enviarWhatsApp, enviarWhatsAppMidia, statusInstancia) |
 | `lib/notificacao-templates.ts` | `buscarTemplate(sb, empresaId, tipo, canal)`, `renderizar(texto, vars)`, `empresaDeUnidade()`, `empresaDeSubgrupo()` |
 

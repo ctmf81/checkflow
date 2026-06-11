@@ -48,6 +48,7 @@ Next logical step: [one-sentence inference, only if obvious]
 - `20260606000016_motivo_nao_execucao_em_execucoes.sql` ✅ aplicada
 - `20260607000001_permissao_agendamentos.sql` ✅ aplicada
 - `20260607000002_turnos.sql` ✅ aplicada
+- `20260610080000_parceiros.sql` ⏳ NÃO aplicada — programa de parceiros (tabelas `parceiros`, `empresa_status_eventos`, `parceiro_emails_log` + colunas novas em `empresas`)
 
 ## Features entregues em 2026-06-07
 - Fix build (parens nullish coalescing, cast PdfExecucao `as any`)
@@ -70,6 +71,7 @@ Next logical step: [one-sentence inference, only if obvious]
   - `/recuperar-senha` e `/nova-senha` reescritos para fluxo CPF → código → nova senha (sem `resetPasswordForEmail`)
   - `/primeiro-acesso` (nova página): código de boas-vindas enviado automaticamente na criação/importação de usuário
   - Botão "Resetar senha" em `/gestao/acessos/usuarios` → `/api/usuarios/resetar-senha` (admin_sistema ou `usuario_tem_permissao('usuarios','editar')`)
+- **Programa de Parceiros** (indicação): migration `20260610080000_parceiros.sql` (⏳ não aplicada) — tabelas `parceiros`/`empresa_status_eventos`/`parceiro_emails_log` + colunas em `empresas` (`parceiro_id`, `parceiro_percentual`, `plano`, `valor_mensalidade`, `status_pagamento`, `pagamento_vencimento`). Aba "Parceiro" + aba "Pagamento" (agora wired) em `/sistema/empresas/[id]`, listagem `/sistema/parceiros`, `ParceiroModal`, rotas `apps/api/src/routes/parceiros.ts` (`/parceiros/boas-vindas`, `/cron/parceiros/resumo-mensal`), templates de e-mail em `email-templates.ts`. Falta: aplicar migration, configurar `CRON_SECRET`/Railway Cron, considerar RLS coluna-restrita em `empresas` para membros
 
 ## Features entregues nesta sessão
 - Inativar/Duplicar checklist (com picker de destino)

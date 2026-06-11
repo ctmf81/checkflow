@@ -368,6 +368,51 @@ select empresa_id, tipo, canal, ativo from notificacao_templates where canal = '
 
 ---
 
+## 14. Programa de Parceiros (`/sistema/parceiros`)
+
+### Listar parceiros com empresas vinculadas e comissão estimada
+```sql
+select pa.nome as parceiro, pa.email, e.nome as empresa, e.status, e.plano,
+       e.valor_mensalidade, e.parceiro_percentual,
+       round(e.valor_mensalidade * e.parceiro_percentual / 100, 2) as comissao_estimada
+from parceiros pa
+join empresas e on e.parceiro_id = pa.id
+order by pa.nome, e.nome;
+```
+
+### Vincular parceiro a uma empresa manualmente
+```sql
+-- ⚠️
+update empresas set parceiro_id = '<parceiro_id>', parceiro_percentual = <pct>
+where id = '<empresa_id>';
+```
+
+### Forçar reenvio do e-mail de boas-vindas (limpa o flag de idempotência)
+```sql
+-- ⚠️ depois rode POST /parceiros/boas-vindas { parceiroId }
+update parceiros set email_boasvindas_enviado_em = null where id = '<parceiro_id>';
+delete from parceiro_emails_log where parceiro_id = '<parceiro_id>' and tipo = 'boas_vindas';
+```
+
+### Ver histórico de envios do resumo mensal de um parceiro
+```sql
+select tipo, referencia, enviado_em
+from parceiro_emails_log
+where parceiro_id = '<parceiro_id>'
+order by enviado_em desc;
+```
+
+### Empresas que ficaram inativas neste mês (usado no resumo)
+```sql
+select e.nome, ev.status_anterior, ev.status_novo, ev.criado_em
+from empresa_status_eventos ev
+join empresas e on e.id = ev.empresa_id
+where ev.status_novo = 'inativo'
+  and ev.criado_em >= date_trunc('month', now());
+```
+
+---
+
 ## 13. Sessão (`sessao_usuario`)
 
 ### Forçar usuário a escolher empresa novamente no próximo login

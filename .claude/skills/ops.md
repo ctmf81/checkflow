@@ -29,7 +29,10 @@ When debugging an error in logs: surface only the **last 20 lines** unless the u
 | API (Fastify) | `api-production-5bce.up.railway.app` |
 
 ## Env Vars (nomes — nunca valores no chat)
-`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_API_URL`
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `CRON_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`
+
+## Pendência: cron do resumo mensal de parceiros
+`POST /cron/parceiros/resumo-mensal` (apps/api) precisa ser chamado 1x/dia (idempotente, só age no último dia do mês) por um scheduler externo — Railway Cron (ou similar) com header `x-cron-secret: $CRON_SECRET`. Ainda não configurado no Railway.
 
 ## Evolution Rule
 When a new service, env var name, or deploy command is established, add it here. Keep the file under 40 lines.

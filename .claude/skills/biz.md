@@ -200,6 +200,15 @@ Implementado em 2026-06-10 (Fases 2-6 da estratégia de login). Tudo baseado em 
 - Conteúdo e visibilidade são controláveis pelo admin do sistema em `/sistema/onboarding` (tabela `onboarding_paginas`: `ativo`, `cards_override`)
 - **Regra de evolução**: toda tela/funcionalidade nova precisa (1) entrada no `registry.ts`, (2) renderizar `<Onboarding pageId=... />`, (3) insert em `onboarding_paginas`, (4) entrada correspondente em `permissoes.ts` — ver `/uimap` e `/db`
 
+## Programa de Parceiros (indicação)
+- Toda `empresa` pode ter um `parceiro` vinculado (`empresas.parceiro_id`) + `parceiro_percentual` (% sobre `valor_mensalidade`)
+- Um parceiro pode estar vinculado a várias empresas — busca por e-mail evita duplicar cadastro (`ParceiroModal`)
+- **E-mail de boas-vindas**: disparado uma única vez, no primeiro vínculo do parceiro (idempotente via `parceiros.email_boasvindas_enviado_em` + `parceiro_emails_log`)
+- **Resumo mensal** (último dia do mês, idempotente por `parceiro_id+'resumo_mensal'+'YYYY-MM'`): lista, por empresa vinculada, plano + valor da mensalidade + comissão estimada (`valor_mensalidade × percentual / 100`, só para empresas `status='ativo'`); soma o total estimado; e informa quais empresas ficaram `inativo` no mês (via `empresa_status_eventos`)
+- Comissão é uma **projeção/estimativa** — reconciliação financeira real é fase futura (a implementar)
+- Gestão: aba "Parceiro" em `/sistema/empresas/[id]` (vínculo + percentual) e listagem geral em `/sistema/parceiros`
+- Disparo do resumo mensal depende de scheduler externo chamando `/cron/parceiros/resumo-mensal` (ver `/ops`) — ainda não configurado
+
 ## Exclusão Definitiva de Empresa
 - Apenas empresas com `status = 'inativo'` podem ser excluídas, e somente por `is_admin_sistema()` — validado na RPC `excluir_empresa_cascata`
 - Apaga em cascata: unidades, grupos, usuários vinculados, checklists, execuções, planos de ação, tickets, workflows

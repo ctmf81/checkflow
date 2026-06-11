@@ -28,7 +28,7 @@ Generate timestamp: `(Get-Date -Format "yyyyMMddHHmmss")` (PowerShell)
 ### Tenant & Auth
 | Table | Description |
 |-------|-------------|
-| `empresas` | Top-level tenants. Exclusão definitiva via RPC `excluir_empresa_cascata(p_empresa_id)` (somente `is_admin_sistema()`, somente status `inativo`) — 20260610040000 ajustou FKs (checklist_execucoes, workflow_execucoes, planos_acao, checklist_execucao_respostas) para `on delete cascade` |
+| `empresas` | Top-level tenants. Exclusão definitiva via RPC `excluir_empresa_cascata(p_empresa_id)` (somente `is_admin_sistema()`, somente status `inativo`) — 20260610040000 ajustou FKs (checklist_execucoes, workflow_execucoes, planos_acao, checklist_execucao_respostas) para `on delete cascade`. **20260610080000** adicionou: `parceiro_id` (FK → `parceiros`, on delete set null), `parceiro_percentual numeric(5,2)` (0-100), `plano text`, `valor_mensalidade numeric(10,2)`, `status_pagamento text` default `'pendente'` (em_dia/pendente/inadimplente/cancelado), `pagamento_vencimento date` |
 | `unidades` | Units within a company (`empresa_id`, `grupo_label`, `subgrupo_label`) |
 | `usuarios` | App users linked to `auth.users`. `cpf` (login, único) e `telefone` (WhatsApp, único quando preenchido — index `usuarios_telefone_key`, 20260610050000) são obrigatórios para novos cadastros (UI/API validam 11/10-11 dígitos); `email` é opcional — sem e-mail real, gera-se `<cpf>@checkflow.local`. View `usuarios_sem_contato` lista cadastros legados sem cpf/telefone |
 | `usuario_empresa` | M:N user ↔ empresa |
@@ -107,6 +107,15 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 - `trg_tickets_sla_pausa` — pausa SLA ao entrar em `aguardando_informacao`, acumula segundos ao sair
 
 **RLS:** via `usuario_unidade`. Escrita de categorias/SLA exige `usuario_tem_permissao('ticket','categorias_gerir')`.
+
+### Programa de Parceiros (migration 20260610080000, ⏳ não aplicada)
+| Table | Description |
+|-------|-------------|
+| `parceiros` | `nome, email (unique lower), telefone, documento, status status_geral default 'ativo', email_boasvindas_enviado_em, criado_em, criado_por, atualizado_em`. Um parceiro pode estar vinculado a várias `empresas` |
+| `empresa_status_eventos` | Audit trail de mudanças de `empresas.status` — populado pelo trigger `empresas_log_status_change()` (AFTER UPDATE em `empresas`). Usado para detectar empresas que ficaram `inativo` no mês |
+| `parceiro_emails_log` | Idempotência de envio de e-mail: `unique(parceiro_id, tipo, referencia)`. `tipo`: `boas_vindas` (referencia null) \| `resumo_mensal` (referencia = `'YYYY-MM'`) |
+
+**Fluxo:** vínculo parceiro↔empresa e `parceiro_percentual` editados na aba "Parceiro" de `/sistema/empresas/[id]`. Cadastro/seleção de parceiro via `ParceiroModal.tsx`. E-mail de boas-vindas: `POST /parceiros/boas-vindas` (apps/api). Resumo mensal (todo fim de mês, projeção de comissão = `valor_mensalidade × parceiro_percentual / 100` para empresas `ativo`, lista empresas que viraram `inativo` no mês): `POST /cron/parceiros/resumo-mensal`, protegido por header `x-cron-secret` (`CRON_SECRET`) — precisa de scheduler externo (Railway Cron), ver `/ops`.
 
 ## Onboarding
 

@@ -119,6 +119,14 @@ Cobre: headers de segurança (HSTS/X-Frame-Options/nosniff), CORS, cookies de se
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Railway + `.env.local` |
 | `SUPABASE_SECRET_KEY` | Railway only |
 | `NEXT_PUBLIC_API_URL` | Railway + `.env.local` |
+| `CRON_SECRET` | Railway only — protege `POST /cron/parceiros/resumo-mensal` (header `x-cron-secret`) |
+| `RESEND_API_KEY` / `EMAIL_FROM` | Railway only — `apps/api/src/lib/email.ts` (Resend) |
+
+## Programa de Parceiros (migration 20260610080000, ⏳ não aplicada)
+- `parceiros`, `empresa_status_eventos`, `parceiro_emails_log`: RLS habilitado, policies admin-only (`is_admin_sistema()`) — sem acesso anon/membro
+- `/cron/parceiros/resumo-mensal` é a única rota não autenticada por sessão — protegida por `CRON_SECRET` via header `x-cron-secret`, retorna 401/500 se ausente/incorreto
+- ⚠️ **Pendência conhecida**: novas colunas sensíveis em `empresas` (`parceiro_id`, `parceiro_percentual`, `valor_mensalidade`, `status_pagamento`, `plano`, `pagamento_vencimento`) ficam visíveis a membros da empresa via a policy de SELECT existente (`empresas_membro`), pois RLS é por linha, não por coluna — avaliar view/coluna restrita numa próxima passada
+- Após aplicar a migration, rodar pen test (`pentest/run.mjs`) cobrindo as 3 novas tabelas (admin-only, anon/non-admin negados em todas as operações)
 
 ## Evolution Rule
 Ao corrigir uma vulnerabilidade: adicionar linha na tabela "Vulnerabilidades Corrigidas".  
