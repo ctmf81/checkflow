@@ -50,8 +50,8 @@ Next logical step: [one-sentence inference, only if obvious]
 - `20260606000016_motivo_nao_execucao_em_execucoes.sql` ✅ aplicada
 - `20260607000001_permissao_agendamentos.sql` ✅ aplicada
 - `20260607000002_turnos.sql` ✅ aplicada
-- `20260610080000_parceiros.sql` ⏳ NÃO aplicada — programa de parceiros (tabelas `parceiros`, `empresa_status_eventos`, `parceiro_emails_log` + colunas novas em `empresas`)
-- `20260611134557_hardening_regras_negocio.sql` ⏳ NÃO aplicada — policy tickets `tratar` com escopo de unidade; resultado nulo = reprovado no motor de workflow; execuções agendadas com `executado_por` nulo + `agendamento_id` + `data_expiracao`
+- `20260610080000_parceiros.sql` ✅ aplicada (2026-06-11)
+- `20260611134557_hardening_regras_negocio.sql` ✅ aplicada (2026-06-11)
 
 ## Features entregues em 2026-06-07
 - Fix build (parens nullish coalescing, cast PdfExecucao `as any`)

@@ -21,7 +21,10 @@ function SistemaNav() {
     <nav className="border-b border-slate-200 bg-white">
       <div className="max-w-7xl mx-auto px-8 flex gap-1">
         {SISTEMA_NAV.map(({ href, label, icon: Icon }) => {
-          const ativo = href === '/sistema' ? pathname === '/sistema' : pathname.startsWith(href)
+          // "Empresas" também cobre o detalhe /sistema/empresas/[id]
+          const ativo = href === '/sistema'
+            ? pathname === '/sistema' || pathname.startsWith('/sistema/empresas')
+            : pathname.startsWith(href)
           return (
             <Link key={href} href={href}
               className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${

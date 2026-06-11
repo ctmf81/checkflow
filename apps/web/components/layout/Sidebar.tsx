@@ -89,9 +89,20 @@ export function Sidebar() {
     )
   }
 
-  function isActive(href: string) {
+  // Um href "casa" com a rota atual se for igual ou prefixo dela.
+  // Vários podem casar ao mesmo tempo (ex: /gestao/tickets e
+  // /gestao/tickets/sla) — só o MAIS específico (mais longo) fica ativo,
+  // para nunca destacar dois itens do menu simultaneamente.
+  function casa(href: string) {
     if (href === '/gestao') return pathname === '/gestao'
     return pathname === href || pathname.startsWith(href + '/')
+  }
+
+  const todosHrefs = nav.flatMap(i => i.children ? i.children.map(c => c.href) : [i.href!])
+  const maisEspecifico = todosHrefs.filter(casa).sort((a, b) => b.length - a.length)[0] ?? null
+
+  function isActive(href: string) {
+    return href === maisEspecifico
   }
 
   function hasActiveChild(children: { href: string }[]) {
