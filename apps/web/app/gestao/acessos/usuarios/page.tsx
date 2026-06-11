@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Search, UserCircle, AlertCircle, Upload, PowerOff, ChevronDown, LogIn, Loader2 } from 'lucide-react'
+import { Plus, Search, UserCircle, AlertCircle, Upload, PowerOff, ChevronDown, LogIn, Loader2, KeyRound } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { UsuarioModal } from './UsuarioModal'
 import { ImportarUsuariosModal } from './ImportarUsuariosModal'
@@ -36,6 +36,7 @@ export default function UsuariosPage() {
   const [perfilDropdown, setPerfilDropdown] = useState<string | null>(null)
   const [impersonandoId, setImpersonandoId] = useState<string | null>(null)
   const [isAdminSistema, setIsAdminSistema] = useState(false)
+  const [resetandoId, setResetandoId] = useState<string | null>(null)
 
   // Verifica se usuário logado é admin_sistema
   useEffect(() => {
@@ -107,6 +108,32 @@ export default function UsuariosPage() {
       body: JSON.stringify({ usuarioId }),
     })
     carregar()
+  }
+
+  async function resetarSenha(usuario: Usuario) {
+    if (!usuario.telefone) {
+      alert('Este usuário não possui telefone cadastrado para receber o código de redefinição.')
+      return
+    }
+    if (!confirm(`Enviar código de redefinição de senha para ${usuario.nome} via WhatsApp?`)) return
+    setResetandoId(usuario.id)
+    try {
+      const { data: { session } } = await createClient().auth.getSession()
+      const token = session?.access_token
+      if (!token) { alert('Sessão inválida.'); return }
+
+      const res = await fetch('/api/usuarios/resetar-senha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ usuarioId: usuario.id }),
+      })
+      const json = await res.json()
+      alert(json.message ?? (res.ok ? 'Código enviado.' : 'Erro ao enviar código.'))
+    } catch (e: any) {
+      alert(e.message ?? 'Erro inesperado.')
+    } finally {
+      setResetandoId(null)
+    }
   }
 
   async function alterarPerfil(usuarioId: string, perfilId: string) {
@@ -230,8 +257,15 @@ export default function UsuariosPage() {
               </button>
 
               {/* Reset senha */}
-              <button className="text-gray-300 hover:text-orange-400 transition-colors p-1 font-bold text-sm" title="Resetar senha">
-                |**
+              <button
+                onClick={() => resetarSenha(usuario)}
+                disabled={resetandoId === usuario.id}
+                className="text-gray-300 hover:text-orange-400 transition-colors p-1 disabled:opacity-50"
+                title="Resetar senha (envia código por WhatsApp)"
+              >
+                {resetandoId === usuario.id
+                  ? <Loader2 size={15} className="animate-spin" />
+                  : <KeyRound size={15} />}
               </button>
             </div>
           </div>

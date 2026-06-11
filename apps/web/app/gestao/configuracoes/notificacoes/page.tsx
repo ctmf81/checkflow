@@ -89,12 +89,12 @@ const TIPO_META: Record<Tipo, { label: string; desc: string; vars: { chave: stri
     ],
   },
   reset_senha: {
-    label: 'Recuperação de senha',
-    desc: 'Enviado ao usuário que solicitou redefinição de senha.',
+    label: 'Recuperação de senha / Primeiro acesso',
+    desc: 'Enviado ao usuário com um código de verificação de 6 dígitos (recuperação de senha, reset feito por um gestor, ou primeiro acesso).',
     vars: [
       { chave: 'nome',       desc: 'Nome do usuário' },
       { chave: 'linha_nome', desc: '"Nome" precedido de espaço (vazio se sem nome)' },
-      { chave: 'link',       desc: 'Link de redefinição (expira em 1h)' },
+      { chave: 'codigo',     desc: 'Código de verificação de 6 dígitos (expira em 15 minutos)' },
     ],
   },
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { criarCodigoOtp, enviarCodigoUsuario } from '@/lib/passwordReset'
 
 export async function POST(req: NextRequest) {
   try {
@@ -88,6 +89,17 @@ export async function POST(req: NextRequest) {
           }, { onConflict: 'usuario_id,empresa_id' })
         }
       }
+
+      // Dispara código de primeiro acesso por WhatsApp (e e-mail, se houver)
+      try {
+        const codigo = await criarCodigoOtp(supabaseAdmin, authData.user.id, 'primeiro_acesso')
+        await enviarCodigoUsuario(
+          supabaseAdmin,
+          { id: authData.user.id, nome: u.nome, email: emailFinal, telefone: telDigits },
+          codigo,
+          'primeiro_acesso'
+        )
+      } catch { /* não bloqueia a importação */ }
 
       resultados.push({ email: emailFinal, id: authData.user.id, status: 'criado' })
     }

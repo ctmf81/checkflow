@@ -141,6 +141,10 @@ export default function LoginPage() {
           {loading ? 'Entrando...' : 'Login'}
         </button>
       </form>
+
+      <Link href="/primeiro-acesso" className="block text-center text-sm text-gray-500 hover:text-orange-500 transition-colors mt-4">
+        Primeiro acesso? Defina sua senha aqui
+      </Link>
     </div>
   )
 }

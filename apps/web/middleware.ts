@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-const AUTH_ROUTES = ['/login', '/recuperar-senha', '/nova-senha']
+const AUTH_ROUTES = ['/login', '/recuperar-senha', '/nova-senha', '/primeiro-acesso']
 const PUBLIC_PREFIXES = ['/_next', '/favicon', '/public']
 
 export function middleware(request: NextRequest) {

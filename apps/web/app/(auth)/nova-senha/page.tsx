@@ -1,11 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import { CheckFlowLogo } from '@/components/auth/CheckFlowLogo'
-import { createClient } from '@/lib/supabase'
 
 export default function NovaSenhaPage() {
   const router = useRouter()
@@ -14,6 +13,17 @@ export default function NovaSenhaPage() {
   const [mostrar, setMostrar] = useState(false)
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState('')
+  const [pronto, setPronto] = useState(false)
+
+  useEffect(() => {
+    const cpf = sessionStorage.getItem('checkflow_reset_cpf')
+    const token = sessionStorage.getItem('checkflow_reset_token')
+    if (!cpf || !token) {
+      router.replace('/recuperar-senha')
+      return
+    }
+    setPronto(true)
+  }, [router])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -21,12 +31,32 @@ export default function NovaSenhaPage() {
     if (senha.length < 8) { setErro('Mínimo 8 caracteres.'); return }
     setErro('')
     setLoading(true)
-    const supabase = createClient()
-    const { error } = await supabase.auth.updateUser({ password: senha })
-    setLoading(false)
-    if (error) { setErro('Não foi possível atualizar a senha.'); return }
-    router.push('/login')
+
+    const cpf = sessionStorage.getItem('checkflow_reset_cpf')
+    const token = sessionStorage.getItem('checkflow_reset_token')
+
+    try {
+      const res = await fetch('/api/auth/definir-senha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cpf, token, novaSenha: senha }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setErro(json.message ?? 'Não foi possível atualizar a senha.')
+        setLoading(false)
+        return
+      }
+      sessionStorage.removeItem('checkflow_reset_cpf')
+      sessionStorage.removeItem('checkflow_reset_token')
+      router.push('/login')
+    } catch {
+      setErro('Erro de conexão. Tente novamente.')
+      setLoading(false)
+    }
   }
+
+  if (!pronto) return null
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 w-full max-w-sm px-8 py-10">

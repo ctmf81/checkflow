@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { criarCodigoOtp, enviarCodigoUsuario } from '@/lib/passwordReset'
 
 function makeAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -61,6 +62,15 @@ export async function POST(req: NextRequest) {
         : 'Erro ao salvar usuário.'
       return NextResponse.json({ message: msg }, { status: 409 })
     }
+
+    // Dispara código de primeiro acesso por WhatsApp (e e-mail, se houver)
+    const codigo = await criarCodigoOtp(supabaseAdmin, authData.user.id, 'primeiro_acesso')
+    await enviarCodigoUsuario(
+      supabaseAdmin,
+      { id: authData.user.id, nome, email: emailFinal, telefone: telDigits },
+      codigo,
+      'primeiro_acesso'
+    )
 
     return NextResponse.json({ id: authData.user.id }, { status: 201 })
   } catch (e: any) {
