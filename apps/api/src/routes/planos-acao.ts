@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
+import ws from 'ws'
 import { enviarWhatsApp, enviarWhatsAppMidia } from '../lib/whatsapp'
 import { enviarEmail } from '../lib/email'
 import { emailPlanoAberto, emailPlanoEnviadoN2 } from '../lib/email-templates'
@@ -78,7 +79,8 @@ export async function planosAcaoRoutes(app: FastifyInstance) {
 
     const sb = createClient(
       process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SECRET_KEY!
+      process.env.SUPABASE_SECRET_KEY!,
+      { realtime: { transport: ws as any } }
     )
 
     // 1. Carrega o plano com contexto completo

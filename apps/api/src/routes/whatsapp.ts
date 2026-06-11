@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
+import ws from 'ws'
 import { enviarWhatsApp, statusInstancia } from '../lib/whatsapp'
 import { enviarEmail } from '../lib/email'
 import { buscarTemplate, renderizar } from '../lib/notificacao-templates'
@@ -162,7 +163,8 @@ export async function whatsappRoutes(app: FastifyInstance) {
     }
 
     const sb = empresa_id
-      ? createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
+      ? createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!,
+          { realtime: { transport: ws as any } })
       : null
 
     const [tmplWa, tmplEmail] = sb && empresa_id
@@ -245,7 +247,8 @@ export async function whatsappRoutes(app: FastifyInstance) {
     }
 
     const sb = empresa_id
-      ? createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
+      ? createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!,
+          { realtime: { transport: ws as any } })
       : null
 
     const [tmplWa, tmplEmail] = sb && empresa_id

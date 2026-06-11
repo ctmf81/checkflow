@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
+import ws from 'ws'
 import { enviarEmail } from '../lib/email'
 import { emailParceiroBoasVindas, emailParceiroResumoMensal } from '../lib/email-templates'
 
@@ -31,7 +32,9 @@ const PLANO_LABELS: Record<string, string> = {
 }
 
 export async function parceiroRoutes(app: FastifyInstance) {
-  const sb = () => createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
+  // Node 20 não tem WebSocket nativo — `ws` evita crash do RealtimeClient
+  const sb = () => createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!,
+    { realtime: { transport: ws as any } })
 
   // POST /parceiros/boas-vindas — dispara o email de boas-vindas (1x por parceiro)
   app.post('/parceiros/boas-vindas', async (req, reply) => {
