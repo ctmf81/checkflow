@@ -8,6 +8,7 @@ import { usuarioRoutes } from './routes/usuarios'
 import { whatsappRoutes } from './routes/whatsapp'
 import { planosAcaoRoutes } from './routes/planos-acao'
 import { ticketsRoutes } from './routes/tickets'
+import { parceiroRoutes } from './routes/parceiros'
 
 const app = Fastify({ logger: true })
 
@@ -35,6 +36,7 @@ app.register(usuarioRoutes)
 app.register(whatsappRoutes)
 app.register(planosAcaoRoutes)
 app.register(ticketsRoutes)
+app.register(parceiroRoutes)
 
 const port = Number(process.env.PORT) || 3001
 

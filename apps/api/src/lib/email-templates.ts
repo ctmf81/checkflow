@@ -268,3 +268,136 @@ export function emailTicketMovimentado(dados: {
     html,
   }
 }
+
+// ─── Template: Parceiro — boas-vindas ────────────────────────────────────────
+
+export function emailParceiroBoasVindas(dados: {
+  nomeParceiro: string
+  nomeEmpresa: string
+  percentual: number | null
+}): { assunto: string; html: string } {
+  const percentualLinha = dados.percentual != null
+    ? row('Seu percentual', `<span style="color:#16a34a;font-weight:700">${formatarPercentual(dados.percentual)}</span>`)
+    : ''
+
+  const html = base(`
+    <div style="display:inline-block;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:6px 12px;margin-bottom:20px">
+      <span style="color:#16a34a;font-size:13px;font-weight:700">🤝 Programa de Parceiros CheckFlow</span>
+    </div>
+
+    <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#111827">Bem-vindo(a), ${dados.nomeParceiro}!</p>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;line-height:1.6">
+      Você foi cadastrado(a) como parceiro indicador do CheckFlow pela empresa
+      <strong>${dados.nomeEmpresa}</strong>. Enquanto o contrato dessa empresa
+      estiver ativo, você recebe um percentual da mensalidade como recompensa
+      pela indicação.
+    </p>
+
+    <table cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #f3f4f6;margin-bottom:8px">
+      ${row('Empresa indicada', dados.nomeEmpresa)}
+      ${percentualLinha}
+    </table>
+
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-top:16px">
+      <p style="margin:0;font-size:13px;color:#374151;line-height:1.6">
+        Todo último dia do mês você recebe por aqui um resumo com as empresas
+        vinculadas a você, o plano contratado por cada uma e a estimativa de
+        comissão do período.
+      </p>
+    </div>
+  `)
+
+  return {
+    assunto: '🤝 Bem-vindo(a) ao Programa de Parceiros CheckFlow',
+    html,
+  }
+}
+
+// ─── Template: Parceiro — resumo mensal ──────────────────────────────────────
+
+function formatarMoeda(valor: number): string {
+  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function formatarPercentual(valor: number): string {
+  return `${valor.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`
+}
+
+export function emailParceiroResumoMensal(dados: {
+  nomeParceiro: string
+  mesReferenciaLabel: string // ex: "junho/2026"
+  empresas: {
+    nome: string
+    plano: string | null
+    valorMensalidade: number | null
+    percentual: number | null
+    comissaoEstimada: number | null
+  }[]
+  totalEstimado: number
+  empresasInativadas: string[]
+}): { assunto: string; html: string } {
+  const linhasEmpresas = dados.empresas.map(e => `
+    <tr>
+      <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px;color:#111827;font-weight:600">${e.nome}</td>
+      <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px;color:#6b7280">${e.plano ?? '—'}</td>
+      <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px;color:#6b7280;text-align:right">${e.valorMensalidade != null ? formatarMoeda(e.valorMensalidade) : '—'}</td>
+      <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px;color:#6b7280;text-align:right">${e.percentual != null ? formatarPercentual(e.percentual) : '—'}</td>
+      <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px;color:#16a34a;font-weight:700;text-align:right">${e.comissaoEstimada != null ? formatarMoeda(e.comissaoEstimada) : '—'}</td>
+    </tr>
+  `).join('')
+
+  const avisoInativas = dados.empresasInativadas.length > 0
+    ? `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 16px;margin-top:20px">
+        <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#dc2626;text-transform:uppercase;letter-spacing:0.05em">⚠️ Atenção</p>
+        <p style="margin:0;font-size:13px;color:#374151;line-height:1.6">
+          ${dados.empresasInativadas.length === 1 ? 'A empresa abaixo ficou inativa' : 'As empresas abaixo ficaram inativas'}
+          neste período e deixam de gerar comissão a partir de agora:
+          <strong>${dados.empresasInativadas.join(', ')}</strong>.
+        </p>
+       </div>`
+    : ''
+
+  const html = base(`
+    <div style="display:inline-block;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:6px 12px;margin-bottom:20px">
+      <span style="color:#ea580c;font-size:13px;font-weight:700">📊 Resumo Mensal — Parceiros CheckFlow</span>
+    </div>
+
+    <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#111827">Olá, ${dados.nomeParceiro}!</p>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280">
+      Aqui está o resumo de ${dados.mesReferenciaLabel} das empresas que você indicou ao CheckFlow.
+    </p>
+
+    <table cellpadding="0" cellspacing="0" style="width:100%">
+      <thead>
+        <tr>
+          <th style="padding:0 0 8px;border-bottom:2px solid #e5e7eb;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;text-align:left">Empresa</th>
+          <th style="padding:0 0 8px;border-bottom:2px solid #e5e7eb;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;text-align:left">Plano</th>
+          <th style="padding:0 0 8px;border-bottom:2px solid #e5e7eb;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;text-align:right">Mensalidade</th>
+          <th style="padding:0 0 8px;border-bottom:2px solid #e5e7eb;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;text-align:right">%</th>
+          <th style="padding:0 0 8px;border-bottom:2px solid #e5e7eb;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;text-align:right">Comissão</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${linhasEmpresas}
+      </tbody>
+    </table>
+
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 16px;margin-top:16px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:13px;font-weight:600;color:#15803d">Total estimado do mês</span>
+      <span style="font-size:20px;font-weight:800;color:#15803d">${formatarMoeda(dados.totalEstimado)}</span>
+    </div>
+
+    ${avisoInativas}
+
+    <p style="margin:20px 0 0;font-size:11px;color:#9ca3af;line-height:1.6">
+      Os valores acima são uma estimativa com base no plano contratado e no seu
+      percentual de indicação. A confirmação dos valores efetivamente pagos
+      será feita na etapa financeira do programa de parceiros.
+    </p>
+  `)
+
+  return {
+    assunto: `📊 CheckFlow — Resumo de parceria (${dados.mesReferenciaLabel})`,
+    html,
+  }
+}
