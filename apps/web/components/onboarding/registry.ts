@@ -323,6 +323,21 @@ export const ONBOARDING_REGISTRY: OnboardingPageConfig[] = [
     ],
   },
   {
+    pageId: 'sistema-parceiros',
+    titulo: 'Programa de Parceiros',
+    cards: [
+      {
+        icon: '🤝',
+        titulo: 'Parceiros e indicações',
+        texto: 'Gerencie os parceiros que recebem um percentual da mensalidade das empresas que indicaram. O vínculo e o percentual são configurados na aba "Parceiro" de cada empresa.',
+        dicas: [
+          'Ao cadastrar um parceiro pela primeira vez, ele recebe um e-mail de boas-vindas',
+          'Todo último dia do mês, parceiros ativos recebem um resumo das empresas, planos e valores estimados',
+        ],
+      },
+    ],
+  },
+  {
     pageId: 'sistema-whatsapp',
     titulo: 'WhatsApp (sistema)',
     cards: [

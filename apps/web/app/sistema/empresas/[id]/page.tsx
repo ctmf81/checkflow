@@ -2,15 +2,18 @@
 
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ExternalLink, UserPlus, AlertTriangle, Trash2 } from 'lucide-react'
+import { ChevronLeft, ExternalLink, UserPlus, AlertTriangle, Trash2, Handshake, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { UsuarioModal } from '@/app/gestao/acessos/usuarios/UsuarioModal'
 import { ExcluirEmpresaModal } from './ExcluirEmpresaModal'
+import { ParceiroModal, ParceiroSelecionado } from '@/components/modals/ParceiroModal'
 
-type Aba = 'administrador' | 'pagamento' | 'configuracoes'
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api-production-5bce.up.railway.app'
+
+type Aba = 'administrador' | 'pagamento' | 'parceiro' | 'configuracoes'
 
 interface Empresa {
   id: string
@@ -19,6 +22,12 @@ interface Empresa {
   status: 'ativo' | 'inativo' | 'pendente' | 'bloqueada'
   logo_url: string | null
   criado_em: string
+  plano: string | null
+  valor_mensalidade: number | null
+  status_pagamento: string | null
+  pagamento_vencimento: string | null
+  parceiro_id: string | null
+  parceiro_percentual: number | null
 }
 
 interface Usuario {
@@ -47,6 +56,14 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
   const [valor, setValor] = useState('')
   const [vencimento, setVencimento] = useState('')
   const [statusPag, setStatusPag] = useState('')
+  const [salvandoPag, setSalvandoPag] = useState(false)
+
+  // Parceiro
+  const [parceiroAtual, setParceiroAtual] = useState<{ id: string; nome: string; email: string } | null>(null)
+  const [percentual, setPercentual] = useState('')
+  const [modalParceiro, setModalParceiro] = useState(false)
+  const [salvandoParceiro, setSalvandoParceiro] = useState(false)
+  const [mensagemParceiro, setMensagemParceiro] = useState('')
 
   // Config
   const [nomeEmp, setNomeEmp] = useState('')
@@ -66,12 +83,22 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
   useEffect(() => {
     async function carregar() {
       const supabase = createClient()
-      const { data: emp } = await supabase.from('empresas').select('*').eq('id', id).single()
+      const { data: emp } = await supabase
+        .from('empresas')
+        .select('*, parceiros(id, nome, email)')
+        .eq('id', id)
+        .single()
       if (emp) {
         setEmpresa(emp)
         setNomeEmp(emp.nome)
         setCnpj(emp.cnpj ?? '')
         setStatusEmp(emp.status)
+        setPlano(emp.plano ?? '')
+        setValor(emp.valor_mensalidade != null ? String(emp.valor_mensalidade) : '')
+        setVencimento(emp.pagamento_vencimento ?? '')
+        setStatusPag(emp.status_pagamento ?? '')
+        setPercentual(emp.parceiro_percentual != null ? String(emp.parceiro_percentual) : '')
+        if (emp.parceiros) setParceiroAtual(emp.parceiros)
       }
       await carregarUsuarios()
       setLoading(false)
@@ -96,9 +123,48 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
     setSalvando(false)
   }
 
+  async function salvarPagamento() {
+    setSalvandoPag(true)
+    const supabase = createClient()
+    await supabase.from('empresas').update({
+      plano: plano || null,
+      valor_mensalidade: valor ? Number(valor.replace(',', '.')) : null,
+      pagamento_vencimento: vencimento || null,
+      status_pagamento: statusPag || 'pendente',
+      atualizado_em: new Date().toISOString()
+    }).eq('id', id)
+    setSalvandoPag(false)
+  }
+
+  async function salvarParceiro() {
+    setSalvandoParceiro(true)
+    setMensagemParceiro('')
+    const supabase = createClient()
+    await supabase.from('empresas').update({
+      parceiro_id: parceiroAtual?.id ?? null,
+      parceiro_percentual: percentual ? Number(percentual.replace(',', '.')) : null,
+      atualizado_em: new Date().toISOString()
+    }).eq('id', id)
+    setSalvandoParceiro(false)
+    setMensagemParceiro('Parceiro salvo com sucesso.')
+  }
+
+  function onParceiroSelecionado(parceiro: ParceiroSelecionado) {
+    setParceiroAtual({ id: parceiro.id, nome: parceiro.nome, email: parceiro.email })
+    setModalParceiro(false)
+    if (parceiro.novo) {
+      fetch(`${API_URL}/parceiros/boas-vindas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parceiroId: parceiro.id, empresaId: id }),
+      }).catch(() => {})
+    }
+  }
+
   const abas: { key: Aba; label: string }[] = [
     { key: 'administrador', label: 'Administrador' },
     { key: 'pagamento',     label: 'Pagamento' },
+    { key: 'parceiro',      label: 'Parceiro' },
     { key: 'configuracoes', label: 'Configurações' },
   ]
 
@@ -213,7 +279,63 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
               </div>
             </div>
             <div className="flex justify-end pt-2">
-              <Button>Salvar pagamento</Button>
+              <Button onClick={salvarPagamento} disabled={salvandoPag}>
+                {salvandoPag ? 'Salvando...' : 'Salvar pagamento'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {aba === 'parceiro' && (
+          <div className="space-y-4">
+            <h2 className="font-semibold text-gray-700 mb-1">Programa de parceiros</h2>
+            <p className="text-sm text-gray-500">
+              O parceiro indicado recebe um percentual da mensalidade desta empresa enquanto
+              houver contrato ativo.
+            </p>
+
+            {parceiroAtual ? (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate">{parceiroAtual.nome}</p>
+                  <p className="text-xs text-gray-500 truncate">{parceiroAtual.email}</p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button size="sm" variant="outline" onClick={() => setModalParceiro(true)}>Trocar</Button>
+                  <button
+                    onClick={() => setParceiroAtual(null)}
+                    className="text-gray-400 hover:text-red-500"
+                    title="Remover parceiro"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setModalParceiro(true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium border-2 border-dashed border-gray-200 rounded-lg text-gray-500 hover:border-orange-300 hover:text-orange-500 transition-colors"
+              >
+                <Handshake size={16} />
+                Vincular parceiro
+              </button>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Percentual sobre a mensalidade (%)</label>
+              <input value={percentual} onChange={e => setPercentual(e.target.value)} placeholder="0,00"
+                disabled={!parceiroAtual}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 disabled:opacity-50" />
+            </div>
+
+            {mensagemParceiro && (
+              <div className="text-xs bg-green-50 border border-green-200 text-green-700 rounded-lg px-3 py-2">{mensagemParceiro}</div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <Button onClick={salvarParceiro} disabled={salvandoParceiro}>
+                {salvandoParceiro ? 'Salvando...' : 'Salvar'}
+              </Button>
             </div>
           </div>
         )}
@@ -282,6 +404,14 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
             setModalUsuario(false)
             carregarUsuarios()
           }}
+        />
+      )}
+
+      {/* Modal de vínculo de parceiro */}
+      {modalParceiro && (
+        <ParceiroModal
+          onClose={() => setModalParceiro(false)}
+          onSelecionado={onParceiroSelecionado}
         />
       )}
 
