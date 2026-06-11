@@ -196,8 +196,8 @@ export async function planosAcaoRoutes(app: FastifyInstance) {
         }
       }
 
-      // ── Email ──
-      if (email) {
+      // ── Email ── (ignora o e-mail técnico não-entregável <cpf>@checkflow.local)
+      if (email && !email.endsWith('@checkflow.local')) {
         let assunto: string | null = null
         let html: string | null = null
 

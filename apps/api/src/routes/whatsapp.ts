@@ -187,8 +187,8 @@ export async function whatsappRoutes(app: FastifyInstance) {
       }
     }
 
-    // Email
-    if (email) {
+    // Email (ignora o e-mail técnico não-entregável <cpf>@checkflow.local)
+    if (email && !email.endsWith('@checkflow.local')) {
       let assunto = 'Recuperação de senha — CheckFlow'
       let html: string
 
@@ -277,8 +277,8 @@ export async function whatsappRoutes(app: FastifyInstance) {
       }
     }
 
-    // Email
-    if (email) {
+    // Email (ignora o e-mail técnico não-entregável <cpf>@checkflow.local)
+    if (email && !email.endsWith('@checkflow.local')) {
       let assunto = 'Código de verificação — CheckFlow'
       let html: string
 

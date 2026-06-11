@@ -174,8 +174,8 @@ export async function ticketsRoutes(app: FastifyInstance) {
         }
       }
 
-      // ── Email ──
-      if (u.email) {
+      // ── Email ── (ignora o e-mail técnico não-entregável <cpf>@checkflow.local)
+      if (u.email && !u.email.endsWith('@checkflow.local')) {
         let assunto: string | null = null
         let htmlBody: string | null = null
 

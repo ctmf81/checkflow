@@ -17,6 +17,19 @@ function referenciaMes(d: Date): { chave: string; label: string } {
   }
 }
 
+// Regra de negócio: o resumo é enviado no ÚLTIMO dia do mês. O scheduler pode
+// chamar a rota diariamente — a própria rota decide se hoje é o dia certo.
+function ehUltimoDiaDoMes(d: Date): boolean {
+  const amanha = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1))
+  return amanha.getUTCMonth() !== d.getUTCMonth()
+}
+
+const PLANO_LABELS: Record<string, string> = {
+  validacao: 'Validação',
+  tracao: 'Tração',
+  escala: 'Escala',
+}
+
 export async function parceiroRoutes(app: FastifyInstance) {
   const sb = () => createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
 
@@ -78,9 +91,16 @@ export async function parceiroRoutes(app: FastifyInstance) {
       return reply.status(401).send({ error: 'Não autorizado' })
     }
 
-    const supabase = sb()
     const agora = new Date()
     const { chave: refMes, label: refLabel } = referenciaMes(agora)
+
+    // `force: true` no body permite testar manualmente fora do último dia
+    const { force } = (req.body ?? {}) as { force?: boolean }
+    if (!ehUltimoDiaDoMes(agora) && !force) {
+      return reply.send({ ok: true, skip: 'nao_e_ultimo_dia_do_mes', referencia: refMes })
+    }
+
+    const supabase = sb()
 
     // Início do mês corrente — usado para detectar empresas que ficaram inativas no período
     const inicioMes = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), 1)).toISOString()
@@ -109,7 +129,7 @@ export async function parceiroRoutes(app: FastifyInstance) {
 
       const { data: empresas } = await supabase
         .from('empresas')
-        .select('id, nome, status, plano, valor_mensalidade, parceiro_percentual')
+        .select('id, nome, status, status_pagamento, plano, valor_mensalidade, parceiro_percentual')
         .eq('parceiro_id', parceiro.id)
 
       if (!empresas || empresas.length === 0) {
@@ -118,13 +138,15 @@ export async function parceiroRoutes(app: FastifyInstance) {
       }
 
       const linhas = empresas.map(e => {
-        const ativa = e.status === 'ativo'
-        const comissao = ativa && e.valor_mensalidade != null && e.parceiro_percentual != null
+        // "Enquanto houver contrato": empresa ativa E pagamento não cancelado.
+        // Inadimplente/pendente ainda conta (contrato vigente, cobrança em aberto).
+        const comContrato = e.status === 'ativo' && e.status_pagamento !== 'cancelado'
+        const comissao = comContrato && e.valor_mensalidade != null && e.parceiro_percentual != null
           ? Number(e.valor_mensalidade) * Number(e.parceiro_percentual) / 100
           : null
         return {
           nome: e.nome,
-          plano: e.plano,
+          plano: e.plano ? (PLANO_LABELS[e.plano] ?? e.plano) : null,
           valorMensalidade: e.valor_mensalidade != null ? Number(e.valor_mensalidade) : null,
           percentual: e.parceiro_percentual != null ? Number(e.parceiro_percentual) : null,
           comissaoEstimada: comissao,
