@@ -228,4 +228,102 @@ export async function whatsappRoutes(app: FastifyInstance) {
 
     return reply.send(resultados)
   })
+
+  // POST /whatsapp/enviar-codigo — envia código numérico (OTP) via WhatsApp + Email
+  app.post('/whatsapp/enviar-codigo', async (req, reply) => {
+    const { numero, nome, codigo, email, empresa_id, contexto } = req.body as {
+      numero?: string; nome: string; codigo: string; email?: string; empresa_id?: string
+      contexto?: 'primeiro_acesso' | 'reset_admin' | 'self_service'
+    }
+    if (!codigo) return reply.status(400).send({ error: 'codigo é obrigatório' })
+
+    const vars = {
+      nome,
+      linha_nome: nome ? ` ${nome}` : '',
+      codigo,
+      link: '',
+    }
+
+    const sb = empresa_id
+      ? createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
+      : null
+
+    const [tmplWa, tmplEmail] = sb && empresa_id
+      ? await Promise.all([
+          buscarTemplate(sb, empresa_id, 'reset_senha', 'whatsapp'),
+          buscarTemplate(sb, empresa_id, 'reset_senha', 'email'),
+        ])
+      : [null, null]
+
+    const resultados: any = {}
+
+    const fallbackTexto = (() => {
+      if (contexto === 'primeiro_acesso') {
+        return `Olá${nome ? ` ${nome}` : ''}! 👋\n\nSeu acesso ao *CheckFlow* foi criado.\n\nSeu código de primeiro acesso é:\n\n*${codigo}*\n\nAcesse a página "Primeiro acesso" e informe seu CPF + este código para criar sua senha.\n\n_Este código expira em 15 minutos._`
+      }
+      return `Olá${nome ? ` ${nome}` : ''}! 👋\n\nVocê solicitou a recuperação de senha do *CheckFlow*.\n\nSeu código de verificação é:\n\n*${codigo}*\n\nInforme este código na tela de recuperação de senha para continuar.\n\n_Este código expira em 15 minutos. Se você não solicitou, ignore esta mensagem._`
+    })()
+
+    // WhatsApp
+    if (numero) {
+      let mensagem: string
+      if (tmplWa && tmplWa.ativo && tmplWa.corpo.includes('{{codigo}}')) {
+        mensagem = renderizar(tmplWa.corpo, vars)
+      } else {
+        mensagem = fallbackTexto
+      }
+      if (!tmplWa || tmplWa.ativo) {
+        resultados.whatsapp = await enviarWhatsApp({ numero, mensagem })
+      }
+    }
+
+    // Email
+    if (email) {
+      let assunto = 'Código de verificação — CheckFlow'
+      let html: string
+
+      if (tmplEmail && tmplEmail.ativo && tmplEmail.corpo.includes('{{codigo}}')) {
+        assunto = renderizar(tmplEmail.assunto ?? assunto, vars)
+        const corpoHtml = renderizar(tmplEmail.corpo, vars)
+          .split('\n').map(l => `<p style="margin:0 0 8px;font-size:14px;color:#374151;line-height:1.6">${l || '&nbsp;'}</p>`).join('')
+        html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:Inter,Arial,sans-serif">
+  <table width="100%"><tr><td align="center" style="padding:32px 16px">
+    <table width="100%" style="max-width:520px;background:#fff;border-radius:16px;border:1px solid #e5e7eb">
+      <tr><td style="background:#f97316;padding:20px 28px"><p style="margin:0;color:#fff;font-size:20px;font-weight:700">CheckFlow</p></td></tr>
+      <tr><td style="padding:28px">${corpoHtml}
+        <div style="margin-top:16px;padding:16px;background:#fafafa;border-radius:10px;text-align:center">
+          <span style="font-size:28px;font-weight:700;letter-spacing:6px;color:#f97316">${codigo}</span>
+        </div>
+      </td></tr>
+      <tr><td style="padding:16px 28px;border-top:1px solid #f3f4f6;background:#fafafa"><p style="margin:0;font-size:11px;color:#9ca3af">Email automático — não responda.</p></td></tr>
+    </table>
+  </td></tr></table>
+</body></html>`
+      } else if (!tmplEmail || tmplEmail.ativo) {
+        const titulo = contexto === 'primeiro_acesso' ? 'Bem-vindo ao CheckFlow' : 'Recuperação de senha'
+        const texto = contexto === 'primeiro_acesso'
+          ? 'Seu acesso ao CheckFlow foi criado. Use o código abaixo na tela "Primeiro acesso" para definir sua senha.'
+          : 'Você solicitou a recuperação de senha. Use o código abaixo para continuar.'
+        html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;padding:32px">
+<h2 style="color:#f97316">CheckFlow</h2>
+<p>Olá${nome ? ` ${nome}` : ''}!</p>
+<p>${titulo}</p>
+<p>${texto}</p>
+<div style="margin-top:16px;padding:16px;background:#fafafa;border-radius:10px;text-align:center">
+  <span style="font-size:28px;font-weight:700;letter-spacing:6px;color:#f97316">${codigo}</span>
+</div>
+<p style="color:#999;font-size:12px;margin-top:24px">Este código expira em 15 minutos.</p>
+</body></html>`
+      } else {
+        html = ''
+      }
+
+      if (html) {
+        resultados.email = await enviarEmail({ para: email, assunto, html })
+      }
+    }
+
+    return reply.send(resultados)
+  })
 }
