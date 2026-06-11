@@ -54,7 +54,7 @@ export default function SistemaPage() {
   async function acessarEmpresa(empresa: EmpresaCard) {
     await setEmpresaAtiva({ id: empresa.id, nome: empresa.nome })
     setAmbiente('gestao')
-    router.push('/gestao/empresas')
+    router.push('/gestao')
   }
 
   const filtradas = empresas.filter(e => {

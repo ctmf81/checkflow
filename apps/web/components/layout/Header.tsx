@@ -49,7 +49,7 @@ export function Header() {
       router.push('/sistema')
     } else {
       setAmbiente(ambiente)
-      router.push(ambiente === 'gestao' ? '/gestao/empresas' : '/operacao')
+      router.push(ambiente === 'gestao' ? '/gestao' : '/operacao')
     }
   }
 
