@@ -37,6 +37,28 @@ export async function whatsappRoutes(app: FastifyInstance) {
     return reply.send(status)
   })
 
+  // POST /whatsapp/desconectar — encerra a sessão atual (troca de número):
+  // faz logout da instância sem deletá-la; a tela volta a oferecer o QR.
+  app.post('/whatsapp/desconectar', async (req, reply) => {
+    const body = (req.body ?? {}) as any
+    const url = body.evoUrl || EVO_URL
+    const key = body.evoKey || EVO_KEY
+    const instance = body.evoInstance || EVO_INSTANCE
+    try {
+      const res = await fetch(`${url}/instance/logout/${instance}`, {
+        method: 'DELETE',
+        headers: { 'apikey': key },
+      })
+      const json: any = await res.json().catch(() => null)
+      if (!res.ok) {
+        return reply.status(502).send({ ok: false, error: json?.response?.message ?? json?.message ?? `HTTP ${res.status}` })
+      }
+      return reply.send({ ok: true })
+    } catch (e: any) {
+      return reply.status(502).send({ ok: false, error: e.message })
+    }
+  })
+
   // POST /whatsapp/conectar — cria a instância e retorna QR Code
   app.post('/whatsapp/conectar', async (req, reply) => {
     try {

@@ -36,6 +36,8 @@ export default function WhatsAppPage() {
   const [debug, setDebug] = useState<string | null>(null)
   const [configAberta, setConfigAberta] = useState(false)
   const [config, setConfig] = useState<EvoConfig>({ url: '', apiKey: '', instancia: '' })
+  const [confirmaDesconectar, setConfirmaDesconectar] = useState(false)
+  const [desconectando, setDesconectando] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -61,6 +63,29 @@ export default function WhatsAppPage() {
     } catch {
       setStatus('desconectado')
     }
+  }
+
+  async function desconectar() {
+    setDesconectando(true)
+    setErro(null)
+    try {
+      const res = await fetch(`${API}/whatsapp/desconectar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ evoUrl: config.url, evoKey: config.apiKey, evoInstance: config.instancia }),
+      })
+      const json = await res.json()
+      if (!json.ok) {
+        setErro(`Erro ao desconectar: ${json.error ?? 'desconhecido'}`)
+      } else {
+        setStatus('desconectado')
+        setQrcode(null)
+      }
+    } catch (e: any) {
+      setErro(`Erro de conexão com a API: ${e.message}`)
+    }
+    setConfirmaDesconectar(false)
+    setDesconectando(false)
   }
 
   async function gerarQR() {
@@ -166,6 +191,38 @@ export default function WhatsAppPage() {
             <CheckCircle size={48} className="text-green-500 mx-auto mb-3" />
             <p className="font-semibold text-gray-800">WhatsApp conectado!</p>
             <p className="text-sm text-gray-500 mt-1">O sistema pode enviar mensagens.</p>
+
+            {erro && (
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mt-4 text-left">
+                <AlertTriangle size={15} className="text-red-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-red-700">{erro}</p>
+              </div>
+            )}
+
+            {confirmaDesconectar ? (
+              <div className="mt-5 bg-amber-50 border border-amber-200 rounded-lg p-4 text-left">
+                <p className="text-sm font-medium text-amber-800">Trocar de número?</p>
+                <p className="text-xs text-amber-700 mt-1">
+                  A sessão atual será encerrada e o sistema <strong>para de enviar mensagens</strong> até
+                  que um novo QR Code seja escaneado (pelo mesmo número ou por outro).
+                </p>
+                <div className="flex gap-2 mt-3 justify-end">
+                  <Button variant="outline" size="sm" onClick={() => setConfirmaDesconectar(false)}>Cancelar</Button>
+                  <Button size="sm" onClick={desconectar} disabled={desconectando}
+                    className="!bg-red-600 hover:!bg-red-700">
+                    {desconectando ? 'Desconectando...' : 'Desconectar agora'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmaDesconectar(true)}
+                className="mt-5 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-500 rounded-lg hover:border-red-300 hover:text-red-600 transition-colors"
+              >
+                <XCircle size={13} />
+                Trocar número / Desconectar
+              </button>
+            )}
           </div>
         ) : (
           <>
