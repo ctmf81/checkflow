@@ -25,7 +25,11 @@ Next logical step: [one-sentence inference, only if obvious]
 
 ---
 
-## Pendências (atualizado 2026-06-11)
+## Pendências (atualizado 2026-06-12)
+- ⏳ **Rotacionar chave da Evolution** (boa higiene — `checkflow_evo_key_2026` já passou pelo git): trocar `AUTHENTICATION_API_KEY` (serviço Evolution) + `EVOLUTION_API_KEY` (serviço API) pelo MESMO valor novo, quase simultâneo. WhatsApp/sessão Baileys NÃO cai (auth key ≠ sessão). Validar depois com `POST /whatsapp/status` body `{}` → `conectado:true`
+- ⏳ `user as any` no SessionContext (issue antigo #3, baixa prioridade)
+- ⏳ Colunas financeiras de `empresas` visíveis em leitura a membros (RLS por linha) — pentest confirmou; avaliar view/coluna restrita
+
 - ✅ `pg_cron` configurado em 2026-06-11 (job `processar-agendamentos`, */10 min, jobid 2) — conferir duplicata: `select * from cron.job;`
 - Testar fluxo de agendamentos end-to-end (criar agendamento com referência no passado e ver disparo — agora aparece como pendência da unidade na Operação)
 - Testar "motivo de não execução" (checklist precisa ter motivos associados na criação via ChecklistMontador)
