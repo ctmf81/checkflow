@@ -27,6 +27,7 @@ When debugging an error in logs: surface only the **last 20 lines** unless the u
 |---------|-----|
 | Web (Next.js) | `web-production-36880.up.railway.app` |
 | API (Fastify) | `api-production-5bce.up.railway.app` |
+| Evolution API (WhatsApp) | `evolution-api-production-d484.up.railway.app` — imagem `evoapicloud/evolution-api:v2.3.7` (org `atendai` desatualizada no Docker Hub; não fazer downgrade p/ 2.2.x — bug de QR) |
 
 ## Env Vars (nomes — nunca valores no chat)
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `CRON_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`

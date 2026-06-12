@@ -125,11 +125,20 @@ Cobre: headers de segurança (HSTS/X-Frame-Options/nosniff), CORS, cookies de se
 | `CRON_SECRET` | Railway only — protege `POST /cron/parceiros/resumo-mensal` (header `x-cron-secret`) |
 | `RESEND_API_KEY` / `EMAIL_FROM` | Railway only — `apps/api/src/lib/email.ts` (Resend) |
 
-## Programa de Parceiros (migration 20260610080000, ⏳ não aplicada)
+## Programa de Parceiros (migrations aplicadas em 2026-06-11)
 - `parceiros`, `empresa_status_eventos`, `parceiro_emails_log`: RLS habilitado, policies admin-only (`is_admin_sistema()`) — sem acesso anon/membro
-- `/cron/parceiros/resumo-mensal` é a única rota não autenticada por sessão — protegida por `CRON_SECRET` via header `x-cron-secret`, retorna 401/500 se ausente/incorreto
-- ⚠️ **Pendência conhecida**: novas colunas sensíveis em `empresas` (`parceiro_id`, `parceiro_percentual`, `valor_mensalidade`, `status_pagamento`, `plano`, `pagamento_vencimento`) ficam visíveis a membros da empresa via a policy de SELECT existente (`empresas_membro`), pois RLS é por linha, não por coluna — avaliar view/coluna restrita numa próxima passada
-- Após aplicar a migration, rodar pen test (`pentest/run.mjs`) cobrindo as 3 novas tabelas (admin-only, anon/non-admin negados em todas as operações)
+- `/cron/parceiros/resumo-mensal` é a única rota não autenticada por sessão — protegida por `CRON_SECRET` via header `x-cron-secret`, retorna 401/500 se ausente/incorreto; valida internamente o último dia do mês (idempotente por `parceiro+mês`)
+- ⚠️ **Pendência conhecida**: colunas sensíveis em `empresas` (`parceiro_id`, `parceiro_percentual`, `valor_mensalidade`, `status_pagamento`, `plano`, `pagamento_vencimento`) ficam visíveis a membros da empresa via a policy de SELECT existente (`empresas_membro`), pois RLS é por linha, não por coluna — avaliar view/coluna restrita numa próxima passada
+- ⏳ Rodar pen test (`pentest/run.mjs`) cobrindo as 3 novas tabelas (admin-only, anon/non-admin negados em todas as operações)
+
+## Correções da auditoria de regras (2026-06-11)
+| Issue | Fix |
+|-------|-----|
+| `/api/auth/solicitar-codigo` vazava existência de CPF (422 p/ usuário sem telefone, 429 no rate limit) | Resposta genérica em ambos os casos, log interno via `console.warn` |
+| Policy `tickets_atualizar` branch `tratar` sem escopo de unidade (update cross-tenant por id) | 20260611134557 — exige `usuario_unidade` |
+| Transição de ticket bloqueada por RLS gravava evento na timeline imutável mesmo assim | UI verifica `error` + linhas afetadas antes de inserir o evento |
+| `coalesce(resultado,'aprovado')` no motor de workflow (falso aprovado via SQL manual) | 20260611134557 — nulo = reprovado |
+| Crash 500 em rotas da API (supabase-js exige WebSocket nativo, Node 22+; Railway = Node 20) | `{ realtime: { transport: ws } }` em TODO `createClient` da apps/api — padrão obrigatório p/ rotas novas |
 
 ## Evolution Rule
 Ao corrigir uma vulnerabilidade: adicionar linha na tabela "Vulnerabilidades Corrigidas".  

@@ -75,7 +75,17 @@ Next logical step: [one-sentence inference, only if obvious]
   - `/recuperar-senha` e `/nova-senha` reescritos para fluxo CPF → código → nova senha (sem `resetPasswordForEmail`)
   - `/primeiro-acesso` (nova página): código de boas-vindas enviado automaticamente na criação/importação de usuário
   - Botão "Resetar senha" em `/gestao/acessos/usuarios` → `/api/usuarios/resetar-senha` (admin_sistema ou `usuario_tem_permissao('usuarios','editar')`)
-- **Programa de Parceiros** (indicação): migration `20260610080000_parceiros.sql` (⏳ não aplicada) — tabelas `parceiros`/`empresa_status_eventos`/`parceiro_emails_log` + colunas em `empresas` (`parceiro_id`, `parceiro_percentual`, `plano`, `valor_mensalidade`, `status_pagamento`, `pagamento_vencimento`). Aba "Parceiro" + aba "Pagamento" (agora wired) em `/sistema/empresas/[id]`, listagem `/sistema/parceiros`, `ParceiroModal`, rotas `apps/api/src/routes/parceiros.ts` (`/parceiros/boas-vindas`, `/cron/parceiros/resumo-mensal`), templates de e-mail em `email-templates.ts`. Falta: aplicar migration, configurar `CRON_SECRET`/Railway Cron, considerar RLS coluna-restrita em `empresas` para membros
+- **Programa de Parceiros** (indicação): migration `20260610080000_parceiros.sql` — tabelas `parceiros`/`empresa_status_eventos`/`parceiro_emails_log` + colunas em `empresas` (`parceiro_id`, `parceiro_percentual`, `plano`, `valor_mensalidade`, `status_pagamento`, `pagamento_vencimento`). Aba "Parceiro" + aba "Pagamento" (agora wired) em `/sistema/empresas/[id]`, listagem `/sistema/parceiros`, `ParceiroModal`, rotas `apps/api/src/routes/parceiros.ts` (`/parceiros/boas-vindas`, `/cron/parceiros/resumo-mensal`), templates de e-mail em `email-templates.ts`
+
+## Features entregues em 2026-06-11
+- **Programa de Parceiros 100% operacional em produção**: 3 migrations aplicadas, Resend com domínio `checkflow.digital` verificado, boas-vindas validado de ponta a ponta, cron diário no cron-job.org (POST + `x-cron-secret` + `Content-Type: application/json` + body `{}`) — envio real todo último dia do mês 18h
+- Busca de parceiro por **CPF** (não mais e-mail) — `documento` normalizado (só dígitos) e único (20260611150000)
+- **Auditoria completa de regras de negócio** × código (~15 correções): guard de último dia no cron, boas-vindas só após salvar vínculo, anti-enumeração de CPF no solicitar-codigo (resposta genérica p/ sem-telefone e rate-limit), erros de update verificados (empresa/tickets), permissão `ticket.cancelar` aplicada, reabertura → `aberto` sem assignee, policy `tratar` com escopo de unidade, resultado nulo = reprovado no motor de workflow, execuções agendadas como pendência da unidade (`executado_por` null + `agendamento_id`), filtro `@checkflow.local` nas notificações, guard de edição reconhecido como já existente no montador (falso positivo da auditoria)
+- **Fix crítico Node 20**: todo `createClient` do supabase-js na API precisa de `{ realtime: { transport: ws } }` — sem isso crash 500 (afetava parceiros, tickets, planos-acao, whatsapp)
+- **pg_cron configurado** (job `processar-agendamentos`, */10min) — agendamentos recorrentes ativos
+- **WhatsApp QR resolvido** (bug de 5 dias): upgrade Evolution `evoapicloud/evolution-api:v2.3.7`, conectado em produção; instâncias órfãs deletadas
+- **Trocar número do WhatsApp**: botão "Trocar número / Desconectar" em `/sistema/whatsapp` + rota `POST /whatsapp/desconectar`
+- Sidebar: só o item mais específico acende (fix destaque duplo Tickets/SLA); nav sistema cobre `/sistema/empresas/[id]`
 
 ## Features entregues nesta sessão
 - Inativar/Duplicar checklist (com picker de destino)

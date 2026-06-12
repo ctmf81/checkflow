@@ -108,14 +108,19 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 
 **RLS:** via `usuario_unidade`. Escrita de categorias/SLA exige `usuario_tem_permissao('ticket','categorias_gerir')`.
 
-### Programa de Parceiros (migration 20260610080000, ⏳ não aplicada)
+### Programa de Parceiros (migrations 20260610080000 + 20260611150000, ✅ aplicadas)
 | Table | Description |
 |-------|-------------|
-| `parceiros` | `nome, email (unique lower), telefone, documento, status status_geral default 'ativo', email_boasvindas_enviado_em, criado_em, criado_por, atualizado_em`. Um parceiro pode estar vinculado a várias `empresas` |
+| `parceiros` | `nome, email (unique lower), telefone, documento (CPF só dígitos, unique parcial — chave de busca na UI), status status_geral default 'ativo', email_boasvindas_enviado_em, criado_em, criado_por, atualizado_em`. Um parceiro pode estar vinculado a várias `empresas` |
 | `empresa_status_eventos` | Audit trail de mudanças de `empresas.status` — populado pelo trigger `empresas_log_status_change()` (AFTER UPDATE em `empresas`). Usado para detectar empresas que ficaram `inativo` no mês |
 | `parceiro_emails_log` | Idempotência de envio de e-mail: `unique(parceiro_id, tipo, referencia)`. `tipo`: `boas_vindas` (referencia null) \| `resumo_mensal` (referencia = `'YYYY-MM'`) |
 
-**Fluxo:** vínculo parceiro↔empresa e `parceiro_percentual` editados na aba "Parceiro" de `/sistema/empresas/[id]`. Cadastro/seleção de parceiro via `ParceiroModal.tsx`. E-mail de boas-vindas: `POST /parceiros/boas-vindas` (apps/api). Resumo mensal (todo fim de mês, projeção de comissão = `valor_mensalidade × parceiro_percentual / 100` para empresas `ativo`, lista empresas que viraram `inativo` no mês): `POST /cron/parceiros/resumo-mensal`, protegido por header `x-cron-secret` (`CRON_SECRET`) — precisa de scheduler externo (Railway Cron), ver `/ops`.
+**Fluxo:** vínculo parceiro↔empresa e `parceiro_percentual` editados na aba "Parceiro" de `/sistema/empresas/[id]`. Cadastro/seleção de parceiro **por CPF** via `ParceiroModal.tsx`. E-mail de boas-vindas: `POST /parceiros/boas-vindas` (apps/api), disparado só após o vínculo ser salvo. Resumo mensal (a rota valida internamente o último dia do mês; comissão = `valor_mensalidade × parceiro_percentual / 100` para empresas `ativo` com `status_pagamento != 'cancelado'`; lista empresas que viraram `inativo` no mês): `POST /cron/parceiros/resumo-mensal`, protegido por `x-cron-secret` (`CRON_SECRET`), chamado diariamente pelo cron-job.org — ver `/ops`.
+
+### Hardening de regras (migration 20260611134557, ✅ aplicada)
+- Policy `tickets_atualizar`: branch `usuario_tem_permissao('ticket','tratar')` agora exige vínculo com a unidade do ticket
+- `workflow_on_checklist_concluido()`: `resultado` nulo conta como **reprovado** (fail-safe — nunca avança estágio por omissão)
+- `checklist_execucoes.agendamento_id` (FK → agendamentos) + `agendamentos_processar()` reescrita: execução agendada nasce com `executado_por` **null** (pendência da unidade, não execução do gestor) e `data_expiracao` calculada do `tempo_guarda_meses`
 
 ## Onboarding
 
