@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
+import { useConfirm } from '@/components/ui/feedback'
 
 interface Empresa {
   id: string
@@ -27,6 +28,7 @@ interface Unidade {
 
 export default function EmpresaPage() {
   const { empresaAtiva } = useSession()
+  const confirm = useConfirm()
   const [empresa, setEmpresa] = useState<Empresa | null>(null)
   const [unidades, setUnidades] = useState<Unidade[]>([])
   const [loading, setLoading] = useState(true)
@@ -71,7 +73,7 @@ export default function EmpresaPage() {
   }
 
   async function deletarUnidade(id: string) {
-    if (!confirm('Remover esta unidade?')) return
+    if (!await confirm({ titulo: 'Remover esta unidade?', mensagem: 'Essa ação não pode ser desfeita.', confirmarLabel: 'Remover', perigo: true })) return
     await createClient().from('unidades').delete().eq('id', id)
     carregar()
   }

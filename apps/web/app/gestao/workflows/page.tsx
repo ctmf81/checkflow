@@ -8,6 +8,7 @@ import { useSession } from '@/contexts/SessionContext'
 import { Button } from '@/components/ui/Button'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
+import { useToast } from '@/components/ui/feedback'
 
 interface Workflow {
   id: string
@@ -26,6 +27,7 @@ const STATUS_CFG = {
 
 export default function WorkflowsPage() {
   const { empresaAtiva, unidadeAtiva } = useSession()
+  const toast = useToast()
   const [workflows, setWorkflows] = useState<Workflow[]>([])
   const [loading, setLoading] = useState(true)
   const [menuAberto, setMenuAberto] = useState<string | null>(null)
@@ -61,7 +63,7 @@ export default function WorkflowsPage() {
   }
 
   async function iniciarExecucao(workflowId: string) {
-    if (!unidadeAtiva) return alert('Selecione uma unidade antes de iniciar.')
+    if (!unidadeAtiva) { toast.info('Selecione uma unidade antes de iniciar.'); return }
     setIniciando(workflowId)
     setMenuAberto(null)
     const sb = createClient()
@@ -72,7 +74,7 @@ export default function WorkflowsPage() {
       p_usuario_id: user?.id,
     })
     setIniciando(null)
-    if (error) { alert('Erro ao iniciar: ' + error.message); return }
+    if (error) { toast.error('Erro ao iniciar: ' + error.message); return }
     window.location.href = `/gestao/workflows/${workflowId}/execucoes/${data}`
   }
 

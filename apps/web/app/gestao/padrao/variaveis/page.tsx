@@ -7,10 +7,12 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
+import { useConfirm } from '@/components/ui/feedback'
 import { VariavelModal, Variavel } from './VariavelModal'
 
 export default function VariaveisPage() {
   const { unidadeAtiva } = useSession()
+  const confirm = useConfirm()
   const [variaveis, setVariaveis] = useState<Variavel[]>([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
@@ -36,7 +38,7 @@ export default function VariaveisPage() {
   useEffect(() => { carregar() }, [unidadeAtiva?.id])
 
   async function excluir(v: Variavel) {
-    if (!confirm(`Excluir a variável "${v.nome}"? Padrões que a usam podem deixar de funcionar corretamente.`)) return
+    if (!await confirm({ titulo: `Excluir a variável "${v.nome}"?`, mensagem: 'Padrões que a usam podem deixar de funcionar corretamente.', confirmarLabel: 'Excluir', perigo: true })) return
     await createClient().from('variaveis').update({ ativo: false }).eq('id', v.id)
     carregar()
   }

@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
+import { useToast, useConfirm } from '@/components/ui/feedback'
 
 interface Usuario {
   id: string
@@ -26,6 +27,8 @@ interface Perfil { id: string; nome: string }
 
 export default function UsuariosPage() {
   const { empresaAtiva } = useSession()
+  const toast = useToast()
+  const confirm = useConfirm()
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [perfis, setPerfis] = useState<Perfil[]>([])
   const [busca, setBusca] = useState('')
@@ -50,7 +53,7 @@ export default function UsuariosPage() {
     try {
       const { data: { session } } = await createClient().auth.getSession()
       const token = session?.access_token
-      if (!token) { alert('Sessão inválida.'); return }
+      if (!token) { toast.error('Sessão inválida.'); return }
 
       const res = await fetch('/api/usuarios/impersonar', {
         method: 'POST',
@@ -58,11 +61,11 @@ export default function UsuariosPage() {
         body: JSON.stringify({ email }),
       })
       const json = await res.json()
-      if (!res.ok || !json.link) { alert(json.message ?? 'Erro ao gerar link.'); return }
+      if (!res.ok || !json.link) { toast.error(json.message ?? 'Erro ao gerar link.'); return }
 
       window.location.href = json.link
     } catch (e: any) {
-      alert(e.message ?? 'Erro inesperado.')
+      toast.error(e.message ?? 'Erro inesperado.')
     } finally {
       setImpersonandoId(null)
     }
@@ -101,26 +104,27 @@ export default function UsuariosPage() {
   }
 
   async function inativar(usuarioId: string) {
-    if (!confirm('Inativar este usuário?')) return
+    if (!await confirm({ titulo: 'Inativar este usuário?', mensagem: 'Ele perde o acesso ao sistema imediatamente.', confirmarLabel: 'Inativar', perigo: true })) return
     await fetch('/api/usuarios/inativar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ usuarioId }),
     })
+    toast.success('Usuário inativado.')
     carregar()
   }
 
   async function resetarSenha(usuario: Usuario) {
     if (!usuario.telefone) {
-      alert('Este usuário não possui telefone cadastrado para receber o código de redefinição.')
+      toast.error('Este usuário não possui telefone cadastrado para receber o código de redefinição.')
       return
     }
-    if (!confirm(`Enviar código de redefinição de senha para ${usuario.nome} via WhatsApp?`)) return
+    if (!await confirm({ titulo: 'Redefinir senha?', mensagem: `Será enviado um código de redefinição para ${usuario.nome} via WhatsApp.`, confirmarLabel: 'Enviar código' })) return
     setResetandoId(usuario.id)
     try {
       const { data: { session } } = await createClient().auth.getSession()
       const token = session?.access_token
-      if (!token) { alert('Sessão inválida.'); return }
+      if (!token) { toast.error('Sessão inválida.'); return }
 
       const res = await fetch('/api/usuarios/resetar-senha', {
         method: 'POST',
@@ -128,9 +132,10 @@ export default function UsuariosPage() {
         body: JSON.stringify({ usuarioId: usuario.id }),
       })
       const json = await res.json()
-      alert(json.message ?? (res.ok ? 'Código enviado.' : 'Erro ao enviar código.'))
+      if (res.ok) toast.success(json.message ?? 'Código enviado.')
+      else toast.error(json.message ?? 'Erro ao enviar código.')
     } catch (e: any) {
-      alert(e.message ?? 'Erro inesperado.')
+      toast.error(e.message ?? 'Erro inesperado.')
     } finally {
       setResetandoId(null)
     }

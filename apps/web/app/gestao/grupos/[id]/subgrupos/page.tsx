@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { NovoSubgrupoModal } from './NovoSubgrupoModal'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { useConfirm } from '@/components/ui/feedback'
 
 interface Subgrupo {
   id: string
@@ -246,6 +247,7 @@ function FuncoesModal({ subgrupo, onClose }: { subgrupo: Subgrupo; onClose: () =
 export default function SubgruposPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const { subgrupoLabel } = useSession()
+  const confirm = useConfirm()
   const router = useRouter()
   const [modal, setModal] = useState(false)
   const [grupo, setGrupo] = useState<{ nome: string } | null>(null)
@@ -278,7 +280,7 @@ export default function SubgruposPage({ params }: { params: Promise<{ id: string
   }
 
   async function desativar(sub: Subgrupo) {
-    if (!confirm(`Desativar "${sub.nome}"?`)) return
+    if (!await confirm({ titulo: `Desativar "${sub.nome}"?`, confirmarLabel: 'Desativar', perigo: true })) return
     await createClient().from('subgrupos').update({ status: 'inativo' }).eq('id', sub.id)
     carregar()
   }

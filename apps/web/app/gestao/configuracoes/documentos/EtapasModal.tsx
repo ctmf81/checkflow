@@ -5,6 +5,7 @@ import { X, Plus, Trash2, ChevronRight, ImagePlus, Video, Eye, EyeOff, ChevronLe
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { ImageCropModal } from '@/components/ui/ImageCropModal'
+import { useConfirm } from '@/components/ui/feedback'
 
 interface Etapa {
   id: string
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
+  const confirm = useConfirm()
   const [etapas, setEtapas] = useState<Etapa[]>([])
   const [busca, setBusca] = useState('')
   const [etapaAtiva, setEtapaAtiva] = useState<Etapa | null>(null)
@@ -86,7 +88,7 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
   }
 
   async function deletarEtapa(id: string) {
-    if (!confirm('Remover esta etapa?')) return
+    if (!await confirm({ titulo: 'Remover esta etapa?', confirmarLabel: 'Remover', perigo: true })) return
     await createClient().from('documento_etapas').delete().eq('id', id)
     setEtapas(prev => prev.filter(e => e.id !== id))
     if (etapaAtiva?.id === id) setEtapaAtiva(null)

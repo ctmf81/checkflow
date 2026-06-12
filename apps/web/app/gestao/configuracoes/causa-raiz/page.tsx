@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
+import { useConfirm } from '@/components/ui/feedback'
 import { CausaRaizModal } from './CausaRaizModal'
 
 interface CausaRaiz {
@@ -29,6 +30,7 @@ const TIPO_COR: Record<string, string> = {
 
 export default function CausaRaizPage() {
   const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
+  const confirm = useConfirm()
   const [causas, setCausas] = useState<CausaRaiz[]>([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
@@ -67,7 +69,7 @@ export default function CausaRaizPage() {
   }
 
   async function excluir(id: string, nome: string) {
-    if (!confirm(`Excluir "${nome}"?`)) return
+    if (!await confirm({ titulo: `Excluir "${nome}"?`, confirmarLabel: 'Excluir', perigo: true })) return
     await createClient().from('causa_raiz').update({ status: 'inativo' }).eq('id', id)
     carregar()
   }

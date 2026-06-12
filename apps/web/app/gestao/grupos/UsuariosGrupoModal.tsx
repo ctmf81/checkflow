@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { X, Users, Pencil, PowerOff, RefreshCw, Check, ChevronDown, ChevronUp, Loader2, UserCircle, Phone, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
+import { useConfirm } from '@/components/ui/feedback'
 
 interface Props {
   grupoId: string
@@ -176,6 +177,7 @@ function SubgruposUsuarioModal({ usuario, grupoId, subgrupoLabel, onClose, onSal
 // ─── Modal principal ──────────────────────────────────────────────────────────
 
 export function UsuariosGrupoModal({ grupoId, grupoNome, subgrupoLabel, onClose, onAlterado }: Props) {
+  const confirm = useConfirm()
   const [usuarios, setUsuarios] = useState<UsuarioGrupo[]>([])
   const [loading, setLoading] = useState(true)
   const [editando, setEditando] = useState<UsuarioGrupo | null>(null)
@@ -237,7 +239,7 @@ export function UsuariosGrupoModal({ grupoId, grupoNome, subgrupoLabel, onClose,
   }
 
   async function inativar(usuario: UsuarioGrupo) {
-    if (!confirm(`Remover "${usuario.nome}" deste grupo?`)) return
+    if (!await confirm({ titulo: `Remover "${usuario.nome}" deste grupo?`, confirmarLabel: 'Remover', perigo: true })) return
     setInativando(usuario.id)
     const supabase = createClient()
     await supabase.from('usuario_grupo').delete()

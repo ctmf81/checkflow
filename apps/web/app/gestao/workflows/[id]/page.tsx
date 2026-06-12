@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_WORKFLOWS } from '@/components/onboarding/configs'
+import { useToast } from '@/components/ui/feedback'
 
 // ─── Tipos locais ─────────────────────────────────────────────────────────────
 
@@ -280,6 +281,7 @@ export default function WorkflowEditorPage({ params }: { params: Promise<{ id: s
   const isNovo = id === 'novo'
   const router = useRouter()
   const { empresaAtiva, unidadeAtiva } = useSession()
+  const toast = useToast()
 
   const [nome, setNome]           = useState('')
   const [descricao, setDescricao] = useState('')
@@ -623,7 +625,7 @@ export default function WorkflowEditorPage({ params }: { params: Promise<{ id: s
                 )}
 
                 <button
-                  onClick={() => unidadeAtiva ? setPicker(est.localId) : alert('Selecione uma unidade para ver os checklists.')}
+                  onClick={() => unidadeAtiva ? setPicker(est.localId) : toast.info('Selecione uma unidade para ver os checklists.')}
                   className="flex items-center gap-1.5 text-xs text-violet-500 hover:text-violet-700 font-medium transition-colors">
                   <Plus size={13} />
                   Adicionar checklist

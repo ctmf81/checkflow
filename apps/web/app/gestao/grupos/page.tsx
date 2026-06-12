@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
+import { useConfirm } from '@/components/ui/feedback'
 
 interface Grupo {
   id: string
@@ -25,6 +26,7 @@ interface Grupo {
 
 export default function GruposPage() {
   const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
+  const confirm = useConfirm()
   const [grupos, setGrupos] = useState<Grupo[]>([])
   const [modal, setModal] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -56,7 +58,7 @@ export default function GruposPage() {
   }
 
   async function desativarGrupo(id: string, nome: string) {
-    if (!confirm(`Desativar o grupo "${nome}"?`)) return
+    if (!await confirm({ titulo: `Desativar o grupo "${nome}"?`, confirmarLabel: 'Desativar', perigo: true })) return
     await createClient().from('grupos').update({ status: 'inativo' }).eq('id', id)
     carregar()
   }

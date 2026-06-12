@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
+import { useConfirm } from '@/components/ui/feedback'
 import { NovoDocumentoModal, DocumentoBase } from './NovoDocumentoModal'
 import { EditarDocumentoModal } from './EditarDocumentoModal'
 import { DuplicarDocumentoModal } from './DuplicarDocumentoModal'
@@ -92,6 +93,7 @@ function DocMenu({ doc, onEditar, onEtapas, onDuplicar, onExcluir }: {
 
 export default function DocumentosPage() {
   const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
+  const confirm = useConfirm()
   const [documentos, setDocumentos] = useState<Documento[]>([])
   const [grupos, setGrupos] = useState<{ id: string; nome: string; display_name: string | null }[]>([])
   const [subgrupos, setSubgrupos] = useState<{ id: string; nome: string }[]>([])
@@ -139,7 +141,7 @@ export default function DocumentosPage() {
   }, [filtroGrupo])
 
   async function excluir(doc: Documento) {
-    if (!confirm(`Excluir "${doc.nome}"?`)) return
+    if (!await confirm({ titulo: `Excluir "${doc.nome}"?`, confirmarLabel: 'Excluir', perigo: true })) return
     await createClient().from('documentos').update({ status: 'inativo' }).eq('id', doc.id)
     carregar()
   }

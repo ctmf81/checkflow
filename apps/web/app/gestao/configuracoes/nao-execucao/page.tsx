@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
+import { useConfirm } from '@/components/ui/feedback'
 import { MotivoModal } from './MotivoModal'
 
 interface Motivo {
@@ -21,6 +22,7 @@ interface Motivo {
 
 export default function NaoExecucaoPage() {
   const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
+  const confirm = useConfirm()
   const [motivos, setMotivos] = useState<Motivo[]>([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
@@ -56,7 +58,7 @@ export default function NaoExecucaoPage() {
   }
 
   async function desativar(id: string, descricao: string) {
-    if (!confirm(`Desativar "${descricao}"?`)) return
+    if (!await confirm({ titulo: `Desativar "${descricao}"?`, confirmarLabel: 'Desativar', perigo: true })) return
     await createClient().from('nao_execucao_motivos').update({ status: 'inativo' }).eq('id', id)
     carregar()
   }

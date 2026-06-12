@@ -6,6 +6,7 @@ import { Plus, ChevronLeft, Save, Send, GripVertical, Trash2, ChevronDown, Chevr
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { useToast, useConfirm } from '@/components/ui/feedback'
 import AtividadeModal from './AtividadeModal'
 
 interface Secao {
@@ -70,6 +71,8 @@ function TipoIcon({ tipo, size = 'md' }: { tipo: string; size?: 'sm' | 'md' | 'l
 export default function ChecklistMontador({ checklistId }: Props) {
   const router = useRouter()
   const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
+  const toast = useToast()
+  const confirm = useConfirm()
 
   // Dados do checklist
   const [nome, setNome] = useState('')
@@ -91,12 +94,14 @@ export default function ChecklistMontador({ checklistId }: Props) {
   const [edicaoLiberada, setEdicaoLiberada] = useState(false)
   const bloqueado = status === 'publicado' && !edicaoLiberada
 
-  function liberarEdicao() {
-    if (confirm(
-      'Este checklist está PUBLICADO. Alterações na estrutura passam a valer ' +
-      'imediatamente na Operação.\n\nAo terminar, clique em "Publicar" para ' +
-      'registrar uma nova versão. Deseja liberar a edição?'
-    )) setEdicaoLiberada(true)
+  async function liberarEdicao() {
+    const ok = await confirm({
+      titulo: 'Liberar edição de checklist publicado?',
+      mensagem: 'As alterações na estrutura passam a valer imediatamente na Operação. Ao terminar, clique em "Publicar" para registrar uma nova versão.',
+      confirmarLabel: 'Liberar edição',
+      perigo: true,
+    })
+    if (ok) setEdicaoLiberada(true)
   }
 
   // Modal de atividade
@@ -243,7 +248,7 @@ export default function ChecklistMontador({ checklistId }: Props) {
       status: 'publicado', versao_atual: novaVersao, atualizado_em: new Date().toISOString()
     }).eq('id', id)
     setStatus('publicado')
-    alert(`Publicado como v${novaVersao}!`)
+    toast.success(`Checklist publicado como v${novaVersao}.`)
   }
 
   async function adicionarSecao() {
@@ -263,7 +268,7 @@ export default function ChecklistMontador({ checklistId }: Props) {
   }
 
   async function deletarSecao(secaoId: string) {
-    if (!confirm('Remover esta seção e todas as suas atividades?')) return
+    if (!await confirm({ titulo: 'Remover esta seção?', mensagem: 'Todas as atividades dela serão removidas.', confirmarLabel: 'Remover', perigo: true })) return
     await createClient().from('checklist_secoes').delete().eq('id', secaoId)
     setSecoes(prev => prev.filter(s => s.id !== secaoId))
   }
@@ -319,7 +324,7 @@ export default function ChecklistMontador({ checklistId }: Props) {
   }
 
   async function deletarAtividade(atividadeId: string, secaoId: string) {
-    if (!confirm('Remover esta atividade?')) return
+    if (!await confirm({ titulo: 'Remover esta atividade?', confirmarLabel: 'Remover', perigo: true })) return
     await createClient().from('checklist_atividades').delete().eq('id', atividadeId)
     setSecoes(prev => prev.map(s => s.id !== secaoId ? s : {
       ...s, atividades: s.atividades.filter(a => a.id !== atividadeId)
@@ -327,7 +332,7 @@ export default function ChecklistMontador({ checklistId }: Props) {
   }
 
   async function deletarDependente(depId: string, paiId: string, secaoId: string) {
-    if (!confirm('Remover esta atividade dependente?')) return
+    if (!await confirm({ titulo: 'Remover esta atividade dependente?', confirmarLabel: 'Remover', perigo: true })) return
     await createClient().from('checklist_atividades').delete().eq('id', depId)
     setSecoes(prev => prev.map(s => s.id !== secaoId ? s : {
       ...s,

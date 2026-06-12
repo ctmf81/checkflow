@@ -10,6 +10,7 @@ import { useSession } from '@/contexts/SessionContext'
 import { Button } from '@/components/ui/Button'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
+import { useToast, useConfirm } from '@/components/ui/feedback'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -224,6 +225,8 @@ function NovoAgendamentoModal({
 
 export default function AgendamentosPage() {
   const { empresaAtiva, unidadeAtiva } = useSession()
+  const toast = useToast()
+  const confirm = useConfirm()
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
   const [loading, setLoading]           = useState(true)
   const [modalAberto, setModalAberto]   = useState(false)
@@ -273,7 +276,7 @@ export default function AgendamentosPage() {
   }
 
   async function excluir(id: string) {
-    if (!confirm('Excluir este agendamento? Essa ação não pode ser desfeita.')) return
+    if (!await confirm({ titulo: 'Excluir agendamento?', mensagem: 'Essa ação não pode ser desfeita.', confirmarLabel: 'Excluir', perigo: true })) return
     setAlterando(id)
     const sb = createClient()
     await sb.from('agendamentos').delete().eq('id', id)
@@ -298,7 +301,7 @@ export default function AgendamentosPage() {
           <h1 className="text-xl font-semibold text-gray-800">Agendamentos</h1>
           <p className="text-xs text-gray-400 mt-0.5">Início programado e recorrente de workflows e checklists</p>
         </div>
-        <Button onClick={() => unidadeAtiva ? setModalAberto(true) : alert('Selecione uma unidade para criar um agendamento.')}>
+        <Button onClick={() => unidadeAtiva ? setModalAberto(true) : toast.info('Selecione uma unidade para criar um agendamento.')}>
           <Plus size={16} />Novo agendamento
         </Button>
       </div>

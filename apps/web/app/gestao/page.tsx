@@ -129,7 +129,7 @@ export default function GestaoHomePage() {
     const from = periodoParaISO(periodo)
 
     let q = sb.from('checklist_execucoes')
-      .select('resultado, status')
+      .select('resultado, status, planos_acao(status)')
       .gte('data_execucao', from)
       .eq('status', 'concluido')
 
@@ -138,13 +138,16 @@ export default function GestaoHomePage() {
     }
 
     const { data } = await q
-    const rows = data ?? []
+    const rows = (data ?? []) as any[]
 
     setFunil({
       executados:    rows.length,
       aprovados:     rows.filter(r => r.resultado === 'aprovado').length,
       reprovados:    rows.filter(r => r.resultado === 'reprovado').length,
-      em_moderacao:  rows.filter(r => r.resultado === 'reprovado').length, // planos abertos — aproximado
+      // Planos de ação ainda em moderação (N1/N2) gerados pelas execuções do período
+      em_moderacao:  rows.reduce((acc, r) => acc + (r.planos_acao ?? []).filter(
+        (p: any) => p.status === 'em_moderacao_n1' || p.status === 'em_moderacao_n2'
+      ).length, 0),
     })
     setLoadingFunil(false)
   }, [pronto, periodo, isAdmin, unidadeIds])

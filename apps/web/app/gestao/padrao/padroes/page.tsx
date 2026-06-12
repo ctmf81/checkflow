@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
+import { useConfirm } from '@/components/ui/feedback'
 
 interface PadraoCard {
   id: string; nome: string; descricao: string | null
@@ -17,6 +18,7 @@ interface PadraoCard {
 
 export default function PadroesPage() {
   const { unidadeAtiva } = useSession()
+  const confirm = useConfirm()
   const [padroes, setPadroes] = useState<PadraoCard[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -42,7 +44,7 @@ export default function PadroesPage() {
   useEffect(() => { carregar() }, [unidadeAtiva?.id])
 
   async function excluir(id: string, nome: string) {
-    if (!confirm(`Excluir o padrão "${nome}"? Atividades que o usam deixarão de validar.`)) return
+    if (!await confirm({ titulo: `Excluir o padrão "${nome}"?`, mensagem: 'Atividades que o usam deixarão de validar.', confirmarLabel: 'Excluir', perigo: true })) return
     await createClient().from('padroes').update({ ativo: false }).eq('id', id)
     carregar()
   }
