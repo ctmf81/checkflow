@@ -55,7 +55,7 @@ SUPABASE_URL="..." SUPABASE_ANON_KEY="..." SUPABASE_SERVICE_KEY="..." node pente
 ```
 Cria usuários temporários, roda 29 testes e limpa tudo ao final.
 
-**Cobertura atual (29/29 ✅ — última execução 2026-06-07, após fix do bucket público):**
+**Cobertura atual (48/48 ✅ — última execução 2026-06-12):**
 | Categoria | Testes |
 |-----------|--------|
 | Acesso não autenticado (anon) | 5 |
@@ -66,6 +66,10 @@ Cria usuários temporários, roda 29 testes e limpa tudo ao final.
 | Rotas /api sem autenticação | 3 |
 | JWT manipulation (token inválido / assinatura corrompida) | 2 |
 | Information disclosure / enumeração | 3 |
+| Login por código OTP (`password_reset_tokens` + `/api/auth`) | 8 |
+| Programa de Parceiros (3 tabelas admin-only + colunas financeiras) | 11 |
+
+⚠️ Rotas `/api/*` são bloqueadas pelo middleware (redirect 307 → /login) quando o request não tem cookie de sessão — o pen test usa `redirect: 'manual'` e aceita 307/401/403 como "bloqueado". A autorização fina do handler (Bearer + permissão) é defesa em profundidade adicional.
 
 Rode o pen test após qualquer alteração de RLS ou nova tabela.
 
@@ -128,8 +132,8 @@ Cobre: headers de segurança (HSTS/X-Frame-Options/nosniff), CORS, cookies de se
 ## Programa de Parceiros (migrations aplicadas em 2026-06-11)
 - `parceiros`, `empresa_status_eventos`, `parceiro_emails_log`: RLS habilitado, policies admin-only (`is_admin_sistema()`) — sem acesso anon/membro
 - `/cron/parceiros/resumo-mensal` é a única rota não autenticada por sessão — protegida por `CRON_SECRET` via header `x-cron-secret`, retorna 401/500 se ausente/incorreto; valida internamente o último dia do mês (idempotente por `parceiro+mês`)
-- ⚠️ **Pendência conhecida**: colunas sensíveis em `empresas` (`parceiro_id`, `parceiro_percentual`, `valor_mensalidade`, `status_pagamento`, `plano`, `pagamento_vencimento`) ficam visíveis a membros da empresa via a policy de SELECT existente (`empresas_membro`), pois RLS é por linha, não por coluna — avaliar view/coluna restrita numa próxima passada
-- ⏳ Rodar pen test (`pentest/run.mjs`) cobrindo as 3 novas tabelas (admin-only, anon/non-admin negados em todas as operações)
+- ✅ Pen test seção 10 (`pentest/run.mjs`) cobre as 3 tabelas: anon e usuário comum negados em SELECT/INSERT/UPDATE/DELETE. Suite completa 48/48 em 2026-06-12
+- ✅ Verificado empiricamente: a suposta exposição das colunas financeiras de `empresas` (`valor_mensalidade`, `parceiro_percentual`, etc.) a membros da empresa **NÃO existe** — usuário comum não lê a tabela `empresas` via PostgREST (nem a própria empresa). Os dados de empresa na UI de gestão vêm por outro caminho (service role / API). Não há pendência de view/coluna restrita
 
 ## Correções da auditoria de regras (2026-06-11)
 | Issue | Fix |

@@ -11,7 +11,7 @@ description: Quality Assurance for CheckFlow — test strategy, suites por tela/
 |--------|-----------|--------|
 | Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` |
 | E2E / Funcional | Playwright | 🔴 não instalado |
-| Pen Test (security, RLS) | `pentest/run.mjs` (Node nativo) | 🔴 atualizado 2026-06-10, não rodado ainda — adicionada seção 9 (`password_reset_tokens` + `/api/auth`) |
+| Pen Test (security, RLS) | `pentest/run.mjs` (Node nativo) | ✅ 48/48 (2026-06-12) — seções 1-10, inclui OTP e Programa de Parceiros |
 | HTTP Security Probe | `pentest/http_probe.mjs` (Node nativo, sem creds) | ✅ 25/26 (2026-06-08, após fix CORS + headers) |
 
 ### Instalar Vitest
@@ -63,16 +63,22 @@ npx playwright install chromium
 ## Suites Existentes
 
 ### Pen Test (`pentest/run.mjs`)
-29 testes de segurança (RLS/multi-tenant, autenticado) das seções 1-8, 29/29 ✅ em 2026-06-07. Ver `/security` para detalhes.
+48 testes de segurança (RLS/multi-tenant, autenticado), seções 1-10, **48/48 ✅ em 2026-06-12**. Ver `/security` para detalhes.
 ⚠️ Achou e corrigiu (2026-06-07): bucket `execucoes` permitia `list()` por `anon` — ver migration `20260607110000`.
 
-#### 🔴 Seção 9 — Login por código (OTP), adicionada 2026-06-10, ainda não executada
-Cobre `password_reset_tokens` (RLS sem policies = deny-all) e as novas rotas `/api/auth/solicitar-codigo` e `/api/usuarios/resetar-senha`:
-- `anon` e usuário comum (`clientB`) não podem `select`/`insert`/`update` em `password_reset_tokens`
-- `/api/auth/solicitar-codigo` retorna resposta idêntica para CPF existente vs inexistente (anti-enumeração)
-- `/api/usuarios/resetar-senha` sem `Authorization` → 401; com usuário sem `usuarios.editar` → 403
-- Fixture atualizada: `userA` agora tem `cpf`/`telefone` reais (11 dígitos derivados do timestamp) e `status: 'ativo'`; `cpfInexistente` para o teste de enumeração. `BASE` de `testAPIRoutes()` corrigido para `WEB_BASE` (estava apontando para URL de API antiga, fazia os testes da seção 6 caírem em `info()`/network error silenciosamente).
-- Rodar com `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_KEY` do ambiente para validar antes de marcar ✅.
+#### Seção 9 — Login por código (OTP) ✅
+`password_reset_tokens` (RLS deny-all) + rotas `/api/auth/solicitar-codigo` e `/api/usuarios/resetar-senha`. `anon`/`clientB` negados em select/insert/update; solicitar-codigo com resposta genérica anti-enumeração; resetar-senha bloqueada (middleware redireciona 307 → /login sem cookie; teste usa `redirect: 'manual'` e aceita 307/401/403).
+
+#### Seção 10 — Programa de Parceiros ✅
+`parceiros`, `empresa_status_eventos`, `parceiro_emails_log` (RLS admin-only): anon e usuário comum negados em select/insert/update/delete. Verifica também que as colunas financeiras de `empresas` NÃO são lidas por membro comum nem cross-tenant. Setup cria parceiro+vínculo+log; cleanup desfaz tudo.
+
+#### Como rodar (credenciais dos `.env` locais)
+```bash
+export SUPABASE_URL=$(grep '^SUPABASE_URL=' apps/api/.env | cut -d= -f2-)
+export SUPABASE_SERVICE_KEY=$(grep '^SUPABASE_SECRET_KEY=' apps/api/.env | cut -d= -f2-)
+export SUPABASE_ANON_KEY=$(grep '^NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=' apps/web/.env.local | cut -d= -f2-)
+node pentest/run.mjs
+```
 
 ### ✅ HTTP Security Probe (`pentest/http_probe.mjs`)
 26 checagens black-box via HTTP contra produção (sem credenciais): headers de segurança, CORS, cookies, exposição de erro, TLS, XSS/SQLi heurístico, acesso anônimo à API. Categorias adaptadas do relatório "SENAI CONECTA".
