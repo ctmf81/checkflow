@@ -2,14 +2,16 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { ChevronDown, LogOut, UserCircle, Building2, LayoutDashboard, Settings } from 'lucide-react'
+import { ChevronDown, LogOut, UserCircle, Building2, LayoutDashboard, Settings, Menu } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { useSidebarOptional } from './SidebarContext'
 
 export function Header() {
   const router = useRouter()
   const pathname = usePathname()
   const isSistema = pathname.startsWith('/sistema')
+  const sidebar = useSidebarOptional()
   const { unidades, unidadeAtiva, setUnidadeAtiva, setAmbiente, setEmpresaAtiva } = useSession()
   const [nome, setNome] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
@@ -54,7 +56,20 @@ export function Header() {
   }
 
   return (
-    <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-end px-6 gap-4 relative z-40">
+    <header className="h-14 bg-white border-b border-gray-200 flex items-center px-4 sm:px-6 gap-4 relative z-40">
+
+      {/* Botão hambúrguer — abre o drawer da sidebar no mobile (só na Gestão) */}
+      {sidebar && (
+        <button
+          onClick={sidebar.alternar}
+          className="lg:hidden text-gray-500 hover:text-gray-700 p-1 -ml-1"
+          aria-label="Abrir menu"
+        >
+          <Menu size={22} />
+        </button>
+      )}
+
+      <div className="flex-1" />
 
       {/* Seletor de unidade — oculto no painel de sistema */}
       {!isSistema && <div ref={refUnidade} className="relative">
