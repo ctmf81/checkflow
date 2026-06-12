@@ -10,3 +10,9 @@ body {
   color: var(--foreground);
   font-family: Inter, Arial, Helvetica, sans-serif;
 }
+
+/* Animação de entrada dos toasts (components/ui/feedback.tsx) */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
