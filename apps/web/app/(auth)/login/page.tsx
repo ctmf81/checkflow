@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, Circle } from 'lucide-react'
 import { CheckFlowLogo } from '@/components/auth/CheckFlowLogo'
 import { createClient } from '@/lib/supabase'
 
@@ -11,7 +10,6 @@ export default function LoginPage() {
   const router = useRouter()
   const [identificador, setIdentificador] = useState('')
   const [senha, setSenha] = useState('')
-  const [manter, setManter] = useState(true)
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState('')
 
@@ -123,11 +121,7 @@ export default function LoginPage() {
 
         {erro && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{erro}</p>}
 
-        <div className="flex items-center justify-between">
-          <button type="button" onClick={() => setManter(!manter)} className="flex items-center gap-1.5 text-sm text-gray-600">
-            {manter ? <CheckCircle2 size={18} className="text-orange-500" /> : <Circle size={18} className="text-gray-300" />}
-            Manter conectado
-          </button>
+        <div className="flex items-center justify-end">
           <Link href="/recuperar-senha" className="text-sm text-gray-500 hover:text-orange-500 transition-colors">
             Esqueceu sua senha?
           </Link>
