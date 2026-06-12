@@ -21,9 +21,12 @@ function loadConfig(): EvoConfig {
     const saved = localStorage.getItem(CONFIG_KEY)
     if (saved) return JSON.parse(saved)
   } catch { /* */ }
+  // apiKey vazio por padrão: a chave (secreta) NÃO trafega pelo browser —
+  // a API usa a env var `EVOLUTION_API_KEY` quando o body não envia evoKey.
+  // O campo continua editável para sobrescrita manual em outro ambiente.
   return {
     url: 'https://evolution-api-production-d484.up.railway.app',
-    apiKey: 'checkflow_evo_key_2026',
+    apiKey: '',
     instancia: 'checkflow',
   }
 }

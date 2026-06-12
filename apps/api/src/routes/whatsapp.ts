@@ -5,8 +5,9 @@ import { enviarWhatsApp, statusInstancia } from '../lib/whatsapp'
 import { enviarEmail } from '../lib/email'
 import { buscarTemplate, renderizar } from '../lib/notificacao-templates'
 
+// URL e instância têm default de conveniência; a API key (secreta) vem só do ambiente.
 const EVO_URL = process.env.EVOLUTION_API_URL ?? 'https://evolution-api-production-d484.up.railway.app'
-const EVO_KEY = process.env.EVOLUTION_API_KEY ?? 'checkflow_evo_key_2026'
+const EVO_KEY = process.env.EVOLUTION_API_KEY ?? ''
 const EVO_INSTANCE = process.env.EVOLUTION_INSTANCE ?? 'checkflow'
 
 export async function whatsappRoutes(app: FastifyInstance) {
