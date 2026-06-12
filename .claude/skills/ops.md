@@ -30,7 +30,7 @@ When debugging an error in logs: surface only the **last 20 lines** unless the u
 | Evolution API (WhatsApp) | `evolution-api-production-d484.up.railway.app` — imagem `evoapicloud/evolution-api:v2.3.7` (org `atendai` desatualizada no Docker Hub; não fazer downgrade p/ 2.2.x — bug de QR) |
 
 ## Env Vars (nomes — nunca valores no chat)
-`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `CRON_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `CRON_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`, `EVOLUTION_API_KEY` (serviço API — obrigatória, sem fallback no código; URL/instância têm default), `EVOLUTION_API_URL`, `EVOLUTION_INSTANCE`
 
 ## Cron do resumo mensal de parceiros
 `POST /cron/parceiros/resumo-mensal` é chamado 1x/dia pelo **cron-job.org** (conta do usuário) com header `x-cron-secret: $CRON_SECRET`. A rota só age no último dia do mês (idempotente por mês — nos demais dias responde `skip`). `CRON_SECRET` precisa estar no Railway (serviço API) e no job do cron-job.org com o mesmo valor. Teste manual fora do último dia: body JSON `{"force": true}`.
