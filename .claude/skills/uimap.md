@@ -100,6 +100,14 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 | File | Purpose |
 |------|---------|
 | `Button.tsx` | Shared button component |
+| `feedback.tsx` | **Sistema de feedback unificado** — `<FeedbackProvider>` (montado no root `app/layout.tsx`) + hooks `useToast()` (`.success/.error/.info`, toast canto inf. direito) e `useConfirm()` (`await confirm({ titulo, mensagem?, confirmarLabel?, perigo? })`, diálogo estilizado). **Substitui os `alert()`/`confirm()` nativos — usar SEMPRE estes em telas novas, nunca os do browser** |
+
+### `layout/`
+| File | Purpose |
+|------|---------|
+| `Sidebar.tsx` | Menu lateral da Gestão. Responsivo: drawer off-canvas no mobile (<lg), fixo no desktop. Só o item de rota mais específico fica ativo |
+| `SidebarContext.tsx` | Estado do drawer mobile (`useSidebar()` / `useSidebarOptional()` p/ componentes compartilhados como o Header) |
+| `Header.tsx` | Topo. Botão hambúrguer (lg:hidden) abre o drawer na Gestão; seletor de unidade/usuário/módulo |
 
 ### `modals/`
 | File | Purpose |
@@ -124,6 +132,11 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 
 ## Supabase Migrations (`supabase/migrations/`)
 See `/db` skill for full table index by migration file.
+
+## Padrões de UX (obrigatórios em telas novas)
+- **Feedback**: nunca usar `alert()`/`confirm()` nativos — usar `useToast()` e `useConfirm()` de `components/ui/feedback.tsx`. Toda ação destrutiva → `confirm({ perigo: true })`; todo salvar/erro → toast.
+- **Verificar erro do Supabase** antes de dar feedback de sucesso (RLS falha em silêncio — retorna `data:[]`/`error`, não exceção).
+- **Responsivo**: telas da Gestão devem funcionar no mobile (a sidebar já colapsa em drawer; usar paddings `p-4 sm:p-6 lg:p-8`).
 
 ## Evolution Rule
 When new pages or components are created, add them to the relevant table above.
