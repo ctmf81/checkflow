@@ -125,7 +125,7 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 ### Integrações de IA (migration 20260612235259, ⏳ não aplicada)
 | Table | Description |
 |-------|-------------|
-| `ia_provedores` | Provedores de IA da Consulta Inteligente: `provedor` (unique: gemini/anthropic/openai/groq), `api_key` (secreta — só lida no servidor via service key, UI nunca seleciona), `chave_mascara` (`••••1234`, segura p/ exibir), `modelo` (override), `ativo`, `ordem` (failover). RLS admin-only. Seed das 4 linhas sem chave |
+| `ia_provedores` | Provedores de IA da Consulta Inteligente: `provedor` (unique: gemini/anthropic/openai/groq/**custom1/custom2**), `api_key` (secreta — só lida no servidor via service key, UI nunca seleciona), `chave_mascara` (`••••1234`, segura p/ exibir), `modelo` (override), `base_url`+`nome_exibicao` (só para custom1/2 — OpenAI-compatible: SiliconFlow, DashScope, OpenRouter…), `ativo`, `ordem` (failover). RLS admin-only. Migrations 20260612235259 (base) + 20260613001046 (custom) |
 
 Rota `/api/documentos/consultar` lê `ia_provedores` (ativo, por ordem) como fonte primária das chaves, com env var de fallback. Gerenciado em `/sistema/integracoes-ia`.
 

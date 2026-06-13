@@ -222,7 +222,7 @@ export async function POST(req: NextRequest) {
   // a env var é fallback quando não há chave cadastrada para o provedor.
   const { data: provDb } = await supabaseAdmin
     .from('ia_provedores')
-    .select('provedor, api_key, modelo, ativo, ordem')
+    .select('provedor, api_key, modelo, base_url, ativo, ordem')
     .eq('ativo', true)
     .order('ordem', { ascending: true })
 
@@ -233,17 +233,25 @@ export async function POST(req: NextRequest) {
   function modeloDe(prov: string, envModelo: string | undefined, padrao: string): string {
     return cfgPorProvedor.get(prov)?.modelo || envModelo || padrao
   }
+  function baseUrlDe(prov: string): string | undefined {
+    return cfgPorProvedor.get(prov)?.base_url || undefined
+  }
 
   const geminiKey    = chaveDe('gemini', process.env.GEMINI_API_KEY)
   const anthropicKey = chaveDe('anthropic', process.env.ANTHROPIC_API_KEY)
   const openaiKey    = chaveDe('openai', process.env.OPENAI_API_KEY)
   const groqKey      = chaveDe('groq', process.env.GROQ_API_KEY)
+  const c1Key = chaveDe('custom1'); const c1Url = baseUrlDe('custom1'); const c1Modelo = cfgPorProvedor.get('custom1')?.modelo
+  const c2Key = chaveDe('custom2'); const c2Url = baseUrlDe('custom2'); const c2Modelo = cfgPorProvedor.get('custom2')?.modelo
 
   const todos: { nome: string; key?: string; aceitaPdf: boolean; run: (ctx: ProviderCtx, c: StreamController) => Promise<void> }[] = [
     { nome: 'gemini',    key: geminiKey,    aceitaPdf: true,  run: runGemini(geminiKey, modeloDe('gemini', process.env.GEMINI_MODEL, 'gemini-2.0-flash')) },
     { nome: 'anthropic', key: anthropicKey, aceitaPdf: true,  run: runAnthropic(anthropicKey, modeloDe('anthropic', process.env.ANTHROPIC_MODEL, 'claude-3-5-haiku-20241022')) },
     { nome: 'openai',    key: openaiKey,    aceitaPdf: false, run: runOpenAICompat('https://api.openai.com/v1', openaiKey, modeloDe('openai', process.env.OPENAI_MODEL, 'gpt-4o-mini')) },
     { nome: 'groq',      key: groqKey,      aceitaPdf: false, run: runOpenAICompat('https://api.groq.com/openai/v1', groqKey, modeloDe('groq', process.env.GROQ_MODEL, 'llama-3.2-90b-vision-preview')) },
+    // Provedores customizados OpenAI-compatible (SiliconFlow, DashScope, OpenRouter…)
+    { nome: 'custom1', key: (c1Key && c1Url && c1Modelo) ? c1Key : undefined, aceitaPdf: false, run: runOpenAICompat(c1Url ?? '', c1Key, c1Modelo ?? '') },
+    { nome: 'custom2', key: (c2Key && c2Url && c2Modelo) ? c2Key : undefined, aceitaPdf: false, run: runOpenAICompat(c2Url ?? '', c2Key, c2Modelo ?? '') },
   ]
 
   // Mantém a ordem do banco (já vem por `ordem`); provedores não-listados ficam ao fim

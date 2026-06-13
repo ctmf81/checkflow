@@ -8,21 +8,25 @@ import { useToast } from '@/components/ui/feedback'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 
-type Provedor = 'gemini' | 'anthropic' | 'openai' | 'groq'
+type Provedor = 'gemini' | 'anthropic' | 'openai' | 'groq' | 'custom1' | 'custom2'
 
 interface ProvedorRow {
   provedor: Provedor
   chave_mascara: string | null
   modelo: string | null
+  base_url: string | null
+  nome_exibicao: string | null
   ativo: boolean
   ordem: number
 }
 
-const META: Record<Provedor, { nome: string; modeloPadrao: string; aceitaPdf: boolean; url: string; obs: string }> = {
+const META: Record<string, { nome: string; modeloPadrao: string; aceitaPdf: boolean; url: string; obs: string; custom?: boolean }> = {
   gemini:    { nome: 'Google Gemini',    modeloPadrao: 'gemini-2.0-flash',               aceitaPdf: true,  url: 'https://aistudio.google.com/apikey', obs: 'PDF e imagem' },
   anthropic: { nome: 'Anthropic Claude', modeloPadrao: 'claude-3-5-haiku-20241022',      aceitaPdf: true,  url: 'https://console.anthropic.com',      obs: 'PDF e imagem' },
   openai:    { nome: 'OpenAI',           modeloPadrao: 'gpt-4o-mini',                    aceitaPdf: false, url: 'https://platform.openai.com/api-keys', obs: 'somente imagem' },
   groq:      { nome: 'Groq',             modeloPadrao: 'llama-3.2-90b-vision-preview',   aceitaPdf: false, url: 'https://console.groq.com/keys',       obs: 'somente imagem' },
+  custom1:   { nome: 'Customizado 1',    modeloPadrao: '',                               aceitaPdf: false, url: '',                                   obs: 'OpenAI-compatible · imagem', custom: true },
+  custom2:   { nome: 'Customizado 2',    modeloPadrao: '',                               aceitaPdf: false, url: '',                                   obs: 'OpenAI-compatible · imagem', custom: true },
 }
 
 function mascara(chave: string): string {
@@ -44,7 +48,7 @@ export default function IntegracoesIAPage() {
     const sb = createClient()
     // NÃO seleciona api_key — só a máscara segura
     const { data } = await sb.from('ia_provedores')
-      .select('provedor, chave_mascara, modelo, ativo, ordem')
+      .select('provedor, chave_mascara, modelo, base_url, nome_exibicao, ativo, ordem')
       .order('ordem', { ascending: true })
     setRows((data ?? []) as ProvedorRow[])
     setLoading(false)
@@ -60,6 +64,10 @@ export default function IntegracoesIAPage() {
       ativo: row.ativo,
       ordem: row.ordem,
       atualizado_em: new Date().toISOString(),
+    }
+    if (META[row.provedor].custom) {
+      patch.base_url = row.base_url?.trim() || null
+      patch.nome_exibicao = row.nome_exibicao?.trim() || null
     }
     const chave = novaChave[row.provedor]?.trim()
     if (chave) {
@@ -120,7 +128,7 @@ export default function IntegracoesIAPage() {
                     </span>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-gray-800">{meta.nome}</h3>
+                        <h3 className="font-semibold text-gray-800">{(meta.custom && row.nome_exibicao) || meta.nome}</h3>
                         <span className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full ${meta.aceitaPdf ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
                           {meta.aceitaPdf ? <FileText size={11} /> : <ImageIcon size={11} />}
                           {meta.obs}
@@ -151,6 +159,29 @@ export default function IntegracoesIAPage() {
                   </div>
                 </div>
 
+                {meta.custom && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Nome (exibição)</label>
+                      <input
+                        value={row.nome_exibicao ?? ''}
+                        onChange={e => setRow(row.provedor, { nome_exibicao: e.target.value })}
+                        placeholder="ex: SiliconFlow"
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Base URL (OpenAI-compatible)</label>
+                      <input
+                        value={row.base_url ?? ''}
+                        onChange={e => setRow(row.provedor, { base_url: e.target.value })}
+                        placeholder="https://api.siliconflow.cn/v1"
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 font-mono"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -176,10 +207,12 @@ export default function IntegracoesIAPage() {
                 </div>
 
                 <div className="flex items-center justify-between mt-3">
-                  <a href={meta.url} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-orange-500">
-                    <ExternalLink size={11} /> Obter chave
-                  </a>
+                  {meta.url ? (
+                    <a href={meta.url} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-orange-500">
+                      <ExternalLink size={11} /> Obter chave
+                    </a>
+                  ) : <span className="text-xs text-gray-300">{meta.custom ? 'Defina nome, base URL, modelo e chave' : ''}</span>}
                   <Button size="sm" onClick={() => salvar(row)} disabled={salvando === row.provedor}>
                     {salvando === row.provedor ? <><Loader2 size={13} className="animate-spin" /> Salvando...</> : 'Salvar'}
                   </Button>
