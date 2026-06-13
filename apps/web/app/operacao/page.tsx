@@ -96,14 +96,59 @@ function dataRelativa(iso: string) {
 
 // ─── ABA: Checklists (conteúdo original) ────────────────────────────────────
 
-function AbaChecklists({ grupos, semGrupo, itensWorkflow, agendadas, naoFinalizadas, onDescartar, busca, setBusca }: {
+function AbaChecklists({ grupos, semGrupo, itensWorkflow, agendadas, naoFinalizadas, isAdmin, onDescartar, onNaoExecutado, busca, setBusca }: {
   grupos: GrupoAgrupado[]; semGrupo: Checklist[]
   itensWorkflow: ItemWorkflowLiberado[]; agendadas: ExecucaoAgendada[]
-  naoFinalizadas: ExecucaoNaoFinalizada[]; onDescartar: (execId: string) => void
+  naoFinalizadas: ExecucaoNaoFinalizada[]
+  isAdmin: boolean
+  onDescartar: (execId: string) => void
+  onNaoExecutado: () => void
   busca: string
   setBusca: (v: string) => void
 }) {
   const router = useRouter()
+
+  // Não-execução com motivo (operador comum não pode descartar livremente)
+  const [naoExecAlvo, setNaoExecAlvo] = useState<ExecucaoNaoFinalizada | null>(null)
+  const [motivosNaoExec, setMotivosNaoExec] = useState<{ id: string; descricao: string }[]>([])
+  const [motivoSel, setMotivoSel] = useState('')
+  const [obsNaoExec, setObsNaoExec] = useState('')
+  const [carregandoMotivos, setCarregandoMotivos] = useState(false)
+  const [salvandoNaoExec, setSalvandoNaoExec] = useState(false)
+
+  async function abrirNaoExec(nf: ExecucaoNaoFinalizada) {
+    setNaoExecAlvo(nf)
+    setMotivoSel('')
+    setObsNaoExec('')
+    setCarregandoMotivos(true)
+    const sb = createClient()
+    const { data } = await sb.from('checklist_nao_execucao_motivos')
+      .select('motivo:motivo_id(id, descricao, tipo)')
+      .eq('checklist_id', nf.checklist_id)
+    const lista = (data ?? [])
+      .map((m: any) => Array.isArray(m.motivo) ? m.motivo[0] : m.motivo)
+      .filter((m: any) => m && m.tipo === 'checklist')
+      .map((m: any) => ({ id: m.id, descricao: m.descricao }))
+    setMotivosNaoExec(lista)
+    setCarregandoMotivos(false)
+  }
+
+  async function confirmarNaoExec() {
+    if (!naoExecAlvo || !motivoSel) return
+    setSalvandoNaoExec(true)
+    const sb = createClient()
+    // Descarta as respostas dadas e salva o checklist como não executado + motivo
+    await sb.from('checklist_execucao_respostas').delete().eq('execucao_id', naoExecAlvo.execucao_id)
+    await sb.from('checklist_execucoes').update({
+      status: 'nao_executado',
+      resultado: null,
+      motivo_nao_execucao_id: motivoSel,
+      motivo_nao_execucao_obs: obsNaoExec.trim() || null,
+    }).eq('id', naoExecAlvo.execucao_id)
+    setSalvandoNaoExec(false)
+    setNaoExecAlvo(null)
+    onNaoExecutado()
+  }
 
   function filtrar(cls: Checklist[]) {
     if (!busca.trim()) return cls
@@ -142,16 +187,74 @@ function AbaChecklists({ grupos, semGrupo, itensWorkflow, agendadas, naoFinaliza
                   className="flex-shrink-0 text-xs font-semibold bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors">
                   Continuar
                 </button>
-                <button
-                  onClick={() => onDescartar(nf.execucao_id)}
-                  title="Descartar — marca como não executado"
-                  className="flex-shrink-0 text-red-300 hover:text-red-600 transition-colors">
-                  <XCircle size={18} />
-                </button>
+                {isAdmin ? (
+                  <button
+                    onClick={() => onDescartar(nf.execucao_id)}
+                    title="Descartar (admin) — marca como não executado"
+                    className="flex-shrink-0 text-red-300 hover:text-red-600 transition-colors">
+                    <XCircle size={18} />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => abrirNaoExec(nf)}
+                    title="Registrar não execução com motivo"
+                    className="flex-shrink-0 text-xs font-medium text-red-600 border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-100 transition-colors">
+                    Não executar
+                  </button>
+                )}
               </div>
             ))}
           </div>
         </section>
+      )}
+
+      {/* Modal: não execução com motivo (operador comum) */}
+      {naoExecAlvo && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setNaoExecAlvo(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-800">Não executar checklist</h3>
+              <p className="text-xs text-gray-500 mt-0.5">{naoExecAlvo.checklist_nome}</p>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                As respostas já preenchidas serão <strong>descartadas</strong> e o checklist será salvo como não executado.
+              </p>
+              {carregandoMotivos ? (
+                <p className="text-sm text-gray-400 text-center py-2">Carregando motivos...</p>
+              ) : motivosNaoExec.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  Nenhum motivo de não execução cadastrado para este checklist. Você precisa finalizá-lo.
+                </p>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Motivo</label>
+                    <select value={motivoSel} onChange={e => setMotivoSel(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
+                      <option value="">Selecione...</option>
+                      {motivosNaoExec.map(m => <option key={m.id} value={m.id}>{m.descricao}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Observação (opcional)</label>
+                    <textarea value={obsNaoExec} onChange={e => setObsNaoExec(e.target.value)} rows={2}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none" />
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2">
+              <button onClick={() => setNaoExecAlvo(null)} className="text-sm text-gray-500 px-3 py-2">Cancelar</button>
+              {motivosNaoExec.length > 0 && (
+                <button onClick={confirmarNaoExec} disabled={!motivoSel || salvandoNaoExec}
+                  className="text-sm font-medium bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors">
+                  {salvandoNaoExec ? 'Salvando...' : 'Confirmar não execução'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Agendados pendentes */}
@@ -912,8 +1015,15 @@ export default function OperacaoPage() {
   const [itensWorkflow, setItensWorkflow] = useState<ItemWorkflowLiberado[]>([])
   const [agendadas, setAgendadas] = useState<ExecucaoAgendada[]>([])
   const [naoFinalizadas, setNaoFinalizadas] = useState<ExecucaoNaoFinalizada[]>([])
+  const [isAdmin, setIsAdmin] = useState(false)
   const [busca, setBusca] = useState('')
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data }) => {
+      setIsAdmin(data?.user?.user_metadata?.role === 'admin_sistema')
+    })
+  }, [])
 
   useEffect(() => {
     if (!unidadeAtiva?.id) { setLoading(false); return }
@@ -1089,7 +1199,9 @@ export default function OperacaoPage() {
           {aba === 'checklists' && (
             <AbaChecklists grupos={grupos} semGrupo={semGrupo}
               itensWorkflow={itensWorkflow} agendadas={agendadas}
-              naoFinalizadas={naoFinalizadas} onDescartar={descartarExecucao}
+              naoFinalizadas={naoFinalizadas} isAdmin={isAdmin}
+              onDescartar={descartarExecucao}
+              onNaoExecutado={() => carregarChecklists()}
               busca={busca} setBusca={setBusca} />
           )}
           {aba === 'historico' && <AbaHistorico unidadeId={unidadeAtiva.id} />}
