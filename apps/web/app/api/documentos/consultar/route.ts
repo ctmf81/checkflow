@@ -4,7 +4,11 @@ import { createClient } from '@supabase/supabase-js'
 
 // ─── Clientes ─────────────────────────────────────────────────────────────────
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
+// ⚠️ Env do Railway (web) está bagunçada: NEXT_PUBLIC_SUPABASE_URL aponta para
+// a API Fastify e a publishable key contém uma URL. Blindamos aqui: só aceita a
+// URL se for de fato um host *.supabase.co; senão usa o projeto conhecido.
+const ENV_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+const SUPABASE_URL = ENV_URL.includes('.supabase.co') ? ENV_URL : 'https://pswdjdlirylxgscohcfi.supabase.co'
 const SUPABASE_SECRET = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 const SUPABASE_PUBLISHABLE = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
 
@@ -30,17 +34,7 @@ export async function POST(req: NextRequest) {
   const supabasePublic = createClient(SUPABASE_URL, keyUsada)
   const { data: { user }, error: authError } = await supabasePublic.auth.getUser(token)
   if (authError || !user) {
-    return Response.json({
-      error: 'Sessão inválida',
-      _debug: {
-        authError: authError?.message ?? null,
-        url: SUPABASE_URL,
-        secretPrefixo: SUPABASE_SECRET ? SUPABASE_SECRET.slice(0, 10) : '(vazio)',
-        publishablePrefixo: SUPABASE_PUBLISHABLE ? SUPABASE_PUBLISHABLE.slice(0, 10) : '(vazio)',
-        keyEscolhidaPrefixo: keyUsada ? keyUsada.slice(0, 10) : '(vazio)',
-        tokenLen: token.length,
-      },
-    }, { status: 401 })
+    return Response.json({ error: 'Sessão inválida' }, { status: 401 })
   }
 
   // 2. Valida body
