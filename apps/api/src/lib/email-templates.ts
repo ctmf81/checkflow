@@ -2,7 +2,7 @@
  * Templates HTML de email para notificações de Plano de Ação e Tickets
  */
 
-const APP_URL = process.env.APP_URL ?? 'https://checkflow-production-b19d.up.railway.app'
+const APP_URL = process.env.APP_URL ?? 'https://web-production-36880.up.railway.app'
 
 function base(conteudo: string): string {
   return `<!DOCTYPE html>
