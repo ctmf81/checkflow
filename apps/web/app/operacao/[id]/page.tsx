@@ -9,7 +9,7 @@ import {
   ArrowLeft, ChevronDown, ChevronUp, CheckCircle2, XCircle,
   Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine,
   CalendarDays, MapPin, AlertCircle, Send, Clock, Locate, Search,
-  QrCode, X, ImagePlus, Video, AlertTriangle, GitBranch, ClipboardList, Loader2, Ticket
+  QrCode, X, ImagePlus, Video, AlertTriangle, GitBranch, ClipboardList, Loader2, Ticket, FileText
 } from 'lucide-react'
 import NovoTicketModal from '@/components/tickets/NovoTicketModal'
 
@@ -1187,6 +1187,8 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   const [erroFinalizar, setErroFinalizar] = useState<string | null>(null)
   const [concluido, setConcluido] = useState(false)
   const [resultadoFinal, setResultadoFinal] = useState<'aprovado' | 'reprovado' | null>(null)
+  const [pdfStatus, setPdfStatus] = useState<'gerando' | 'pronto' | 'erro'>('gerando')
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   // Planos de ação capturados durante a execução (salvos no finalizar)
   const [planosCapturados, setPlanosCapturados] = useState<Record<string, DadosPlano>>({})
   const [modalPlanoAtividade, setModalPlanoAtividade] = useState<Atividade | null>(null)
@@ -1644,13 +1646,26 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     setResultadoFinal(resultado)
     setConcluido(true)
 
-    // Gera PDF da execução em background (fire-and-forget)
-    sb.auth.getSession().then(({ data: { session } }) => {
-      if (!session?.access_token) return
-      fetch(`/api/execucoes/${execId}/pdf`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-      }).catch(() => { /* silencioso — PDF pode ser gerado depois */ })
+    // Gera PDF da execução em background — atualiza o status na tela de conclusão
+    setPdfStatus('gerando')
+    setPdfUrl(null)
+    sb.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session?.access_token) { setPdfStatus('erro'); return }
+      try {
+        const res = await fetch(`/api/execucoes/${execId}/pdf`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session.access_token}` },
+        })
+        const json = await res.json().catch(() => null)
+        if (res.ok && json?.pdf_url) {
+          setPdfUrl(json.pdf_url)
+          setPdfStatus('pronto')
+        } else {
+          setPdfStatus('erro')
+        }
+      } catch {
+        setPdfStatus('erro')
+      }
     })
   }
 
@@ -1688,6 +1703,27 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
             {aprovado ? 'Aprovado' : 'Reprovado'}
           </span>
           <p className="text-sm text-gray-500 mb-6">Execução registrada com sucesso.</p>
+
+          {/* Status do PDF gerado em background */}
+          <div className="mb-6 flex items-center justify-center">
+            {pdfStatus === 'gerando' && (
+              <span className="inline-flex items-center gap-2 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                <Loader2 size={13} className="animate-spin" /> Gerando PDF da execução…
+              </span>
+            )}
+            {pdfStatus === 'pronto' && pdfUrl && (
+              <a href={pdfUrl} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-xs font-medium text-orange-600 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 hover:bg-orange-100 transition-colors">
+                <FileText size={13} /> Baixar PDF da execução
+              </a>
+            )}
+            {pdfStatus === 'erro' && (
+              <span className="inline-flex items-center gap-2 text-xs text-gray-400 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                <FileText size={13} /> PDF ficará disponível no histórico em instantes
+              </span>
+            )}
+          </div>
+
           <button onClick={() => router.push('/operacao')}
             className="bg-orange-500 text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-orange-600 transition-colors">
             Voltar aos checklists

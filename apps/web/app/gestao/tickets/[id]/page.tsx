@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, CheckCircle2, XCircle, RotateCcw, MessageSquare,
-  Upload, AlertTriangle, Loader2, UserCheck, AlertCircle, ChevronDown
+  Upload, AlertTriangle, Loader2, UserCheck, AlertCircle, ChevronDown, Info
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
@@ -232,6 +232,29 @@ export default function TicketDetalhe() {
 
   const acoes = acoesDisponiveis()
 
+  // Quando não há ações para este usuário, explica o porquê (intuitividade)
+  function motivoSemAcao(): string | null {
+    if (acoes.length > 0 || !ticket) return null
+    const s = ticket.status
+    const fechados = ['corrigido', 'nao_corrigido', 'corrigido_parcialmente', 'cancelado', 'improcedente']
+    if (fechados.includes(s)) {
+      return ehAbridor
+        ? 'Este ticket está encerrado.'
+        : 'Este ticket está encerrado. Apenas quem o abriu pode reabri-lo.'
+    }
+    if (s === 'em_tratamento') {
+      return `Em tratamento por ${ticket.assignee?.nome ?? 'um responsável'}. Apenas o responsável pode movimentá-lo agora.`
+    }
+    if (s === 'aguardando_informacao') {
+      return `Aguardando resposta de ${ticket.aberto_por.nome} (quem abriu o ticket).`
+    }
+    if (s === 'aguardando_validacao') {
+      return `Aguardando validação de ${ticket.aberto_por.nome} (quem abriu o ticket).`
+    }
+    return 'Você não tem ações disponíveis neste ticket no momento.'
+  }
+  const semAcaoMsg = motivoSemAcao()
+
   return (
     <div className="max-w-2xl mx-auto p-4 pb-32">
       {/* Voltar */}
@@ -292,6 +315,14 @@ export default function TicketDetalhe() {
         })}
         <div ref={endRef} />
       </div>
+
+      {/* Sem ações disponíveis — explica o estado em vez de não mostrar nada */}
+      {semAcaoMsg && (
+        <div className="flex items-start gap-2 text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-4">
+          <Info size={15} className="text-gray-400 flex-shrink-0 mt-0.5" />
+          <span>{semAcaoMsg}</span>
+        </div>
+      )}
 
       {/* Painel de ação fixo no rodapé */}
       {acoes.length > 0 && (
