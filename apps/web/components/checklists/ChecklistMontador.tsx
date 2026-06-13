@@ -84,6 +84,8 @@ export default function ChecklistMontador({ checklistId }: Props) {
   const [motivos, setMotivos] = useState<{ id: string; descricao: string; tipo: string }[]>([])
   const [motivosSelecionados, setMotivosSelecionados] = useState<string[]>([])
   const [tempoGuarda, setTempoGuarda] = useState(1)
+  // Modo de execução: true = pausável ("Continuar depois"); false = de uma vez
+  const [permiteContinuar, setPermiteContinuar] = useState(true)
   const [status, setStatus] = useState<'rascunho' | 'publicado'>('rascunho')
   // Subgrupo a pré-selecionar ao criar pela área (vem de ?subgrupo= na URL),
   // aplicado depois que a lista de subgrupos do grupo carrega
@@ -173,6 +175,7 @@ export default function ChecklistMontador({ checklistId }: Props) {
     setNome(cl.nome)
     setDescricao(cl.descricao ?? '')
     setTempoGuarda(cl.tempo_guarda_meses ?? 1)
+    setPermiteContinuar(cl.permite_continuar_depois ?? true)
     setStatus(cl.status)
 
     // Deriva grupoId do subgrupo salvo
@@ -227,12 +230,13 @@ export default function ChecklistMontador({ checklistId }: Props) {
     if (id) {
       await supabase.from('checklists').update({
         nome, descricao: descricao || null, subgrupo_id: subgrupoId || null,
-        tempo_guarda_meses: tempoGuarda, atualizado_em: new Date().toISOString()
+        tempo_guarda_meses: tempoGuarda, permite_continuar_depois: permiteContinuar,
+        atualizado_em: new Date().toISOString()
       }).eq('id', id)
     } else {
       const { data } = await supabase.from('checklists').insert({
         nome, descricao: descricao || null, subgrupo_id: subgrupoId || null,
-        tempo_guarda_meses: tempoGuarda,
+        tempo_guarda_meses: tempoGuarda, permite_continuar_depois: permiteContinuar,
         unidade_id: unidadeAtiva.id, criado_por: user?.id, status: 'rascunho'
       }).select('id').single()
       if (data) {
@@ -445,6 +449,28 @@ export default function ChecklistMontador({ checklistId }: Props) {
                 {m} {m === 1 ? 'mês' : 'meses'}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Modo de execução */}
+        <div className="border-t border-gray-100 pt-3">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Modo de execução</label>
+          <p className="text-xs text-gray-400 mb-2">Define se o operador pode pausar e retomar a execução depois.</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => !bloqueado && setPermiteContinuar(true)}
+              className={`px-3 py-2 rounded-lg text-xs font-medium border text-left transition-colors ${
+                permiteContinuar ? 'bg-orange-50 border-orange-300 text-orange-700' : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
+              }`}>
+              ⏸️ Pode continuar depois
+              <span className="block text-[11px] font-normal opacity-70">Mostra &quot;Continuar depois&quot;; pendências aparecem na Operação</span>
+            </button>
+            <button type="button" onClick={() => !bloqueado && setPermiteContinuar(false)}
+              className={`px-3 py-2 rounded-lg text-xs font-medium border text-left transition-colors ${
+                !permiteContinuar ? 'bg-orange-50 border-orange-300 text-orange-700' : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
+              }`}>
+              ▶️ Executar de uma vez
+              <span className="block text-[11px] font-normal opacity-70">Sem atalhos para sair — conclui em uma sessão</span>
+            </button>
           </div>
         </div>
 

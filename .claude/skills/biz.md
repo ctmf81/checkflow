@@ -41,6 +41,12 @@ Rule: **never mutate a published checklist structure** — create a new version 
 | `assinatura` | Sem validação — reservado para app móvel nativo |
 | `data_hora` | Sem validação — datetime-local input |
 
+## Modo de execução do Checklist (continuar depois)
+- `checklists.permite_continuar_depois` (boolean, default true), definido no montador (config), seção "Modo de execução"
+- **true (pausável)**: na execução aparece "Continuar depois" — salva o progresso parcial (respostas + upload de fotos/vídeos já feitos) numa execução `em_andamento` e volta. Ao reabrir (via `?exec=`), as respostas são **restauradas** (fotos/vídeos voltam como `{url}`, a UI faz preview). Botão Voltar disponível
+- **false (de uma vez)**: sem botão Voltar nem "Continuar depois" — o operador conclui em uma sessão
+- Execuções iniciadas e não finalizadas (em_andamento, do próprio operador, não-workflow) aparecem na seção vermelha "Não finalizados" no topo da aba Checklists da Operação, com "Continuar" (retoma via `?exec=`) e descartar (marca nao_executado)
+
 ## Execução de Checklist
 - Ao finalizar, salva em `checklist_execucoes` com `status = 'concluido'`
 - `resultado` = `'aprovado'` se todas as atividades conformes; `'reprovado'` se qualquer `calcularValidacao() === false`

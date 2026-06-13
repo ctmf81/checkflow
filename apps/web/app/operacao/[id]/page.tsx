@@ -60,6 +60,7 @@ interface Checklist {
   descricao: string | null
   tempo_guarda_meses: number
   subgrupo_id: string | null
+  permite_continuar_depois?: boolean
 }
 
 // ─── Icones ───────────────────────────────────────────────────────────────────
@@ -1220,7 +1221,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     const sb = createClient()
 
     const { data: cl, error: clErr } = await sb.from('checklists')
-      .select('id, nome, descricao, tempo_guarda_meses, subgrupo_id')
+      .select('id, nome, descricao, tempo_guarda_meses, subgrupo_id, permite_continuar_depois')
       .eq('id', id)
       .eq('unidade_id', unidadeAtiva!.id)
       .single()
@@ -1276,6 +1277,20 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
 
     setSecoes(secoesComAtv)
     if (secoesComAtv.length > 0) setSecaoAberta(secoesComAtv[0].id)
+
+    // Retomada: se reabrindo uma execução existente (?exec=), restaura as
+    // respostas já salvas (fotos/vídeos voltam como {url} — a UI faz preview).
+    const execParam = new URLSearchParams(window.location.search).get('exec')
+    if (execParam) {
+      const { data: respSalvas } = await sb.from('checklist_execucao_respostas')
+        .select('atividade_id, resposta')
+        .eq('execucao_id', execParam)
+      if (respSalvas && respSalvas.length > 0) {
+        const mapa: Record<string, any> = {}
+        for (const r of respSalvas) if (r.resposta != null) mapa[r.atividade_id] = r.resposta
+        setRespostas(mapa)
+      }
+    }
 
     // Carrega motivos de não execução associados a este checklist
     const { data: motivosVinculo } = await sb
@@ -1373,6 +1388,61 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     setEnviandoNaoExec(false)
     if (error) { setErroFinalizar('Erro ao registrar não execução. Tente novamente.'); return }
     setNaoExecModal(false)
+    router.push('/operacao')
+  }
+
+  // Salva o progresso parcial e volta — só para checklists "pode continuar depois"
+  async function continuarDepois() {
+    if (!unidadeAtiva || !checklist) return
+    setErroFinalizar(null)
+    setSalvando(true)
+    const sb = createClient()
+    const { data: { user } } = await sb.auth.getUser()
+    if (!user) { setSalvando(false); return }
+    const agora = new Date()
+
+    // Reutiliza a execução reaberta (?exec=) ou cria um header em_andamento novo
+    let execId = execAgendadaId
+    if (execId) {
+      await sb.from('checklist_execucoes').update({ executado_por: user.id, status: 'em_andamento' }).eq('id', execId)
+    } else {
+      const { data, error } = await sb.from('checklist_execucoes').insert({
+        checklist_id: checklist.id, unidade_id: unidadeAtiva.id,
+        executado_por: user.id, status: 'em_andamento', data_execucao: agora.toISOString(),
+      }).select('id').single()
+      if (error || !data) { setSalvando(false); setErroFinalizar('Erro ao salvar o progresso. Tente novamente.'); return }
+      execId = data.id
+    }
+
+    const uploadArquivo = async (file: File, path: string): Promise<string | null> => {
+      const { error } = await sb.storage.from('execucoes').upload(path, file, { contentType: file.type, upsert: true })
+      if (error) return null
+      return sb.storage.from('execucoes').getPublicUrl(path).data.publicUrl
+    }
+
+    const visiveis = listarAtividadesVisiveis()
+    const linhas = await Promise.all(visiveis
+      .filter(a => { const r = respostas[a.id]; return r !== undefined && r !== null && r !== '' })
+      .map(async a => {
+        let resposta: any = respostas[a.id]
+        if (a.tipo === 'foto' && resposta?.file instanceof File) {
+          const ext = resposta.file.name.split('.').pop() ?? 'jpg'
+          const url = await uploadArquivo(resposta.file, `${execId}/${a.id}.${ext}`)
+          resposta = url ? { url, nome: resposta.nome } : { nome: resposta.nome }
+        }
+        if (a.tipo === 'video' && resposta?.file instanceof File) {
+          const ext = resposta.file.name.split('.').pop() ?? 'mp4'
+          const url = await uploadArquivo(resposta.file, `${execId}/${a.id}.${ext}`)
+          resposta = url ? { url, nome: resposta.nome, origem: resposta.origem, dataArquivo: resposta.dataArquivo } : { nome: resposta.nome }
+        }
+        return { execucao_id: execId, atividade_id: a.id, resposta: JSON.parse(JSON.stringify(resposta)) }
+      }))
+
+    // Regrava o snapshot parcial das respostas
+    await sb.from('checklist_execucao_respostas').delete().eq('execucao_id', execId)
+    if (linhas.length > 0) await sb.from('checklist_execucao_respostas').insert(linhas)
+
+    setSalvando(false)
     router.push('/operacao')
   }
 
@@ -1794,10 +1864,13 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       {/* Header fixo */}
       <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push('/operacao')}
-            className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
-            <ArrowLeft size={20} />
-          </button>
+          {/* Modo "executar de uma vez": sem atalho para sair durante a execução */}
+          {checklist.permite_continuar_depois !== false && (
+            <button onClick={() => router.push('/operacao')}
+              className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+              <ArrowLeft size={20} />
+            </button>
+          )}
           <div className="flex-1 min-w-0">
             <h1 className="font-bold text-gray-800 text-sm leading-tight truncate">{checklist.nome}</h1>
             <div className="flex items-center gap-2 mt-0.5">
@@ -1890,13 +1963,20 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
             </div>
           </div>
         )}
-        <div className="max-w-2xl mx-auto p-4">
+        <div className="max-w-2xl mx-auto p-4 space-y-2">
           <button onClick={finalizar} disabled={salvando}
             className="w-full py-4 bg-orange-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-orange-600 disabled:opacity-60 transition-colors shadow-lg shadow-orange-200 active:scale-[0.99]">
             {salvando
               ? <><Clock size={16} className="animate-pulse" />Salvando...</>
               : <><Send size={16} />Finalizar checklist</>}
           </button>
+          {/* Continuar depois — só para checklists pausáveis */}
+          {checklist.permite_continuar_depois !== false && (
+            <button onClick={continuarDepois} disabled={salvando}
+              className="w-full py-2.5 text-gray-500 rounded-xl font-medium text-sm flex items-center justify-center gap-2 border border-gray-200 hover:bg-gray-50 disabled:opacity-60 transition-colors">
+              <Clock size={15} />Continuar depois
+            </button>
+          )}
         </div>
       </div>
     </div>
