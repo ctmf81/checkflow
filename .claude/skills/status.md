@@ -58,7 +58,8 @@ Next logical step: [one-sentence inference, only if obvious]
 - `20260611150000_parceiros_documento_unico.sql` ✅ aplicada (2026-06-11)
 - `20260612235259_ia_provedores.sql` ✅ aplicada (2026-06-12) — provedores de IA gerenciados em `/sistema/integracoes-ia`
 - `20260613002351_empresa_financeiro.sql` ✅ aplicada (2026-06-13) — colunas financeiras movidas p/ tabela admin-only (migration idempotente: insert guardado por information_schema)
-- `20260613001046_ia_provedores_custom.sql` / `20260613004044_checklist_permite_continuar.sql` ⏳ verificar/aplicar
+- `20260613001046_ia_provedores_custom.sql` ✅ aplicada (2026-06-13) — provedores customizados OpenAI-compatible
+- `20260613004044_checklist_permite_continuar.sql` ✅ aplicada (2026-06-13) — modo pausável vs execução única
 
 ## Features entregues em 2026-06-07
 - Fix build (parens nullish coalescing, cast PdfExecucao `as any`)
