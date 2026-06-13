@@ -19,28 +19,29 @@ export interface WhatsAppMessage {
  * existe no WhatsApp (mensagem fica em "PENDING" e nunca é entregue). Aqui
  * perguntamos à Evolution API qual variante (com ou sem o 9) está registrada.
  */
-async function resolverNumero(numero: string): Promise<string> {
+async function resolverNumero(numero: string): Promise<{ numero: string; debugResolver?: string }> {
   try {
     const res = await fetch(`${EVO_URL}/chat/whatsappNumbers/${EVO_INSTANCE}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': EVO_KEY },
       body: JSON.stringify({ numbers: [numero] }),
     })
-    if (!res.ok) return numero
-    const json: any = await res.json()
+    const body = await res.text()
+    if (!res.ok) return { numero, debugResolver: `HTTP ${res.status}: ${body}` }
+    const json: any = JSON.parse(body)
     const item = Array.isArray(json) ? json[0] : json
     if (item?.exists && item?.jid) {
-      return String(item.jid).replace('@s.whatsapp.net', '')
+      return { numero: String(item.jid).replace('@s.whatsapp.net', ''), debugResolver: body }
     }
-    return numero
-  } catch {
-    return numero
+    return { numero, debugResolver: body }
+  } catch (e: any) {
+    return { numero, debugResolver: `EXCEPTION: ${e.message}` }
   }
 }
 
-export async function enviarWhatsApp({ numero, mensagem }: WhatsAppMessage): Promise<{ ok: boolean; erro?: string }> {
+export async function enviarWhatsApp({ numero, mensagem }: WhatsAppMessage): Promise<{ ok: boolean; erro?: string; raw?: string; debugResolver?: string; numeroResolvido?: string }> {
   try {
-    const numeroResolvido = await resolverNumero(numero)
+    const { numero: numeroResolvido, debugResolver } = await resolverNumero(numero)
 
     const res = await fetch(`${EVO_URL}/message/sendText/${EVO_INSTANCE}`, {
       method: 'POST',
@@ -54,12 +55,13 @@ export async function enviarWhatsApp({ numero, mensagem }: WhatsAppMessage): Pro
       }),
     })
 
+    const body = await res.text()
+
     if (!res.ok) {
-      const err = await res.text()
-      return { ok: false, erro: err }
+      return { ok: false, erro: body, debugResolver, numeroResolvido }
     }
 
-    return { ok: true }
+    return { ok: true, raw: body, debugResolver, numeroResolvido }
   } catch (e: any) {
     return { ok: false, erro: e.message }
   }
