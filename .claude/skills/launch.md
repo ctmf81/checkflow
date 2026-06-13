@@ -25,9 +25,9 @@ description: Pre-launch checklist for CheckFlow — use before onboarding any pa
 
 | # | Item | Status | Ação |
 |---|------|--------|------|
-| 2.1 | Envio de mensagens com falha silenciosa | 🔴 | Revisar fluxo de disparo — tratar erros e exibir feedback |
+| 2.1 | Envio de mensagens com falha silenciosa | 🟢 | Resolvido em 2026-06-13: sessão Baileys estava "open" mas zombie (mensagens travavam em `PENDING`); reconectar via QR resolveu. Resolução de número via `/chat/whatsappNumbers` mantida no código (commit 7092d35) |
 | 2.2 | Redis desabilitado (`CACHE_REDIS_ENABLED=false`) | 🟡 | Verificar se está setado na Evolution API no Railway |
-| 2.3 | Reconexão automática de sessão WhatsApp | 🟡 | Hoje reconecta manual via QR — avaliar reconexão automática |
+| 2.3 | Reconexão automática de sessão WhatsApp | 🟡 | Sessão pode ficar "open" porém zombie sem aviso — avaliar healthcheck periódico + reconexão automática |
 | 2.4 | Templates de mensagem revisados e testados | 🔴 | Testar cada trigger de disparo (execução concluída, reprovação, workflow avançou) |
 
 ---
