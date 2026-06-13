@@ -5,6 +5,7 @@ import { X, Info, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { useToast } from '@/components/ui/feedback'
 
 export interface Catalogo {
   id: string
@@ -30,6 +31,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api-production-5bce.
 
 export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
   const { unidadeAtiva } = useSession()
+  const toast = useToast()
   const isEdicao = !!catalogo
   const [aba, setAba] = useState<'estrutura' | 'api'>('estrutura')
 
@@ -95,6 +97,7 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
         .select('id, nome, descricao, campo_chave, atributo_1, atributo_2, atributo_3, atributo_4')
         .single()
       if (error || !data) { setErro('Erro ao criar.'); setSalvando(false); return }
+      toast.success('Catálogo criado.')
       onSalvo(data as Catalogo)
     }
     setSalvando(false)

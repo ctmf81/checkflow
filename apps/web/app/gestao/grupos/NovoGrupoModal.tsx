@@ -5,6 +5,7 @@ import { X, LayoutTemplate } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { useToast } from '@/components/ui/feedback'
 
 interface Props {
   onClose: () => void
@@ -13,6 +14,7 @@ interface Props {
 
 export function NovoGrupoModal({ onClose, onCriado }: Props) {
   const { unidadeAtiva } = useSession()
+  const toast = useToast()
   const [nome, setNome] = useState('')
   const [descricao, setDescricao] = useState('')
   const [salvando, setSalvando] = useState(false)
@@ -34,6 +36,7 @@ export function NovoGrupoModal({ onClose, onCriado }: Props) {
     setSalvando(false)
     if (error) { setErro('Erro ao criar grupo. Tente novamente.'); return }
 
+    toast.success('Grupo criado.')
     onCriado?.()
     onClose()
   }

@@ -5,6 +5,7 @@ import { X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { useToast } from '@/components/ui/feedback'
 
 interface CausaRaiz {
   id: string
@@ -27,6 +28,7 @@ interface Props {
 
 export function CausaRaizModal({ causa, onClose, onSalvo }: Props) {
   const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
+  const toast = useToast()
   const isEdicao = !!causa
 
   const [nome, setNome] = useState(causa?.nome ?? '')
@@ -107,6 +109,7 @@ export function CausaRaizModal({ causa, onClose, onSalvo }: Props) {
     }
 
     setSalvando(false)
+    toast.success(isEdicao ? 'Causa raiz salva.' : 'Causa raiz criada.')
     onSalvo?.()
     onClose()
   }

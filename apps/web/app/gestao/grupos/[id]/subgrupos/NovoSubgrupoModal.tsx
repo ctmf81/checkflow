@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { X, LayoutTemplate } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
+import { useToast } from '@/components/ui/feedback'
 
 interface Props {
   grupoId: string
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function NovoSubgrupoModal({ grupoId, subgrupoLabel = 'Subgrupo', onClose, onCriado }: Props) {
+  const toast = useToast()
   const [nome, setNome] = useState('')
   const [descricao, setDescricao] = useState('')
   const [salvando, setSalvando] = useState(false)
@@ -33,6 +35,7 @@ export function NovoSubgrupoModal({ grupoId, subgrupoLabel = 'Subgrupo', onClose
     setSalvando(false)
     if (error) { setErro('Erro ao criar. Tente novamente.'); return }
 
+    toast.success(`${subgrupoLabel} criado.`)
     onCriado?.()
     onClose()
   }

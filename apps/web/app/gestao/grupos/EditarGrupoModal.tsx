@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
+import { useToast } from '@/components/ui/feedback'
 
 interface Grupo {
   id: string
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function EditarGrupoModal({ grupo, onClose, onSalvo }: Props) {
+  const toast = useToast()
   const [nome, setNome] = useState(grupo.nome)
   const [displayName, setDisplayName] = useState(grupo.display_name ?? '')
   const [descricao, setDescricao] = useState(grupo.descricao ?? '')
@@ -39,6 +41,7 @@ export function EditarGrupoModal({ grupo, onClose, onSalvo }: Props) {
 
     setSalvando(false)
     if (error) { setErro('Erro ao salvar. Tente novamente.'); return }
+    toast.success('Grupo atualizado.')
     onSalvo?.()
     onClose()
   }

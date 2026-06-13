@@ -5,6 +5,7 @@ import { X, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { useToast } from '@/components/ui/feedback'
 
 export interface Variavel {
   id: string
@@ -21,6 +22,7 @@ interface Props {
 
 export function VariavelModal({ variavel, onClose, onSalvo }: Props) {
   const { unidadeAtiva } = useSession()
+  const toast = useToast()
   const isEdicao = !!variavel
   const [nome, setNome] = useState(variavel?.nome ?? '')
   const [valores, setValores] = useState<string[]>(variavel?.valores.map(v => v.valor) ?? [''])
@@ -69,6 +71,7 @@ export function VariavelModal({ variavel, onClose, onSalvo }: Props) {
     }
 
     setSalvando(false)
+    toast.success(isEdicao ? 'Variável salva.' : 'Variável criada.')
     onSalvo()
   }
 

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
+import { useToast } from '@/components/ui/feedback'
 
 interface Unidade {
   id: string
@@ -20,6 +21,7 @@ interface Props {
 
 export function UnidadeModal({ empresaId, unidade, onClose, onSalvo }: Props) {
   const isEdicao = !!unidade
+  const toast = useToast()
   const [nome, setNome] = useState(unidade?.nome ?? '')
   const [status, setStatus] = useState(unidade?.status ?? 'ativo')
   const [salvando, setSalvando] = useState(false)
@@ -46,6 +48,7 @@ export function UnidadeModal({ empresaId, unidade, onClose, onSalvo }: Props) {
       if (error) { setErro('Erro ao criar unidade.'); setSalvando(false); return }
     }
 
+    toast.success(isEdicao ? 'Unidade salva.' : 'Unidade criada.')
     onSalvo?.()
     onClose()
   }

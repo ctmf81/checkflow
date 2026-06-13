@@ -5,6 +5,7 @@ import { X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { useToast } from '@/components/ui/feedback'
 
 interface DiaConfig { dia: number; inicio: string; fim: string }
 
@@ -39,6 +40,7 @@ function diasDoConfig(config: any): DiaConfig[] {
 
 export function TurnoModal({ turno, onClose, onSalvo }: Props) {
   const { empresaAtiva } = useSession()
+  const toast = useToast()
   const isEdicao = !!turno
 
   const [nome, setNome] = useState(turno?.nome ?? '')
@@ -121,6 +123,7 @@ export function TurnoModal({ turno, onClose, onSalvo }: Props) {
     }
 
     setSalvando(false)
+    toast.success(isEdicao ? 'Turno salvo.' : 'Turno criado.')
     onSalvo?.()
     onClose()
   }
