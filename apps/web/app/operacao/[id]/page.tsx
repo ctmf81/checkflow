@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { notificarPlanoAberto } from '@/lib/notificacoes'
 import { useSession } from '@/contexts/SessionContext'
 import {
-  ArrowLeft, ChevronDown, ChevronUp, CheckCircle2, XCircle,
+  ChevronDown, ChevronUp, CheckCircle2, XCircle,
   Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine,
   CalendarDays, MapPin, AlertCircle, Send, Clock, Locate, Search,
   QrCode, X, ImagePlus, Video, AlertTriangle, GitBranch, ClipboardList, Loader2, Ticket, FileText
@@ -1864,13 +1864,6 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       {/* Header fixo */}
       <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
         <div className="flex items-center gap-3">
-          {/* Modo "executar de uma vez": sem atalho para sair durante a execução */}
-          {checklist.permite_continuar_depois !== false && (
-            <button onClick={() => router.push('/operacao')}
-              className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
-              <ArrowLeft size={20} />
-            </button>
-          )}
           <div className="flex-1 min-w-0">
             <h1 className="font-bold text-gray-800 text-sm leading-tight truncate">{checklist.nome}</h1>
             <div className="flex items-center gap-2 mt-0.5">
