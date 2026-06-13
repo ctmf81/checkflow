@@ -32,6 +32,11 @@ When debugging an error in logs: surface only the **last 20 lines** unless the u
 ## Env Vars (nomes — nunca valores no chat)
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `CRON_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`, `EVOLUTION_API_KEY` (serviço API — obrigatória, sem fallback no código; URL/instância têm default), `EVOLUTION_API_URL`, `EVOLUTION_INSTANCE`
 
+## Consulta Inteligente (IA) — failover multi-provedor
+Rota `/api/documentos/consultar` tenta provedores em ordem, usando só os que têm a env key (serviço **web**): `GEMINI_API_KEY` (Gemini, PDF+imagem) → `ANTHROPIC_API_KEY` (Claude, PDF+imagem) → `OPENAI_API_KEY` (GPT-4o, só imagem) → `GROQ_API_KEY` (Llama vision, só imagem). Se um dá 429/erro antes de emitir, cai para o próximo. Modelos override: `GEMINI_MODEL`, `ANTHROPIC_MODEL`, `OPENAI_MODEL`, `GROQ_MODEL`. Para **PDF**, só Gemini e Anthropic entram. Erro de quota do Gemini (`limit:0` free tier) → gerar key no Google AI Studio ou habilitar billing.
+
+⚠️ **Bug de env conhecido (2026-06-12)**: no serviço web, `NEXT_PUBLIC_SUPABASE_URL` está apontando para a URL da API Fastify e a publishable key contém uma URL — valores trocados. A rota `consultar` foi blindada (só aceita URL `*.supabase.co`), mas CORRIGIR no Railway: `NEXT_PUBLIC_SUPABASE_URL` = `https://pswdjdlirylxgscohcfi.supabase.co`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` = chave do Supabase.
+
 ## Cron do resumo mensal de parceiros
 `POST /cron/parceiros/resumo-mensal` é chamado 1x/dia pelo **cron-job.org** (conta do usuário) com header `x-cron-secret: $CRON_SECRET`. A rota só age no último dia do mês (idempotente por mês — nos demais dias responde `skip`). `CRON_SECRET` precisa estar no Railway (serviço API) e no job do cron-job.org com o mesmo valor. Teste manual fora do último dia: body JSON `{"force": true}`.
 
