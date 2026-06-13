@@ -141,8 +141,17 @@ export async function POST(req: NextRequest) {
         controller.close()
       } catch (err: any) {
         console.error('[consultar] erro Gemini:', err?.message)
-        const msg = `\n\n[Erro ao processar consulta: ${err?.message ?? 'falha interna'}]`
-        controller.enqueue(encoder.encode(msg))
+        const raw = String(err?.message ?? '')
+        // Mensagens amigáveis — não vazar o stack técnico do Google ao operador
+        let msg: string
+        if (raw.includes('429') || raw.toLowerCase().includes('quota')) {
+          msg = 'O serviço de IA atingiu o limite de uso no momento. Tente novamente em alguns minutos ou contate o administrador.'
+        } else if (raw.includes('API_KEY') || raw.includes('API key') || raw.includes('401') || raw.includes('403')) {
+          msg = 'O serviço de IA não está configurado corretamente. Contate o administrador.'
+        } else {
+          msg = 'Não foi possível processar a consulta agora. Tente novamente.'
+        }
+        controller.enqueue(encoder.encode(`⚠️ ${msg}`))
         controller.close()
       }
     },
