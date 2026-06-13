@@ -13,7 +13,7 @@ export interface WhatsAppMessage {
   mensagem: string
 }
 
-export async function enviarWhatsApp({ numero, mensagem }: WhatsAppMessage): Promise<{ ok: boolean; erro?: string }> {
+export async function enviarWhatsApp({ numero, mensagem }: WhatsAppMessage): Promise<{ ok: boolean; erro?: string; raw?: string }> {
   try {
     const res = await fetch(`${EVO_URL}/message/sendText/${EVO_INSTANCE}`, {
       method: 'POST',
@@ -27,12 +27,13 @@ export async function enviarWhatsApp({ numero, mensagem }: WhatsAppMessage): Pro
       }),
     })
 
+    const body = await res.text()
+
     if (!res.ok) {
-      const err = await res.text()
-      return { ok: false, erro: err }
+      return { ok: false, erro: body }
     }
 
-    return { ok: true }
+    return { ok: true, raw: body }
   } catch (e: any) {
     return { ok: false, erro: e.message }
   }
