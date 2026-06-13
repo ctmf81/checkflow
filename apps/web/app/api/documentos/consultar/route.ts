@@ -30,7 +30,17 @@ export async function POST(req: NextRequest) {
   const supabasePublic = createClient(SUPABASE_URL, keyUsada)
   const { data: { user }, error: authError } = await supabasePublic.auth.getUser(token)
   if (authError || !user) {
-    return Response.json({ error: 'Sessão inválida' }, { status: 401 })
+    return Response.json({
+      error: 'Sessão inválida',
+      _debug: {
+        authError: authError?.message ?? null,
+        url: SUPABASE_URL,
+        secretPrefixo: SUPABASE_SECRET ? SUPABASE_SECRET.slice(0, 10) : '(vazio)',
+        publishablePrefixo: SUPABASE_PUBLISHABLE ? SUPABASE_PUBLISHABLE.slice(0, 10) : '(vazio)',
+        keyEscolhidaPrefixo: keyUsada ? keyUsada.slice(0, 10) : '(vazio)',
+        tokenLen: token.length,
+      },
+    }, { status: 401 })
   }
 
   // 2. Valida body
