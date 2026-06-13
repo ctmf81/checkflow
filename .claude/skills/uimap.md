@@ -49,8 +49,8 @@ Layout: `operacao/layout.tsx` — NO sidebar, OperacaoHeader with unit selector
 
 | Route | File | Purpose |
 |-------|------|---------|
-| `/operacao` | `operacao/page.tsx` | Checklist listing grouped by grupo/subgrupo. FAB "Abrir Ticket" (avulso, sem vínculo) |
-| `/operacao/[id]` | `operacao/[id]/page.tsx` | Full checklist execution screen |
+| `/operacao` | `operacao/page.tsx` | Checklist listing grouped by grupo/subgrupo. Seções no topo: 🔴 "Não finalizados" (em_andamento do operador → Continuar / Não executar c/ motivo), 🟡 Agendados pendentes, 🟣 Workflows. FAB "Abrir Ticket" (sobe acima do onboarding no desktop) |
+| `/operacao/[id]` | `operacao/[id]/page.tsx` | Tela de execução. Carrega só após `unidadeAtiva` (evita race). `?exec=` retoma execução existente e **restaura respostas**. Modo `permite_continuar_depois`: botão "Continuar depois" (salva parcial) ou, se false, sem atalhos de sair |
 
 ### Sistema — Super-admin (`sistema/`)
 Layout: `sistema/layout.tsx`
@@ -61,6 +61,7 @@ Layout: `sistema/layout.tsx`
 | `/sistema/empresas/[id]` | `sistema/empresas/[id]/page.tsx` | Company details — abas Administrador/Pagamento/Parceiro/Configurações. Aba "Pagamento" (plano, valor_mensalidade, status_pagamento, vencimento) e aba "Parceiro" (vínculo com `parceiros`, `parceiro_percentual`, via `ParceiroModal`) persistem em `empresas` |
 | `/sistema/parceiros` | `sistema/parceiros/page.tsx` | Listagem de parceiros (programa de indicação) — empresas vinculadas, plano, valor, percentual, comissão estimada/mês |
 | `/sistema/whatsapp` | `sistema/whatsapp/page.tsx` | WhatsApp QR / Evolution API config. Botão "Trocar número / Desconectar" (com confirmação) → `POST /whatsapp/desconectar` → tela volta a oferecer QR |
+| `/sistema/integracoes-ia` | `sistema/integracoes-ia/page.tsx` | Provedores de IA da Consulta Inteligente (failover): 4 fixos (Gemini/Claude/OpenAI/Groq) + 2 customizados OpenAI-compatible (base_url). Chave/modelo/ativo/ordem por provedor; chave mascarada (`••••1234`), nunca lida de volta. Tabela `ia_provedores` |
 | `/sistema/termos` | `sistema/termos/page.tsx` | Edita o Termo de Uso único (gera nova versão ao salvar) |
 | `/sistema/onboarding` | `sistema/onboarding/page.tsx` | Ativa/desativa e edita (JSON) o conteúdo do onboarding contextual de cada tela |
 
@@ -121,6 +122,8 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 | `lib/supabase.ts` | Supabase client singleton |
 
 ## API (`apps/api/src/`)
+⚠️ Toda criação de client supabase-js na API precisa de `{ realtime: { transport: ws } }` (Node 20 no Railway não tem WebSocket nativo — sem isso crasha 500).
+
 | File | Purpose |
 |------|---------|
 | `routes/whatsapp.ts` | POST /whatsapp/conectar, POST /whatsapp/status, POST /whatsapp/desconectar (logout da instância p/ troca de número), POST /whatsapp/enviar, POST /whatsapp/recuperar-senha (WA + email, usa DB template) |

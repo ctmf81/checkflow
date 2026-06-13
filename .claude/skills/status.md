@@ -94,6 +94,17 @@ Next logical step: [one-sentence inference, only if obvious]
 - **Trocar número do WhatsApp**: botão "Trocar número / Desconectar" em `/sistema/whatsapp` + rota `POST /whatsapp/desconectar`
 - Sidebar: só o item mais específico acende (fix destaque duplo Tickets/SLA); nav sistema cobre `/sistema/empresas/[id]`
 
+## Features entregues em 2026-06-12/13
+- **Failover multi-provedor de IA** na Consulta Inteligente (`/api/documentos/consultar`): Gemini → Claude → OpenAI → Groq + 2 customizados OpenAI-compatible (SiliconFlow/DashScope/OpenRouter via base_url). Gerenciado em `/sistema/integracoes-ia` (tabela `ia_provedores`, admin-only, chave mascarada). PDF só Gemini/Claude
+- **Bug "Sessão inválida" na Consulta** resolvido: middleware redirecionava /api p/ login (sessão é localStorage) + env `NEXT_PUBLIC_SUPABASE_URL` no Railway apontava p/ a API Fastify → rota blindada (só aceita `*.supabase.co`, valida com secret key). ⚠️ env do Railway web foi corrigida
+- **Fix crítico Node 20**: todo `createClient` supabase-js na API precisa de `{ realtime: { transport: ws } }` (sem isso 500)
+- **empresa_financeiro**: colunas financeiras movidas de `empresas` (expostas a membros) p/ tabela admin-only
+- **Avaliação de UX completa**: toast + ConfirmDialog (`components/ui/feedback.tsx`) substituindo 32 alert/confirm nativos; Gestão responsiva (sidebar vira drawer mobile); dashboard "em moderação" corrigido; "Manter conectado" morto removido; toasts de sucesso em CRUDs; hints de estado em tickets; status do PDF na conclusão; FAB ticket não sobrepõe onboarding
+- **Auth**: redirect p/ login ao expirar sessão (onAuthStateChange na Operação + Header); removido `user as any`
+- **Operação**: seção "Não finalizados" (em_andamento do operador) — Continuar (restaura respostas via ?exec=) ou "Não executar" com motivo obrigatório (ninguém descarta livre, nem admin); fix race condition no carregamento (espera unidadeAtiva)
+- **Checklist**: modo `permite_continuar_depois` (pausável c/ "Continuar depois" salvando parcial vs execução de uma vez); criar pela área pré-marca grupo/subgrupo; tempo de guarda default 1 mês
+- Migrations aplicadas: ia_provedores, ia_provedores_custom, empresa_financeiro, checklist_permite_continuar
+
 ## Features entregues nesta sessão
 - Inativar/Duplicar checklist (com picker de destino)
 - Gravar vídeo via getUserMedia (sem galeria)
