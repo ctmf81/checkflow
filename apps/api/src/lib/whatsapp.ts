@@ -13,8 +13,35 @@ export interface WhatsAppMessage {
   mensagem: string
 }
 
-export async function enviarWhatsApp({ numero, mensagem }: WhatsAppMessage): Promise<{ ok: boolean; erro?: string; raw?: string }> {
+/**
+ * Resolve o número de celular brasileiro para o JID real cadastrado no WhatsApp.
+ * Baileys pode remover o 9º dígito ao montar o JID, gerando um número que não
+ * existe no WhatsApp (mensagem fica em "PENDING" e nunca é entregue). Aqui
+ * perguntamos à Evolution API qual variante (com ou sem o 9) está registrada.
+ */
+async function resolverNumero(numero: string): Promise<string> {
   try {
+    const res = await fetch(`${EVO_URL}/chat/whatsappNumbers/${EVO_INSTANCE}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': EVO_KEY },
+      body: JSON.stringify({ numbers: [numero] }),
+    })
+    if (!res.ok) return numero
+    const json: any = await res.json()
+    const item = Array.isArray(json) ? json[0] : json
+    if (item?.exists && item?.jid) {
+      return String(item.jid).replace('@s.whatsapp.net', '')
+    }
+    return numero
+  } catch {
+    return numero
+  }
+}
+
+export async function enviarWhatsApp({ numero, mensagem }: WhatsAppMessage): Promise<{ ok: boolean; erro?: string }> {
+  try {
+    const numeroResolvido = await resolverNumero(numero)
+
     const res = await fetch(`${EVO_URL}/message/sendText/${EVO_INSTANCE}`, {
       method: 'POST',
       headers: {
@@ -22,18 +49,17 @@ export async function enviarWhatsApp({ numero, mensagem }: WhatsAppMessage): Pro
         'apikey': EVO_KEY,
       },
       body: JSON.stringify({
-        number: numero,
+        number: numeroResolvido,
         text: mensagem,
       }),
     })
 
-    const body = await res.text()
-
     if (!res.ok) {
-      return { ok: false, erro: body }
+      const err = await res.text()
+      return { ok: false, erro: err }
     }
 
-    return { ok: true, raw: body }
+    return { ok: true }
   } catch (e: any) {
     return { ok: false, erro: e.message }
   }
