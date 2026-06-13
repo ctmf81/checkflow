@@ -14,8 +14,8 @@ description: Pre-launch checklist for CheckFlow — use before onboarding any pa
 
 | # | Item | Status | Ação |
 |---|------|--------|------|
-| 1.1 | `GEMINI_API_KEY` no Railway (serviço `web`) | 🔴 | Adicionar em Railway → Variables → `web` |
-| 1.2 | Migration `20260606000009_fix_rls_planos.sql` rodada no Supabase | 🔴 | Rodar no SQL Editor do Supabase |
+| 1.1 | Chaves de IA (Gemini/Anthropic/OpenAI/Groq/custom) | 🟢 | Gerenciadas em `/sistema/integracoes-ia` (tabela `ia_provedores`, migrations aplicadas) — env vars são só fallback |
+| 1.2 | Migrations pendentes do Supabase | 🟢 | Todas aplicadas até 2026-06-13 (ver `/status`) |
 | 1.3 | `SUPABASE_SECRET_KEY` configurada no Railway | 🟢 | Já configurado |
 | 1.4 | Domínio customizado | 🟡 | Opcional no início |
 
@@ -50,7 +50,7 @@ description: Pre-launch checklist for CheckFlow — use before onboarding any pa
 
 | # | Item | Status | Ação |
 |---|------|--------|------|
-| 4.1 | `GEMINI_API_KEY` adicionada no Railway | 🔴 | Ver item 1.1 |
+| 4.1 | Provedor de IA ativo configurado | 🟢 | Ver item 1.1 |
 | 4.2 | Limite gratuito: 1.500 req/dia por chave | 🟡 | OK para início; monitorar volume |
 | 4.3 | Migrar para plano pago Gemini se ultrapassar limite | 🟡 | Ativar billing na Google Cloud quando necessário |
 | 4.4 | Restringir `consulta_inteligente` por plano | 🟡 | Feature premium — desabilitar em planos básicos via `planos.features` |
