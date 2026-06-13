@@ -22,21 +22,15 @@ export async function POST(req: NextRequest) {
 
   // Valida o JWT — usa a publishable/anon key, com fallback para a secret key
   // (a publishable pode não estar disponível no runtime do route handler).
-  const keyUsada = SUPABASE_PUBLISHABLE || SUPABASE_SECRET
+  // Valida o JWT no servidor com a SECRET key (forma correta server-side);
+  // a publishable/anon key vem em seguida como fallback. Ignora valores que
+  // não parecem chaves (ex: env mal configurada com uma URL).
+  const ehChave = (k: string) => !!k && !k.startsWith('http')
+  const keyUsada = [SUPABASE_SECRET, SUPABASE_PUBLISHABLE].find(ehChave) ?? ''
   const supabasePublic = createClient(SUPABASE_URL, keyUsada)
   const { data: { user }, error: authError } = await supabasePublic.auth.getUser(token)
   if (authError || !user) {
-    // DEBUG temporário — detalha a causa do 401 para diagnóstico
-    return Response.json({
-      error: 'Sessão inválida',
-      _debug: {
-        authError: authError?.message ?? null,
-        temPublishable: !!SUPABASE_PUBLISHABLE,
-        temSecret: !!SUPABASE_SECRET,
-        keyPrefixo: keyUsada ? keyUsada.slice(0, 8) : '(vazio)',
-        tokenLen: token.length,
-      },
-    }, { status: 401 })
+    return Response.json({ error: 'Sessão inválida' }, { status: 401 })
   }
 
   // 2. Valida body
