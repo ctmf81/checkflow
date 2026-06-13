@@ -338,6 +338,21 @@ export const ONBOARDING_REGISTRY: OnboardingPageConfig[] = [
     ],
   },
   {
+    pageId: 'sistema-integracoes-ia',
+    titulo: 'Integrações de IA',
+    cards: [
+      {
+        icon: '🤖',
+        titulo: 'Provedores de IA (failover)',
+        texto: 'Cadastre as chaves dos provedores de IA usados na Consulta Inteligente. Eles são tentados na ordem definida — se um falhar ou atingir o limite de uso, o próximo ativo assume sozinho.',
+        dicas: [
+          'Para documentos em PDF, só Gemini e Claude funcionam; OpenAI e Groq atendem imagens',
+          'A chave fica protegida — só os últimos dígitos aparecem aqui',
+        ],
+      },
+    ],
+  },
+  {
     pageId: 'sistema-whatsapp',
     titulo: 'WhatsApp (sistema)',
     cards: [

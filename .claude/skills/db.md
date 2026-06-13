@@ -122,6 +122,13 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 - `workflow_on_checklist_concluido()`: `resultado` nulo conta como **reprovado** (fail-safe — nunca avança estágio por omissão)
 - `checklist_execucoes.agendamento_id` (FK → agendamentos) + `agendamentos_processar()` reescrita: execução agendada nasce com `executado_por` **null** (pendência da unidade, não execução do gestor) e `data_expiracao` calculada do `tempo_guarda_meses`
 
+### Integrações de IA (migration 20260612235259, ⏳ não aplicada)
+| Table | Description |
+|-------|-------------|
+| `ia_provedores` | Provedores de IA da Consulta Inteligente: `provedor` (unique: gemini/anthropic/openai/groq), `api_key` (secreta — só lida no servidor via service key, UI nunca seleciona), `chave_mascara` (`••••1234`, segura p/ exibir), `modelo` (override), `ativo`, `ordem` (failover). RLS admin-only. Seed das 4 linhas sem chave |
+
+Rota `/api/documentos/consultar` lê `ia_provedores` (ativo, por ordem) como fonte primária das chaves, com env var de fallback. Gerenciado em `/sistema/integracoes-ia`.
+
 ## Onboarding
 
 | Table | Notes |

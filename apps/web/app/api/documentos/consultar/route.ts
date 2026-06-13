@@ -26,47 +26,51 @@ interface StreamController {
 }
 
 // Google Gemini — multimodal nativo (PDF + imagem)
-async function runGemini(ctx: ProviderCtx, c: StreamController) {
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
-  const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-2.0-flash' })
-  const result = await model.generateContentStream([
-    { text: ctx.systemPrompt },
-    { inlineData: { mimeType: ctx.mimeType, data: ctx.fileBase64 } },
-    { text: ctx.pergunta },
-  ])
-  for await (const chunk of result.stream) {
-    const text = chunk.text()
-    if (text) c.enqueue(text)
+function runGemini(apiKey: string | undefined, model: string) {
+  return async function (ctx: ProviderCtx, c: StreamController) {
+    const genAI = new GoogleGenerativeAI(apiKey!)
+    const gen = genAI.getGenerativeModel({ model })
+    const result = await gen.generateContentStream([
+      { text: ctx.systemPrompt },
+      { inlineData: { mimeType: ctx.mimeType, data: ctx.fileBase64 } },
+      { text: ctx.pergunta },
+    ])
+    for await (const chunk of result.stream) {
+      const text = chunk.text()
+      if (text) c.enqueue(text)
+    }
   }
 }
 
 // Anthropic Claude — multimodal nativo (PDF via document block + imagem)
-async function runAnthropic(ctx: ProviderCtx, c: StreamController) {
-  const ehPdf = ctx.mimeType === 'application/pdf'
-  const bloco = ehPdf
-    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: ctx.fileBase64 } }
-    : { type: 'image', source: { type: 'base64', media_type: ctx.mimeType, data: ctx.fileBase64 } }
+function runAnthropic(apiKey: string | undefined, model: string) {
+  return async function (ctx: ProviderCtx, c: StreamController) {
+    const ehPdf = ctx.mimeType === 'application/pdf'
+    const bloco = ehPdf
+      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: ctx.fileBase64 } }
+      : { type: 'image', source: { type: 'base64', media_type: ctx.mimeType, data: ctx.fileBase64 } }
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY!,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: process.env.ANTHROPIC_MODEL || 'claude-3-5-haiku-20241022',
-      max_tokens: 1024,
-      system: ctx.systemPrompt,
-      stream: true,
-      messages: [{ role: 'user', content: [bloco, { type: 'text', text: ctx.pergunta }] }],
-    }),
-  })
-  if (!res.ok || !res.body) throw new Error(`Anthropic HTTP ${res.status}`)
-  await lerSSE(res.body, c, (json) => {
-    if (json.type === 'content_block_delta' && json.delta?.type === 'text_delta') return json.delta.text
-    return null
-  })
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey!,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 1024,
+        system: ctx.systemPrompt,
+        stream: true,
+        messages: [{ role: 'user', content: [bloco, { type: 'text', text: ctx.pergunta }] }],
+      }),
+    })
+    if (!res.ok || !res.body) throw new Error(`Anthropic HTTP ${res.status}`)
+    await lerSSE(res.body, c, (json) => {
+      if (json.type === 'content_block_delta' && json.delta?.type === 'text_delta') return json.delta.text
+      return null
+    })
+  }
 }
 
 // OpenAI / compatível (OpenAI, Groq, …) — imagem via image_url (sem PDF)
@@ -214,16 +218,42 @@ export async function POST(req: NextRequest) {
   const ctx: ProviderCtx = { systemPrompt, pergunta, fileBase64, mimeType }
   const isPdf = mimeType === 'application/pdf'
 
-  // Ordem de tentativa — só entram os que têm a env key configurada.
-  // Para PDF, apenas provedores com suporte nativo a PDF (Gemini, Claude).
-  const provedores: { nome: string; key?: string; aceitaPdf: boolean; run: (ctx: ProviderCtx, c: StreamController) => Promise<void> }[] = [
-    { nome: 'gemini',    key: process.env.GEMINI_API_KEY,    aceitaPdf: true,  run: runGemini },
-    { nome: 'anthropic', key: process.env.ANTHROPIC_API_KEY, aceitaPdf: true,  run: runAnthropic },
-    { nome: 'openai',    key: process.env.OPENAI_API_KEY,    aceitaPdf: false, run: runOpenAICompat('https://api.openai.com/v1', process.env.OPENAI_API_KEY, process.env.OPENAI_MODEL || 'gpt-4o-mini') },
-    { nome: 'groq',      key: process.env.GROQ_API_KEY,      aceitaPdf: false, run: runOpenAICompat('https://api.groq.com/openai/v1', process.env.GROQ_API_KEY, process.env.GROQ_MODEL || 'llama-3.2-90b-vision-preview') },
+  // Config dos provedores vem do banco (gerenciada em /sistema/integracoes-ia);
+  // a env var é fallback quando não há chave cadastrada para o provedor.
+  const { data: provDb } = await supabaseAdmin
+    .from('ia_provedores')
+    .select('provedor, api_key, modelo, ativo, ordem')
+    .eq('ativo', true)
+    .order('ordem', { ascending: true })
+
+  const cfgPorProvedor = new Map((provDb ?? []).map((p: any) => [p.provedor, p]))
+  function chaveDe(prov: string, envKey?: string): string | undefined {
+    return cfgPorProvedor.get(prov)?.api_key || envKey
+  }
+  function modeloDe(prov: string, envModelo: string | undefined, padrao: string): string {
+    return cfgPorProvedor.get(prov)?.modelo || envModelo || padrao
+  }
+
+  const geminiKey    = chaveDe('gemini', process.env.GEMINI_API_KEY)
+  const anthropicKey = chaveDe('anthropic', process.env.ANTHROPIC_API_KEY)
+  const openaiKey    = chaveDe('openai', process.env.OPENAI_API_KEY)
+  const groqKey      = chaveDe('groq', process.env.GROQ_API_KEY)
+
+  const todos: { nome: string; key?: string; aceitaPdf: boolean; run: (ctx: ProviderCtx, c: StreamController) => Promise<void> }[] = [
+    { nome: 'gemini',    key: geminiKey,    aceitaPdf: true,  run: runGemini(geminiKey, modeloDe('gemini', process.env.GEMINI_MODEL, 'gemini-2.0-flash')) },
+    { nome: 'anthropic', key: anthropicKey, aceitaPdf: true,  run: runAnthropic(anthropicKey, modeloDe('anthropic', process.env.ANTHROPIC_MODEL, 'claude-3-5-haiku-20241022')) },
+    { nome: 'openai',    key: openaiKey,    aceitaPdf: false, run: runOpenAICompat('https://api.openai.com/v1', openaiKey, modeloDe('openai', process.env.OPENAI_MODEL, 'gpt-4o-mini')) },
+    { nome: 'groq',      key: groqKey,      aceitaPdf: false, run: runOpenAICompat('https://api.groq.com/openai/v1', groqKey, modeloDe('groq', process.env.GROQ_MODEL, 'llama-3.2-90b-vision-preview')) },
   ]
 
-  const candidatos = provedores.filter(p => p.key && (p.aceitaPdf || !isPdf))
+  // Mantém a ordem do banco (já vem por `ordem`); provedores não-listados ficam ao fim
+  const ordemBanco = (provDb ?? []).map((p: any) => p.provedor)
+  const candidatos = todos
+    .filter(p => p.key && (p.aceitaPdf || !isPdf))
+    .sort((a, b) => {
+      const ia = ordemBanco.indexOf(a.nome); const ib = ordemBanco.indexOf(b.nome)
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
+    })
 
   const readableStream = new ReadableStream({
     async start(controller) {

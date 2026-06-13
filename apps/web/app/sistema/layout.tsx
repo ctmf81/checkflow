@@ -5,12 +5,13 @@ import { TermosGate } from '@/components/layout/TermosGate'
 import { SessionProvider } from '@/contexts/SessionContext'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Building2, MessageCircle, ShieldCheck, Compass, Handshake } from 'lucide-react'
+import { Building2, MessageCircle, ShieldCheck, Compass, Handshake, Bot } from 'lucide-react'
 
 const SISTEMA_NAV = [
   { href: '/sistema',           label: 'Empresas',  icon: Building2 },
   { href: '/sistema/parceiros', label: 'Parceiros', icon: Handshake },
   { href: '/sistema/whatsapp',  label: 'WhatsApp',  icon: MessageCircle },
+  { href: '/sistema/integracoes-ia', label: 'IA', icon: Bot },
   { href: '/sistema/termos',    label: 'Termo de Uso', icon: ShieldCheck },
   { href: '/sistema/onboarding', label: 'Onboarding', icon: Compass },
 ]
