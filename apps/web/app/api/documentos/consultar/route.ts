@@ -20,7 +20,9 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: 'Não autorizado' }, { status: 401 })
   }
 
-  const supabasePublic = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE)
+  // Valida o JWT — usa a publishable/anon key, com fallback para a secret key
+  // (a publishable pode não estar disponível no runtime do route handler).
+  const supabasePublic = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE || SUPABASE_SECRET)
   const { data: { user }, error: authError } = await supabasePublic.auth.getUser(token)
   if (authError || !user) {
     return Response.json({ error: 'Sessão inválida' }, { status: 401 })

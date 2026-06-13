@@ -1,7 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 const AUTH_ROUTES = ['/login', '/recuperar-senha', '/nova-senha', '/primeiro-acesso']
-const PUBLIC_PREFIXES = ['/_next', '/favicon', '/public']
+// Rotas de API autenticam por header `Authorization: Bearer <token>` (a sessão
+// do Supabase fica em localStorage, não em cookie). Não devem ser redirecionadas
+// para /login pelo middleware — cada rota valida o próprio token e responde 401.
+const PUBLIC_PREFIXES = ['/_next', '/favicon', '/public', '/api']
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
