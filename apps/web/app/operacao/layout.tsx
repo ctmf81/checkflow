@@ -9,20 +9,26 @@ import { EscolherEmpresaModal } from '@/components/layout/EscolherEmpresaModal'
 import { TermosGate } from '@/components/layout/TermosGate'
 
 function OperacaoHeader() {
-  const { empresaAtiva } = useSession() as any
+  const { empresaAtiva } = useSession()
   const router = useRouter()
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [temGestao, setTemGestao] = useState(false)
 
   useEffect(() => {
-    createClient().auth.getSession().then(({ data }) => {
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data }) => {
       if (!data.session) router.replace('/login')
     })
     // Verifica se o usuário tem acesso à gestão (admin_sistema ou tem empresa ativa)
-    createClient().auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(({ data }) => {
       const role = data?.user?.user_metadata?.role
       setTemGestao(role === 'admin_sistema' || role === 'usuario')
     })
+    // Redireciona se a sessão expirar/cair durante o uso (não só no mount)
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) router.replace('/login')
+    })
+    return () => sub.subscription.unsubscribe()
   }, [])
 
   useEffect(() => {

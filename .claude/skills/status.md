@@ -27,7 +27,6 @@ Next logical step: [one-sentence inference, only if obvious]
 
 ## Pendências (atualizado 2026-06-12)
 - ⏳ **Rotacionar chave da Evolution** (boa higiene — `checkflow_evo_key_2026` já passou pelo git): trocar `AUTHENTICATION_API_KEY` (serviço Evolution) + `EVOLUTION_API_KEY` (serviço API) pelo MESMO valor novo, quase simultâneo. WhatsApp/sessão Baileys NÃO cai (auth key ≠ sessão). Validar depois com `POST /whatsapp/status` body `{}` → `conectado:true`
-- ⏳ `user as any` no SessionContext (issue antigo #3, baixa prioridade)
 - ⏳ Colunas financeiras de `empresas` visíveis em leitura a membros (RLS por linha) — pentest confirmou; avaliar view/coluna restrita
 
 - ✅ `pg_cron` configurado em 2026-06-11 (job `processar-agendamentos`, */10 min, jobid 2) — conferir duplicata: `select * from cron.job;`
@@ -40,8 +39,8 @@ Next logical step: [one-sentence inference, only if obvious]
 | # | Issue | Severidade |
 |---|-------|-----------|
 | 1 | ~~WhatsApp QR Code não funciona~~ ✅ RESOLVIDO 2026-06-11 — bug do Evolution 2.2.3 (loop infinito de reconexão, issue #2430); fix = upgrade da imagem para `evoapicloud/evolution-api:v2.3.7` no Railway. QR gera normalmente; instâncias órfãs (`CheckFlow`, `checkflows`) deletadas, restou só `checkflow` | ✅ |
-| 3 | `user` no SessionContext acessado via `as any` → pode ser undefined | 🟠 Alto |
-| 5 | Redirect para login ausente quando sessão expira na Operação | 🟡 Médio |
+| 3 | ~~`user` no SessionContext via `as any`~~ ✅ RESOLVIDO 2026-06-12 — removido o cast em operacao/layout.tsx | ✅ |
+| 5 | ~~Redirect login ausente ao expirar sessão na Operação~~ ✅ RESOLVIDO 2026-06-12 — `onAuthStateChange` redireciona p/ /login em SIGNED_OUT na Operação (layout) e na Gestão/Sistema (Header) | ✅ |
 | 6 | Permissões `ticket.ver`/`ticket.criar` existem no catálogo mas não são aplicadas (leitura/criação são por unidade) | 🟡 Médio |
 
 ~~#4 (checklist publicado editável)~~ corrigido em 2026-06-11: montador abre publicado em somente-leitura, "Liberar edição" com confirm + banner exigindo republicação.

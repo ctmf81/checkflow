@@ -29,12 +29,20 @@ export function Header() {
         .then(({ data }) => { if (data?.nome) setNome(data.nome) })
     })
 
+    // Redireciona ao login se a sessão expirar/cair durante o uso
+    const { data: authSub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) router.replace('/login')
+    })
+
     function handleClick(e: MouseEvent) {
       if (refUnidade.current && !refUnidade.current.contains(e.target as Node)) setDropUnidade(false)
       if (refUsuario.current && !refUsuario.current.contains(e.target as Node)) setDropUsuario(false)
     }
     document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      authSub.subscription.unsubscribe()
+    }
   }, [])
 
   async function handleLogout() {
