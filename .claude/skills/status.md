@@ -57,6 +57,7 @@ Next logical step: [one-sentence inference, only if obvious]
 - `20260610080000_parceiros.sql` ✅ aplicada (2026-06-11)
 - `20260611134557_hardening_regras_negocio.sql` ✅ aplicada (2026-06-11)
 - `20260611150000_parceiros_documento_unico.sql` ✅ aplicada (2026-06-11)
+- `20260612235259_ia_provedores.sql` ✅ aplicada (2026-06-12) — provedores de IA gerenciados em `/sistema/integracoes-ia`
 
 ## Features entregues em 2026-06-07
 - Fix build (parens nullish coalescing, cast PdfExecucao `as any`)
