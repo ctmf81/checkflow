@@ -1211,7 +1211,9 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     setExecAgendadaId(params.get('exec'))
   }, [])
 
-  useEffect(() => { carregar() }, [id])
+  // Aguarda a unidade ativa carregar (SessionContext é assíncrono) antes de
+  // buscar — senão a query roda com unidade vazia e falha com "não encontrado".
+  useEffect(() => { if (unidadeAtiva?.id) carregar() }, [id, unidadeAtiva?.id])
 
   async function carregar() {
     setLoading(true); setErroCarregar(null)
@@ -1220,7 +1222,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     const { data: cl, error: clErr } = await sb.from('checklists')
       .select('id, nome, descricao, tempo_guarda_meses, subgrupo_id')
       .eq('id', id)
-      .eq('unidade_id', unidadeAtiva?.id ?? '')
+      .eq('unidade_id', unidadeAtiva!.id)
       .single()
     if (clErr || !cl) { setErroCarregar(`Checklist não encontrado ou sem permissão de acesso`); setLoading(false); return }
     setChecklist(cl)
