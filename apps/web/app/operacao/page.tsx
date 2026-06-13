@@ -36,6 +36,10 @@ interface ItemWorkflowLiberado {
 interface ExecucaoAgendada {
   execucao_id: string; checklist_id: string; checklist_nome: string; criado_em: string
 }
+// Execução que o operador iniciou/assumiu mas não finalizou (pendência)
+interface ExecucaoNaoFinalizada {
+  execucao_id: string; checklist_id: string; checklist_nome: string; iniciado_em: string
+}
 
 interface Execucao {
   id: string; checklist_nome: string; data_execucao: string
@@ -92,9 +96,11 @@ function dataRelativa(iso: string) {
 
 // ─── ABA: Checklists (conteúdo original) ────────────────────────────────────
 
-function AbaChecklists({ grupos, semGrupo, itensWorkflow, agendadas, busca, setBusca }: {
+function AbaChecklists({ grupos, semGrupo, itensWorkflow, agendadas, naoFinalizadas, onDescartar, busca, setBusca }: {
   grupos: GrupoAgrupado[]; semGrupo: Checklist[]
-  itensWorkflow: ItemWorkflowLiberado[]; agendadas: ExecucaoAgendada[]; busca: string
+  itensWorkflow: ItemWorkflowLiberado[]; agendadas: ExecucaoAgendada[]
+  naoFinalizadas: ExecucaoNaoFinalizada[]; onDescartar: (execId: string) => void
+  busca: string
   setBusca: (v: string) => void
 }) {
   const router = useRouter()
@@ -112,6 +118,42 @@ function AbaChecklists({ grupos, semGrupo, itensWorkflow, agendadas, busca, setB
 
   return (
     <div className="space-y-6">
+      {/* Não finalizados — pendência incômoda no topo */}
+      {naoFinalizadas.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <AlertCircle size={16} className="text-red-500" />
+            <h2 className="text-base font-bold text-gray-800">Não finalizados</h2>
+            <span className="text-xs bg-red-100 text-red-600 font-semibold px-2 py-0.5 rounded-full">{naoFinalizadas.length}</span>
+          </div>
+          <div className="space-y-2">
+            {naoFinalizadas.map(nf => (
+              <div key={nf.execucao_id}
+                className="w-full bg-red-50 border border-red-200 rounded-xl px-4 py-3.5 flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <AlertCircle size={16} className="text-red-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-800 text-sm">{nf.checklist_nome}</p>
+                  <p className="text-xs text-red-600 mt-0.5">Iniciado e não finalizado · {dataRelativa(nf.iniciado_em)}</p>
+                </div>
+                <button
+                  onClick={() => router.push(`/operacao/${nf.checklist_id}?exec=${nf.execucao_id}`)}
+                  className="flex-shrink-0 text-xs font-semibold bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors">
+                  Continuar
+                </button>
+                <button
+                  onClick={() => onDescartar(nf.execucao_id)}
+                  title="Descartar — marca como não executado"
+                  className="flex-shrink-0 text-red-300 hover:text-red-600 transition-colors">
+                  <XCircle size={18} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Agendados pendentes */}
       {agendadas.length > 0 && (
         <section>
@@ -869,6 +911,7 @@ export default function OperacaoPage() {
   const [semGrupo, setSemGrupo] = useState<Checklist[]>([])
   const [itensWorkflow, setItensWorkflow] = useState<ItemWorkflowLiberado[]>([])
   const [agendadas, setAgendadas] = useState<ExecucaoAgendada[]>([])
+  const [naoFinalizadas, setNaoFinalizadas] = useState<ExecucaoNaoFinalizada[]>([])
   const [busca, setBusca] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -962,7 +1005,44 @@ export default function OperacaoPage() {
       criado_em: e.data_execucao,
     })))
 
+    // Execuções que ESTE operador iniciou/assumiu e não finalizou (em_andamento).
+    // Ficam como pendência incômoda até serem concluídas ou descartadas.
+    // Exclui as de workflow (têm fluxo próprio na seção "Workflows em andamento").
+    const { data: { user } } = await sb.auth.getUser()
+    if (user) {
+      const { data: emAberto } = await sb
+        .from('checklist_execucoes')
+        .select('id, data_execucao, checklist_id, checklists(nome)')
+        .eq('unidade_id', unidadeAtiva!.id)
+        .eq('status', 'em_andamento')
+        .eq('executado_por', user.id)
+        .order('data_execucao', { ascending: true })
+
+      const ids = (emAberto ?? []).map((e: any) => e.id)
+      let idsWorkflow = new Set<string>()
+      if (ids.length > 0) {
+        const { data: wf } = await sb.from('workflow_item_execucoes')
+          .select('checklist_execucao_id').in('checklist_execucao_id', ids)
+        idsWorkflow = new Set((wf ?? []).map((w: any) => w.checklist_execucao_id))
+      }
+
+      setNaoFinalizadas((emAberto ?? [])
+        .filter((e: any) => !idsWorkflow.has(e.id))
+        .map((e: any) => ({
+          execucao_id: e.id,
+          checklist_id: e.checklist_id,
+          checklist_nome: (Array.isArray(e.checklists) ? e.checklists[0] : e.checklists)?.nome ?? '—',
+          iniciado_em: e.data_execucao,
+        })))
+    }
+
     setLoading(false)
+  }
+
+  async function descartarExecucao(execId: string) {
+    const sb = createClient()
+    await sb.from('checklist_execucoes').update({ status: 'nao_executado' }).eq('id', execId)
+    setNaoFinalizadas(prev => prev.filter(e => e.execucao_id !== execId))
   }
 
   if (!unidadeAtiva) return (
@@ -1008,7 +1088,9 @@ export default function OperacaoPage() {
         <>
           {aba === 'checklists' && (
             <AbaChecklists grupos={grupos} semGrupo={semGrupo}
-              itensWorkflow={itensWorkflow} agendadas={agendadas} busca={busca} setBusca={setBusca} />
+              itensWorkflow={itensWorkflow} agendadas={agendadas}
+              naoFinalizadas={naoFinalizadas} onDescartar={descartarExecucao}
+              busca={busca} setBusca={setBusca} />
           )}
           {aba === 'historico' && <AbaHistorico unidadeId={unidadeAtiva.id} />}
           {aba === 'documentos' && <AbaDocumentos unidadeId={unidadeAtiva.id} />}
