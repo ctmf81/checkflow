@@ -96,12 +96,10 @@ function dataRelativa(iso: string) {
 
 // ─── ABA: Checklists (conteúdo original) ────────────────────────────────────
 
-function AbaChecklists({ grupos, semGrupo, itensWorkflow, agendadas, naoFinalizadas, isAdmin, onDescartar, onNaoExecutado, busca, setBusca }: {
+function AbaChecklists({ grupos, semGrupo, itensWorkflow, agendadas, naoFinalizadas, onNaoExecutado, busca, setBusca }: {
   grupos: GrupoAgrupado[]; semGrupo: Checklist[]
   itensWorkflow: ItemWorkflowLiberado[]; agendadas: ExecucaoAgendada[]
   naoFinalizadas: ExecucaoNaoFinalizada[]
-  isAdmin: boolean
-  onDescartar: (execId: string) => void
   onNaoExecutado: () => void
   busca: string
   setBusca: (v: string) => void
@@ -187,21 +185,12 @@ function AbaChecklists({ grupos, semGrupo, itensWorkflow, agendadas, naoFinaliza
                   className="flex-shrink-0 text-xs font-semibold bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors">
                   Continuar
                 </button>
-                {isAdmin ? (
-                  <button
-                    onClick={() => onDescartar(nf.execucao_id)}
-                    title="Descartar (admin) — marca como não executado"
-                    className="flex-shrink-0 text-red-300 hover:text-red-600 transition-colors">
-                    <XCircle size={18} />
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => abrirNaoExec(nf)}
-                    title="Registrar não execução com motivo"
-                    className="flex-shrink-0 text-xs font-medium text-red-600 border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-100 transition-colors">
-                    Não executar
-                  </button>
-                )}
+                <button
+                  onClick={() => abrirNaoExec(nf)}
+                  title="Registrar não execução com motivo"
+                  className="flex-shrink-0 text-xs font-medium text-red-600 border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-100 transition-colors">
+                  Não executar
+                </button>
               </div>
             ))}
           </div>
@@ -1015,15 +1004,8 @@ export default function OperacaoPage() {
   const [itensWorkflow, setItensWorkflow] = useState<ItemWorkflowLiberado[]>([])
   const [agendadas, setAgendadas] = useState<ExecucaoAgendada[]>([])
   const [naoFinalizadas, setNaoFinalizadas] = useState<ExecucaoNaoFinalizada[]>([])
-  const [isAdmin, setIsAdmin] = useState(false)
   const [busca, setBusca] = useState('')
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => {
-      setIsAdmin(data?.user?.user_metadata?.role === 'admin_sistema')
-    })
-  }, [])
 
   useEffect(() => {
     if (!unidadeAtiva?.id) { setLoading(false); return }
@@ -1149,12 +1131,6 @@ export default function OperacaoPage() {
     setLoading(false)
   }
 
-  async function descartarExecucao(execId: string) {
-    const sb = createClient()
-    await sb.from('checklist_execucoes').update({ status: 'nao_executado' }).eq('id', execId)
-    setNaoFinalizadas(prev => prev.filter(e => e.execucao_id !== execId))
-  }
-
   if (!unidadeAtiva) return (
     <div className="flex items-center justify-center min-h-[60vh] px-6">
       <div className="text-center">
@@ -1199,8 +1175,7 @@ export default function OperacaoPage() {
           {aba === 'checklists' && (
             <AbaChecklists grupos={grupos} semGrupo={semGrupo}
               itensWorkflow={itensWorkflow} agendadas={agendadas}
-              naoFinalizadas={naoFinalizadas} isAdmin={isAdmin}
-              onDescartar={descartarExecucao}
+              naoFinalizadas={naoFinalizadas}
               onNaoExecutado={() => carregarChecklists()}
               busca={busca} setBusca={setBusca} />
           )}
