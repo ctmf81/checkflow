@@ -27,7 +27,7 @@ Next logical step: [one-sentence inference, only if obvious]
 
 ## Pendências (atualizado 2026-06-12)
 - ⏳ **Rotacionar chave da Evolution** (boa higiene — `checkflow_evo_key_2026` já passou pelo git): trocar `AUTHENTICATION_API_KEY` (serviço Evolution) + `EVOLUTION_API_KEY` (serviço API) pelo MESMO valor novo, quase simultâneo. WhatsApp/sessão Baileys NÃO cai (auth key ≠ sessão). Validar depois com `POST /whatsapp/status` body `{}` → `conectado:true`
-- ⏳ Colunas financeiras de `empresas` visíveis em leitura a membros (RLS por linha) — pentest confirmou; avaliar view/coluna restrita
+- ✅ Colunas financeiras movidas de `empresas` p/ `empresa_financeiro` (admin-only) em 2026-06-13 — migration 20260613002351 (⏳ aplicar). Resolve a exposição via RLS de linha. Ajustados: rota parceiros, `/sistema/empresas/[id]`, `/sistema/parceiros`, pentest §10
 
 - ✅ `pg_cron` configurado em 2026-06-11 (job `processar-agendamentos`, */10 min, jobid 2) — conferir duplicata: `select * from cron.job;`
 - Testar fluxo de agendamentos end-to-end (criar agendamento com referência no passado e ver disparo — agora aparece como pendência da unidade na Operação)

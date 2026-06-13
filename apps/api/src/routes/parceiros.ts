@@ -59,11 +59,16 @@ export async function parceiroRoutes(app: FastifyInstance) {
     if (empresaId) {
       const { data: empresa } = await supabase
         .from('empresas')
-        .select('nome, parceiro_percentual')
+        .select('nome')
         .eq('id', empresaId)
         .maybeSingle()
       nomeEmpresa = empresa?.nome ?? ''
-      percentual = empresa?.parceiro_percentual ?? null
+      const { data: fin } = await supabase
+        .from('empresa_financeiro')
+        .select('parceiro_percentual')
+        .eq('empresa_id', empresaId)
+        .maybeSingle()
+      percentual = fin?.parceiro_percentual ?? null
     }
 
     const { assunto, html } = emailParceiroBoasVindas({
@@ -130,15 +135,25 @@ export async function parceiroRoutes(app: FastifyInstance) {
         continue
       }
 
-      const { data: empresas } = await supabase
-        .from('empresas')
-        .select('id, nome, status, status_pagamento, plano, valor_mensalidade, parceiro_percentual')
+      // Dados financeiros do parceiro (admin-only) + nome/status da empresa via join
+      const { data: fins } = await supabase
+        .from('empresa_financeiro')
+        .select('status_pagamento, plano, valor_mensalidade, parceiro_percentual, empresa:empresa_id(id, nome, status)')
         .eq('parceiro_id', parceiro.id)
 
-      if (!empresas || empresas.length === 0) {
+      if (!fins || fins.length === 0) {
         resultados.push({ parceiroId: parceiro.id, status: 'sem_empresas' })
         continue
       }
+
+      const empresas = fins.map((f: any) => {
+        const emp = Array.isArray(f.empresa) ? f.empresa[0] : f.empresa
+        return {
+          id: emp?.id, nome: emp?.nome ?? '—', status: emp?.status,
+          status_pagamento: f.status_pagamento, plano: f.plano,
+          valor_mensalidade: f.valor_mensalidade, parceiro_percentual: f.parceiro_percentual,
+        }
+      }).filter(e => e.id)
 
       const linhas = empresas.map(e => {
         // "Enquanto houver contrato": empresa ativa E pagamento não cancelado.

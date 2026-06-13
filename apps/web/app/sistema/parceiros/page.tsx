@@ -76,11 +76,18 @@ export default function ParceirosPage() {
 
       if (lista) {
         const comEmpresas = await Promise.all(lista.map(async p => {
-          const { data: empresas } = await supabase
-            .from('empresas')
-            .select('id, nome, status, plano, valor_mensalidade, parceiro_percentual')
+          const { data: fins } = await supabase
+            .from('empresa_financeiro')
+            .select('plano, valor_mensalidade, parceiro_percentual, empresa:empresa_id(id, nome, status)')
             .eq('parceiro_id', p.id)
-          return { ...p, empresas: empresas ?? [] }
+          const empresas: EmpresaVinculada[] = (fins ?? []).map((f: any) => {
+            const emp = Array.isArray(f.empresa) ? f.empresa[0] : f.empresa
+            return {
+              id: emp?.id, nome: emp?.nome ?? '—', status: emp?.status,
+              plano: f.plano, valor_mensalidade: f.valor_mensalidade, parceiro_percentual: f.parceiro_percentual,
+            }
+          }).filter(e => e.id)
+          return { ...p, empresas }
         }))
         setParceiros(comEmpresas)
       }

@@ -22,12 +22,6 @@ interface Empresa {
   status: 'ativo' | 'inativo' | 'pendente' | 'bloqueada'
   logo_url: string | null
   criado_em: string
-  plano: string | null
-  valor_mensalidade: number | null
-  status_pagamento: string | null
-  pagamento_vencimento: string | null
-  parceiro_id: string | null
-  parceiro_percentual: number | null
 }
 
 interface Usuario {
@@ -90,20 +84,22 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
       const supabase = createClient()
       const { data: emp } = await supabase
         .from('empresas')
-        .select('*, parceiros(id, nome, email)')
+        .select('id, nome, cnpj, status, logo_url, criado_em, empresa_financeiro(plano, valor_mensalidade, pagamento_vencimento, status_pagamento, parceiro_percentual, parceiros(id, nome, email))')
         .eq('id', id)
         .single()
       if (emp) {
+        const fin: any = Array.isArray(emp.empresa_financeiro) ? emp.empresa_financeiro[0] : emp.empresa_financeiro
         setEmpresa(emp)
         setNomeEmp(emp.nome)
         setCnpj(emp.cnpj ?? '')
         setStatusEmp(emp.status)
-        setPlano(emp.plano ?? '')
-        setValor(emp.valor_mensalidade != null ? String(emp.valor_mensalidade) : '')
-        setVencimento(emp.pagamento_vencimento ?? '')
-        setStatusPag(emp.status_pagamento ?? '')
-        setPercentual(emp.parceiro_percentual != null ? String(emp.parceiro_percentual) : '')
-        if (emp.parceiros) setParceiroAtual(emp.parceiros)
+        setPlano(fin?.plano ?? '')
+        setValor(fin?.valor_mensalidade != null ? String(fin.valor_mensalidade) : '')
+        setVencimento(fin?.pagamento_vencimento ?? '')
+        setStatusPag(fin?.status_pagamento ?? '')
+        setPercentual(fin?.parceiro_percentual != null ? String(fin.parceiro_percentual) : '')
+        const parc = fin?.parceiros ? (Array.isArray(fin.parceiros) ? fin.parceiros[0] : fin.parceiros) : null
+        if (parc) setParceiroAtual(parc)
       }
       await carregarUsuarios()
       setLoading(false)
@@ -150,13 +146,14 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
     }
     setSalvandoPag(true)
     const supabase = createClient()
-    const { error } = await supabase.from('empresas').update({
+    const { error } = await supabase.from('empresa_financeiro').upsert({
+      empresa_id: id,
       plano: plano || null,
       valor_mensalidade: valorNum,
       pagamento_vencimento: vencimento || null,
       status_pagamento: statusPag || 'pendente',
       atualizado_em: new Date().toISOString()
-    }).eq('id', id)
+    }, { onConflict: 'empresa_id' })
     setSalvandoPag(false)
     if (error) setErroPag(`Erro ao salvar: ${error.message}`)
   }
@@ -173,12 +170,13 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
 
     setSalvandoParceiro(true)
     const supabase = createClient()
-    const { error } = await supabase.from('empresas').update({
+    const { error } = await supabase.from('empresa_financeiro').upsert({
+      empresa_id: id,
       parceiro_id: parceiroAtual?.id ?? null,
       // Sem parceiro não existe percentual — evita percentual órfão no banco
       parceiro_percentual: parceiroAtual ? pctNum : null,
       atualizado_em: new Date().toISOString()
-    }).eq('id', id)
+    }, { onConflict: 'empresa_id' })
 
     if (error) {
       setSalvandoParceiro(false)

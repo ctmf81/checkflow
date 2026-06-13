@@ -134,7 +134,7 @@ Cobre: headers de segurança (HSTS/X-Frame-Options/nosniff), CORS, cookies de se
 - `parceiros`, `empresa_status_eventos`, `parceiro_emails_log`: RLS habilitado, policies admin-only (`is_admin_sistema()`) — sem acesso anon/membro
 - `/cron/parceiros/resumo-mensal` é a única rota não autenticada por sessão — protegida por `CRON_SECRET` via header `x-cron-secret`, retorna 401/500 se ausente/incorreto; valida internamente o último dia do mês (idempotente por `parceiro+mês`)
 - ✅ Pen test seção 10 (`pentest/run.mjs`) cobre as 3 tabelas: anon e usuário comum negados em SELECT/INSERT/UPDATE/DELETE. Suite completa 48/48 em 2026-06-12
-- ✅ Verificado empiricamente: a suposta exposição das colunas financeiras de `empresas` (`valor_mensalidade`, `parceiro_percentual`, etc.) a membros da empresa **NÃO existe** — usuário comum não lê a tabela `empresas` via PostgREST (nem a própria empresa). Os dados de empresa na UI de gestão vêm por outro caminho (service role / API). Não há pendência de view/coluna restrita
+- ✅ Dados financeiros de empresa (`valor_mensalidade`, `parceiro_percentual`, `plano`, `status_pagamento`, etc.) movidos de `empresas` para **`empresa_financeiro`** (RLS admin-only, migration 20260613002351). Independente de a exposição original ser explorável, agora os campos sensíveis estão numa tabela sem policy de membro — defense-in-depth. Toda escrita/leitura passa por admin (UI `/sistema/empresas/[id]`, rota de parceiros, `/sistema/parceiros`)
 
 ## Correções da auditoria de regras (2026-06-11)
 | Issue | Fix |
