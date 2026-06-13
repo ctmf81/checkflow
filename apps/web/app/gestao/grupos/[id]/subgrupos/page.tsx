@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { NovoSubgrupoModal } from './NovoSubgrupoModal'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
-import { useConfirm } from '@/components/ui/feedback'
+import { useConfirm, useToast } from '@/components/ui/feedback'
 
 interface Subgrupo {
   id: string
@@ -248,6 +248,7 @@ export default function SubgruposPage({ params }: { params: Promise<{ id: string
   const { id } = use(params)
   const { subgrupoLabel } = useSession()
   const confirm = useConfirm()
+  const toast = useToast()
   const router = useRouter()
   const [modal, setModal] = useState(false)
   const [grupo, setGrupo] = useState<{ nome: string } | null>(null)
@@ -281,7 +282,9 @@ export default function SubgruposPage({ params }: { params: Promise<{ id: string
 
   async function desativar(sub: Subgrupo) {
     if (!await confirm({ titulo: `Desativar "${sub.nome}"?`, confirmarLabel: 'Desativar', perigo: true })) return
-    await createClient().from('subgrupos').update({ status: 'inativo' }).eq('id', sub.id)
+    const { error } = await createClient().from('subgrupos').update({ status: 'inativo' }).eq('id', sub.id)
+    if (error) { toast.error('Não foi possível desativar.'); return }
+    toast.success('Item desativado.')
     carregar()
   }
 

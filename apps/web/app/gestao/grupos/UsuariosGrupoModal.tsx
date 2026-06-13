@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { X, Users, Pencil, PowerOff, RefreshCw, Check, ChevronDown, ChevronUp, Loader2, UserCircle, Phone, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
-import { useConfirm } from '@/components/ui/feedback'
+import { useConfirm, useToast } from '@/components/ui/feedback'
 
 interface Props {
   grupoId: string
@@ -178,6 +178,7 @@ function SubgruposUsuarioModal({ usuario, grupoId, subgrupoLabel, onClose, onSal
 
 export function UsuariosGrupoModal({ grupoId, grupoNome, subgrupoLabel, onClose, onAlterado }: Props) {
   const confirm = useConfirm()
+  const toast = useToast()
   const [usuarios, setUsuarios] = useState<UsuarioGrupo[]>([])
   const [loading, setLoading] = useState(true)
   const [editando, setEditando] = useState<UsuarioGrupo | null>(null)
@@ -242,9 +243,11 @@ export function UsuariosGrupoModal({ grupoId, grupoNome, subgrupoLabel, onClose,
     if (!await confirm({ titulo: `Remover "${usuario.nome}" deste grupo?`, confirmarLabel: 'Remover', perigo: true })) return
     setInativando(usuario.id)
     const supabase = createClient()
-    await supabase.from('usuario_grupo').delete()
+    const { error } = await supabase.from('usuario_grupo').delete()
       .eq('usuario_id', usuario.id).eq('grupo_id', grupoId)
     setInativando(null)
+    if (error) { toast.error('Não foi possível remover o usuário.'); return }
+    toast.success('Usuário removido do grupo.')
     onAlterado?.()
     carregar()
   }

@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
-import { useConfirm } from '@/components/ui/feedback'
+import { useConfirm, useToast } from '@/components/ui/feedback'
 
 interface Empresa {
   id: string
@@ -29,6 +29,7 @@ interface Unidade {
 export default function EmpresaPage() {
   const { empresaAtiva } = useSession()
   const confirm = useConfirm()
+  const toast = useToast()
   const [empresa, setEmpresa] = useState<Empresa | null>(null)
   const [unidades, setUnidades] = useState<Unidade[]>([])
   const [loading, setLoading] = useState(true)
@@ -66,15 +67,19 @@ export default function EmpresaPage() {
     if (!empresa) return
     setSalvando(true)
     const supabase = createClient()
-    await supabase.from('empresas').update({ nome, cnpj: cnpj || null, atualizado_em: new Date().toISOString() }).eq('id', empresa.id)
+    const { error } = await supabase.from('empresas').update({ nome, cnpj: cnpj || null, atualizado_em: new Date().toISOString() }).eq('id', empresa.id)
     setSalvando(false)
+    if (error) { toast.error(`Erro ao salvar: ${error.message}`); return }
     setEditando(false)
+    toast.success('Dados da empresa salvos.')
     await carregar()
   }
 
   async function deletarUnidade(id: string) {
     if (!await confirm({ titulo: 'Remover esta unidade?', mensagem: 'Essa ação não pode ser desfeita.', confirmarLabel: 'Remover', perigo: true })) return
-    await createClient().from('unidades').delete().eq('id', id)
+    const { error } = await createClient().from('unidades').delete().eq('id', id)
+    if (error) { toast.error('Não foi possível remover a unidade.'); return }
+    toast.success('Unidade removida.')
     carregar()
   }
 

@@ -8,7 +8,7 @@ import { useSession } from '@/contexts/SessionContext'
 import { TurnoModal } from './TurnoModal'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
-import { useConfirm } from '@/components/ui/feedback'
+import { useConfirm, useToast } from '@/components/ui/feedback'
 
 interface Turno {
   id: string
@@ -50,6 +50,7 @@ function resumo(turno: Turno): React.ReactNode {
 export default function TurnosPage() {
   const { empresaAtiva } = useSession()
   const confirm = useConfirm()
+  const toast = useToast()
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
@@ -70,7 +71,9 @@ export default function TurnosPage() {
 
   async function excluir(id: string, nome: string) {
     if (!await confirm({ titulo: `Excluir o turno "${nome}"?`, mensagem: 'Usuários associados ficarão sem turno.', confirmarLabel: 'Excluir', perigo: true })) return
-    await createClient().from('turnos').update({ ativo: false }).eq('id', id)
+    const { error } = await createClient().from('turnos').update({ ativo: false }).eq('id', id)
+    if (error) { toast.error('Não foi possível excluir o turno.'); return }
+    toast.success('Turno excluído.')
     carregar()
   }
 

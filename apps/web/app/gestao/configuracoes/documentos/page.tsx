@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
-import { useConfirm } from '@/components/ui/feedback'
+import { useConfirm, useToast } from '@/components/ui/feedback'
 import { NovoDocumentoModal, DocumentoBase } from './NovoDocumentoModal'
 import { EditarDocumentoModal } from './EditarDocumentoModal'
 import { DuplicarDocumentoModal } from './DuplicarDocumentoModal'
@@ -94,6 +94,7 @@ function DocMenu({ doc, onEditar, onEtapas, onDuplicar, onExcluir }: {
 export default function DocumentosPage() {
   const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
   const confirm = useConfirm()
+  const toast = useToast()
   const [documentos, setDocumentos] = useState<Documento[]>([])
   const [grupos, setGrupos] = useState<{ id: string; nome: string; display_name: string | null }[]>([])
   const [subgrupos, setSubgrupos] = useState<{ id: string; nome: string }[]>([])
@@ -142,7 +143,9 @@ export default function DocumentosPage() {
 
   async function excluir(doc: Documento) {
     if (!await confirm({ titulo: `Excluir "${doc.nome}"?`, confirmarLabel: 'Excluir', perigo: true })) return
-    await createClient().from('documentos').update({ status: 'inativo' }).eq('id', doc.id)
+    const { error } = await createClient().from('documentos').update({ status: 'inativo' }).eq('id', doc.id)
+    if (error) { toast.error('Não foi possível excluir o documento.'); return }
+    toast.success('Documento excluído.')
     carregar()
   }
 

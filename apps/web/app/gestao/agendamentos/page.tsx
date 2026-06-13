@@ -279,9 +279,11 @@ export default function AgendamentosPage() {
     if (!await confirm({ titulo: 'Excluir agendamento?', mensagem: 'Essa ação não pode ser desfeita.', confirmarLabel: 'Excluir', perigo: true })) return
     setAlterando(id)
     const sb = createClient()
-    await sb.from('agendamentos').delete().eq('id', id)
-    setAgendamentos(prev => prev.filter(a => a.id !== id))
+    const { error } = await sb.from('agendamentos').delete().eq('id', id)
     setAlterando(null)
+    if (error) { toast.error('Não foi possível excluir o agendamento.'); return }
+    setAgendamentos(prev => prev.filter(a => a.id !== id))
+    toast.success('Agendamento excluído.')
   }
 
   if (!empresaAtiva) return (

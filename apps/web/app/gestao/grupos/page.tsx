@@ -13,7 +13,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
-import { useConfirm } from '@/components/ui/feedback'
+import { useConfirm, useToast } from '@/components/ui/feedback'
 
 interface Grupo {
   id: string
@@ -27,6 +27,7 @@ interface Grupo {
 export default function GruposPage() {
   const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
   const confirm = useConfirm()
+  const toast = useToast()
   const [grupos, setGrupos] = useState<Grupo[]>([])
   const [modal, setModal] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -59,7 +60,9 @@ export default function GruposPage() {
 
   async function desativarGrupo(id: string, nome: string) {
     if (!await confirm({ titulo: `Desativar o grupo "${nome}"?`, confirmarLabel: 'Desativar', perigo: true })) return
-    await createClient().from('grupos').update({ status: 'inativo' }).eq('id', id)
+    const { error } = await createClient().from('grupos').update({ status: 'inativo' }).eq('id', id)
+    if (error) { toast.error('Não foi possível desativar o grupo.'); return }
+    toast.success('Grupo desativado.')
     carregar()
   }
 

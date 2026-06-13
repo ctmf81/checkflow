@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
-import { useConfirm } from '@/components/ui/feedback'
+import { useConfirm, useToast } from '@/components/ui/feedback'
 import { NovoCatalogoModal, Catalogo } from './NovoCatalogoModal'
 import { ValoresModal } from './ValoresModal'
 import { DuplicarCatalogoModal } from './DuplicarCatalogoModal'
@@ -61,6 +61,7 @@ function CardMenu({ catalogo, onEditar, onDuplicar, onExcluir }: {
 export default function CatalogosPage() {
   const { unidadeAtiva } = useSession()
   const confirm = useConfirm()
+  const toast = useToast()
   const [catalogos, setCatalogos] = useState<CatalogoCard[]>([])
   const [loading, setLoading] = useState(true)
   const [modalNovo, setModalNovo] = useState(false)
@@ -91,7 +92,9 @@ export default function CatalogosPage() {
 
   async function excluir(id: string, nome: string) {
     if (!await confirm({ titulo: `Excluir catálogo "${nome}"?`, mensagem: 'Todos os valores serão removidos.', confirmarLabel: 'Excluir', perigo: true })) return
-    await createClient().from('catalogos').update({ status: 'inativo' }).eq('id', id)
+    const { error } = await createClient().from('catalogos').update({ status: 'inativo' }).eq('id', id)
+    if (error) { toast.error('Não foi possível excluir o catálogo.'); return }
+    toast.success('Catálogo excluído.')
     carregar()
   }
 

@@ -6,13 +6,14 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
-import { useConfirm } from '@/components/ui/feedback'
+import { useConfirm, useToast } from '@/components/ui/feedback'
 
 interface Categoria { id: string; nome: string; pai_id: string | null; e_generica: boolean; ativo: boolean }
 
 export default function TicketCategoriasPage() {
   const { unidadeAtiva } = useSession()
   const confirm = useConfirm()
+  const toast = useToast()
   const supabase = createClient()
 
   const [cats,    setCats]    = useState<Categoria[]>([])
@@ -55,7 +56,9 @@ export default function TicketCategoriasPage() {
   async function excluir(c: Categoria) {
     if (c.e_generica) return
     if (!await confirm({ titulo: `Excluir categoria "${c.nome}"?`, confirmarLabel: 'Excluir', perigo: true })) return
-    await supabase.from('ticket_categorias').update({ ativo: false }).eq('id', c.id)
+    const { error } = await supabase.from('ticket_categorias').update({ ativo: false }).eq('id', c.id)
+    if (error) { toast.error('Não foi possível excluir a categoria.'); return }
+    toast.success('Categoria excluída.')
     carregar()
   }
 

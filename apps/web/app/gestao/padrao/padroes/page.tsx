@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
-import { useConfirm } from '@/components/ui/feedback'
+import { useConfirm, useToast } from '@/components/ui/feedback'
 
 interface PadraoCard {
   id: string; nome: string; descricao: string | null
@@ -19,6 +19,7 @@ interface PadraoCard {
 export default function PadroesPage() {
   const { unidadeAtiva } = useSession()
   const confirm = useConfirm()
+  const toast = useToast()
   const [padroes, setPadroes] = useState<PadraoCard[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -45,7 +46,9 @@ export default function PadroesPage() {
 
   async function excluir(id: string, nome: string) {
     if (!await confirm({ titulo: `Excluir o padrão "${nome}"?`, mensagem: 'Atividades que o usam deixarão de validar.', confirmarLabel: 'Excluir', perigo: true })) return
-    await createClient().from('padroes').update({ ativo: false }).eq('id', id)
+    const { error } = await createClient().from('padroes').update({ ativo: false }).eq('id', id)
+    if (error) { toast.error('Não foi possível excluir o padrão.'); return }
+    toast.success('Padrão excluído.')
     carregar()
   }
 
