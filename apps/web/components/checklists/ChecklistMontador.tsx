@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, ChevronLeft, Save, Send, GripVertical, Trash2, ChevronDown, ChevronUp, Settings, Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine, CalendarDays, MapPin, Video } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -83,8 +83,11 @@ export default function ChecklistMontador({ checklistId }: Props) {
   const [subgrupos, setSubgrupos] = useState<{ id: string; nome: string }[]>([])
   const [motivos, setMotivos] = useState<{ id: string; descricao: string; tipo: string }[]>([])
   const [motivosSelecionados, setMotivosSelecionados] = useState<string[]>([])
-  const [tempoGuarda, setTempoGuarda] = useState(12)
+  const [tempoGuarda, setTempoGuarda] = useState(1)
   const [status, setStatus] = useState<'rascunho' | 'publicado'>('rascunho')
+  // Subgrupo a pré-selecionar ao criar pela área (vem de ?subgrupo= na URL),
+  // aplicado depois que a lista de subgrupos do grupo carrega
+  const subgrupoInicialRef = useRef<string | null>(null)
   const [secoes, setSecoes] = useState<Secao[]>([])
   const [salvando, setSalvando] = useState(false)
   const [id, setId] = useState<string | null>(checklistId)
@@ -122,12 +125,31 @@ export default function ChecklistMontador({ checklistId }: Props) {
     if (checklistId) carregarChecklist(checklistId)
   }, [unidadeAtiva?.id, checklistId])
 
+  // Novo checklist criado pela área: pré-seleciona grupo/subgrupo do caminho.
+  // Deriva o grupo a partir do subgrupo informado em ?subgrupo=.
+  useEffect(() => {
+    if (checklistId) return // edição não pré-preenche
+    const sub = new URLSearchParams(window.location.search).get('subgrupo')
+    if (!sub) return
+    subgrupoInicialRef.current = sub
+    createClient().from('subgrupos').select('grupo_id').eq('id', sub).single()
+      .then(({ data }) => { if (data?.grupo_id) setGrupoId(data.grupo_id) })
+  }, [checklistId])
+
   // Carrega subgrupos quando grupo muda
   useEffect(() => {
     if (!grupoId) { setSubgrupos([]); setSubgrupoId(''); return }
     createClient().from('subgrupos')
       .select('id, nome').eq('grupo_id', grupoId).eq('status', 'ativo').order('nome')
-      .then(({ data }) => { if (data) setSubgrupos(data) })
+      .then(({ data }) => {
+        if (!data) return
+        setSubgrupos(data)
+        // Aplica o subgrupo pré-selecionado (criação pela área), se válido
+        if (subgrupoInicialRef.current && data.some(s => s.id === subgrupoInicialRef.current)) {
+          setSubgrupoId(subgrupoInicialRef.current)
+          subgrupoInicialRef.current = null
+        }
+      })
   }, [grupoId])
 
   // Carrega motivos de não execução quando grupo ou subgrupo mudam
@@ -150,7 +172,7 @@ export default function ChecklistMontador({ checklistId }: Props) {
     if (clErr || !cl) return
     setNome(cl.nome)
     setDescricao(cl.descricao ?? '')
-    setTempoGuarda(cl.tempo_guarda_meses ?? 12)
+    setTempoGuarda(cl.tempo_guarda_meses ?? 1)
     setStatus(cl.status)
 
     // Deriva grupoId do subgrupo salvo

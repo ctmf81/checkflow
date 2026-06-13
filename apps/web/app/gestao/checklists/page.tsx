@@ -168,7 +168,7 @@ function ChecklistsContent() {
             </p>
           </div>
         </div>
-        <Link href="/gestao/checklists/novo">
+        <Link href={filtroSubgrupoId ? `/gestao/checklists/novo/montar?subgrupo=${filtroSubgrupoId}` : '/gestao/checklists/novo'}>
           <Button><Plus size={16} />Novo checklist</Button>
         </Link>
       </div>
