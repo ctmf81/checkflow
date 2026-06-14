@@ -313,6 +313,31 @@ function CampoMultiplaEscolha({ atividade, onChange }: { atividade: Atividade; o
     <p className="text-xs text-gray-400 bg-gray-50 px-3 py-2 rounded-lg">Nenhuma opção cadastrada.</p>
   )
 
+  // Mais de 3 opções e seleção única: usar dropdown para economizar espaço
+  if (!multiplo && opcoes.length > 3) {
+    const opSelecionada = opcoes.find(op => op.valor === val)
+    const invalido = !!opSelecionada && !opSelecionada.e_valido
+    return (
+      <div className="space-y-1">
+        <select
+          value={val ?? ''}
+          onChange={e => onChange(e.target.value || null)}
+          className={`w-full px-3 py-2 border-2 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 ${
+            invalido ? 'border-red-400 text-red-700' : 'border-gray-200 text-gray-700'
+          }`}
+        >
+          <option value="">Selecione...</option>
+          {opcoes.map(op => (
+            <option key={op.id} value={op.valor}>{op.label}</option>
+          ))}
+        </select>
+        {invalido && (
+          <p className="text-xs text-red-500 flex items-center gap-1"><XCircle size={12} /> Resposta fora do esperado</p>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-2">
       {opcoes.map(op => {
