@@ -28,7 +28,8 @@ description: Pre-launch checklist for CheckFlow — use before onboarding any pa
 | 2.1 | Envio de mensagens com falha silenciosa | 🟢 | Resolvido em 2026-06-13: sessão Baileys estava "open" mas zombie (mensagens travavam em `PENDING`); reconectar via QR resolveu. Resolução de número via `/chat/whatsappNumbers` mantida no código (commit 7092d35) |
 | 2.2 | Redis desabilitado (`CACHE_REDIS_ENABLED=false`) | 🟡 | Verificar se está setado na Evolution API no Railway |
 | 2.3 | Reconexão automática de sessão WhatsApp | 🟡 | Sessão pode ficar "open" porém zombie sem aviso — avaliar healthcheck periódico + reconexão automática |
-| 2.4 | Templates de mensagem revisados e testados | 🔴 | Testar cada trigger de disparo (execução concluída, reprovação, workflow avançou) |
+| 2.4 | Templates de mensagem revisados e testados | 🟢 | Resolvido em 2026-06-14: corrigido bug em `/tickets/notificar` que retornava sempre "Ticket não encontrado" (embed PostgREST inválido para `usuarios` via FK de `auth.users`, commit bd68466). `ticket_aberto` e `ticket_movimentado` testados e confirmados via WhatsApp e email. `reset_senha`, `plano_aberto`, `plano_enviado_n2` também confirmados em 2026-06-13 |
+| 2.5 | Link nas mensagens (WA/email) não funciona | 🔴 | Pendente em 2026-06-14: mesmo após corrigir `APP_URL`/fallback (commit 8cdd9e5) e troca da URL no Railway, link ainda não funciona em pelo menos um teste. Investigar de novo: qual URL está sendo gerada, qual o erro exato ao abrir, e se `APP_URL` no Railway está correto. |
 
 ---
 
