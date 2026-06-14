@@ -85,6 +85,9 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
 
     const catFinal = subcategoriaId || categoriaId || null
 
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setErro('Sessão expirada. Faça login novamente.'); setSalvando(false); return }
+
     const { data: ticket, error } = await supabase.from('tickets').insert({
       unidade_id:   unidadeAtiva!.id,
       grupo_id:     grupoId,
@@ -94,13 +97,19 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
       descricao:    descricao.trim(),
       prioridade,
       execucao_id:  execucaoId ?? null,
+      aberto_por_id: user.id,
     }).select('id').single()
 
-    if (error || !ticket) { setErro('Erro ao criar ticket. Tente novamente.'); setSalvando(false); return }
+    if (error || !ticket) {
+      console.error('Erro ao criar ticket:', error)
+      setErro('Erro ao criar ticket. Tente novamente.')
+      setSalvando(false)
+      return
+    }
 
     // evento de abertura
     await supabase.from('ticket_eventos').insert({
-      ticket_id: ticket.id, tipo: 'abertura', texto: descricao.trim(),
+      ticket_id: ticket.id, tipo: 'abertura', texto: descricao.trim(), autor_id: user.id,
     })
 
     // upload de evidências
@@ -112,16 +121,13 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
         const { data: pub } = supabase.storage.from('execucoes').getPublicUrl(path)
         const tipo = file.type.startsWith('video') ? 'video' : file.type.startsWith('image') ? 'foto' : 'documento'
         await supabase.from('ticket_evidencias').insert({
-          ticket_id: ticket.id, url: pub.publicUrl, tipo, nome: file.name,
+          ticket_id: ticket.id, url: pub.publicUrl, tipo, nome: file.name, uploaded_by: user.id,
         })
       }
     }
 
     // notifica grupo/subgrupo destino (fire-and-forget)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      notificarTicket({ ticket_id: ticket.id, evento: 'aberto', ator_id: user.id, texto: descricao.trim() })
-    }
+    notificarTicket({ ticket_id: ticket.id, evento: 'aberto', ator_id: user.id, texto: descricao.trim() })
 
     setSalvando(false)
     onCriado?.(ticket.id)
