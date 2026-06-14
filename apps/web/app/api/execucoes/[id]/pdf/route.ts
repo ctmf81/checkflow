@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { renderToBuffer, Document, Page, View, Text, StyleSheet, Font } from '@react-pdf/renderer'
+import { renderToBuffer, Document, Page, View, Text, Image, StyleSheet, Font } from '@react-pdf/renderer'
 import React from 'react'
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
@@ -39,10 +39,13 @@ const s = StyleSheet.create({
   atvConforme:   { fontSize: 7.5, color: '#15803d', fontFamily: 'Helvetica-Bold' },
   atvNaoConf:    { fontSize: 7.5, color: '#b91c1c', fontFamily: 'Helvetica-Bold' },
   atvNeutro:     { fontSize: 7.5, color: '#9ca3af' },
+  atvFoto:       { width: 140, height: 105, objectFit: 'cover', borderRadius: 4, marginTop: 3, border: '0.5pt solid #e5e7eb' },
   // Planos de ação
   planosTitle:   { fontSize: 9, fontFamily: 'Helvetica-Bold', color: '#374151', marginTop: 16, marginBottom: 8, paddingBottom: 4, borderBottom: '1pt solid #e5e7eb' },
   planoCard:     { backgroundColor: '#fff7ed', border: '0.5pt solid #fed7aa', borderRadius: 6, padding: 8, marginBottom: 6 },
-  planoId:       { fontSize: 7.5, color: '#f97316', fontFamily: 'Helvetica-Bold', marginBottom: 2 },
+  planoHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
+  planoId:       { fontSize: 7.5, color: '#f97316', fontFamily: 'Helvetica-Bold' },
+  planoStatus:   { fontSize: 7, fontFamily: 'Helvetica-Bold', paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 99 },
   planoAtv:      { fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: '#92400e', marginBottom: 2 },
   planoObs:      { fontSize: 8, color: '#78350f' },
   // Footer
@@ -52,11 +55,19 @@ const s = StyleSheet.create({
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+const STATUS_PLANO_PDF: Record<string, { label: string; bg: string; cor: string }> = {
+  em_moderacao_n1: { label: 'Aguarda N1',   bg: '#fef3c7', cor: '#92400e' },
+  em_moderacao_n2: { label: 'Aguarda N2',   bg: '#ffedd5', cor: '#9a3412' },
+  corrigido:       { label: 'Corrigido',     bg: '#dcfce7', cor: '#15803d' },
+  nao_corrigido:   { label: 'Não corrigido', bg: '#fee2e2', cor: '#b91c1c' },
+  reaberto:        { label: 'Reaberto',      bg: '#f3e8ff', cor: '#7e22ce' },
+}
+
 function formatarResposta(tipo: string, resposta: any): string {
   if (resposta === null || resposta === undefined) return '—'
   if (tipo === 'sim_nao')         return resposta === true || resposta === 'true' || resposta === 'sim' ? 'Sim' : 'Não'
-  if (tipo === 'foto')            return resposta?.url ? '[Foto registrada]' : '—'
-  if (tipo === 'video')           return resposta?.url ? '[Vídeo registrado]' : '—'
+  if (tipo === 'foto')            return resposta?.url ? '' : '—'
+  if (tipo === 'video')           return resposta?.url ? '[Vídeo gravado]' : '—'
   if (tipo === 'localizacao')     return (resposta?.endereco ?? `${resposta?.lat ?? ''}, ${resposta?.lng ?? ''}`) || '—'
   if (tipo === 'multipla_escolha') {
     if (Array.isArray(resposta))  return resposta.map((r: any) => r.valor ?? r).join(', ')
@@ -141,12 +152,15 @@ function PdfExecucao({ dados }: { dados: any }) {
           ...atvs.map((atv: any) => {
             const resp = respostas[atv.id]
             const conforme = resp?.conforme
+            const fotoUrl = atv.tipo === 'foto' ? resp?.resposta?.url : null
+            const textoResposta = formatarResposta(atv.tipo, resp?.resposta)
 
             return React.createElement(View, { key: atv.id, style: s.atv },
               React.createElement(Text, { style: s.atvNome }, atv.nome),
-              React.createElement(Text, { style: s.atvResposta },
-                `Resposta: ${formatarResposta(atv.tipo, resp?.resposta)}`
+              textoResposta && React.createElement(Text, { style: s.atvResposta },
+                `Resposta: ${textoResposta}`
               ),
+              fotoUrl && React.createElement(Image, { style: s.atvFoto, src: fotoUrl }),
               conforme === true
                 ? React.createElement(Text, { style: s.atvConforme }, '● Conforme')
                 : conforme === false
@@ -159,14 +173,20 @@ function PdfExecucao({ dados }: { dados: any }) {
 
       // Planos de ação
       planos.length > 0 && React.createElement(View, {},
-        React.createElement(Text, { style: s.planosTitle }, `Planos de Ação Abertos (${planos.length})`),
-        ...planos.map((p: any) =>
-          React.createElement(View, { key: p.id, style: s.planoCard },
-            p.identificador && React.createElement(Text, { style: s.planoId }, p.identificador),
+        React.createElement(Text, { style: s.planosTitle }, `Planos de Ação (${planos.length})`),
+        ...planos.map((p: any) => {
+          const sp = STATUS_PLANO_PDF[p.status] ?? { label: p.status, bg: '#f3f4f6', cor: '#6b7280' }
+          return React.createElement(View, { key: p.id, style: s.planoCard },
+            React.createElement(View, { style: s.planoHeader },
+              p.identificador
+                ? React.createElement(Text, { style: s.planoId }, p.identificador)
+                : React.createElement(View, {}),
+              React.createElement(Text, { style: { ...s.planoStatus, backgroundColor: sp.bg, color: sp.cor } }, sp.label),
+            ),
             React.createElement(Text, { style: s.planoAtv }, p.checklist_atividades?.nome ?? '—'),
             p.observacao_abertura && React.createElement(Text, { style: s.planoObs }, p.observacao_abertura),
           )
-        ),
+        }),
       ),
 
       // Footer
@@ -218,7 +238,7 @@ export async function POST(
     sb.from('checklist_secoes').select('id, nome, ordem').eq('checklist_id', execucao.checklist_id).order('ordem'),
     sb.from('checklist_atividades').select('id, nome, tipo, secao_id, ordem').eq('checklist_id', execucao.checklist_id).order('ordem'),
     sb.from('checklist_execucao_respostas').select('atividade_id, resposta, conforme').eq('execucao_id', execId),
-    sb.from('planos_acao').select('id, identificador, observacao_abertura, checklist_atividades(nome)').eq('checklist_execucao_id', execId),
+    sb.from('planos_acao').select('id, identificador, status, observacao_abertura, checklist_atividades(nome)').eq('checklist_execucao_id', execId),
   ])
 
   // Indexa respostas por atividade_id

@@ -79,6 +79,17 @@ const STATUS_PLANO: Record<string, { label: string; cor: string }> = {
   nao_corrigido:   { label: 'Não corrigido', cor: 'text-red-700 bg-red-50 border-red-300' },
   reaberto:        { label: 'Reaberto',      cor: 'text-violet-700 bg-violet-50 border-violet-300' },
 }
+
+// Resume o status dos planos de ação de uma execução reprovada, para exibir
+// junto do badge "Reprovado" (ex: "Aguarda N1", "Corrigido")
+function resumoPlanos(planos: { status: string }[]): { label: string; cor: string } | null {
+  if (!planos.length) return null
+  if (planos.some(p => p.status === 'em_moderacao_n2')) return { label: 'Aguarda N2', cor: 'amber' }
+  if (planos.some(p => p.status === 'em_moderacao_n1' || p.status === 'reaberto')) return { label: 'Aguarda N1', cor: 'amber' }
+  if (planos.some(p => p.status === 'nao_corrigido')) return { label: 'Não corrigido', cor: 'red' }
+  if (planos.every(p => p.status === 'corrigido')) return { label: 'Corrigido', cor: 'green' }
+  return null
+}
 const TIPO_DOC: Record<string, { label: string; cor: string }> = {
   pop:                  { label: 'POP',    cor: 'text-blue-600 bg-blue-50 border-blue-200' },
   it:                   { label: 'IT',     cor: 'text-violet-600 bg-violet-50 border-violet-200' },
@@ -438,6 +449,7 @@ function AbaHistorico({ unidadeId }: { unidadeId: string }) {
     <div className="space-y-3">
       {execucoes.map(exec => {
         const st = STATUS_EXEC[exec.status] ?? STATUS_EXEC.concluido
+        const pa = exec.resultado === 'reprovado' ? resumoPlanos(exec.planos) : null
         const aberto = expandido === exec.id
         return (
           <div key={exec.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -452,9 +464,14 @@ function AbaHistorico({ unidadeId }: { unidadeId: string }) {
                 <p className="text-xs text-gray-400 mt-0.5">{dataRelativa(exec.data_execucao)}</p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                {exec.planos.length > 0 && (
-                  <span className="text-xs bg-red-50 text-red-500 border border-red-200 font-medium px-2 py-0.5 rounded-full">
-                    {exec.planos.length} plano{exec.planos.length > 1 ? 's' : ''}
+                {exec.resultado === 'reprovado' && (
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
+                    pa?.cor === 'green'  ? 'bg-green-50 text-green-600 border-green-200' :
+                    pa?.cor === 'amber'  ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                    pa?.cor === 'red'    ? 'bg-red-50 text-red-600 border-red-200' :
+                    'bg-red-50 text-red-500 border-red-200'
+                  }`}>
+                    {pa ? `Reprovado · ${pa.label}` : 'Reprovado'}
                   </span>
                 )}
                 <span className={`flex items-center gap-1 text-xs border font-medium px-2 py-0.5 rounded-full ${st.cor}`}>

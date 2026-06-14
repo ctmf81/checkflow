@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_PLANOS_ACAO } from '@/components/onboarding/configs'
 import {
   ClipboardList, Clock, CheckCircle2, XCircle, AlertTriangle,
-  ChevronRight, Loader2, RefreshCw
+  ChevronRight, Loader2, RefreshCw, X
 } from 'lucide-react'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -83,17 +83,27 @@ function DataRelativa({ iso }: { iso: string }) {
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 export default function PlanosAcaoPage() {
+  return (
+    <Suspense fallback={null}>
+      <PlanosAcaoContent />
+    </Suspense>
+  )
+}
+
+function PlanosAcaoContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const execId = searchParams.get('exec')
   const [filtro, setFiltro] = useState<Filtro>('abertos')
   const [planos, setPlanos] = useState<PlanoItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [nomeChecklist, setNomeChecklist] = useState<string | null>(null)
 
   async function carregar(f: Filtro) {
     setLoading(true)
     const sb = createClient()
-    const statuses = statusDeFiltro(f)
 
-    const { data } = await sb
+    let query = sb
       .from('planos_acao')
       .select(`
         id, status, identificador, observacao_abertura, sla_prazo, created_at,
@@ -102,14 +112,23 @@ export default function PlanosAcaoPage() {
         checklist_execucoes(checklists(nome)),
         usuarios!criado_por(nome)
       `)
-      .in('status', statuses)
       .order('created_at', { ascending: false })
 
-    setPlanos((data ?? []) as unknown as PlanoItem[])
+    if (execId) {
+      query = query.eq('checklist_execucao_id', execId)
+    } else {
+      query = query.in('status', statusDeFiltro(f))
+    }
+
+    const { data } = await query
+
+    const lista = (data ?? []) as unknown as PlanoItem[]
+    setPlanos(lista)
+    setNomeChecklist(execId ? (lista[0]?.checklist_execucoes?.checklists?.nome ?? null) : null)
     setLoading(false)
   }
 
-  useEffect(() => { carregar(filtro) }, [filtro])
+  useEffect(() => { carregar(filtro) }, [filtro, execId])
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -126,19 +145,34 @@ export default function PlanosAcaoPage() {
         </button>
       </div>
 
-      {/* Filtros */}
-      <div className="flex gap-1.5 mb-5 bg-gray-100 p-1 rounded-xl w-fit">
-        {FILTROS.map(f => (
-          <button key={f.valor} onClick={() => setFiltro(f.valor)}
-            className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-              filtro === f.valor
-                ? 'bg-white text-gray-800 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}>
-            {f.label}
+      {/* Filtro por execução (vindo do histórico de checklists) */}
+      {execId && (
+        <div className="flex items-center justify-between gap-3 mb-5 bg-orange-50 border border-orange-200 rounded-xl px-4 py-2.5">
+          <p className="text-sm text-orange-700">
+            Mostrando planos de ação da execução{nomeChecklist ? <> de <span className="font-semibold">{nomeChecklist}</span></> : ''}
+          </p>
+          <button onClick={() => router.push('/gestao/planos-acao')}
+            className="flex items-center gap-1 text-xs font-medium text-orange-600 hover:text-orange-800 transition-colors">
+            <X size={13} />Limpar filtro
           </button>
-        ))}
-      </div>
+        </div>
+      )}
+
+      {/* Filtros */}
+      {!execId && (
+        <div className="flex gap-1.5 mb-5 bg-gray-100 p-1 rounded-xl w-fit">
+          {FILTROS.map(f => (
+            <button key={f.valor} onClick={() => setFiltro(f.valor)}
+              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                filtro === f.valor
+                  ? 'bg-white text-gray-800 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Lista */}
       {loading ? (
@@ -149,7 +183,7 @@ export default function PlanosAcaoPage() {
         <div className="py-20 text-center">
           <ClipboardList size={40} className="text-gray-200 mx-auto mb-3" />
           <p className="text-sm text-gray-400">
-            {filtro === 'abertos' ? 'Nenhum plano de ação em aberto.' : 'Nenhum plano encontrado.'}
+            {execId ? 'Nenhum plano de ação para esta execução.' : filtro === 'abertos' ? 'Nenhum plano de ação em aberto.' : 'Nenhum plano encontrado.'}
           </p>
         </div>
       ) : (

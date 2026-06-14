@@ -29,6 +29,18 @@ interface ExecucaoItem {
   resultado: 'aprovado' | 'reprovado' | null
   pdf_url: string | null
   planos_abertos: number
+  planos: { status: string }[]
+}
+
+// Resume o status dos planos de ação de uma execução reprovada, para exibir
+// junto do badge "Reprovado" (ex: "Aguarda N1", "Corrigido")
+function resumoPlanos(planos: { status: string }[]): { label: string; cor: string } | null {
+  if (!planos.length) return null
+  if (planos.some(p => p.status === 'em_moderacao_n2')) return { label: 'Aguarda N2', cor: 'amber' }
+  if (planos.some(p => p.status === 'em_moderacao_n1' || p.status === 'reaberto')) return { label: 'Aguarda N1', cor: 'amber' }
+  if (planos.some(p => p.status === 'nao_corrigido')) return { label: 'Não corrigido', cor: 'red' }
+  if (planos.every(p => p.status === 'corrigido')) return { label: 'Corrigido', cor: 'green' }
+  return null
 }
 
 interface PlanoSla {
@@ -182,6 +194,7 @@ export default function GestaoHomePage() {
       planos_abertos: (e.planos_acao ?? []).filter(
         (p: any) => p.status === 'em_moderacao_n1' || p.status === 'em_moderacao_n2'
       ).length,
+      planos: (e.planos_acao ?? []).map((p: any) => ({ status: p.status })),
     }))
 
     if (filtroExec === 'reprovado') {
@@ -378,18 +391,24 @@ export default function GestaoHomePage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {execucoes.map(e => (
+            {execucoes.map(e => {
+              const pa = e.resultado === 'reprovado' ? resumoPlanos(e.planos) : null
+              return (
               <div key={e.id}
                 className="flex items-center gap-3 border border-gray-100 rounded-xl px-3 py-2.5 hover:bg-gray-50 transition-colors">
                 {/* Ícone resultado */}
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                  e.resultado === 'aprovado' ? 'bg-green-50' : e.resultado === 'reprovado' ? 'bg-red-50' : 'bg-gray-50'
+                  e.resultado === 'aprovado' || pa?.cor === 'green' ? 'bg-green-50' :
+                  pa?.cor === 'amber' ? 'bg-amber-50' :
+                  e.resultado === 'reprovado' ? 'bg-red-50' : 'bg-gray-50'
                 }`}>
-                  {e.resultado === 'aprovado'
+                  {e.resultado === 'aprovado' || pa?.cor === 'green'
                     ? <CheckCircle2 size={15} className="text-green-500" />
-                    : e.resultado === 'reprovado'
-                      ? <XCircle size={15} className="text-red-500" />
-                      : <ClipboardList size={15} className="text-gray-400" />
+                    : pa?.cor === 'amber'
+                      ? <Clock size={15} className="text-amber-500" />
+                      : e.resultado === 'reprovado'
+                        ? <XCircle size={15} className="text-red-500" />
+                        : <ClipboardList size={15} className="text-gray-400" />
                   }
                 </div>
 
@@ -398,9 +417,14 @@ export default function GestaoHomePage() {
                   <p className="text-sm font-medium text-gray-800 truncate">{e.checklist_nome}</p>
                   <div className="flex items-center gap-2 mt-0.5">
                     <p className="text-xs text-gray-400">{dataRelativa(e.data_execucao)}</p>
-                    {e.planos_abertos > 0 && (
-                      <span className="text-xs bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0 rounded-full font-medium">
-                        {e.planos_abertos} PA
+                    {e.resultado === 'reprovado' && (
+                      <span className={`text-xs px-1.5 py-0 rounded-full font-medium border ${
+                        pa?.cor === 'green'  ? 'bg-green-50 text-green-600 border-green-200' :
+                        pa?.cor === 'amber'  ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                        pa?.cor === 'red'    ? 'bg-red-50 text-red-600 border-red-200' :
+                        'bg-red-50 text-red-500 border-red-200'
+                      }`}>
+                        {pa ? `Reprovado · ${pa.label}` : 'Reprovado'}
                       </span>
                     )}
                   </div>
@@ -430,7 +454,7 @@ export default function GestaoHomePage() {
                   </button>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>
