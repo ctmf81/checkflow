@@ -58,19 +58,28 @@ export async function ticketsRoutes(app: FastifyInstance) {
     )
 
     // 1. Carrega o ticket
+    // Não usa embed de `usuarios` via FK: tickets.aberto_por_id/assignee_id
+    // referenciam auth.users, não usuarios — PostgREST não acha essa relação.
     const { data: ticket } = await sb.from('tickets').select(`
       id, numero, titulo, descricao, prioridade, status,
-      unidade_id, grupo_id, subgrupo_id,
+      unidade_id, grupo_id, subgrupo_id, aberto_por_id, assignee_id,
       grupo:grupos(nome),
       subgrupo:subgrupos(nome),
-      categoria:ticket_categorias(nome),
-      aberto_por:usuarios!tickets_aberto_por_id_fkey(id, nome, email, telefone),
-      assignee:usuarios!tickets_assignee_id_fkey(id, nome, email, telefone)
+      categoria:ticket_categorias(nome)
     `).eq('id', ticket_id).single()
 
     if (!ticket) return reply.status(404).send({ error: 'Ticket não encontrado' })
 
     const t = ticket as any
+
+    // Busca aberto_por e assignee na tabela usuarios
+    const idsUsuarios = [t.aberto_por_id, t.assignee_id].filter(Boolean)
+    const { data: usuariosTicket } = idsUsuarios.length
+      ? await sb.from('usuarios').select('id, nome, email, telefone').in('id', idsUsuarios)
+      : { data: [] }
+    const usuariosMap = new Map((usuariosTicket ?? []).map((u: any) => [u.id, u]))
+    t.aberto_por = usuariosMap.get(t.aberto_por_id) ?? null
+    t.assignee = t.assignee_id ? (usuariosMap.get(t.assignee_id) ?? null) : null
     const nomeGrupo     = t.grupo?.nome ?? '—'
     const nomeSubgrupo  = t.subgrupo?.nome ?? '—'
     const nomeCategoria = t.categoria?.nome ?? null
