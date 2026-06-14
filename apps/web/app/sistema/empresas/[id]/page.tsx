@@ -90,7 +90,8 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
   // Uso
   const [usoArmazenamento, setUsoArmazenamento] = useState<{ origem: string; bytes: number }[]>([])
   const [totalArmazenamento, setTotalArmazenamento] = useState(0)
-  const [totalChecklists, setTotalChecklists] = useState(0)
+  const [checklistsPorMes, setChecklistsPorMes] = useState<{ mes: string; label: string; total: number }[]>([])
+  const [iaPorMes, setIaPorMes] = useState<{ mes: string; label: string; tokensIn: number; tokensOut: number }[]>([])
   const [usoIA, setUsoIA] = useState<{ provedor: string; tokensIn: number; tokensOut: number }[]>([])
   const [loadingUso, setLoadingUso] = useState(false)
   const [usoCarregado, setUsoCarregado] = useState(false)
@@ -99,10 +100,24 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
     setLoadingUso(true)
     const supabase = createClient()
 
+    // últimos 3 meses (incluindo o atual)
+    const agora = new Date()
+    const meses: { mes: string; label: string; inicio: Date; fim: Date }[] = []
+    for (let i = 2; i >= 0; i--) {
+      const inicio = new Date(agora.getFullYear(), agora.getMonth() - i, 1)
+      const fim = new Date(agora.getFullYear(), agora.getMonth() - i + 1, 1)
+      meses.push({
+        mes: `${inicio.getFullYear()}-${String(inicio.getMonth() + 1).padStart(2, '0')}`,
+        label: inicio.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }),
+        inicio, fim,
+      })
+    }
+    const desde = meses[0].inicio.toISOString()
+
     const [{ data: arm }, { data: unidadesEmp }, { data: ia }] = await Promise.all([
       supabase.from('uso_armazenamento').select('origem, tamanho_bytes').eq('empresa_id', id),
       supabase.from('unidades').select('id').eq('empresa_id', id),
-      supabase.from('uso_ia_eventos').select('provedor, tokens_entrada, tokens_saida').eq('empresa_id', id),
+      supabase.from('uso_ia_eventos').select('provedor, tokens_entrada, tokens_saida, criado_em').eq('empresa_id', id).gte('criado_em', desde),
     ])
 
     const porOrigem = new Map<string, number>()
@@ -113,11 +128,32 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
     }
 
     const unidadeIds = (unidadesEmp ?? []).map(u => u.id)
-    let totalExec = 0
+    let execucoes: { data_execucao: string }[] = []
     if (unidadeIds.length) {
-      const { count } = await supabase.from('checklist_execucoes').select('id', { count: 'exact', head: true }).in('unidade_id', unidadeIds)
-      totalExec = count ?? 0
+      const { data } = await supabase.from('checklist_execucoes').select('data_execucao')
+        .in('unidade_id', unidadeIds).gte('data_execucao', desde)
+      execucoes = data ?? []
     }
+
+    const checklistsMes = meses.map(m => ({
+      mes: m.mes, label: m.label,
+      total: execucoes.filter(e => {
+        const d = new Date(e.data_execucao)
+        return d >= m.inicio && d < m.fim
+      }).length,
+    }))
+
+    const iaMes = meses.map(m => {
+      const doMes = (ia ?? []).filter(r => {
+        const d = new Date(r.criado_em)
+        return d >= m.inicio && d < m.fim
+      })
+      return {
+        mes: m.mes, label: m.label,
+        tokensIn: doMes.reduce((s, r) => s + r.tokens_entrada, 0),
+        tokensOut: doMes.reduce((s, r) => s + r.tokens_saida, 0),
+      }
+    })
 
     const porProvedor = new Map<string, { tokensIn: number; tokensOut: number }>()
     for (const r of ia ?? []) {
@@ -129,7 +165,8 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
 
     setUsoArmazenamento([...porOrigem].map(([origem, bytes]) => ({ origem, bytes })))
     setTotalArmazenamento(totalBytes)
-    setTotalChecklists(totalExec)
+    setChecklistsPorMes(checklistsMes)
+    setIaPorMes(iaMes)
     setUsoIA([...porProvedor].map(([provedor, t]) => ({ provedor, ...t })))
     setLoadingUso(false)
     setUsoCarregado(true)
@@ -531,11 +568,19 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
 
                 {/* Checklists executados */}
                 <div className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 mb-2">
                     <ClipboardCheck size={16} className="text-orange-500" />
                     <h3 className="text-sm font-semibold text-gray-700">Checklists executados</h3>
-                    <span className="ml-auto text-sm font-bold text-gray-800">{totalChecklists}</span>
+                    <span className="ml-auto text-xs text-gray-400">Últimos 3 meses</span>
                   </div>
+                  <ul className="space-y-1">
+                    {checklistsPorMes.map(m => (
+                      <li key={m.mes} className="flex items-center justify-between text-xs text-gray-500">
+                        <span className="capitalize">{m.label}</span>
+                        <span className="font-medium text-gray-700">{m.total}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
 
                 {/* IA */}
@@ -543,21 +588,33 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
                   <div className="flex items-center gap-2 mb-2">
                     <Cpu size={16} className="text-orange-500" />
                     <h3 className="text-sm font-semibold text-gray-700">Consulta Inteligente (tokens de IA)</h3>
+                    <span className="ml-auto text-xs text-gray-400">Últimos 3 meses</span>
                   </div>
-                  {usoIA.length === 0 ? (
-                    <p className="text-xs text-gray-400">Nenhum uso de IA registrado ainda.</p>
-                  ) : (
-                    <ul className="space-y-1">
-                      {usoIA.map(u => (
-                        <li key={u.provedor} className="flex items-center justify-between text-xs text-gray-500">
-                          <span className="capitalize">{u.provedor}</span>
-                          <span className="font-medium text-gray-700">
-                            {(u.tokensIn + u.tokensOut).toLocaleString('pt-BR')} tokens
-                            <span className="text-gray-400"> ({u.tokensIn.toLocaleString('pt-BR')} entrada / {u.tokensOut.toLocaleString('pt-BR')} saída)</span>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                  <ul className="space-y-1 mb-3">
+                    {iaPorMes.map(m => (
+                      <li key={m.mes} className="flex items-center justify-between text-xs text-gray-500">
+                        <span className="capitalize">{m.label}</span>
+                        <span className="font-medium text-gray-700">
+                          {(m.tokensIn + m.tokensOut).toLocaleString('pt-BR')} tokens
+                          <span className="text-gray-400"> ({m.tokensIn.toLocaleString('pt-BR')} entrada / {m.tokensOut.toLocaleString('pt-BR')} saída)</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {usoIA.length > 0 && (
+                    <div className="border-t border-gray-100 pt-2">
+                      <p className="text-xs text-gray-400 mb-1">Por provedor (3 meses)</p>
+                      <ul className="space-y-1">
+                        {usoIA.map(u => (
+                          <li key={u.provedor} className="flex items-center justify-between text-xs text-gray-500">
+                            <span className="capitalize">{u.provedor}</span>
+                            <span className="font-medium text-gray-700">
+                              {(u.tokensIn + u.tokensOut).toLocaleString('pt-BR')} tokens
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </div>
               </>
