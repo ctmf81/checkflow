@@ -1,13 +1,22 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { CheckFlowLogo } from '@/components/auth/CheckFlowLogo'
 import { createClient } from '@/lib/supabase'
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  )
+}
+
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [identificador, setIdentificador] = useState('')
   const [senha, setSenha] = useState('')
   const [loading, setLoading] = useState(false)
@@ -73,6 +82,12 @@ export default function LoginPage() {
       } else {
         // Primeira vez: admin vai para /sistema, outros para /gestao
         destino = isAdmin ? '/sistema' : '/gestao'
+      }
+
+      // Se o usuário veio de um link direto (ex: notificação), volta para lá
+      const redirect = searchParams.get('redirect')
+      if (redirect && redirect.startsWith('/')) {
+        destino = redirect
       }
 
       router.push(destino)
