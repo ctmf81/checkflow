@@ -225,10 +225,27 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
               <label className="block text-xs font-medium text-gray-500 mb-1">Evidências (opcional)</label>
               <label className="flex items-center gap-2 cursor-pointer border border-dashed border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-500 hover:bg-gray-50 transition-colors">
                 <Upload size={15} />
-                <span>{arquivos.length > 0 ? `${arquivos.length} arquivo(s) selecionado(s)` : 'Fotos ou vídeos'}</span>
+                <span>{arquivos.length > 0 ? `${arquivos.length} arquivo(s) selecionado(s) — adicionar mais` : 'Fotos ou vídeos (pode selecionar várias)'}</span>
                 <input type="file" multiple accept="image/*,video/*" className="hidden"
-                  onChange={e => setArquivos(Array.from(e.target.files ?? []))} />
+                  onChange={e => {
+                    const novos = Array.from(e.target.files ?? [])
+                    setArquivos(prev => [...prev, ...novos])
+                    e.target.value = ''
+                  }} />
               </label>
+              {arquivos.length > 0 && (
+                <ul className="mt-2 flex flex-col gap-1">
+                  {arquivos.map((f, i) => (
+                    <li key={`${f.name}-${i}`} className="flex items-center justify-between gap-2 text-xs text-gray-600 bg-gray-50 rounded px-2 py-1">
+                      <span className="truncate">{f.name}</span>
+                      <button type="button" onClick={() => setArquivos(prev => prev.filter((_, idx) => idx !== i))}
+                        className="text-gray-400 hover:text-red-500 shrink-0">
+                        <X size={13} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             {erro && (
