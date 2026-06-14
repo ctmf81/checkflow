@@ -4,6 +4,7 @@ import { use, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { notificarPlanoAberto } from '@/lib/notificacoes'
+import { registrarUsoArmazenamento } from '@/lib/uso'
 import { useSession } from '@/contexts/SessionContext'
 import {
   ChevronDown, ChevronUp, CheckCircle2, XCircle,
@@ -1202,7 +1203,7 @@ function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturad
 export default function ExecucaoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
-  const { unidadeAtiva } = useSession()
+  const { unidadeAtiva, empresaAtiva } = useSession()
   const [checklist, setChecklist] = useState<Checklist | null>(null)
   const [secoes, setSecoes] = useState<Secao[]>([])
   const [respostas, setRespostas] = useState<Record<string, any>>({})
@@ -1442,6 +1443,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     const uploadArquivo = async (file: File, path: string): Promise<string | null> => {
       const { error } = await sb.storage.from('execucoes').upload(path, file, { contentType: file.type, upsert: true })
       if (error) return null
+      registrarUsoArmazenamento(empresaAtiva?.id, 'execucao', file.size)
       return sb.storage.from('execucoes').getPublicUrl(path).data.publicUrl
     }
 
@@ -1592,6 +1594,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     async function uploadArquivo(file: File, path: string): Promise<string | null> {
       const { error } = await sb.storage.from('execucoes').upload(path, file, { contentType: file.type, upsert: true })
       if (error) return null
+      registrarUsoArmazenamento(empresaAtiva?.id, 'execucao', file.size)
       return sb.storage.from('execucoes').getPublicUrl(path).data.publicUrl
     }
 

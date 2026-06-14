@@ -23,6 +23,7 @@ interface ProviderCtx {
 interface StreamController {
   emitiu: boolean
   enqueue: (texto: string) => void
+  usage?: { tokensIn: number; tokensOut: number }
 }
 
 // Google Gemini — multimodal nativo (PDF + imagem)
@@ -39,6 +40,8 @@ function runGemini(apiKey: string | undefined, model: string) {
       const text = chunk.text()
       if (text) c.enqueue(text)
     }
+    const usage = (await result.response).usageMetadata
+    if (usage) c.usage = { tokensIn: usage.promptTokenCount ?? 0, tokensOut: usage.candidatesTokenCount ?? 0 }
   }
 }
 
@@ -67,6 +70,12 @@ function runAnthropic(apiKey: string | undefined, model: string) {
     })
     if (!res.ok || !res.body) throw new Error(`Anthropic HTTP ${res.status}`)
     await lerSSE(res.body, c, (json) => {
+      if (json.type === 'message_start' && json.message?.usage) {
+        c.usage = { tokensIn: json.message.usage.input_tokens ?? 0, tokensOut: json.message.usage.output_tokens ?? 0 }
+      }
+      if (json.type === 'message_delta' && json.usage) {
+        c.usage = { tokensIn: c.usage?.tokensIn ?? 0, tokensOut: json.usage.output_tokens ?? 0 }
+      }
       if (json.type === 'content_block_delta' && json.delta?.type === 'text_delta') return json.delta.text
       return null
     })
@@ -82,6 +91,7 @@ function runOpenAICompat(baseUrl: string, apiKey: string | undefined, model: str
       body: JSON.stringify({
         model,
         stream: true,
+        stream_options: { include_usage: true },
         messages: [
           { role: 'system', content: ctx.systemPrompt },
           { role: 'user', content: [
@@ -92,7 +102,10 @@ function runOpenAICompat(baseUrl: string, apiKey: string | undefined, model: str
       }),
     })
     if (!res.ok || !res.body) throw new Error(`OpenAI-compat HTTP ${res.status}`)
-    await lerSSE(res.body, c, (json) => json.choices?.[0]?.delta?.content ?? null)
+    await lerSSE(res.body, c, (json) => {
+      if (json.usage) c.usage = { tokensIn: json.usage.prompt_tokens ?? 0, tokensOut: json.usage.completion_tokens ?? 0 }
+      return json.choices?.[0]?.delta?.content ?? null
+    })
   }
 }
 
@@ -161,7 +174,7 @@ export async function POST(req: NextRequest) {
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SECRET)
   const { data: doc, error: docError } = await supabaseAdmin
     .from('documentos')
-    .select('id, nome, descricao, arquivo_url, tipo')
+    .select('id, nome, descricao, arquivo_url, tipo, unidade_id')
     .eq('id', documento_id)
     .eq('tipo', 'consulta_inteligente')
     .eq('status', 'ativo')
@@ -172,6 +185,13 @@ export async function POST(req: NextRequest) {
   }
   if (!doc.arquivo_url) {
     return Response.json({ error: 'Este documento não possui arquivo vinculado' }, { status: 422 })
+  }
+
+  // Empresa do documento (para registrar uso de IA por empresa)
+  let empresaId: string | null = null
+  if (doc.unidade_id) {
+    const { data: unidadeDoc } = await supabaseAdmin.from('unidades').select('empresa_id').eq('id', doc.unidade_id).single()
+    empresaId = unidadeDoc?.empresa_id ?? null
   }
 
   // 4. Baixa o arquivo e converte para base64
@@ -244,14 +264,19 @@ export async function POST(req: NextRequest) {
   const c1Key = chaveDe('custom1'); const c1Url = baseUrlDe('custom1'); const c1Modelo = cfgPorProvedor.get('custom1')?.modelo
   const c2Key = chaveDe('custom2'); const c2Url = baseUrlDe('custom2'); const c2Modelo = cfgPorProvedor.get('custom2')?.modelo
 
-  const todos: { nome: string; key?: string; aceitaPdf: boolean; run: (ctx: ProviderCtx, c: StreamController) => Promise<void> }[] = [
-    { nome: 'gemini',    key: geminiKey,    aceitaPdf: true,  run: runGemini(geminiKey, modeloDe('gemini', process.env.GEMINI_MODEL, 'gemini-2.0-flash')) },
-    { nome: 'anthropic', key: anthropicKey, aceitaPdf: true,  run: runAnthropic(anthropicKey, modeloDe('anthropic', process.env.ANTHROPIC_MODEL, 'claude-3-5-haiku-20241022')) },
-    { nome: 'openai',    key: openaiKey,    aceitaPdf: false, run: runOpenAICompat('https://api.openai.com/v1', openaiKey, modeloDe('openai', process.env.OPENAI_MODEL, 'gpt-4o-mini')) },
-    { nome: 'groq',      key: groqKey,      aceitaPdf: false, run: runOpenAICompat('https://api.groq.com/openai/v1', groqKey, modeloDe('groq', process.env.GROQ_MODEL, 'llama-3.2-90b-vision-preview')) },
+  const geminiModelo    = modeloDe('gemini', process.env.GEMINI_MODEL, 'gemini-2.0-flash')
+  const anthropicModelo = modeloDe('anthropic', process.env.ANTHROPIC_MODEL, 'claude-3-5-haiku-20241022')
+  const openaiModelo    = modeloDe('openai', process.env.OPENAI_MODEL, 'gpt-4o-mini')
+  const groqModelo      = modeloDe('groq', process.env.GROQ_MODEL, 'llama-3.2-90b-vision-preview')
+
+  const todos: { nome: string; key?: string; modelo: string; aceitaPdf: boolean; run: (ctx: ProviderCtx, c: StreamController) => Promise<void> }[] = [
+    { nome: 'gemini',    key: geminiKey,    modelo: geminiModelo,    aceitaPdf: true,  run: runGemini(geminiKey, geminiModelo) },
+    { nome: 'anthropic', key: anthropicKey, modelo: anthropicModelo, aceitaPdf: true,  run: runAnthropic(anthropicKey, anthropicModelo) },
+    { nome: 'openai',    key: openaiKey,    modelo: openaiModelo,    aceitaPdf: false, run: runOpenAICompat('https://api.openai.com/v1', openaiKey, openaiModelo) },
+    { nome: 'groq',      key: groqKey,      modelo: groqModelo,      aceitaPdf: false, run: runOpenAICompat('https://api.groq.com/openai/v1', groqKey, groqModelo) },
     // Provedores customizados OpenAI-compatible (SiliconFlow, DashScope, OpenRouter…)
-    { nome: 'custom1', key: (c1Key && c1Url && c1Modelo) ? c1Key : undefined, aceitaPdf: false, run: runOpenAICompat(c1Url ?? '', c1Key, c1Modelo ?? '') },
-    { nome: 'custom2', key: (c2Key && c2Url && c2Modelo) ? c2Key : undefined, aceitaPdf: false, run: runOpenAICompat(c2Url ?? '', c2Key, c2Modelo ?? '') },
+    { nome: 'custom1', key: (c1Key && c1Url && c1Modelo) ? c1Key : undefined, modelo: c1Modelo ?? '', aceitaPdf: false, run: runOpenAICompat(c1Url ?? '', c1Key, c1Modelo ?? '') },
+    { nome: 'custom2', key: (c2Key && c2Url && c2Modelo) ? c2Key : undefined, modelo: c2Modelo ?? '', aceitaPdf: false, run: runOpenAICompat(c2Url ?? '', c2Key, c2Modelo ?? '') },
   ]
 
   // Mantém a ordem do banco (já vem por `ordem`); provedores não-listados ficam ao fim
@@ -282,6 +307,13 @@ export async function POST(req: NextRequest) {
         const p = candidatos[i]
         try {
           await p.run(ctx, c)
+          if (empresaId && c.usage) {
+            await supabaseAdmin.from('uso_ia_eventos').insert({
+              empresa_id: empresaId, unidade_id: doc.unidade_id, usuario_id: user.id,
+              provedor: p.nome, modelo: p.modelo,
+              tokens_entrada: c.usage.tokensIn, tokens_saida: c.usage.tokensOut,
+            })
+          }
           controller.close()
           return
         } catch (err: any) {

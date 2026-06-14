@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ExternalLink, UserPlus, AlertTriangle, Trash2, Handshake, X } from 'lucide-react'
+import { ChevronLeft, ExternalLink, UserPlus, AlertTriangle, Trash2, Handshake, X, HardDrive, ClipboardCheck, Cpu } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Button } from '@/components/ui/Button'
@@ -13,7 +13,21 @@ import { ParceiroModal, ParceiroSelecionado } from '@/components/modals/Parceiro
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api-production-5bce.up.railway.app'
 
-type Aba = 'administrador' | 'pagamento' | 'parceiro' | 'configuracoes'
+type Aba = 'administrador' | 'pagamento' | 'parceiro' | 'configuracoes' | 'uso'
+
+const ORIGEM_LABEL: Record<string, string> = {
+  execucao: 'Fotos/vídeos de execuções',
+  ticket: 'Evidências de tickets',
+  pdf: 'Relatórios PDF',
+}
+
+function formatBytes(bytes: number): string {
+  if (!bytes) return '0 B'
+  const k = 1024
+  const tamanhos = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return `${(bytes / Math.pow(k, i)).toFixed(2)} ${tamanhos[i]}`
+}
 
 interface Empresa {
   id: string
@@ -72,6 +86,54 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
   // Admin
   const [adminId, setAdminId] = useState('')
   const [usuarios, setUsuarios] = useState<{ id: string; nome: string; email: string }[]>([])
+
+  // Uso
+  const [usoArmazenamento, setUsoArmazenamento] = useState<{ origem: string; bytes: number }[]>([])
+  const [totalArmazenamento, setTotalArmazenamento] = useState(0)
+  const [totalChecklists, setTotalChecklists] = useState(0)
+  const [usoIA, setUsoIA] = useState<{ provedor: string; tokensIn: number; tokensOut: number }[]>([])
+  const [loadingUso, setLoadingUso] = useState(false)
+  const [usoCarregado, setUsoCarregado] = useState(false)
+
+  async function carregarUso() {
+    setLoadingUso(true)
+    const supabase = createClient()
+
+    const [{ data: arm }, { data: unidadesEmp }, { data: ia }] = await Promise.all([
+      supabase.from('uso_armazenamento').select('origem, tamanho_bytes').eq('empresa_id', id),
+      supabase.from('unidades').select('id').eq('empresa_id', id),
+      supabase.from('uso_ia_eventos').select('provedor, tokens_entrada, tokens_saida').eq('empresa_id', id),
+    ])
+
+    const porOrigem = new Map<string, number>()
+    let totalBytes = 0
+    for (const r of arm ?? []) {
+      totalBytes += r.tamanho_bytes
+      porOrigem.set(r.origem, (porOrigem.get(r.origem) ?? 0) + r.tamanho_bytes)
+    }
+
+    const unidadeIds = (unidadesEmp ?? []).map(u => u.id)
+    let totalExec = 0
+    if (unidadeIds.length) {
+      const { count } = await supabase.from('checklist_execucoes').select('id', { count: 'exact', head: true }).in('unidade_id', unidadeIds)
+      totalExec = count ?? 0
+    }
+
+    const porProvedor = new Map<string, { tokensIn: number; tokensOut: number }>()
+    for (const r of ia ?? []) {
+      const cur = porProvedor.get(r.provedor) ?? { tokensIn: 0, tokensOut: 0 }
+      cur.tokensIn += r.tokens_entrada
+      cur.tokensOut += r.tokens_saida
+      porProvedor.set(r.provedor, cur)
+    }
+
+    setUsoArmazenamento([...porOrigem].map(([origem, bytes]) => ({ origem, bytes })))
+    setTotalArmazenamento(totalBytes)
+    setTotalChecklists(totalExec)
+    setUsoIA([...porProvedor].map(([provedor, t]) => ({ provedor, ...t })))
+    setLoadingUso(false)
+    setUsoCarregado(true)
+  }
 
   async function carregarUsuarios() {
     const supabase = createClient()
@@ -218,7 +280,13 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
     { key: 'pagamento',     label: 'Pagamento' },
     { key: 'parceiro',      label: 'Parceiro' },
     { key: 'configuracoes', label: 'Configurações' },
+    { key: 'uso',           label: 'Uso' },
   ]
+
+  function trocarAba(a: Aba) {
+    setAba(a)
+    if (a === 'uso' && !usoCarregado) carregarUso()
+  }
 
   if (loading) return <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
   if (!empresa) return <div className="py-16 text-center text-sm text-gray-500">Empresa não encontrada.</div>
@@ -246,7 +314,7 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
 
       <div className="flex gap-1 mb-6 border-b border-gray-200">
         {abas.map(a => (
-          <button key={a.key} onClick={() => setAba(a.key)}
+          <button key={a.key} onClick={() => trocarAba(a.key)}
             className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
               aba === a.key ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}>
@@ -429,6 +497,71 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
                 {salvando ? 'Salvando...' : 'Salvar configurações'}
               </Button>
             </div>
+          </div>
+        )}
+
+        {aba === 'uso' && (
+          <div className="space-y-5">
+            <h2 className="font-semibold text-gray-700">Indicadores de uso</h2>
+
+            {loadingUso ? (
+              <p className="text-sm text-gray-400">Carregando...</p>
+            ) : (
+              <>
+                {/* Armazenamento */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <HardDrive size={16} className="text-orange-500" />
+                    <h3 className="text-sm font-semibold text-gray-700">Armazenamento</h3>
+                    <span className="ml-auto text-sm font-bold text-gray-800">{formatBytes(totalArmazenamento)}</span>
+                  </div>
+                  {usoArmazenamento.length === 0 ? (
+                    <p className="text-xs text-gray-400">Nenhum upload registrado ainda.</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {usoArmazenamento.map(u => (
+                        <li key={u.origem} className="flex items-center justify-between text-xs text-gray-500">
+                          <span>{ORIGEM_LABEL[u.origem] ?? u.origem}</span>
+                          <span className="font-medium text-gray-700">{formatBytes(u.bytes)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {/* Checklists executados */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <ClipboardCheck size={16} className="text-orange-500" />
+                    <h3 className="text-sm font-semibold text-gray-700">Checklists executados</h3>
+                    <span className="ml-auto text-sm font-bold text-gray-800">{totalChecklists}</span>
+                  </div>
+                </div>
+
+                {/* IA */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Cpu size={16} className="text-orange-500" />
+                    <h3 className="text-sm font-semibold text-gray-700">Consulta Inteligente (tokens de IA)</h3>
+                  </div>
+                  {usoIA.length === 0 ? (
+                    <p className="text-xs text-gray-400">Nenhum uso de IA registrado ainda.</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {usoIA.map(u => (
+                        <li key={u.provedor} className="flex items-center justify-between text-xs text-gray-500">
+                          <span className="capitalize">{u.provedor}</span>
+                          <span className="font-medium text-gray-700">
+                            {(u.tokensIn + u.tokensOut).toLocaleString('pt-BR')} tokens
+                            <span className="text-gray-400"> ({u.tokensIn.toLocaleString('pt-BR')} entrada / {u.tokensOut.toLocaleString('pt-BR')} saída)</span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

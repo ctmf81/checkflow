@@ -233,7 +233,7 @@ export async function POST(
     { data: planos },
   ] = await Promise.all([
     sb.from('checklists').select('nome').eq('id', execucao.checklist_id).single(),
-    sb.from('unidades').select('nome, empresas(nome)').eq('id', execucao.unidade_id).single(),
+    sb.from('unidades').select('nome, empresa_id, empresas(nome)').eq('id', execucao.unidade_id).single(),
     sb.from('usuarios').select('nome').eq('id', execucao.executado_por).single(),
     sb.from('checklist_secoes').select('id, nome, ordem').eq('checklist_id', execucao.checklist_id).order('ordem'),
     sb.from('checklist_atividades').select('id, nome, tipo, secao_id, ordem').eq('checklist_id', execucao.checklist_id).order('ordem'),
@@ -280,6 +280,13 @@ export async function POST(
   if (uploadErr) {
     console.error('[pdf] erro no upload:', uploadErr.message)
     return Response.json({ error: 'Erro ao salvar PDF' }, { status: 500 })
+  }
+
+  const empresaId = (unidade as any)?.empresa_id
+  if (empresaId) {
+    await sb.from('uso_armazenamento').insert({
+      empresa_id: empresaId, origem: 'pdf', tamanho_bytes: pdfBuffer.length, criado_por: user.id,
+    })
   }
 
   const { data: { publicUrl } } = sb.storage.from('execucoes').getPublicUrl(storagePath)

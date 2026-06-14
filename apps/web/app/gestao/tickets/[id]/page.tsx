@@ -9,6 +9,7 @@ import {
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { notificarTicket } from '@/lib/notificacoes'
+import { registrarUsoArmazenamento } from '@/lib/uso'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -68,7 +69,7 @@ function formatarTempo(iso: string) {
 export default function TicketDetalhe() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const { unidadeAtiva } = useSession()
+  const { unidadeAtiva, empresaAtiva } = useSession()
   const supabase = createClient()
   const endRef = useRef<HTMLDivElement>(null)
 
@@ -209,6 +210,7 @@ export default function TicketDetalhe() {
         const path = `tickets/${id}/${Date.now()}.${ext}`
         const { data: up } = await supabase.storage.from('execucoes').upload(path, file, { upsert: false })
         if (up) {
+          registrarUsoArmazenamento(empresaAtiva?.id, 'ticket', file.size)
           const { data: pub } = supabase.storage.from('execucoes').getPublicUrl(path)
           const tipo = file.type.startsWith('video') ? 'video' : file.type.startsWith('image') ? 'foto' : 'documento'
           await supabase.from('ticket_evidencias').insert({

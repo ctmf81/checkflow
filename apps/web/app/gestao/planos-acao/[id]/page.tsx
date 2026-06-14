@@ -3,7 +3,9 @@
 import { use, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { useSession } from '@/contexts/SessionContext'
 import { notificarPlanoEnviadoN2 } from '@/lib/notificacoes'
+import { registrarUsoArmazenamento } from '@/lib/uso'
 import {
   ArrowLeft, Clock, CheckCircle2, XCircle, AlertTriangle,
   ClipboardList, ChevronRight, ImagePlus, Video, X, Loader2,
@@ -186,6 +188,7 @@ function AcaoModal({ titulo, corBtn, onClose, onConfirmar, salvando }: {
 export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const { empresaAtiva } = useSession()
   const [plano, setPlano] = useState<Plano | null>(null)
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([])
   const [funcaoUsuario, setFuncaoUsuario] = useState<Funcao>(null)
@@ -272,6 +275,7 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
         const path = `planos/${plano.id}/mov_${mov.id}_foto_${i}.${ext}`
         const { error } = await sb.storage.from('execucoes').upload(path, f.file, { contentType: f.file.type, upsert: true })
         if (!error) {
+          registrarUsoArmazenamento(empresaAtiva?.id, 'execucao', f.file.size)
           const { data: { publicUrl } } = sb.storage.from('execucoes').getPublicUrl(path)
           evidencias.push({ movimentacao_id: mov.id, tipo: 'foto', url: publicUrl })
         }
@@ -281,6 +285,7 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
         const path = `planos/${plano.id}/mov_${mov.id}_video.${ext}`
         const { error } = await sb.storage.from('execucoes').upload(path, dados.video.file, { contentType: dados.video.file.type, upsert: true })
         if (!error) {
+          registrarUsoArmazenamento(empresaAtiva?.id, 'execucao', dados.video.file.size)
           const { data: { publicUrl } } = sb.storage.from('execucoes').getPublicUrl(path)
           evidencias.push({ movimentacao_id: mov.id, tipo: 'video', url: publicUrl })
         }

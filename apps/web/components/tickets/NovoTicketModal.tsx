@@ -5,6 +5,7 @@ import { X, AlertTriangle, Upload, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { notificarTicket } from '@/lib/notificacoes'
+import { registrarUsoArmazenamento } from '@/lib/uso'
 
 interface Grupo    { id: string; nome: string }
 interface Subgrupo { id: string; nome: string; grupo_id: string }
@@ -25,7 +26,7 @@ const PRIORIDADES = [
 ]
 
 export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }: Props) {
-  const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
+  const { unidadeAtiva, empresaAtiva, grupoLabel, subgrupoLabel } = useSession()
   const supabase = createClient()
 
   const [grupos, setGrupos]       = useState<Grupo[]>([])
@@ -118,6 +119,7 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
       const path = `tickets/${ticket.id}/${Date.now()}.${ext}`
       const { data: up } = await supabase.storage.from('execucoes').upload(path, file, { upsert: false })
       if (up) {
+        registrarUsoArmazenamento(empresaAtiva?.id, 'ticket', file.size)
         const { data: pub } = supabase.storage.from('execucoes').getPublicUrl(path)
         const tipo = file.type.startsWith('video') ? 'video' : file.type.startsWith('image') ? 'foto' : 'documento'
         await supabase.from('ticket_evidencias').insert({
