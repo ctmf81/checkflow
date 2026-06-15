@@ -323,6 +323,36 @@ export const ONBOARDING_REGISTRY: OnboardingPageConfig[] = [
     ],
   },
   {
+    pageId: 'sistema-planos',
+    titulo: 'Planos',
+    cards: [
+      {
+        icon: '📦',
+        titulo: 'Catálogo de planos',
+        texto: 'Crie e edite os planos da plataforma: gratuito, teste (trial) e pagos. Cada plano define o ciclo de cobrança e os limites de uso — execuções por mês, armazenamento total e tokens de IA por mês.',
+        dicas: [
+          'Deixe um limite em branco para deixá-lo ilimitado',
+          'Editar um plano não altera quem já assinou (os termos ficam congelados na assinatura)',
+        ],
+      },
+    ],
+  },
+  {
+    pageId: 'sistema-pacotes',
+    titulo: 'Pacotes adicionais',
+    cards: [
+      {
+        icon: '🧰',
+        titulo: 'Pacotes avulsos',
+        texto: 'Cadastre pacotes que a empresa pode comprar além do plano: execuções, tokens de IA ou armazenamento.',
+        dicas: [
+          'Execuções e tokens entram como saldo de consumo do período (use ou perde)',
+          'Armazenamento é capacidade permanente, não mensal',
+        ],
+      },
+    ],
+  },
+  {
     pageId: 'sistema-parceiros',
     titulo: 'Programa de Parceiros',
     cards: [

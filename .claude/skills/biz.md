@@ -229,6 +229,25 @@ Implementado em 2026-06-10 (Fases 2-6 da estratégia de login). Tudo baseado em 
 - Gestão: aba "Parceiro" em `/sistema/empresas/[id]` (vínculo + percentual) e listagem geral em `/sistema/parceiros`
 - Disparo do resumo mensal depende de scheduler externo chamando `/cron/parceiros/resumo-mensal` (ver `/ops`) — ainda não configurado
 
+## Planos & Cobrança (Billing) — em construção
+
+Modelo: **freemium + usage-based híbrido**, padrão SaaS de mercado, com gateway **Asaas**.
+
+**Catálogo (Fase 1 — ✅ implementado, migration 20260615140000 ⏳ aplicar):**
+- `planos` (admin `/sistema/planos`): tipos `gratuito` (permanente), `trial` (`dias_trial` **configurável** — começa generoso, reduz com o tempo) e `pago` (ciclo mensal/anual). Limites: execuções/mês, armazenamento total (bytes), tokens IA/mês — **NULL = ilimitado**. Usuários sempre ilimitados (não é métrica de cobrança).
+- `pacotes_adicionais` (admin `/sistema/pacotes`): compra avulsa de `execucoes`, `tokens_ia` (saldo do período, **use ou perde**) ou `armazenamento` (capacidade **permanente**).
+
+**Regras de uso (Fases 2-4 — pendentes):**
+- **Período** ancorado no aniversário da assinatura (não no calendário). Allowance reseta a cada período — **sem rollover**.
+- **Enforcement** não é tempo real (contador por período; pequeno excedente tolerado). Limite excedido **bloqueia** a ação (nova execução / Consulta IA / upload), com upsell.
+- **Consumo** base→pacote: usa o limite do plano primeiro, depois o saldo de pacote.
+- **Armazenamento** = capacidade fixa (plano + pacotes permanentes); uso **sempre real** (a limpeza por tempo de guarda abate bytes via entrada negativa em `uso_armazenamento`). Tempo de guarda é a alavanca de espaço.
+- **Trial expira → cai no plano gratuito** (não bloqueia acesso). `ja_usou_trial` evita re-trial.
+- **Troca de plano**: upgrade imediato (cobra pro-rata), downgrade/troca de ciclo no fim do período; pacotes comprados sobrevivem à troca; downgrade abaixo do uso atual não é retroativo (só vale no próximo período); downgrade de storage abaixo do ocupado bloqueia novos uploads (não apaga dado).
+- **Snapshot**: assinatura congela preço+limites do plano; editar o catálogo não afeta quem já assinou.
+- **Split de parceiro** via subconta Asaas (criada automaticamente): trocar parceiro recalcula %; remover parceiro → 100% CheckFlow.
+- Tiers fixos públicos (planos negociados/custom só para casos enterprise).
+
 ## Exclusão Definitiva de Empresa
 - Apenas empresas com `status = 'inativo'` podem ser excluídas, e somente por `is_admin_sistema()` — validado na RPC `excluir_empresa_cascata`
 - Apaga em cascata: unidades, grupos, usuários vinculados, checklists, execuções, planos de ação, tickets, workflows

@@ -120,6 +120,16 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 
 **Fluxo:** vínculo parceiro↔empresa e `parceiro_percentual` editados na aba "Parceiro" de `/sistema/empresas/[id]`. Cadastro/seleção de parceiro **por CPF** via `ParceiroModal.tsx`. E-mail de boas-vindas: `POST /parceiros/boas-vindas` (apps/api), disparado só após o vínculo ser salvo. Resumo mensal (a rota valida internamente o último dia do mês; comissão = `valor_mensalidade × parceiro_percentual / 100` para empresas `ativo` com `status_pagamento != 'cancelado'`; lista empresas que viraram `inativo` no mês): `POST /cron/parceiros/resumo-mensal`, protegido por `x-cron-secret` (`CRON_SECRET`), chamado diariamente pelo cron-job.org — ver `/ops`.
 
+### Billing — Fase 1: catálogo (migration 20260615140000, ⏳ aplicar)
+| Table | Description |
+|-------|-------------|
+| `planos` | Catálogo-template de planos. `nome, descricao, tipo (gratuito/trial/pago), valor numeric(10,2), ciclo (mensal/anual, null em gratuito/trial), dias_trial, limite_execucoes_mes int, limite_armazenamento_bytes bigint, limite_tokens_ia_mes bigint, ativo, ordem`. **Limite NULL = ilimitado.** RLS admin-only. CRUD em `/sistema/planos`. ⚠️ A assinatura da empresa (Fase 2) fará **snapshot** dos termos — editar o catálogo não altera quem já assinou |
+| `pacotes_adicionais` | Catálogo-template de pacotes avulsos. `nome, descricao, tipo (execucoes/tokens_ia/armazenamento), quantidade bigint, valor, ativo, ordem`. Para `armazenamento`, `quantidade` é em **bytes** (UI edita em GB). execucoes/tokens = saldo de consumo do período (use ou perde); armazenamento = permanente. RLS admin-only. CRUD em `/sistema/pacotes` |
+
+**Plano de billing (decisões fechadas, padrão de mercado/freemium):** período = aniversário da assinatura (não calendário); enforcement NÃO é tempo real (contador por período, pequeno excedente tolerado); **sem rollover** — allowance mensal reseta a cada período (use ou perde), pacotes entram no saldo do período; armazenamento = capacidade fixa (plano + pacotes permanentes), uso sempre real; limite excedido **bloqueia** a ação; modelo **freemium** (plano gratuito permanente + trial com `dias_trial` configurável + pagos); fim do trial → cai no plano gratuito; tiers fixos (não plano por cliente); split de parceiro via subconta Asaas (trocar parceiro recalcula %, remover → 100% CheckFlow). Fases 2-4 (assinatura/trial/enforcement, Asaas, split) pendentes.
+
+⚠️ **Armazenamento sempre reflete o uso real**: `executarLimpezaExecucoes` (apps/api) agora soma os bytes removidos do Storage e insere entrada **negativa** em `uso_armazenamento` (origem `execucao`, `tamanho_bytes < 0`) — a tabela não tem check `>= 0`. O uso líquido (adições − remoções) é o que conta; capacidade é fixa, o tempo de guarda é a alavanca de espaço.
+
 ### Hardening de regras (migration 20260611134557, ✅ aplicada)
 - Policy `tickets_atualizar`: branch `usuario_tem_permissao('ticket','tratar')` agora exige vínculo com a unidade do ticket
 - `workflow_on_checklist_concluido()`: `resultado` nulo conta como **reprovado** (fail-safe — nunca avança estágio por omissão)
