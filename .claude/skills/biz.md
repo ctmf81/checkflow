@@ -145,10 +145,21 @@ aberto → em_tratamento (aceite) → aguardando_informacao ↔ em_tratamento
 - Cada transição exige **texto de observação obrigatório** + evidências opcionais
 - Timeline de eventos é **imutável** (blocked por CREATE RULE)
 
+### Visibilidade (✅ 20260614060000)
+- Ticket **sem assignee**: visível para todos os membros da unidade (`usuario_unidade`)
+- Ticket **com assignee**: visível apenas para `assignee_id`, `aberto_por_id` e `is_admin_sistema()` — some da lista dos demais
+- Policy `tickets_leitura` reflete essa regra
+
 ### Devolução
 - Assignee solicita informação ao abridor (`aguardando_informacao`)
 - Sem deadline — tempo por participante é rastreado via eventos
 - Abridor responde → volta para `em_tratamento`
+
+### Transferência (✅ 20260614060000)
+- Assignee em `em_tratamento` pode transferir o ticket para outro grupo/setor da MESMA unidade
+- Ao transferir: `grupo_id`/`subgrupo_id` mudam, `assignee_id` volta a `null`, `status` volta a `aberto` (alguém do novo destino precisa assumir de novo)
+- Evento `transferencia` registra `meta: {de: {grupo,subgrupo}, para: {grupo,subgrupo}}` + observação obrigatória
+- Modal em `gestao/tickets/[id]/page.tsx` lista grupos/subgrupos da unidade via policies `grupos_unidade_membro`/`subgrupos_unidade_membro` (novas — antes só existia "meu grupo")
 
 ### SLA
 - Configurável por categoria + prioridade em `/gestao/tickets/sla`

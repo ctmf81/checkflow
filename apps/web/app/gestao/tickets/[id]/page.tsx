@@ -23,11 +23,15 @@ interface Ticket {
   prioridade: string; status: TicketStatus
   sla_deadline_at: string | null; sla_segundos_pausados: number; sla_pausado_em: string | null
   criado_em: string
+  unidade_id: string; grupo_id: string; subgrupo_id: string
   grupo: { nome: string }; subgrupo: { nome: string }
   categoria: { nome: string } | null
   aberto_por: { id: string; nome: string }
   assignee: { id: string; nome: string } | null
 }
+
+interface GrupoOpcao { id: string; nome: string }
+interface SubgrupoOpcao { id: string; nome: string; grupo_id: string }
 
 interface Evento {
   id: string; tipo: string; texto: string; criado_em: string
@@ -86,6 +90,16 @@ export default function TicketDetalhe() {
   const [enviando, setEnviando] = useState(false)
   const [erro,     setErro]     = useState<string | null>(null)
 
+  // Transferência para outro grupo/subgrupo
+  const [transferOpen, setTransferOpen] = useState(false)
+  const [grupos,    setGrupos]    = useState<GrupoOpcao[]>([])
+  const [subgrupos, setSubgrupos] = useState<SubgrupoOpcao[]>([])
+  const [grupoSel,    setGrupoSel]    = useState('')
+  const [subgrupoSel, setSubgrupoSel] = useState('')
+  const [obsTransfer, setObsTransfer] = useState('')
+  const [erroTransfer, setErroTransfer] = useState<string | null>(null)
+  const [transferindo, setTransferindo] = useState(false)
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null))
     supabase.rpc('usuario_tem_permissao', { p_recurso: 'ticket', p_acao: 'cancelar' })
@@ -97,6 +111,7 @@ export default function TicketDetalhe() {
       supabase.from('tickets').select(`
         id, numero, titulo, descricao, prioridade, status, criado_em,
         sla_deadline_at, sla_segundos_pausados, sla_pausado_em,
+        unidade_id, grupo_id, subgrupo_id,
         grupo:grupos(nome), subgrupo:subgrupos(nome),
         categoria:ticket_categorias(nome),
         aberto_por:usuarios!tickets_aberto_por_id_fkey(id, nome),
@@ -135,6 +150,7 @@ export default function TicketDetalhe() {
     if (s === 'em_tratamento' && ehAssignee) {
       acoes.push({ label: 'Solicitar informação', tipo: 'devolucao', novoStatus: 'aguardando_informacao', variante: 'ghost' })
       acoes.push({ label: 'Propor conclusão', tipo: 'conclusao_proposta', novoStatus: 'aguardando_validacao', variante: 'primary' })
+      acoes.push({ label: 'Transferir para outro grupo/setor', tipo: 'transferencia', novoStatus: 'aberto', variante: 'ghost' })
     }
     // Improcedência exige a permissão ticket.cancelar (regra de negócio)
     if (s === 'em_tratamento' && ehAssignee && podeCancelar) {
@@ -226,6 +242,70 @@ export default function TicketDetalhe() {
     }
 
     setTexto(''); setArquivos([]); setAcaoOpen(false); setEnviando(false)
+    carregar()
+  }
+
+  async function abrirTransferencia() {
+    if (!ticket) return
+    setErroTransfer(null)
+    setObsTransfer('')
+    setGrupoSel(ticket.grupo_id)
+    setSubgrupoSel(ticket.subgrupo_id)
+    const { data: gs } = await supabase.from('grupos')
+      .select('id, nome').eq('unidade_id', ticket.unidade_id).order('nome')
+    setGrupos((gs as any) ?? [])
+    const { data: sgs } = await supabase.from('subgrupos')
+      .select('id, nome, grupo_id').in('grupo_id', (gs ?? []).map((g: any) => g.id)).order('nome')
+    setSubgrupos((sgs as any) ?? [])
+    setTransferOpen(true)
+  }
+
+  async function confirmarTransferencia() {
+    if (!ticket) return
+    if (!obsTransfer.trim()) { setErroTransfer('Observação é obrigatória.'); return }
+    if (!grupoSel || !subgrupoSel) { setErroTransfer('Selecione o grupo e o setor de destino.'); return }
+    if (grupoSel === ticket.grupo_id && subgrupoSel === ticket.subgrupo_id) {
+      setErroTransfer('Selecione um grupo/setor diferente do atual.'); return
+    }
+
+    setTransferindo(true); setErroTransfer(null)
+
+    const { data: atualizado, error: upErr } = await supabase
+      .from('tickets')
+      .update({ grupo_id: grupoSel, subgrupo_id: subgrupoSel, assignee_id: null, status: 'aberto' })
+      .eq('id', id).select('id')
+
+    if (upErr || !atualizado || atualizado.length === 0) {
+      setTransferindo(false)
+      setErroTransfer(upErr ? `Erro ao transferir: ${upErr.message}` : 'Você não tem permissão para transferir este ticket.')
+      return
+    }
+
+    const grupoAnterior = grupos.find(g => g.id === ticket.grupo_id)?.nome ?? ticket.grupo.nome
+    const subgrupoAnterior = subgrupos.find(s => s.id === ticket.subgrupo_id)?.nome ?? ticket.subgrupo.nome
+    const grupoNovo = grupos.find(g => g.id === grupoSel)?.nome ?? ''
+    const subgrupoNovo = subgrupos.find(s => s.id === subgrupoSel)?.nome ?? ''
+
+    const { error: evErr } = await supabase.from('ticket_eventos').insert({
+      ticket_id: id, tipo: 'transferencia', texto: obsTransfer.trim(),
+      meta: {
+        de: { grupo: grupoAnterior, subgrupo: subgrupoAnterior },
+        para: { grupo: grupoNovo, subgrupo: subgrupoNovo },
+      },
+    })
+
+    if (evErr) {
+      setTransferindo(false)
+      setErroTransfer(`Transferido, mas falhou ao registrar o evento: ${evErr.message}`)
+      carregar()
+      return
+    }
+
+    if (userId) {
+      notificarTicket({ ticket_id: id, evento: 'transferencia', ator_id: userId, texto: obsTransfer.trim() })
+    }
+
+    setTransferindo(false); setTransferOpen(false)
     carregar()
   }
 
@@ -364,7 +444,7 @@ export default function TicketDetalhe() {
                       <div className="absolute bottom-full right-0 mb-1 bg-white rounded-xl shadow-lg border border-gray-100 py-1 min-w-48 z-50">
                         {acoes.filter(a => a.variante === 'ghost').map(a => (
                           <button key={a.tipo + a.novoStatus}
-                            onClick={() => { setAcaoOpen(false); executarAcao(a) }}
+                            onClick={() => { setAcaoOpen(false); a.tipo === 'transferencia' ? abrirTransferencia() : executarAcao(a) }}
                             disabled={enviando}
                             className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
                             {a.label}
@@ -382,6 +462,57 @@ export default function TicketDetalhe() {
                 <AlertTriangle size={12} /> {erro}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de transferência */}
+      {transferOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-5">
+            <h2 className="text-sm font-semibold text-gray-800 mb-1">Transferir ticket</h2>
+            <p className="text-xs text-gray-500 mb-4">
+              O ticket volta para "Aberto" sem responsável, para que alguém do novo grupo/setor possa assumi-lo.
+            </p>
+
+            <label className="block text-xs font-medium text-gray-600 mb-1">Grupo</label>
+            <select value={grupoSel}
+              onChange={e => { setGrupoSel(e.target.value); setSubgrupoSel('') }}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">Selecione…</option>
+              {grupos.map(g => <option key={g.id} value={g.id}>{g.nome}</option>)}
+            </select>
+
+            <label className="block text-xs font-medium text-gray-600 mb-1">Setor</label>
+            <select value={subgrupoSel} onChange={e => setSubgrupoSel(e.target.value)}
+              disabled={!grupoSel}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3 disabled:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">Selecione…</option>
+              {subgrupos.filter(s => s.grupo_id === grupoSel).map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+            </select>
+
+            <label className="block text-xs font-medium text-gray-600 mb-1">Observação</label>
+            <textarea value={obsTransfer} onChange={e => setObsTransfer(e.target.value)} rows={2}
+              placeholder="Motivo da transferência…"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
+
+            {erroTransfer && (
+              <div className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">
+                <AlertTriangle size={12} /> {erroTransfer}
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setTransferOpen(false)} disabled={transferindo}
+                className="text-sm font-medium px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-50">
+                Cancelar
+              </button>
+              <button onClick={confirmarTransferencia} disabled={transferindo}
+                className="text-sm font-medium px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5">
+                {transferindo && <Loader2 size={13} className="animate-spin" />}
+                Transferir
+              </button>
+            </div>
           </div>
         </div>
       )}

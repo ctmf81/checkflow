@@ -23,6 +23,7 @@ Generate timestamp: `(Get-Date -Format "yyyyMMddHHmmss")` (PowerShell)
 - Generated columns cannot use subqueries — compute derived values in application code
 - RLS `using` clause for unit-scoped tables: `unidade_id in (select unidade_id from usuario_unidade where usuario_id = auth.uid())`
 - `plano_acao_movimentacoes`/`plano_acao_movimentacao_evidencias` usam `created_at` (não `criado_em`) — ao embutir via PostgREST use alias `criado_em:created_at` se o front espera esse nome (bug corrigido em 2026-06-14, `operacao/page.tsx`)
+- `grupos`/`subgrupos` só tinham policy "meu grupo" (`usuario_grupo`/`usuario_subgrupo`) — mesmo padrão sistêmico do `usuario_unidade`. Adicionadas `grupos_unidade_membro`/`subgrupos_unidade_membro` (20260614060000) para listar TODOS os grupos/subgrupos da unidade (necessário p/ transferência de ticket)
 
 ## Table Index
 

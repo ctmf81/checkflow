@@ -64,6 +64,7 @@ Next logical step: [one-sentence inference, only if obvious]
 - `20260614030000_fix_usuario_unidade_select_propria.sql` ✅ aplicada (2026-06-14) — policy select própria linha
 - `20260614040000_fix_tickets_rls_admin_sistema.sql` ✅ aplicada (2026-06-14) — `or is_admin_sistema()` nas policies de tickets
 - `20260614050000_fix_tickets_fk_usuarios.sql` ✅ aplicada (2026-06-14) — FK aberto_por_id/assignee_id → usuarios(id)
+- `20260614060000_tickets_visibilidade_assignee.sql` ⏳ aplicar (2026-06-14) — ticket some pra outros após assumido + policies grupos/subgrupos por unidade (transferência)
 
 ## Features entregues em 2026-06-07
 - Fix build (parens nullish coalescing, cast PdfExecucao `as any`)
@@ -110,6 +111,8 @@ Next logical step: [one-sentence inference, only if obvious]
 - Migrations aplicadas: ia_provedores, ia_provedores_custom, empresa_financeiro, checklist_permite_continuar
 
 ## Features entregues em 2026-06-14
+- **Tickets — jornada de resolução**: ao assumir, ticket some da lista dos demais (RLS); assignee pode transferir para outro grupo/setor da unidade (modal em `gestao/tickets/[id]`, evento `transferencia`, volta pra `aberto` sem assignee) — migration 20260614060000 ⏳ aplicar
+- **Bug fix**: link "Ver execução completa" em `/gestao/planos-acao/[id]` apontava pra rota errada (`/operacao/{execucao_id}` = tela de executar checklist, não de visualizar) — agora abre o PDF da execução
 - **Bug fix**: Operação → Histórico não listava plano de ação de execuções reprovadas — query selecionava coluna inexistente `plano_acao_movimentacoes.criado_em` (real: `created_at`), PostgREST retornava erro 42703 e `data: null`, UI mostrava "Nenhum plano de ação aberto" sem erro visível. Fix: alias `criado_em:created_at` em `operacao/page.tsx`
 - **Tickets**: múltiplas evidências ao abrir chamado (adicionar/remover individualmente em `NovoTicketModal.tsx`)
 - **Indicadores de uso** (`/sistema/empresas/[id]`): "Checklists executados" e "Consulta Inteligente" agora mostram histórico mensal (últimos 3 meses)
