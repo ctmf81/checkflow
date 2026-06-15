@@ -66,7 +66,7 @@ Next logical step: [one-sentence inference, only if obvious]
 - `20260614050000_fix_tickets_fk_usuarios.sql` ✅ aplicada (2026-06-14) — FK aberto_por_id/assignee_id → usuarios(id)
 - `20260614060000_tickets_visibilidade_assignee.sql` ✅ aplicada (2026-06-15) — ticket some pra outros após assumido + policies grupos/subgrupos por unidade (transferência)
 - `20260615120000_valida_ultimo_admin_empresa.sql` ✅ aplicada (2026-06-15) — trigger impede remover perfil "Admin da empresa" do último admin
-- `20260615140000_billing_catalogo.sql` ⏳ aplicar (2026-06-15) — Billing Fase 1: tabelas `planos` e `pacotes_adicionais` (catálogo admin-only)
+- `20260615140000_billing_catalogo.sql` ✅ aplicada (2026-06-15) — Billing Fase 1: tabelas `planos` e `pacotes_adicionais` (catálogo admin-only)
 
 ## Features entregues em 2026-06-07
 - Fix build (parens nullish coalescing, cast PdfExecucao `as any`)

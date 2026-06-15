@@ -120,7 +120,7 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 
 **Fluxo:** vínculo parceiro↔empresa e `parceiro_percentual` editados na aba "Parceiro" de `/sistema/empresas/[id]`. Cadastro/seleção de parceiro **por CPF** via `ParceiroModal.tsx`. E-mail de boas-vindas: `POST /parceiros/boas-vindas` (apps/api), disparado só após o vínculo ser salvo. Resumo mensal (a rota valida internamente o último dia do mês; comissão = `valor_mensalidade × parceiro_percentual / 100` para empresas `ativo` com `status_pagamento != 'cancelado'`; lista empresas que viraram `inativo` no mês): `POST /cron/parceiros/resumo-mensal`, protegido por `x-cron-secret` (`CRON_SECRET`), chamado diariamente pelo cron-job.org — ver `/ops`.
 
-### Billing — Fase 1: catálogo (migration 20260615140000, ⏳ aplicar)
+### Billing — Fase 1: catálogo (migration 20260615140000, ✅ aplicada)
 | Table | Description |
 |-------|-------------|
 | `planos` | Catálogo-template de planos. `nome, descricao, tipo (gratuito/trial/pago), valor numeric(10,2), ciclo (mensal/anual, null em gratuito/trial), dias_trial, limite_execucoes_mes int, limite_armazenamento_bytes bigint, limite_tokens_ia_mes bigint, ativo, ordem`. **Limite NULL = ilimitado.** RLS admin-only. CRUD em `/sistema/planos`. ⚠️ A assinatura da empresa (Fase 2) fará **snapshot** dos termos — editar o catálogo não altera quem já assinou |
