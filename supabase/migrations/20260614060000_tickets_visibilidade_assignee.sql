@@ -26,10 +26,12 @@ create policy "tickets_leitura" on tickets
 -- (escopo "meu grupo") continuam valendo; esta policy adiciona
 -- visibilidade por unidade.
 -- ============================================================
+drop policy if exists "grupos_unidade_membro" on grupos;
 create policy "grupos_unidade_membro" on grupos for select using (
   unidade_id in (select unidade_id from usuario_unidade where usuario_id = auth.uid())
 );
 
+drop policy if exists "subgrupos_unidade_membro" on subgrupos;
 create policy "subgrupos_unidade_membro" on subgrupos for select using (
   grupo_id in (
     select id from grupos
