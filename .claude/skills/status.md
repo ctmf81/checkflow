@@ -25,6 +25,15 @@ Next logical step: [one-sentence inference, only if obvious]
 
 ---
 
+## ⏳ RETOMAR AQUI — Billing Fase 3 (Asaas), pausado em 2026-06-15
+Backend pronto e commitado (migration 20260615180000, `lib/asaas.ts`, `routes/billing.ts`). **Falta ATIVAR e construir a UI:**
+1. ⏳ Rodar migration `20260615180000_billing_asaas.sql` no Supabase
+2. ⏳ Env no serviço **API** (Railway): `ASAAS_API_KEY` (sandbox `$aact_hmlg_...`), `ASAAS_ENV=sandbox`, `ASAAS_WEBHOOK_TOKEN` (segredo gerado)
+3. ⏳ Webhook no painel Asaas → `POST https://<api>/billing/webhook/asaas`, token = `ASAAS_WEBHOOK_TOKEN`, eventos PAYMENT_CREATED/CONFIRMED/RECEIVED/OVERDUE
+4. ⏳ **Task 22 — UI self-service** (NÃO construída): tela na gestão p/ Admin da empresa ver plano/uso (`billing_status`), assinar plano pago (`POST /billing/assinar`), comprar pacote (`POST /billing/comprar-pacote` → redirect `invoiceUrl`), listar `empresa_cobrancas`. Precisa: rota gestão + item no menu gated p/ Admin da empresa + registry/onboarding. Chamadas à API com Bearer token do usuário (`NEXT_PUBLIC_API_URL`)
+5. ⏳ Depois: Fase 4 (split parceiro via subconta Asaas — `asaas_wallet_id`, criação automática, split nas cobranças)
+Decisões em `/biz` e [[billing-model]]. Pro-rata no upgrade ainda a confirmar.
+
 ## Pendências (atualizado 2026-06-12)
 - ⏳ **Rotacionar chave da Evolution** (boa higiene — `checkflow_evo_key_2026` já passou pelo git): trocar `AUTHENTICATION_API_KEY` (serviço Evolution) + `EVOLUTION_API_KEY` (serviço API) pelo MESMO valor novo, quase simultâneo. WhatsApp/sessão Baileys NÃO cai (auth key ≠ sessão). Validar depois com `POST /whatsapp/status` body `{}` → `conectado:true`
 - ✅ Colunas financeiras movidas de `empresas` p/ `empresa_financeiro` (admin-only) em 2026-06-13 — migration 20260613002351 (⏳ aplicar). Resolve a exposição via RLS de linha. Ajustados: rota parceiros, `/sistema/empresas/[id]`, `/sistema/parceiros`, pentest §10
