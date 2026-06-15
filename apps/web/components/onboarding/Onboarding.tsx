@@ -8,6 +8,8 @@ interface Props {
   pageId: string
   titulo: string
   cards: OnboardingCardData[]
+  /** Se true, o ícone "?" não fica disponível após a primeira visita (visualização única) */
+  visualizacaoUnica?: boolean
 }
 
 /**
@@ -22,9 +24,9 @@ interface Props {
  *
  * - Na 1ª visita: abre automaticamente após 600ms
  * - Após "Entendido!": recolhe para ícone "?" na lateral
- * - Ícone "?" sempre disponível para rever as dicas
+ * - Ícone "?" sempre disponível para rever as dicas (a menos que `visualizacaoUnica`)
  */
-export function Onboarding({ pageId, titulo, cards }: Props) {
+export function Onboarding({ pageId, titulo, cards, visualizacaoUnica }: Props) {
   const { aberto, jaViu, cardAtual, ativo, cards: cardsAtivos, abrir, fechar, proximo, anterior } = useOnboarding(pageId, cards)
 
   if (!ativo) return null
@@ -32,7 +34,7 @@ export function Onboarding({ pageId, titulo, cards }: Props) {
   return (
     <>
       {/* Ícone lateral sempre visível após primeira visita */}
-      {jaViu && !aberto && <OnboardingIcon onClick={abrir} />}
+      {jaViu && !aberto && !visualizacaoUnica && <OnboardingIcon onClick={abrir} />}
 
       {/* Painel de dicas */}
       <OnboardingPanel

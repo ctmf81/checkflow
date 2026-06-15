@@ -1166,7 +1166,7 @@ export default function OperacaoPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-16">
-      <Onboarding pageId="operacao" titulo="Operação" cards={ONBOARDING_OPERACAO} />
+      <Onboarding pageId="operacao" titulo="Operação" cards={ONBOARDING_OPERACAO} visualizacaoUnica />
       {/* Abas */}
       <div className="sticky top-14 z-20 bg-gray-50 pt-4 pb-3">
         <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
