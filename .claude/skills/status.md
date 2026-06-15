@@ -67,7 +67,7 @@ Next logical step: [one-sentence inference, only if obvious]
 - `20260614060000_tickets_visibilidade_assignee.sql` ✅ aplicada (2026-06-15) — ticket some pra outros após assumido + policies grupos/subgrupos por unidade (transferência)
 - `20260615120000_valida_ultimo_admin_empresa.sql` ✅ aplicada (2026-06-15) — trigger impede remover perfil "Admin da empresa" do último admin
 - `20260615140000_billing_catalogo.sql` ✅ aplicada (2026-06-15) — Billing Fase 1: tabelas `planos` e `pacotes_adicionais` (catálogo admin-only)
-- `20260615160000_billing_assinaturas.sql` ⏳ aplicar (2026-06-15) — Billing Fase 2A: `empresa_assinaturas` (snapshot+contadores mensais), `empresa_pacotes_comprados`, funções `avancar_periodo_assinatura`/`billing_status`/`billing_pode_executar`/`billing_pode_consumir_ia`/`billing_armazenamento_disponivel` + triggers de contador em `checklist_execucoes` e `uso_ia_eventos`
+- `20260615160000_billing_assinaturas.sql` ✅ aplicada (2026-06-15) — Billing Fase 2A: `empresa_assinaturas` (snapshot+contadores mensais), `empresa_pacotes_comprados`, funções `avancar_periodo_assinatura`/`billing_status`/`billing_pode_executar`/`billing_pode_consumir_ia`/`billing_armazenamento_disponivel` + triggers de contador em `checklist_execucoes` e `uso_ia_eventos`
 
 ## Features entregues em 2026-06-07
 - Fix build (parens nullish coalescing, cast PdfExecucao `as any`)

@@ -126,7 +126,7 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 | `planos` | Catálogo-template de planos. `nome, descricao, tipo (gratuito/trial/pago), valor numeric(10,2), ciclo (mensal/anual, null em gratuito/trial), dias_trial, limite_execucoes_mes int, limite_armazenamento_bytes bigint, limite_tokens_ia_mes bigint, ativo, ordem`. **Limite NULL = ilimitado.** RLS admin-only. CRUD em `/sistema/planos`. ⚠️ A assinatura da empresa (Fase 2) fará **snapshot** dos termos — editar o catálogo não altera quem já assinou |
 | `pacotes_adicionais` | Catálogo-template de pacotes avulsos. `nome, descricao, tipo (execucoes/tokens_ia/armazenamento), quantidade bigint, valor, ativo, ordem`. Para `armazenamento`, `quantidade` é em **bytes** (UI edita em GB). execucoes/tokens = saldo de consumo do período (use ou perde); armazenamento = permanente. RLS admin-only. CRUD em `/sistema/pacotes` |
 
-### Billing — Fase 2A: assinatura + uso + enforcement (migration 20260615160000, ⏳ aplicar)
+### Billing — Fase 2A: assinatura + uso + enforcement (migration 20260615160000, ✅ aplicada)
 | Objeto | Descrição |
 |--------|-----------|
 | `empresa_assinaturas` | 1:1 com empresa. **Snapshot** dos termos (`plano_nome/tipo/valor/ciclo` + 3 limites) + estado (`status`: trial/ativo/inadimplente/cancelado), período de uso **mensal** ancorado no dia (`periodo_inicio/fim`), contadores que resetam por período (`execucoes_usadas`, `tokens_ia_usados`, `execucoes_extra`, `tokens_ia_extra`), trial (`trial_fim`, `ja_usou_trial`), troca agendada (`proximo_plano_id`, `troca_efetiva_em`), Asaas (`asaas_customer_id/subscription_id`). RLS: leitura admin_sistema OU Admin da empresa (perfil `…002`); escrita admin_sistema |

@@ -237,6 +237,11 @@ Modelo: **freemium + usage-based híbrido**, padrão SaaS de mercado, com gatewa
 - `planos` (admin `/sistema/planos`): tipos `gratuito` (permanente), `trial` (`dias_trial` **configurável** — começa generoso, reduz com o tempo) e `pago` (ciclo mensal/anual). Limites: execuções/mês, armazenamento total (bytes), tokens IA/mês — **NULL = ilimitado**. Usuários sempre ilimitados (não é métrica de cobrança).
 - `pacotes_adicionais` (admin `/sistema/pacotes`): compra avulsa de `execucoes`, `tokens_ia` (saldo do período, **use ou perde**) ou `armazenamento` (capacidade **permanente**).
 
+**Assinatura & enforcement (Fase 2A — ✅ migration 20260615160000):**
+- `empresa_assinaturas` (snapshot dos termos + contadores mensais). Admin do sistema atribui/troca plano na aba **"Plano"** de `/sistema/empresas/[id]` (componente `AssinaturaEmpresa`): snapshot imediato, reinício de trial confirmado, barras de uso via `billing_status`.
+- Bloqueios ativos: nova execução na Operação (`billing_pode_executar`), Consulta IA → 402 (`billing_pode_consumir_ia`), upload por capacidade de storage (`billing_armazenamento_disponivel`). Execução agendada não é re-bloqueada.
+- Painel do admin da empresa (self-service de plano/uso) **deferido para a Fase 3** (junto com checkout Asaas).
+
 **Regras de uso (Fases 2-4 — pendentes):**
 - **Período** ancorado no aniversário da assinatura (não no calendário). Allowance reseta a cada período — **sem rollover**.
 - **Enforcement** não é tempo real (contador por período; pequeno excedente tolerado). Limite excedido **bloqueia** a ação (nova execução / Consulta IA / upload), com upsell.
