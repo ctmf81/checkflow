@@ -10,10 +10,11 @@ import { Badge } from '@/components/ui/Badge'
 import { UsuarioModal } from '@/app/gestao/acessos/usuarios/UsuarioModal'
 import { ExcluirEmpresaModal } from './ExcluirEmpresaModal'
 import { ParceiroModal, ParceiroSelecionado } from '@/components/modals/ParceiroModal'
+import { AssinaturaEmpresa } from './AssinaturaEmpresa'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api-production-5bce.up.railway.app'
 
-type Aba = 'administrador' | 'pagamento' | 'parceiro' | 'configuracoes' | 'uso'
+type Aba = 'administrador' | 'plano' | 'pagamento' | 'parceiro' | 'configuracoes' | 'uso'
 
 const ORIGEM_LABEL: Record<string, string> = {
   execucao: 'Fotos/vídeos de execuções',
@@ -314,6 +315,7 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
 
   const abas: { key: Aba; label: string }[] = [
     { key: 'administrador', label: 'Administrador' },
+    { key: 'plano',         label: 'Plano' },
     { key: 'pagamento',     label: 'Pagamento' },
     { key: 'parceiro',      label: 'Parceiro' },
     { key: 'configuracoes', label: 'Configurações' },
@@ -361,6 +363,8 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-xl">
+
+        {aba === 'plano' && <AssinaturaEmpresa empresaId={id} />}
 
         {aba === 'administrador' && (
           <div className="space-y-4">
