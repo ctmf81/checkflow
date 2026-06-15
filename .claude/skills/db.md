@@ -22,6 +22,7 @@ Generate timestamp: `(Get-Date -Format "yyyyMMddHHmmss")` (PowerShell)
 - `gen_random_uuid()` vs `uuid_generate_v4()` — both work, prefer `gen_random_uuid()` for new tables
 - Generated columns cannot use subqueries — compute derived values in application code
 - RLS `using` clause for unit-scoped tables: `unidade_id in (select unidade_id from usuario_unidade where usuario_id = auth.uid())`
+- `plano_acao_movimentacoes`/`plano_acao_movimentacao_evidencias` usam `created_at` (não `criado_em`) — ao embutir via PostgREST use alias `criado_em:created_at` se o front espera esse nome (bug corrigido em 2026-06-14, `operacao/page.tsx`)
 
 ## Table Index
 

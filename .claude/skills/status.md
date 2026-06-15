@@ -110,6 +110,7 @@ Next logical step: [one-sentence inference, only if obvious]
 - Migrations aplicadas: ia_provedores, ia_provedores_custom, empresa_financeiro, checklist_permite_continuar
 
 ## Features entregues em 2026-06-14
+- **Bug fix**: Operação → Histórico não listava plano de ação de execuções reprovadas — query selecionava coluna inexistente `plano_acao_movimentacoes.criado_em` (real: `created_at`), PostgREST retornava erro 42703 e `data: null`, UI mostrava "Nenhum plano de ação aberto" sem erro visível. Fix: alias `criado_em:created_at` em `operacao/page.tsx`
 - **Tickets**: múltiplas evidências ao abrir chamado (adicionar/remover individualmente em `NovoTicketModal.tsx`)
 - **Indicadores de uso** (`/sistema/empresas/[id]`): "Checklists executados" e "Consulta Inteligente" agora mostram histórico mensal (últimos 3 meses)
 - **Limpeza automática de mídia por tempo de guarda**: `POST /cron/limpeza-execucoes` (cron-job.org, 1x/dia) remove fotos/vídeos/PDFs de execuções expiradas do bucket `execucoes` e dos planos de ação vinculados, preservando o registro — ver `/ops`

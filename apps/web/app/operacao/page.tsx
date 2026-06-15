@@ -392,7 +392,7 @@ function AbaHistorico({ unidadeId }: { unidadeId: string }) {
           .select(`
             id, status, checklist_execucao_id,
             checklist_atividades(nome),
-            plano_acao_movimentacoes(acao, criado_em, usuarios(nome))
+            plano_acao_movimentacoes(acao, criado_em:created_at, usuarios(nome))
           `)
           .in('checklist_execucao_id', execIds)
 
