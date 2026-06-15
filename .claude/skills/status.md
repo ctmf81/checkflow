@@ -32,7 +32,7 @@ Next logical step: [one-sentence inference, only if obvious]
 - ✅ `pg_cron` configurado em 2026-06-11 (job `processar-agendamentos`, */10 min, jobid 2) — conferir duplicata: `select * from cron.job;`
 - Testar fluxo de agendamentos end-to-end (criar agendamento com referência no passado e ver disparo — agora aparece como pendência da unidade na Operação)
 - Testar "motivo de não execução" (checklist precisa ter motivos associados na criação via ChecklistMontador)
-- Validar em produção: geolocalização desktop, busca catálogo "ads", vídeo quadrado/retângulo
+- ✅ Validado em produção (2026-06-14): geolocalização desktop, busca catálogo "ads", vídeo quadrado/retângulo
 
 ## Known Open Issues (atualizado 2026-06-06)
 
