@@ -60,6 +60,10 @@ Next logical step: [one-sentence inference, only if obvious]
 - `20260613002351_empresa_financeiro.sql` ✅ aplicada (2026-06-13) — colunas financeiras movidas p/ tabela admin-only (migration idempotente: insert guardado por information_schema)
 - `20260613001046_ia_provedores_custom.sql` ✅ aplicada (2026-06-13) — provedores customizados OpenAI-compatible
 - `20260613004044_checklist_permite_continuar.sql` ✅ aplicada (2026-06-13) — modo pausável vs execução única
+- `20260614020000_limpeza_execucoes_expiradas.sql` ✅ aplicada (2026-06-14) — coluna `midia_removida_em` p/ cron de limpeza
+- `20260614030000_fix_usuario_unidade_select_propria.sql` ✅ aplicada (2026-06-14) — policy select própria linha
+- `20260614040000_fix_tickets_rls_admin_sistema.sql` ✅ aplicada (2026-06-14) — `or is_admin_sistema()` nas policies de tickets
+- `20260614050000_fix_tickets_fk_usuarios.sql` ✅ aplicada (2026-06-14) — FK aberto_por_id/assignee_id → usuarios(id)
 
 ## Features entregues em 2026-06-07
 - Fix build (parens nullish coalescing, cast PdfExecucao `as any`)
@@ -104,6 +108,15 @@ Next logical step: [one-sentence inference, only if obvious]
 - **Operação**: seção "Não finalizados" (em_andamento do operador) — Continuar (restaura respostas via ?exec=) ou "Não executar" com motivo obrigatório (ninguém descarta livre, nem admin); fix race condition no carregamento (espera unidadeAtiva)
 - **Checklist**: modo `permite_continuar_depois` (pausável c/ "Continuar depois" salvando parcial vs execução de uma vez); criar pela área pré-marca grupo/subgrupo; tempo de guarda default 1 mês
 - Migrations aplicadas: ia_provedores, ia_provedores_custom, empresa_financeiro, checklist_permite_continuar
+
+## Features entregues em 2026-06-14
+- **Tickets**: múltiplas evidências ao abrir chamado (adicionar/remover individualmente em `NovoTicketModal.tsx`)
+- **Indicadores de uso** (`/sistema/empresas/[id]`): "Checklists executados" e "Consulta Inteligente" agora mostram histórico mensal (últimos 3 meses)
+- **Limpeza automática de mídia por tempo de guarda**: `POST /cron/limpeza-execucoes` (cron-job.org, 1x/dia) remove fotos/vídeos/PDFs de execuções expiradas do bucket `execucoes` e dos planos de ação vinculados, preservando o registro — ver `/ops`
+- **Bug crítico "Erro ao criar ticket" resolvido** (3 migrations, ver `/security` e `/db`):
+  1. `usuario_unidade` sem policy de select própria — bloqueava `tickets_criar` e leitura de `checklists`/`catalogos`/etc para usuários normais
+  2. `admin_sistema` sem linha em `usuario_unidade` — `or is_admin_sistema()` adicionado nas policies de tickets/eventos/evidências/categorias/SLA
+  3. FK `tickets.aberto_por_id`/`assignee_id` apontava para `auth.users` em vez de `usuarios` — quebrava o embed do PostgREST e a listagem de tickets ficava vazia sem erro visível
 
 ## Features entregues nesta sessão
 - Inativar/Duplicar checklist (com picker de destino)

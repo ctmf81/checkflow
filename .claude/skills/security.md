@@ -98,6 +98,9 @@ Cobre: headers de segurança (HSTS/X-Frame-Options/nosniff), CORS, cookies de se
 | 2026-06-11 | Enumeração de CPF em `/api/auth/solicitar-codigo`: respostas distintas (422 sem telefone / 429 rate limit) só para CPFs existentes | rota agora responde genérico em ambos os casos, logando internamente |
 | 2026-06-11 | Policy `tickets_atualizar`: branch `usuario_tem_permissao('ticket','tratar')` era global — permitia UPDATE em tickets de qualquer unidade | 20260611134557 — escopo `usuario_unidade` adicionado ao branch |
 | 2026-06-11 | UI de tickets gravava evento na timeline imutável mesmo quando o UPDATE de status era bloqueado por RLS (falha silenciosa do PostgREST) | `tickets/[id]/page.tsx` — update com `.select()` + abort antes do evento |
+| 2026-06-14 | `usuario_unidade` só tinha policy admin-only — qualquer policy de outra tabela com `exists(select ... from usuario_unidade where usuario_id = auth.uid())` retornava falso pra usuários normais (bloqueava `tickets_criar`, leitura de `checklists`/`catalogos`/`documentos`/`padroes_variaveis`). Erro: "Erro ao criar ticket" (42501) | 20260614030000 — policy `usuario_unidade_propria` (select própria linha) |
+| 2026-06-14 | `admin_sistema` sem linha em `usuario_unidade` não conseguia criar/ler tickets, eventos, evidências, categorias | 20260614040000 — `or is_admin_sistema()` em `tickets_leitura/criar`, `ticket_eventos_*`, `ticket_evidencias_*`, `ticket_categorias_leitura`, `ticket_sla_leitura` |
+| 2026-06-14 | FK `tickets.aberto_por_id`/`assignee_id` apontava para `auth.users`, mas frontend embute `usuarios!tickets_aberto_por_id_fkey` — PostgREST retornava `PGRST200` e a listagem de tickets mostrava "nenhum ticket encontrado" sem erro visível | 20260614050000 — FK repontada para `usuarios(id)` |
 
 ## RPCs Sensíveis (Security Definer)
 | Função | Proteção | Migration |

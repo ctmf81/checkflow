@@ -237,5 +237,21 @@ create policy "X_unidade" on T for all using (
 ## RLS Gotcha: nullable FK columns
 Policies comparing `unidade_id in (...)` never match `NULL` rows (company-wide records). Always add an explicit `or (unidade_id is null and exists(...))` branch — bug found & fixed in `catalogos`/`catalogo_valores` (migration 20260606000014). Check other tables with nullable `unidade_id` for the same gap.
 
+## RLS Gotcha: subqueries em `usuario_unidade` são afetadas pelo RLS da própria `usuario_unidade` (migration 20260614030000, ✅ aplicada)
+`usuario_unidade` tinha **só** a policy `usuario_unidade_admin` (admin-only). Qualquer policy de OUTRA tabela que faz `exists (select 1 from usuario_unidade where usuario_id = auth.uid() ...)` ficava sempre falsa para usuários normais — porque a subquery em si é executada com RLS de `usuario_unidade`, que retornava vazio. Isso bloqueava silenciosamente `tickets_criar`, leitura de `checklists`, `catalogos`, `documentos`, `padroes_variaveis` etc. — erro típico: `new row violates row-level security policy` (42501) ou select retornando `[]` sem erro.
+
+**Fix**: adicionar policy de SELECT permitindo o usuário ver a própria linha:
+```sql
+create policy "usuario_unidade_propria" on usuario_unidade
+  for select using (usuario_id = auth.uid());
+```
+Se uma tabela nova depender de `usuario_unidade` em policy, essa policy já cobre — não precisa repetir.
+
+## RLS Gotcha: admin_sistema sem linha em `usuario_unidade` (migration 20260614040000, ✅ aplicada)
+Mesmo com a policy acima, um `admin_sistema` pode não ter nenhuma linha em `usuario_unidade` (ele normalmente acessa tudo via `is_admin_sistema()`). Qualquer policy que dependa **só** de `exists (select 1 from usuario_unidade ...)` sem `or is_admin_sistema()` bloqueia o admin. Corrigido em `tickets_leitura`, `tickets_criar`, `ticket_eventos_*`, `ticket_evidencias_*`, `ticket_categorias_leitura`, `ticket_sla_leitura`. **Ao criar policy nova baseada em `usuario_unidade`, sempre adicionar `is_admin_sistema() or ...` no início.**
+
+## Gotcha: embeds do PostgREST exigem FK real para a tabela embutida (migration 20260614050000, ✅ aplicada)
+`tickets.aberto_por_id`/`assignee_id` referenciavam `auth.users(id)`, mas o frontend embute `usuarios!tickets_aberto_por_id_fkey(nome)`. Sem FK direta `tickets → usuarios`, o PostgREST retorna erro `PGRST200` ("Could not find a relationship...") e o `select` inteiro vira `null` — telas de listagem tratam isso como "nenhum registro encontrado" **sem nenhum erro visível**. Fix: repontar a FK para `usuarios(id)` (que já é 1:1 com `auth.users`), mantendo o nome padrão `tickets_aberto_por_id_fkey`. **Sempre que uma coluna referenciar `auth.users(id)` E for usada em embed `usuarios!...`, a FK precisa apontar para `usuarios(id)`, não `auth.users(id)`.**
+
 ## Evolution Rule
 When the user says "Update /db with new table [X]", add X to the table index with a one-line description and migration filename. Keep constraint documentation up to date.
