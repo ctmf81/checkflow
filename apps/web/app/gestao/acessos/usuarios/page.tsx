@@ -143,11 +143,17 @@ export default function UsuariosPage() {
 
   async function alterarPerfil(usuarioId: string, perfilId: string) {
     if (!empresaAtiva?.id) return
-    await createClient().from('usuario_empresa')
+    const { error } = await createClient().from('usuario_empresa')
       .update({ perfil_id: perfilId })
       .eq('usuario_id', usuarioId)
       .eq('empresa_id', empresaAtiva.id)
     setPerfilDropdown(null)
+    if (error) {
+      toast.error(error.message.includes('último administrador')
+        ? 'Não é possível remover o perfil de Admin da empresa do último administrador.'
+        : `Erro ao alterar perfil: ${error.message}`)
+      return
+    }
     carregar()
   }
 
