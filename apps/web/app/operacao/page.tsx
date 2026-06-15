@@ -1204,8 +1204,7 @@ export default function OperacaoPage() {
       {/* FAB — Abrir Ticket avulso */}
       <button
         onClick={() => setTicketModalOpen(true)}
-        // No desktop sobe acima do botão "?" de onboarding (right-5 bottom-5) p/ não sobrepor
-        className="fixed bottom-6 right-4 md:bottom-20 z-40 flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium px-3.5 py-2.5 rounded-full shadow-lg hover:shadow-xl hover:bg-gray-50 transition-all active:scale-95">
+        className="fixed bottom-6 right-4 z-40 flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium px-3.5 py-2.5 rounded-full shadow-lg hover:shadow-xl hover:bg-gray-50 transition-all active:scale-95">
         <Ticket size={15} className="text-blue-600" /> Abrir Ticket
       </button>
 
