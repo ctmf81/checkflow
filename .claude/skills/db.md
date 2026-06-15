@@ -136,6 +136,15 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 | `billing_pode_executar` / `billing_pode_consumir_ia` / `billing_armazenamento_disponivel(empresa,bytes)` | Booleans de enforcement. Sem assinatura → não bloqueia; limite null → ilimitado |
 | `billing_status(empresa)` → jsonb | Leitura consolidada (plano, período, uso×limite×extra dos 3 recursos). Valida permissão (admin_sistema ou Admin da empresa) |
 
+### Billing — Fase 3: Asaas (migration 20260615180000, ⏳ aplicar)
+| Objeto | Descrição |
+|--------|-----------|
+| `empresa_cobrancas` | Espelho local das cobranças Asaas. `tipo (assinatura/pacote)`, `asaas_payment_id` (unique), `asaas_subscription_id`, `pacote_id`, `valor`, `billing_type`, `status` (espelha Asaas: PENDING/CONFIRMED/RECEIVED/OVERDUE…), `vencimento`, `pago_em`, `invoice_url`, `meta jsonb` (p/ pacote: tipo_recurso/quantidade/creditado). RLS: leitura admin_sistema ou Admin da empresa |
+| `asaas_webhook_eventos` | Idempotência (`event_id` PK = id do evento Asaas). Webhook só processa se o insert não conflitar. Admin-only |
+| `billing_creditar_execucoes`/`billing_creditar_tokens(empresa, qtd)` | Creditam saldo extra do período (chamadas pelo webhook só quando o pagamento confirma). Armazenamento é inserido direto em `empresa_pacotes_comprados` |
+
+**API (apps/api):** `lib/asaas.ts` (cliente env-based: `ASAAS_API_KEY`, `ASAAS_ENV` sandbox|production, header `access_token`). `routes/billing.ts`: `POST /billing/assinar` (assinatura recorrente, cancela a anterior), `/comprar-pacote` (cobrança avulsa; crédito só no webhook), `/webhook/asaas` (valida header `asaas-access-token` = `ASAAS_WEBHOOK_TOKEN`, idempotente). Auth das duas primeiras: Bearer token do usuário, exige Admin da empresa ou admin_sistema.
+
 **Plano de billing (decisões fechadas, padrão de mercado/freemium):** período = aniversário da assinatura (não calendário); enforcement NÃO é tempo real (contador por período, pequeno excedente tolerado); **sem rollover** — allowance mensal reseta a cada período (use ou perde), pacotes entram no saldo do período; armazenamento = capacidade fixa (plano + pacotes permanentes), uso sempre real; limite excedido **bloqueia** a ação; modelo **freemium** (plano gratuito permanente + trial com `dias_trial` configurável + pagos); fim do trial → cai no plano gratuito; tiers fixos (não plano por cliente); split de parceiro via subconta Asaas (trocar parceiro recalcula %, remover → 100% CheckFlow). Fases 2-4 (assinatura/trial/enforcement, Asaas, split) pendentes.
 
 ⚠️ **Armazenamento sempre reflete o uso real**: `executarLimpezaExecucoes` (apps/api) agora soma os bytes removidos do Storage e insere entrada **negativa** em `uso_armazenamento` (origem `execucao`, `tamanho_bytes < 0`) — a tabela não tem check `>= 0`. O uso líquido (adições − remoções) é o que conta; capacidade é fixa, o tempo de guarda é a alavanca de espaço.
