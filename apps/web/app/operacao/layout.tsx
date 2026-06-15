@@ -4,7 +4,7 @@ import { SessionProvider, useSession } from '@/contexts/SessionContext'
 import { createClient } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CheckSquare, LayoutDashboard } from 'lucide-react'
+import { LayoutDashboard } from 'lucide-react'
 import { EscolherEmpresaModal } from '@/components/layout/EscolherEmpresaModal'
 import { TermosGate } from '@/components/layout/TermosGate'
 
@@ -45,7 +45,8 @@ function OperacaoHeader() {
           {logoUrl
             // eslint-disable-next-line @next/next/no-img-element
             ? <img src={logoUrl} alt="Logo" className="h-7 max-w-[120px] object-contain" />
-            : <div className="flex items-center gap-1.5 text-orange-500 font-bold text-lg"><CheckSquare size={20} />CheckFlow</div>
+            // eslint-disable-next-line @next/next/no-img-element
+            : <img src="/logo-checkflow.png" alt="CheckFlow" className="h-7 max-w-[140px] object-contain" />
           }
         </div>
 

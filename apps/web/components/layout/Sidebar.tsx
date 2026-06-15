@@ -129,7 +129,8 @@ export function Sidebar() {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={logoUrl} alt="Logo" className="max-h-8 max-w-[180px] object-contain" />
           ) : (
-            <span className="text-xl font-bold text-orange-500 tracking-tight">CheckFlow</span>
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/logo-checkflow.png" alt="CheckFlow" className="max-h-8 max-w-[180px] object-contain" />
           )}
           {/* Fechar — só no mobile */}
           <button onClick={fechar} className="lg:hidden text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar menu">

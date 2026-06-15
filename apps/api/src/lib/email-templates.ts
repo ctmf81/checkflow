@@ -14,8 +14,8 @@ function base(conteudo: string): string {
       <table width="100%" style="max-width:560px;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb">
         <!-- Header -->
         <tr>
-          <td style="background:#f97316;padding:20px 28px">
-            <p style="margin:0;color:#fff;font-size:20px;font-weight:700;letter-spacing:-0.5px">CheckFlow</p>
+          <td style="background:#ffffff;padding:20px 28px;border-bottom:1px solid #f3f4f6">
+            <img src="${APP_URL}/logo-checkflow.png" alt="CheckFlow" height="28" style="display:block;height:28px" />
           </td>
         </tr>
         <!-- Body -->

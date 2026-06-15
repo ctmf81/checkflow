@@ -2,6 +2,15 @@ import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { renderToBuffer, Document, Page, View, Text, Image, StyleSheet, Font } from '@react-pdf/renderer'
 import React from 'react'
+import fs from 'fs'
+import path from 'path'
+
+// ─── Logo CheckFlow (embutida como base64 p/ evitar fetch no PDF) ────────────
+
+const LOGO_PATH = path.join(process.cwd(), 'public', 'logo-checkflow.png')
+const LOGO_DATA_URI = fs.existsSync(LOGO_PATH)
+  ? `data:image/png;base64,${fs.readFileSync(LOGO_PATH).toString('base64')}`
+  : null
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
 
@@ -16,6 +25,7 @@ const s = StyleSheet.create({
   // Header
   header:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, paddingBottom: 12, borderBottom: '1.5pt solid #f97316' },
   headerLeft:    { flexDirection: 'column', gap: 2 },
+  logo:          { width: 100, height: 24, objectFit: 'contain', marginBottom: 2 },
   appName:       { fontSize: 16, fontFamily: 'Helvetica-Bold', color: '#f97316' },
   headerSub:     { fontSize: 8, color: '#9ca3af' },
   headerRight:   { flexDirection: 'column', alignItems: 'flex-end', gap: 2 },
@@ -109,7 +119,9 @@ function PdfExecucao({ dados }: { dados: any }) {
       // Header
       React.createElement(View, { style: s.header },
         React.createElement(View, { style: s.headerLeft },
-          React.createElement(Text, { style: s.appName }, 'CheckFlow'),
+          LOGO_DATA_URI
+            ? React.createElement(Image, { style: s.logo, src: LOGO_DATA_URI })
+            : React.createElement(Text, { style: s.appName }, 'CheckFlow'),
           React.createElement(Text, { style: s.headerSub }, 'Relatório de Execução de Checklist'),
         ),
         React.createElement(View, { style: s.headerRight },
