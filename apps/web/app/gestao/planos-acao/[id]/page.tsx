@@ -29,7 +29,7 @@ interface Plano {
   checklist_execucao_id: string
   subgrupos: { nome: string } | null
   checklist_atividades: { nome: string } | null
-  checklist_execucoes: { id: string; checklists: { nome: string } | null } | null
+  checklist_execucoes: { id: string; pdf_url: string | null; checklists: { nome: string } | null } | null
   usuarios: { nome: string } | null
   plano_acao_evidencias: { id: string; tipo: string; url: string; ordem: number }[]
 }
@@ -207,7 +207,7 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
       subgrupo_id, checklist_execucao_id,
       subgrupos(nome),
       checklist_atividades(nome),
-      checklist_execucoes(id, checklists(nome)),
+      checklist_execucoes(id, pdf_url, checklists(nome)),
       usuarios!criado_por(nome),
       plano_acao_evidencias(id, tipo, url, ordem)
     `).eq('id', id).single()
@@ -419,12 +419,18 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
         </div>
       )}
 
-      {/* Link para a execução */}
-      <a href={`/operacao/${plano.checklist_execucoes ? (plano.checklist_execucoes as any).id : ''}`}
-        target="_blank" rel="noreferrer"
-        className="flex items-center gap-2 text-xs text-blue-600 hover:text-blue-700 mb-5 w-fit">
-        <ExternalLink size={13} />Ver execução completa do checklist
-      </a>
+      {/* Link para o PDF da execução */}
+      {plano.checklist_execucoes?.pdf_url ? (
+        <a href={plano.checklist_execucoes.pdf_url}
+          target="_blank" rel="noreferrer"
+          className="flex items-center gap-2 text-xs text-blue-600 hover:text-blue-700 mb-5 w-fit">
+          <ExternalLink size={13} />Ver execução completa do checklist (PDF)
+        </a>
+      ) : (
+        <p className="flex items-center gap-2 text-xs text-gray-400 mb-5 w-fit">
+          <FileText size={13} />PDF da execução ainda não disponível
+        </p>
+      )}
 
       {/* Timeline de movimentações */}
       <div className="mb-6">
