@@ -1421,6 +1421,16 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   async function continuarDepois() {
     if (!unidadeAtiva || !checklist) return
     setErroFinalizar(null)
+
+    // Bloqueio por limite do plano — só ao criar uma execução nova
+    if (!execAgendadaId && empresaAtiva?.id) {
+      const { data: pode } = await createClient().rpc('billing_pode_executar', { p_empresa_id: empresaAtiva.id })
+      if (pode === false) {
+        setErroFinalizar('Limite de execuções do plano atingido neste período. Contate o administrador para fazer upgrade ou comprar um pacote adicional.')
+        return
+      }
+    }
+
     setSalvando(true)
     const sb = createClient()
     const { data: { user } } = await sb.auth.getUser()
@@ -1477,6 +1487,15 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     if (!unidadeAtiva || !checklist) return
     setErroFinalizar(null)
 
+    // Bloqueio por limite do plano (só para execução nova — agendada já foi contada)
+    if (!execAgendadaId && empresaAtiva?.id) {
+      const { data: pode } = await createClient().rpc('billing_pode_executar', { p_empresa_id: empresaAtiva.id })
+      if (pode === false) {
+        setErroFinalizar('Limite de execuções do plano atingido neste período. Contate o administrador para fazer upgrade ou comprar um pacote adicional.')
+        return
+      }
+    }
+
     // Valida obrigatórias
     const visiveis = listarAtividadesVisiveis()
     const pendentes = visiveis.filter(a => {
@@ -1517,6 +1536,26 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       if (plano.video && plano.video.file.size > MAX_VIDEO_MB * 1024 * 1024) {
         setErroFinalizar(`O vídeo do plano de ação excede ${MAX_VIDEO_MB}MB.`)
         return
+      }
+    }
+
+    // Bloqueio por capacidade de armazenamento do plano
+    if (empresaAtiva?.id) {
+      let bytesUpload = 0
+      for (const a of visiveis) {
+        const r = respostas[a.id]
+        if ((a.tipo === 'foto' || a.tipo === 'video') && r?.file instanceof File) bytesUpload += r.file.size
+      }
+      for (const [, plano] of Object.entries(planosCapturados)) {
+        for (const f of plano.fotos) bytesUpload += f.file.size
+        if (plano.video) bytesUpload += plano.video.file.size
+      }
+      if (bytesUpload > 0) {
+        const { data: cabe } = await createClient().rpc('billing_armazenamento_disponivel', { p_empresa_id: empresaAtiva.id, p_bytes: bytesUpload })
+        if (cabe === false) {
+          setErroFinalizar('Capacidade de armazenamento do plano atingida. Contate o administrador para ampliar o plano ou comprar mais espaço.')
+          return
+        }
       }
     }
 

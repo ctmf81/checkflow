@@ -194,6 +194,17 @@ export async function POST(req: NextRequest) {
     empresaId = unidadeDoc?.empresa_id ?? null
   }
 
+  // Bloqueio por limite de tokens de IA do plano
+  if (empresaId) {
+    const { data: pode } = await supabaseAdmin.rpc('billing_pode_consumir_ia', { p_empresa_id: empresaId })
+    if (pode === false) {
+      return new Response(
+        JSON.stringify({ error: 'Limite de tokens de IA do plano atingido neste período. Contate o administrador para fazer upgrade ou comprar um pacote adicional.' }),
+        { status: 402, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+  }
+
   // 4. Baixa o arquivo e converte para base64
   let fileBase64: string
   let mimeType: string
