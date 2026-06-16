@@ -110,3 +110,8 @@ export function asaasObterCobranca(paymentId: string) {
 export function asaasPagamentosDaAssinatura(subscriptionId: string) {
   return asaasFetch<{ data: AsaasPayment[] }>(`/subscriptions/${subscriptionId}/payments`, 'GET')
 }
+
+/** Remove uma cobrança (só funciona se ainda não foi paga). */
+export function asaasDeletarCobranca(paymentId: string) {
+  return asaasFetch<{ deleted: boolean; id: string }>(`/payments/${paymentId}`, 'DELETE')
+}

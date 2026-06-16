@@ -3,7 +3,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import {
   asaasCriarCliente, asaasCriarAssinatura, asaasCriarCobranca, asaasCancelarAssinatura,
-  asaasPagamentosDaAssinatura,
+  asaasPagamentosDaAssinatura, asaasDeletarCobranca,
   type BillingType, type Cycle,
 } from '../lib/asaas'
 
@@ -81,11 +81,25 @@ export async function billingRoutes(app: FastifyInstance) {
     try {
       const customer = await garantirClienteAsaas(supabase, empresaId)
 
-      // cancela assinatura anterior, se houver
+      // cancela assinatura anterior, se houver — e remove as cobranças ainda
+      // não pagas dela (o Asaas não apaga automaticamente ao cancelar)
       const { data: assinAtual } = await supabase.from('empresa_assinaturas')
         .select('asaas_subscription_id, ja_usou_trial').eq('empresa_id', empresaId).maybeSingle()
       if (assinAtual?.asaas_subscription_id) {
-        try { await asaasCancelarAssinatura(assinAtual.asaas_subscription_id) } catch { /* ignora */ }
+        const subAntiga = assinAtual.asaas_subscription_id
+        try {
+          const pendentes = await asaasPagamentosDaAssinatura(subAntiga)
+          for (const p of pendentes.data ?? []) {
+            if (['PENDING', 'OVERDUE', 'AWAITING_RISK_ANALYSIS'].includes(p.status)) {
+              try { await asaasDeletarCobranca(p.id) } catch { /* ignora */ }
+            }
+          }
+        } catch { /* ignora */ }
+        try { await asaasCancelarAssinatura(subAntiga) } catch { /* ignora */ }
+        // marca as cobranças locais não pagas dessa assinatura como canceladas
+        await supabase.from('empresa_cobrancas')
+          .update({ status: 'CANCELLED', atualizado_em: new Date().toISOString() })
+          .eq('asaas_subscription_id', subAntiga).is('pago_em', null)
       }
 
       const cycle: Cycle = plano.ciclo === 'anual' ? 'YEARLY' : 'MONTHLY'
