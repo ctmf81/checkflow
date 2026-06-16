@@ -3,7 +3,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import {
   asaasCriarCliente, asaasCriarAssinatura, asaasCriarCobranca, asaasCancelarAssinatura,
-  asaasPagamentosDaAssinatura, asaasDeletarCobranca,
+  asaasPagamentosDaAssinatura, asaasDeletarCobranca, asaasAtualizarAssinatura,
   type BillingType, type Cycle,
 } from '../lib/asaas'
 
@@ -78,13 +78,38 @@ export async function billingRoutes(app: FastifyInstance) {
     if (!plano) return reply.status(404).send({ error: 'Plano não encontrado' })
     if (plano.tipo !== 'pago') return reply.status(400).send({ error: 'Apenas planos pagos geram assinatura no Asaas' })
 
+    const cycle: Cycle = plano.ciclo === 'anual' ? 'YEARLY' : 'MONTHLY'
+
     try {
       const customer = await garantirClienteAsaas(supabase, empresaId)
 
+      const { data: assinAtual } = await supabase.from('empresa_assinaturas')
+        .select('asaas_subscription_id, ja_usou_trial, plano_tipo, status, periodo_fim').eq('empresa_id', empresaId).maybeSingle()
+
+      // ── Troca ENTRE planos pagos: agenda para o fim do período vigente ──
+      // A empresa continua com o plano atual até lá. No Asaas, atualizamos a
+      // assinatura (novo valor vale só na próxima cobrança); os limites trocam
+      // quando o período vira (avancar_periodo_assinatura aplica proximo_plano_id).
+      if (assinAtual && assinAtual.plano_tipo === 'pago' && assinAtual.status === 'ativo' && assinAtual.asaas_subscription_id) {
+        try {
+          await asaasAtualizarAssinatura(assinAtual.asaas_subscription_id, {
+            value: Number(plano.valor), cycle, billingType: tipoCobranca, updatePendingPayments: false,
+          })
+        } catch (e: any) {
+          app.log.error(e)
+          return reply.status(502).send({ error: e?.message ?? 'Falha ao atualizar a assinatura no Asaas' })
+        }
+        await supabase.from('empresa_assinaturas').update({
+          proximo_plano_id: plano.id,
+          troca_efetiva_em: assinAtual.periodo_fim,
+          atualizado_em: new Date().toISOString(),
+        }).eq('empresa_id', empresaId)
+        return reply.send({ ok: true, agendado: true, efetivaEm: assinAtual.periodo_fim })
+      }
+
+      // ── 1ª contratação de plano pago (vindo de trial/gratuito/nenhum): imediata ──
       // cancela assinatura anterior, se houver — e remove as cobranças ainda
       // não pagas dela (o Asaas não apaga automaticamente ao cancelar)
-      const { data: assinAtual } = await supabase.from('empresa_assinaturas')
-        .select('asaas_subscription_id, ja_usou_trial').eq('empresa_id', empresaId).maybeSingle()
       if (assinAtual?.asaas_subscription_id) {
         const subAntiga = assinAtual.asaas_subscription_id
         try {
@@ -102,7 +127,6 @@ export async function billingRoutes(app: FastifyInstance) {
           .eq('asaas_subscription_id', subAntiga).is('pago_em', null)
       }
 
-      const cycle: Cycle = plano.ciclo === 'anual' ? 'YEARLY' : 'MONTHLY'
       const assinatura = await asaasCriarAssinatura({
         customer,
         billingType: tipoCobranca,

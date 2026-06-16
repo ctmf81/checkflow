@@ -88,6 +88,23 @@ export function asaasCancelarAssinatura(subscriptionId: string) {
   return asaasFetch<{ deleted: boolean; id: string }>(`/subscriptions/${subscriptionId}`, 'DELETE')
 }
 
+/**
+ * Atualiza uma assinatura recorrente. Com `updatePendingPayments: false`
+ * (padrão), o novo valor/ciclo só vale a partir da PRÓXIMA cobrança — a
+ * cobrança do período atual permanece. Usado na troca de plano agendada.
+ */
+export function asaasAtualizarAssinatura(subscriptionId: string, input: {
+  value?: number
+  cycle?: Cycle
+  billingType?: BillingType
+  updatePendingPayments?: boolean
+}) {
+  return asaasFetch<AsaasSubscription>(`/subscriptions/${subscriptionId}`, 'PUT', {
+    updatePendingPayments: false,
+    ...input,
+  })
+}
+
 /** Cobrança avulsa (ex: compra de pacote). dueDate YYYY-MM-DD. */
 export function asaasCriarCobranca(input: {
   customer: string

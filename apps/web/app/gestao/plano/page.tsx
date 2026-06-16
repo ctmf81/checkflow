@@ -19,6 +19,7 @@ interface RecursoUso { usado: number; limite: number | null; extra: number }
 interface Status {
   plano_nome: string; plano_tipo: string; status: string; valor: number; ciclo: string | null
   periodo_inicio: string; periodo_fim: string; trial_fim: string | null
+  proximo_plano_id: string | null; troca_efetiva_em: string | null
   execucoes: RecursoUso; tokens_ia: RecursoUso; armazenamento: RecursoUso
 }
 interface Plano {
@@ -111,13 +112,13 @@ export default function PlanoPage() {
   async function assinar(plano: Plano) {
     if (!empresaAtiva?.id) return
 
-    const temAssinaturaPaga = !!assinaturaAtual?.plano_id && assinaturaAtual.status === 'ativo'
+    const trocaEntrePagos = status?.plano_tipo === 'pago' && status.status === 'ativo'
     const ok = await confirm({
-      titulo: temAssinaturaPaga ? `Trocar para o plano "${plano.nome}"?` : `Assinar o plano "${plano.nome}"?`,
-      mensagem: temAssinaturaPaga
-        ? `Será gerada uma nova cobrança de ${moeda(plano.valor)}/${plano.ciclo === 'anual' ? 'ano' : 'mês'} e a assinatura atual (com suas cobranças em aberto) será cancelada.`
+      titulo: trocaEntrePagos ? `Trocar para o plano "${plano.nome}"?` : `Assinar o plano "${plano.nome}"?`,
+      mensagem: trocaEntrePagos
+        ? `A troca passa a valer no fim do período atual (${dataBR(status?.periodo_fim ?? null)}). Até lá seu plano atual continua; a próxima cobrança virá em ${moeda(plano.valor)}/${plano.ciclo === 'anual' ? 'ano' : 'mês'}.`
         : `Será gerada uma cobrança recorrente de ${moeda(plano.valor)}/${plano.ciclo === 'anual' ? 'ano' : 'mês'} no Asaas. Você concluirá o pagamento na fatura.`,
-      confirmarLabel: temAssinaturaPaga ? 'Trocar plano' : 'Assinar',
+      confirmarLabel: trocaEntrePagos ? 'Agendar troca' : 'Assinar',
     })
     if (!ok) return
 
@@ -131,8 +132,12 @@ export default function PlanoPage() {
       })
       const json = await res.json().catch(() => null)
       if (!res.ok) { toast.error(json?.error ?? 'Falha ao assinar.'); return }
-      if (json?.invoiceUrl) window.open(json.invoiceUrl, '_blank', 'noopener')
-      toast.success('Assinatura criada. Abra a fatura para concluir o pagamento.')
+      if (json?.agendado) {
+        toast.success(`Troca agendada para ${dataBR(json.efetivaEm)}. O plano novo passa a valer no fim do período atual.`)
+      } else {
+        if (json?.invoiceUrl) window.open(json.invoiceUrl, '_blank', 'noopener')
+        toast.success('Assinatura criada. Abra a fatura para concluir o pagamento.')
+      }
       carregar()
     } catch {
       toast.error('Erro de conexão com o serviço de pagamento.')
@@ -209,6 +214,15 @@ export default function PlanoPage() {
         <div className="rounded-xl border border-dashed border-gray-200 p-5 text-center mb-6">
           <Package size={28} className="text-gray-300 mx-auto mb-2" />
           <p className="text-sm text-gray-500">Sua empresa ainda não tem um plano ativo.</p>
+        </div>
+      )}
+
+      {/* Troca de plano agendada */}
+      {status?.proximo_plano_id && status.troca_efetiva_em && (
+        <div className="mb-5 text-sm bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-4 py-2.5">
+          Troca de plano agendada para <b>{dataBR(status.troca_efetiva_em)}</b>
+          {(() => { const p = planos.find(pl => pl.id === status.proximo_plano_id); return p ? <> → <b>{p.nome}</b></> : null })()}
+          . Até lá, seu plano atual continua valendo.
         </div>
       )}
 
