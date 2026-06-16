@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
+import { PrimeirosPassos } from '@/components/onboarding/PrimeirosPassos'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -249,6 +250,8 @@ export default function GestaoHomePage() {
     <div className="max-w-4xl mx-auto space-y-6 pb-10">
 
       <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
+
+      <PrimeirosPassos />
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
