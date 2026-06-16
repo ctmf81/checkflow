@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, Suspense } from 'react'
-import { Plus, Search, FileCheck, MoreVertical, AlertCircle, CheckCircle2, Clock, Eye, ChevronLeft, Copy, EyeOff, Loader2, ChevronDown } from 'lucide-react'
+import { Plus, Search, FileCheck, MoreVertical, AlertCircle, CheckCircle2, Clock, Eye, ChevronLeft, Copy, EyeOff, Loader2, ChevronDown, LayoutGrid } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
@@ -168,9 +168,14 @@ function ChecklistsContent() {
             </p>
           </div>
         </div>
-        <Link href={filtroSubgrupoId ? `/gestao/checklists/novo/montar?subgrupo=${filtroSubgrupoId}` : '/gestao/checklists/novo'}>
-          <Button><Plus size={16} />Novo checklist</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/gestao/checklists/modelos">
+            <Button variant="outline"><LayoutGrid size={16} />Usar um modelo</Button>
+          </Link>
+          <Link href={filtroSubgrupoId ? `/gestao/checklists/novo/montar?subgrupo=${filtroSubgrupoId}` : '/gestao/checklists/novo'}>
+            <Button><Plus size={16} />Novo checklist</Button>
+          </Link>
+        </div>
       </div>
 
       {/* Filtros */}
