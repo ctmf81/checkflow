@@ -27,7 +27,7 @@ Next logical step: [one-sentence inference, only if obvious]
 
 ## ⏳ RETOMAR AQUI — Billing Fase 3 (Asaas): código 100% pronto, falta ATIVAR
 Backend + UI commitados. Tela self-service em `/gestao/plano` (`app/gestao/plano/page.tsx`, item "Plano" na sidebar). **Falta só ativar o ambiente:**
-1. ⏳ Rodar migration `20260615180000_billing_asaas.sql` no Supabase
+1. ✅ Migration `20260615180000_billing_asaas.sql` aplicada (2026-06-15)
 2. ⏳ Env no serviço **API** (Railway): `ASAAS_API_KEY` (sandbox `$aact_hmlg_...`), `ASAAS_ENV=sandbox`, `ASAAS_WEBHOOK_TOKEN` (segredo gerado)
 3. ⏳ Webhook no painel Asaas → `POST https://<api>/billing/webhook/asaas`, token = `ASAAS_WEBHOOK_TOKEN`, eventos PAYMENT_CREATED/CONFIRMED/RECEIVED/OVERDUE
 4. ✅ UI self-service (task 22) — feita: ver plano/uso, assinar (`/billing/assinar`), comprar pacote (`/billing/comprar-pacote` → invoiceUrl), cobranças recentes. Gate por Admin da empresa na própria página

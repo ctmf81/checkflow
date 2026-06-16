@@ -136,7 +136,7 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 | `billing_pode_executar` / `billing_pode_consumir_ia` / `billing_armazenamento_disponivel(empresa,bytes)` | Booleans de enforcement. Sem assinatura → não bloqueia; limite null → ilimitado |
 | `billing_status(empresa)` → jsonb | Leitura consolidada (plano, período, uso×limite×extra dos 3 recursos). Valida permissão (admin_sistema ou Admin da empresa) |
 
-### Billing — Fase 3: Asaas (migration 20260615180000, ⏳ aplicar)
+### Billing — Fase 3: Asaas (migration 20260615180000, ✅ aplicada)
 | Objeto | Descrição |
 |--------|-----------|
 | `empresa_cobrancas` | Espelho local das cobranças Asaas. `tipo (assinatura/pacote)`, `asaas_payment_id` (unique), `asaas_subscription_id`, `pacote_id`, `valor`, `billing_type`, `status` (espelha Asaas: PENDING/CONFIRMED/RECEIVED/OVERDUE…), `vencimento`, `pago_em`, `invoice_url`, `meta jsonb` (p/ pacote: tipo_recurso/quantidade/creditado). RLS: leitura admin_sistema ou Admin da empresa |
