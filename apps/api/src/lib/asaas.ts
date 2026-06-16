@@ -13,8 +13,8 @@ function apiKey(): string {
   // Chave por ambiente (ASAAS_API_KEY_PROD / ASAAS_API_KEY_SANDBOX), com
   // fallback para ASAAS_API_KEY (esquema antigo de chave única).
   const k = IS_PROD
-    ? (process.env.ASAAS_API_KEY_PROD ?? process.env.ASAAS_API_KEY)
-    : (process.env.ASAAS_API_KEY_SANDBOX ?? process.env.ASAAS_API_KEY)
+    ? (process.env.ASAAS_API_KEY_PROD || process.env.ASAAS_API_KEY)
+    : (process.env.ASAAS_API_KEY_SANDBOX || process.env.ASAAS_API_KEY)
   if (!k) {
     throw new Error(IS_PROD
       ? 'ASAAS_API_KEY_PROD não configurada'
