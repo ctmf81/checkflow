@@ -31,8 +31,9 @@ Backend + UI commitados. Tela self-service em `/gestao/plano` (`app/gestao/plano
 2. ⏳ Env no serviço **API** (Railway): `ASAAS_API_KEY` (sandbox `$aact_hmlg_...`), `ASAAS_ENV=sandbox`, `ASAAS_WEBHOOK_TOKEN` (segredo gerado)
 3. ⏳ Webhook no painel Asaas → `POST https://<api>/billing/webhook/asaas`, token = `ASAAS_WEBHOOK_TOKEN`, eventos PAYMENT_CREATED/CONFIRMED/RECEIVED/OVERDUE
 4. ✅ UI self-service (task 22) — feita: ver plano/uso, assinar (`/billing/assinar`), comprar pacote (`/billing/comprar-pacote` → invoiceUrl), cobranças recentes. Gate por Admin da empresa na própria página
-5. ⏳ Testar e2e no sandbox (assinar → webhook PAYMENT_CONFIRMED → status ativo; comprar pacote → pago → crédito do extra)
-6. ⏳ Fase 4: split parceiro via subconta Asaas (`asaas_wallet_id`, criação automática, split nas cobranças)
+5. ⏳ **RETOMAR: testar e2e no sandbox** — sandbox 100% configurado (chaves, webhook, migration aplicada). Fluxo de assinar já abre a fatura e limpa cobranças duplicadas na troca; UI marca "Plano atual" + confirma antes de assinar. Falta: limpar as 2 cobranças de teste órfãs no painel Asaas, fazer 1 Assinar limpo → pagar no sandbox → conferir webhook vira CONFIRMED + assinatura ativa; depois comprar pacote → conferir crédito "(+N extra)"
+6. ⏳ Fase 4: split parceiro via subconta Asaas (`asaas_wallet_id`, criação automática, split nas cobranças). Decidir: walletId manual (recomendado) vs subconta automática
+Último commit: 8e0d485 (usabilidade da tela de plano). Empresa precisa de CNPJ válido pra criar cliente Asaas.
 Obs: item "Plano" na sidebar aparece p/ todos, mas a página restringe a Admin da empresa (sidebar não tem filtro por permissão). Decisões em `/biz` e [[billing-model]]. Pro-rata no upgrade ainda a confirmar.
 
 ## Pendências (atualizado 2026-06-12)
