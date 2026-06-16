@@ -36,6 +36,10 @@ interface Atividade {
 
 interface Props {
   checklistId: string | null
+  /** Modo curadoria de modelo (template): sem unidade/grupo, com segmentos */
+  modoTemplate?: boolean
+  /** Base de rota para voltar/redirecionar (default: gestão) */
+  baseRoute?: string
 }
 
 const TIPO_LABELS: Record<string, string> = {
@@ -68,7 +72,7 @@ function TipoIcon({ tipo, size = 'md' }: { tipo: string; size?: 'sm' | 'md' | 'l
   )
 }
 
-export default function ChecklistMontador({ checklistId }: Props) {
+export default function ChecklistMontador({ checklistId, modoTemplate = false, baseRoute = '/gestao/checklists' }: Props) {
   const router = useRouter()
   const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
   const toast = useToast()
@@ -77,6 +81,7 @@ export default function ChecklistMontador({ checklistId }: Props) {
   // Dados do checklist
   const [nome, setNome] = useState('')
   const [descricao, setDescricao] = useState('')
+  const [segmentos, setSegmentos] = useState<string[]>([])
   const [grupoId, setGrupoId] = useState('')
   const [subgrupoId, setSubgrupoId] = useState('')
   const [grupos, setGrupos] = useState<{ id: string; nome: string }[]>([])
@@ -119,13 +124,18 @@ export default function ChecklistMontador({ checklistId }: Props) {
 
   // Carrega grupos da unidade
   useEffect(() => {
+    if (modoTemplate) {
+      // Curadoria de modelo: não depende de unidade/grupos
+      if (checklistId) carregarChecklist(checklistId)
+      return
+    }
     if (!unidadeAtiva?.id) return
     createClient().from('grupos')
       .select('id, nome').eq('unidade_id', unidadeAtiva.id).eq('status', 'ativo').order('nome')
       .then(({ data }) => { if (data) setGrupos(data) })
 
     if (checklistId) carregarChecklist(checklistId)
-  }, [unidadeAtiva?.id, checklistId])
+  }, [unidadeAtiva?.id, checklistId, modoTemplate])
 
   // Novo checklist criado pela área: pré-seleciona grupo/subgrupo do caminho.
   // Deriva o grupo a partir do subgrupo informado em ?subgrupo=.
@@ -174,6 +184,7 @@ export default function ChecklistMontador({ checklistId }: Props) {
     if (clErr || !cl) return
     setNome(cl.nome)
     setDescricao(cl.descricao ?? '')
+    setSegmentos(cl.template_segmentos ?? [])
     setTempoGuarda(cl.tempo_guarda_meses ?? 1)
     setPermiteContinuar(cl.permite_continuar_depois ?? true)
     setStatus(cl.status)
@@ -220,7 +231,8 @@ export default function ChecklistMontador({ checklistId }: Props) {
   }
 
   async function salvar() {
-    if (!nome.trim() || !unidadeAtiva?.id) return
+    if (!nome.trim()) return
+    if (!modoTemplate && !unidadeAtiva?.id) return
     if (bloqueado) return // publicado em modo somente-leitura
     setSalvando(true)
     const supabase = createClient()
@@ -229,20 +241,25 @@ export default function ChecklistMontador({ checklistId }: Props) {
     let checkId = id
     if (id) {
       await supabase.from('checklists').update({
-        nome, descricao: descricao || null, subgrupo_id: subgrupoId || null,
+        nome, descricao: descricao || null,
+        subgrupo_id: modoTemplate ? null : (subgrupoId || null),
+        ...(modoTemplate ? { template_segmentos: segmentos } : {}),
         tempo_guarda_meses: tempoGuarda, permite_continuar_depois: permiteContinuar,
         atualizado_em: new Date().toISOString()
       }).eq('id', id)
     } else {
       const { data } = await supabase.from('checklists').insert({
-        nome, descricao: descricao || null, subgrupo_id: subgrupoId || null,
+        nome, descricao: descricao || null,
+        subgrupo_id: modoTemplate ? null : (subgrupoId || null),
         tempo_guarda_meses: tempoGuarda, permite_continuar_depois: permiteContinuar,
-        unidade_id: unidadeAtiva.id, criado_por: user?.id, status: 'rascunho'
+        unidade_id: modoTemplate ? null : unidadeAtiva!.id,
+        is_template: modoTemplate, template_segmentos: modoTemplate ? segmentos : [],
+        criado_por: user?.id, status: 'rascunho'
       }).select('id').single()
       if (data) {
         checkId = data.id
         setId(data.id)
-        router.replace(`/gestao/checklists/${data.id}/montar`)
+        router.replace(`${baseRoute}/${data.id}/montar`)
       }
     }
 
@@ -375,12 +392,12 @@ export default function ChecklistMontador({ checklistId }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <button onClick={() => router.push('/gestao/checklists')}
+          <button onClick={() => router.push(baseRoute)}
             className="text-gray-400 hover:text-orange-500 transition-colors">
             <ChevronLeft size={20} />
           </button>
           <div>
-            <h1 className="text-xl font-semibold text-gray-800">{id ? 'Editar checklist' : 'Novo checklist'}</h1>
+            <h1 className="text-xl font-semibold text-gray-800">{id ? (modoTemplate ? 'Editar modelo' : 'Editar checklist') : (modoTemplate ? 'Novo modelo' : 'Novo checklist')}</h1>
             <p className="text-xs text-gray-400">{totalAtividades} atividades · {status === 'publicado' ? '✅ Publicado' : '📝 Rascunho'}</p>
           </div>
         </div>
@@ -410,25 +427,37 @@ export default function ChecklistMontador({ checklistId }: Props) {
           <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Inspeção diária da linha A"
             className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        {modoTemplate ? (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{grupoLabel}</label>
-            <select value={grupoId} onChange={e => { setGrupoId(e.target.value); setSubgrupoId('') }}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
-              <option value="">Selecione</option>
-              {grupos.map(g => <option key={g.id} value={g.id}>{g.nome}</option>)}
-            </select>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Segmentos</label>
+            <p className="text-xs text-gray-400 mb-1">Separe por vírgula (ex: oficina, automotivo). Usados para filtrar o modelo na galeria.</p>
+            <input
+              value={segmentos.join(', ')}
+              onChange={e => setSegmentos(e.target.value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean))}
+              placeholder="oficina, automotivo"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{subgrupoLabel}</label>
-            <select value={subgrupoId} onChange={e => setSubgrupoId(e.target.value)}
-              disabled={!grupoId}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 disabled:opacity-50">
-              <option value="">Nenhum</option>
-              {subgrupos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-            </select>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{grupoLabel}</label>
+              <select value={grupoId} onChange={e => { setGrupoId(e.target.value); setSubgrupoId('') }}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
+                <option value="">Selecione</option>
+                {grupos.map(g => <option key={g.id} value={g.id}>{g.nome}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{subgrupoLabel}</label>
+              <select value={subgrupoId} onChange={e => setSubgrupoId(e.target.value)}
+                disabled={!grupoId}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 disabled:opacity-50">
+                <option value="">Nenhum</option>
+                {subgrupos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
+            </div>
           </div>
-        </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
           <input value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Opcional"

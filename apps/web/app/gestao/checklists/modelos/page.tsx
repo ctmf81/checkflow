@@ -39,7 +39,7 @@ export default function ModelosPage() {
     setLoading(true)
     const { data } = await createClient().from('checklists')
       .select('id, nome, descricao, template_segmentos, secoes:checklist_secoes(count), atividades:checklist_atividades(count)')
-      .eq('is_template', true).order('nome')
+      .eq('is_template', true).eq('status', 'publicado').order('nome')
     setTemplates((data ?? []).map((t: any) => ({
       id: t.id, nome: t.nome, descricao: t.descricao, template_segmentos: t.template_segmentos ?? [],
       nSecoes: t.secoes?.[0]?.count ?? 0, nAtividades: t.atividades?.[0]?.count ?? 0,

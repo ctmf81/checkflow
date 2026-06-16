@@ -369,6 +369,21 @@ export const ONBOARDING_REGISTRY: OnboardingPageConfig[] = [
     ],
   },
   {
+    pageId: 'sistema-templates',
+    titulo: 'Modelos de Checklist',
+    cards: [
+      {
+        icon: '🧩',
+        titulo: 'Modelos prontos por segmento',
+        texto: 'Crie checklists modelo (oficina, restaurante, fábrica…) que as empresas clonam com 1 clique na galeria. Marque os segmentos para o modelo aparecer no filtro certo.',
+        dicas: [
+          'Publique o modelo para ele aparecer na galeria das empresas',
+          'Editar um modelo não altera os checklists já criados a partir dele',
+        ],
+      },
+    ],
+  },
+  {
     pageId: 'sistema-parceiros',
     titulo: 'Programa de Parceiros',
     cards: [
