@@ -5,7 +5,7 @@ import { Package, Boxes, Loader2, Check, ExternalLink, ShieldAlert } from 'lucid
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Button } from '@/components/ui/Button'
-import { useToast } from '@/components/ui/feedback'
+import { useToast, useConfirm } from '@/components/ui/feedback'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 
@@ -57,9 +57,11 @@ function Barra({ label, uso }: { label: string; uso: RecursoUso }) {
 export default function PlanoPage() {
   const { empresaAtiva } = useSession()
   const toast = useToast()
+  const confirm = useConfirm()
   const [autorizado, setAutorizado] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState<Status | null>(null)
+  const [assinaturaAtual, setAssinaturaAtual] = useState<{ plano_id: string | null; status: string } | null>(null)
   const [planos, setPlanos] = useState<Plano[]>([])
   const [pacotes, setPacotes] = useState<Pacote[]>([])
   const [cobrancas, setCobrancas] = useState<Cobranca[]>([])
@@ -89,13 +91,15 @@ export default function PlanoPage() {
     if (!ok) { setLoading(false); return }
 
     const sb = createClient()
-    const [{ data: st }, { data: ps }, { data: pks }, { data: cbs }] = await Promise.all([
+    const [{ data: st }, { data: assin }, { data: ps }, { data: pks }, { data: cbs }] = await Promise.all([
       sb.rpc('billing_status', { p_empresa_id: empresaAtiva.id }),
+      sb.from('empresa_assinaturas').select('plano_id, status').eq('empresa_id', empresaAtiva.id).maybeSingle(),
       sb.from('planos').select('id, nome, descricao, tipo, valor, ciclo, limite_execucoes_mes, limite_armazenamento_bytes, limite_tokens_ia_mes').eq('ativo', true).eq('tipo', 'pago').order('ordem'),
       sb.from('pacotes_adicionais').select('id, nome, descricao, tipo, quantidade, valor').eq('ativo', true).order('ordem'),
       sb.from('empresa_cobrancas').select('id, tipo, descricao, valor, status, vencimento, invoice_url, criado_em').eq('empresa_id', empresaAtiva.id).order('criado_em', { ascending: false }).limit(10),
     ])
     setStatus((st as Status) ?? null)
+    setAssinaturaAtual((assin as any) ?? null)
     setPlanos((ps ?? []) as Plano[])
     setPacotes((pks ?? []) as Pacote[])
     setCobrancas((cbs ?? []) as Cobranca[])
@@ -106,6 +110,17 @@ export default function PlanoPage() {
 
   async function assinar(plano: Plano) {
     if (!empresaAtiva?.id) return
+
+    const temAssinaturaPaga = !!assinaturaAtual?.plano_id && assinaturaAtual.status === 'ativo'
+    const ok = await confirm({
+      titulo: temAssinaturaPaga ? `Trocar para o plano "${plano.nome}"?` : `Assinar o plano "${plano.nome}"?`,
+      mensagem: temAssinaturaPaga
+        ? `Será gerada uma nova cobrança de ${moeda(plano.valor)}/${plano.ciclo === 'anual' ? 'ano' : 'mês'} e a assinatura atual (com suas cobranças em aberto) será cancelada.`
+        : `Será gerada uma cobrança recorrente de ${moeda(plano.valor)}/${plano.ciclo === 'anual' ? 'ano' : 'mês'} no Asaas. Você concluirá o pagamento na fatura.`,
+      confirmarLabel: temAssinaturaPaga ? 'Trocar plano' : 'Assinar',
+    })
+    if (!ok) return
+
     setAcaoEmProgresso('plano-' + plano.id)
     const t = await token()
     try {
@@ -227,9 +242,15 @@ export default function PlanoPage() {
                   <li>Armazenamento: {p.limite_armazenamento_bytes == null ? 'Ilimitado' : `${+(p.limite_armazenamento_bytes / GB).toFixed(2)} GB`}</li>
                   <li>Tokens IA/mês: {p.limite_tokens_ia_mes == null ? 'Ilimitado' : p.limite_tokens_ia_mes.toLocaleString('pt-BR')}</li>
                 </ul>
-                <Button size="sm" className="w-full justify-center mt-3" onClick={() => assinar(p)} disabled={acaoEmProgresso === 'plano-' + p.id}>
-                  {acaoEmProgresso === 'plano-' + p.id ? <><Loader2 size={13} className="animate-spin" /> Processando…</> : <><Check size={14} /> Assinar</>}
-                </Button>
+                {assinaturaAtual?.plano_id === p.id && assinaturaAtual.status === 'ativo' ? (
+                  <Button size="sm" variant="outline" className="w-full justify-center mt-3" disabled>
+                    <Check size={14} /> Plano atual
+                  </Button>
+                ) : (
+                  <Button size="sm" className="w-full justify-center mt-3" onClick={() => assinar(p)} disabled={acaoEmProgresso === 'plano-' + p.id}>
+                    {acaoEmProgresso === 'plano-' + p.id ? <><Loader2 size={13} className="animate-spin" /> Processando…</> : assinaturaAtual?.plano_id && assinaturaAtual.status === 'ativo' ? <><Check size={14} /> Trocar para este</> : <><Check size={14} /> Assinar</>}
+                  </Button>
+                )}
               </div>
             ))}
           </div>
