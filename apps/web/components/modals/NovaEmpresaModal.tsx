@@ -108,6 +108,28 @@ export function NovaEmpresaModal({ onClose, onCriada }: Props) {
       atualizado_por: user?.id ?? null,
     })
 
+    // Atribui automaticamente o plano de teste (trial), se houver um ativo no catálogo
+    const { data: trial } = await supabase.from('planos')
+      .select('id, nome, valor, ciclo, dias_trial, limite_execucoes_mes, limite_armazenamento_bytes, limite_tokens_ia_mes')
+      .eq('tipo', 'trial').eq('ativo', true).order('ordem').limit(1).maybeSingle()
+    if (trial) {
+      const hoje = new Date()
+      const periodoFim = new Date(hoje); periodoFim.setMonth(periodoFim.getMonth() + 1)
+      const trialFim = new Date(hoje); trialFim.setDate(trialFim.getDate() + (trial.dias_trial ?? 30))
+      const ymd = (d: Date) => d.toISOString().slice(0, 10)
+      await supabase.from('empresa_assinaturas').insert({
+        empresa_id: novaEmpresa.id,
+        plano_id: trial.id, plano_nome: trial.nome, plano_tipo: 'trial',
+        valor: trial.valor, ciclo: trial.ciclo,
+        limite_execucoes_mes: trial.limite_execucoes_mes,
+        limite_armazenamento_bytes: trial.limite_armazenamento_bytes,
+        limite_tokens_ia_mes: trial.limite_tokens_ia_mes,
+        status: 'trial',
+        periodo_inicio: ymd(hoje), periodo_fim: ymd(periodoFim),
+        trial_fim: ymd(trialFim), ja_usou_trial: true,
+      })
+    }
+
     setSalvando(false)
     onCriada?.()
     onClose()
