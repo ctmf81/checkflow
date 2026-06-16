@@ -3,13 +3,23 @@
 // Sandbox: https://api-sandbox.asaas.com/v3 · Produção: https://api.asaas.com/v3
 // Autenticação via header `access_token`.
 
-const BASE_URL = process.env.ASAAS_ENV === 'production'
+const IS_PROD = process.env.ASAAS_ENV === 'production'
+
+const BASE_URL = IS_PROD
   ? 'https://api.asaas.com/v3'
   : 'https://api-sandbox.asaas.com/v3'
 
 function apiKey(): string {
-  const k = process.env.ASAAS_API_KEY
-  if (!k) throw new Error('ASAAS_API_KEY não configurada')
+  // Chave por ambiente (ASAAS_API_KEY_PROD / ASAAS_API_KEY_SANDBOX), com
+  // fallback para ASAAS_API_KEY (esquema antigo de chave única).
+  const k = IS_PROD
+    ? (process.env.ASAAS_API_KEY_PROD ?? process.env.ASAAS_API_KEY)
+    : (process.env.ASAAS_API_KEY_SANDBOX ?? process.env.ASAAS_API_KEY)
+  if (!k) {
+    throw new Error(IS_PROD
+      ? 'ASAAS_API_KEY_PROD não configurada'
+      : 'ASAAS_API_KEY_SANDBOX não configurada')
+  }
   return k
 }
 
