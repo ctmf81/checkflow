@@ -136,6 +136,11 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 | `billing_pode_executar` / `billing_pode_consumir_ia` / `billing_armazenamento_disponivel(empresa,bytes)` | Booleans de enforcement. Sem assinatura → não bloqueia; limite null → ilimitado |
 | `billing_status(empresa)` → jsonb | Leitura consolidada (plano, período, uso×limite×extra dos 3 recursos). Valida permissão (admin_sistema ou Admin da empresa) |
 
+### Templates de checklist (migration 20260616120000, ⏳ aplicar)
+- `checklists.is_template boolean` + `template_segmentos text[]` — modelo é um checklist sem `unidade_id`, curado por admin. Policies de leitura de `checklists`/`checklist_secoes`/`checklist_atividades`/`checklist_atividade_opcoes` liberam `is_template` pra qualquer autenticado (galeria pública).
+- RPC `clonar_template(p_template_id, p_unidade_id, p_nome)` → cópia profunda (seções/atividades/opções + remapeia `atividade_pai_id`) como rascunho na unidade; valida admin OU membro da unidade. Seed idempotente (oficina, restaurante).
+- Galeria: `/gestao/checklists/modelos`. Curadoria admin (`/sistema/templates`) ainda NÃO feita.
+
 ### Billing — Fase 3: Asaas (migration 20260615180000, ✅ aplicada)
 | Objeto | Descrição |
 |--------|-----------|
