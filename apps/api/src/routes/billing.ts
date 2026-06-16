@@ -3,6 +3,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import {
   asaasCriarCliente, asaasCriarAssinatura, asaasCriarCobranca, asaasCancelarAssinatura,
+  asaasPagamentosDaAssinatura,
   type BillingType, type Cycle,
 } from '../lib/asaas'
 
@@ -123,7 +124,30 @@ export async function billingRoutes(app: FastifyInstance) {
         atualizado_em: new Date().toISOString(),
       }, { onConflict: 'empresa_id' })
 
-      return reply.send({ ok: true, subscriptionId: assinatura.id })
+      // Busca a 1ª cobrança da assinatura para já devolver o link de pagamento
+      // e semear o registro local (o webhook depois atualiza o status).
+      let invoiceUrl: string | undefined
+      try {
+        const pagamentos = await asaasPagamentosDaAssinatura(assinatura.id)
+        const primeira = pagamentos.data?.[0]
+        if (primeira) {
+          invoiceUrl = primeira.invoiceUrl
+          await supabase.from('empresa_cobrancas').upsert({
+            empresa_id: empresaId,
+            tipo: 'assinatura',
+            asaas_payment_id: primeira.id,
+            asaas_subscription_id: assinatura.id,
+            descricao: `Plano ${plano.nome}`,
+            valor: primeira.value,
+            billing_type: primeira.billingType,
+            status: primeira.status,
+            vencimento: primeira.dueDate,
+            invoice_url: primeira.invoiceUrl,
+          }, { onConflict: 'asaas_payment_id' })
+        }
+      } catch { /* o webhook PAYMENT_CREATED registra a cobrança de qualquer forma */ }
+
+      return reply.send({ ok: true, subscriptionId: assinatura.id, invoiceUrl })
     } catch (e: any) {
       app.log.error(e)
       return reply.status(502).send({ error: e?.message ?? 'Falha ao criar assinatura no Asaas' })

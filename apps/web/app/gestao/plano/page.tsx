@@ -116,7 +116,8 @@ export default function PlanoPage() {
       })
       const json = await res.json().catch(() => null)
       if (!res.ok) { toast.error(json?.error ?? 'Falha ao assinar.'); return }
-      toast.success('Assinatura criada. A cobrança aparecerá abaixo em instantes.')
+      if (json?.invoiceUrl) window.open(json.invoiceUrl, '_blank', 'noopener')
+      toast.success('Assinatura criada. Abra a fatura para concluir o pagamento.')
       carregar()
     } catch {
       toast.error('Erro de conexão com o serviço de pagamento.')

@@ -105,3 +105,8 @@ export function asaasCriarCobranca(input: {
 export function asaasObterCobranca(paymentId: string) {
   return asaasFetch<AsaasPayment>(`/payments/${paymentId}`, 'GET')
 }
+
+/** Lista as cobranças geradas por uma assinatura (a 1ª já vem com invoiceUrl). */
+export function asaasPagamentosDaAssinatura(subscriptionId: string) {
+  return asaasFetch<{ data: AsaasPayment[] }>(`/subscriptions/${subscriptionId}/payments`, 'GET')
+}
