@@ -62,6 +62,20 @@ npx playwright install chromium
 
 ## Suites Existentes
 
+### Billing — Unit (`apps/api/src/lib/asaas.test.ts`, Vitest)
+9 testes do cliente Asaas: URL/chave por ambiente (sandbox/prod), fallback p/ `ASAAS_API_KEY`, erro quando sem chave, formato da requisição (POST/JSON), parsing de erro (`errors[].description` → `HTTP <status>`), passagem do `split`, DELETE. Rodar: `cd apps/api && npm test`. **9/9 ✅ (2026-06-15).**
+
+### Billing — Integração (`pentest/billing.mjs`, Node)
+19 testes das funções Postgres + gatilhos (service-role, fixtures temporários, cleanup em cascata):
+1. Enforcement de execuções (`billing_pode_executar`, trigger `billing_inc_execucao`, crédito `billing_creditar_execucoes`)
+2. Reset de período (`avancar_periodo_assinatura` — use ou perde)
+3. Tokens IA (trigger `billing_inc_tokens`, `billing_pode_consumir_ia`)
+4. Armazenamento (`billing_armazenamento_disponivel` — capacidade = limite + pacote permanente; uso real cai com entrada negativa da limpeza)
+5. Trial expirado → plano gratuito
+6. Idempotência do webhook (`asaas_webhook_eventos.event_id` único)
+Rodar: `export SUPABASE_URL=...; export SUPABASE_SERVICE_KEY=...; node pentest/billing.mjs`. **19/19 ✅ (2026-06-15).**
+Obs: `billing_status` tem guard de permissão (`auth.uid()`), por isso o harness testa as funções de enforcement direto + inspeção da linha. O fluxo HTTP do webhook (rota Fastify) não é coberto aqui — validar via teste e2e no sandbox Asaas.
+
 ### Pen Test (`pentest/run.mjs`)
 48 testes de segurança (RLS/multi-tenant, autenticado), seções 1-10, **48/48 ✅ em 2026-06-12**. Ver `/security` para detalhes.
 ⚠️ Achou e corrigiu (2026-06-07): bucket `execucoes` permitia `list()` por `anon` — ver migration `20260607110000`.
