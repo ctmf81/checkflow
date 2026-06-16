@@ -118,6 +118,7 @@ export async function billingRoutes(app: FastifyInstance) {
         trial_fim: null,
         ja_usou_trial: assinAtual?.ja_usou_trial ?? false,
         proximo_plano_id: null, troca_efetiva_em: null,
+        asaas_customer_id: customer,
         asaas_subscription_id: assinatura.id,
         atualizado_em: new Date().toISOString(),
       }, { onConflict: 'empresa_id' })
