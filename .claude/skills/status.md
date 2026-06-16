@@ -26,7 +26,7 @@ Next logical step: [one-sentence inference, only if obvious]
 ---
 
 ## ⏳ Galeria de templates de checklist (2026-06-16)
-- ✅ Migration `20260616120000_checklist_templates.sql` (⏳ APLICAR): `checklists.is_template`+`template_segmentos`, leitura pública de modelos, RPC `clonar_template`, seed oficina+restaurante
+- ✅ Migration `20260616120000_checklist_templates.sql` aplicada (2026-06-16): `checklists.is_template`+`template_segmentos`, leitura pública de modelos, RPC `clonar_template`, seed oficina+restaurante
 - ✅ Galeria `/gestao/checklists/modelos` (filtro por segmento, preview, "Usar"→clona pra unidade→abre montador). Botão "Usar um modelo" na lista de checklists
 - ⏳ **Curadoria admin (task 25, NÃO feita)**: tela `/sistema/templates` p/ admin criar/editar modelos reaproveitando o ChecklistMontador em "modo template" (sem unidade, com campo segmentos). Exige prop `modoTemplate` no montador (save com unidade_id null + is_template + segmentos; pular subgrupo/unidade). É a parte arriscada — fazer isolada. Por ora, modelos vêm do seed/SQL
 - ⏳ (opcional) teste de integração do `clonar_template` no estilo pentest/billing.mjs
