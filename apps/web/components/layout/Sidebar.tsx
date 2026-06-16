@@ -7,7 +7,7 @@ import { clsx } from 'clsx'
 import {
   Home, Users, CheckSquare, BarChart2, Settings,
   ChevronDown, ChevronUp, ClipboardList, Layers,
-  Network, UserCircle, GitBranch, Clock, Ticket, X
+  Network, UserCircle, GitBranch, Clock, Ticket, X, CreditCard
 } from 'lucide-react'
 import { useSession } from '@/contexts/SessionContext'
 import { useSidebar } from './SidebarContext'
@@ -55,6 +55,7 @@ const nav: NavItem[] = [
       { label: 'Usuários',  href: '/gestao/acessos/usuarios' },
     ],
   },
+  { label: 'Plano',        href: '/gestao/plano',          icon: CreditCard },
   {
     label: 'Configurações',
     icon: Settings,

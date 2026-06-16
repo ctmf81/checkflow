@@ -25,14 +25,15 @@ Next logical step: [one-sentence inference, only if obvious]
 
 ---
 
-## ⏳ RETOMAR AQUI — Billing Fase 3 (Asaas), pausado em 2026-06-15
-Backend pronto e commitado (migration 20260615180000, `lib/asaas.ts`, `routes/billing.ts`). **Falta ATIVAR e construir a UI:**
+## ⏳ RETOMAR AQUI — Billing Fase 3 (Asaas): código 100% pronto, falta ATIVAR
+Backend + UI commitados. Tela self-service em `/gestao/plano` (`app/gestao/plano/page.tsx`, item "Plano" na sidebar). **Falta só ativar o ambiente:**
 1. ⏳ Rodar migration `20260615180000_billing_asaas.sql` no Supabase
 2. ⏳ Env no serviço **API** (Railway): `ASAAS_API_KEY` (sandbox `$aact_hmlg_...`), `ASAAS_ENV=sandbox`, `ASAAS_WEBHOOK_TOKEN` (segredo gerado)
 3. ⏳ Webhook no painel Asaas → `POST https://<api>/billing/webhook/asaas`, token = `ASAAS_WEBHOOK_TOKEN`, eventos PAYMENT_CREATED/CONFIRMED/RECEIVED/OVERDUE
-4. ⏳ **Task 22 — UI self-service** (NÃO construída): tela na gestão p/ Admin da empresa ver plano/uso (`billing_status`), assinar plano pago (`POST /billing/assinar`), comprar pacote (`POST /billing/comprar-pacote` → redirect `invoiceUrl`), listar `empresa_cobrancas`. Precisa: rota gestão + item no menu gated p/ Admin da empresa + registry/onboarding. Chamadas à API com Bearer token do usuário (`NEXT_PUBLIC_API_URL`)
-5. ⏳ Depois: Fase 4 (split parceiro via subconta Asaas — `asaas_wallet_id`, criação automática, split nas cobranças)
-Decisões em `/biz` e [[billing-model]]. Pro-rata no upgrade ainda a confirmar.
+4. ✅ UI self-service (task 22) — feita: ver plano/uso, assinar (`/billing/assinar`), comprar pacote (`/billing/comprar-pacote` → invoiceUrl), cobranças recentes. Gate por Admin da empresa na própria página
+5. ⏳ Testar e2e no sandbox (assinar → webhook PAYMENT_CONFIRMED → status ativo; comprar pacote → pago → crédito do extra)
+6. ⏳ Fase 4: split parceiro via subconta Asaas (`asaas_wallet_id`, criação automática, split nas cobranças)
+Obs: item "Plano" na sidebar aparece p/ todos, mas a página restringe a Admin da empresa (sidebar não tem filtro por permissão). Decisões em `/biz` e [[billing-model]]. Pro-rata no upgrade ainda a confirmar.
 
 ## Pendências (atualizado 2026-06-12)
 - ⏳ **Rotacionar chave da Evolution** (boa higiene — `checkflow_evo_key_2026` já passou pelo git): trocar `AUTHENTICATION_API_KEY` (serviço Evolution) + `EVOLUTION_API_KEY` (serviço API) pelo MESMO valor novo, quase simultâneo. WhatsApp/sessão Baileys NÃO cai (auth key ≠ sessão). Validar depois com `POST /whatsapp/status` body `{}` → `conectado:true`

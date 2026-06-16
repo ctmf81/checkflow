@@ -47,6 +47,22 @@ export const ONBOARDING_REGISTRY: OnboardingPageConfig[] = [
     ],
   },
   {
+    pageId: 'gestao-plano',
+    titulo: 'Plano & Assinatura',
+    cards: [
+      {
+        icon: '💳',
+        titulo: 'Seu plano e uso',
+        texto: 'Acompanhe o consumo do período (execuções, tokens de IA e armazenamento), troque de plano e compre pacotes adicionais quando precisar de mais.',
+        dicas: [
+          'Execuções e tokens resetam a cada período mensal (não acumulam)',
+          'Pacotes são liberados após a confirmação do pagamento',
+          'Só o administrador da empresa vê esta tela',
+        ],
+      },
+    ],
+  },
+  {
     pageId: 'acessos-empresa',
     titulo: 'Dados da Empresa',
     cards: [
