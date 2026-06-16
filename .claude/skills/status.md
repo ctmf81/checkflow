@@ -28,7 +28,7 @@ Next logical step: [one-sentence inference, only if obvious]
 ## ⏳ Galeria de templates de checklist (2026-06-16)
 - ✅ Migration `20260616120000_checklist_templates.sql` aplicada (2026-06-16): `checklists.is_template`+`template_segmentos`, leitura pública de modelos, RPC `clonar_template`, seed oficina+restaurante
 - ✅ Galeria `/gestao/checklists/modelos` (filtro por segmento, preview, "Usar"→clona pra unidade→abre montador). Botão "Usar um modelo" na lista de checklists
-- ⏳ **Curadoria admin (task 25, NÃO feita)**: tela `/sistema/templates` p/ admin criar/editar modelos reaproveitando o ChecklistMontador em "modo template" (sem unidade, com campo segmentos). Exige prop `modoTemplate` no montador (save com unidade_id null + is_template + segmentos; pular subgrupo/unidade). É a parte arriscada — fazer isolada. Por ora, modelos vêm do seed/SQL
+- ✅ **Curadoria admin (2026-06-16)**: `/sistema/templates` (lista+excluir) + montar via `ChecklistMontador` com `modoTemplate`+`baseRoute`. Item "Modelos" no menu sistema. Galeria mostra só modelos `publicado`. Galeria de templates COMPLETA ponta a ponta.
 - ⏳ (opcional) teste de integração do `clonar_template` no estilo pentest/billing.mjs
 
 ## ⏳ RETOMAR AQUI — Billing Fase 3 (Asaas): código 100% pronto, falta ATIVAR
