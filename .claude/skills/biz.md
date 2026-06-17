@@ -75,10 +75,14 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - Execuções são isoladas por `unidade_id` via RLS
 - Quando vem de workflow (`?wf_item=<id>`): insert com `status='em_andamento'` → linka `workflow_item_execucoes` → update para `'concluido'` → trigger avança o pipeline
 
+## Estrutura do Checklist
+- Um checklist tem **1 ou mais seções**; cada seção tem **1 ou mais atividades**.
+
 ## Atividades Dependentes
 - Uma atividade pode ter `atividade_pai_id` + `valor_gatilho`
 - Ela só aparece na execução quando a resposta do pai === `valor_gatilho`
-- Suporta múltipla escolha: `valor_gatilho` comparado com array de seleção
+- A atividade-**pai** só pode ser do tipo **sim/não** ou **múltipla escolha** (tipos que servem de gatilho); múltipla escolha compara `valor_gatilho` com o array de seleção
+- **Retomar execução pausada**: o operador NÃO usa URL — clica em **"Continuar"** na seção "Não finalizados" (topo da aba Checklists), que reabre restaurando as respostas (internamente via `?exec=`)
 
 ## Catálogo
 - Estrutura: `catalogos` (metadados) → `catalogo_valores` (itens)

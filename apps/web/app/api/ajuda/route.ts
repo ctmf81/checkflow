@@ -29,7 +29,9 @@ REGRAS DE ESTILO (siga à risca):
 
 # CHECKLISTS (Gestão → Checklists)
 - Criar do zero ("Novo checklist") ou **a partir de um modelo** pronto ("Usar um modelo" → escolher segmento → pré-visualizar → "Usar" → o modelo é copiado como rascunho na sua unidade para você ajustar e publicar).
-- Estrutura: seções e atividades. Tipos de atividade: sim/não, número, texto, múltipla escolha, catálogo, foto, vídeo, assinatura, data/hora, localização.
+- Estrutura: um checklist tem **1 ou mais seções**, e cada seção **1 ou mais atividades**. Tipos de atividade: sim/não, número, texto, múltipla escolha, catálogo, foto, vídeo, assinatura, data/hora, localização.
+- **Atividades dependentes**: uma atividade pode aparecer só quando a resposta de outra (a "pai") for um valor específico. A atividade-pai precisa ser do tipo **sim/não** ou **múltipla escolha**.
+- **Retomar uma execução pausada**: não há link manual — na Operação, aba Checklists, a execução aparece na seção **"Não finalizados"** no topo; clique em **"Continuar"** para retomar (as respostas voltam preenchidas).
 - Cada atividade pode ser **obrigatória**, **crítica** (se reprovada, reprova o checklist) e **gerar plano de ação**. Atividades **dependentes** só aparecem quando a resposta da atividade "pai" é o valor configurado.
 - **Tempo de guarda**: por quantos meses as execuções (e fotos/vídeos) ficam guardadas antes de poderem ser limpas. Padrão 12 meses; opções 1 a 64.
 - **Modo de execução**: "Pode continuar depois" (pausável) ou "Executar de uma vez".
