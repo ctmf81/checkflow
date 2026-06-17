@@ -21,7 +21,7 @@ interface ProvedorRow {
 }
 
 const META: Record<string, { nome: string; modeloPadrao: string; aceitaPdf: boolean; url: string; obs: string; custom?: boolean }> = {
-  gemini:    { nome: 'Google Gemini',    modeloPadrao: 'gemini-2.0-flash',               aceitaPdf: true,  url: 'https://aistudio.google.com/apikey', obs: 'PDF e imagem' },
+  gemini:    { nome: 'Google Gemini',    modeloPadrao: 'gemini-2.5-flash',               aceitaPdf: true,  url: 'https://aistudio.google.com/apikey', obs: 'PDF e imagem' },
   anthropic: { nome: 'Anthropic Claude', modeloPadrao: 'claude-3-5-haiku-20241022',      aceitaPdf: true,  url: 'https://console.anthropic.com',      obs: 'PDF e imagem' },
   openai:    { nome: 'OpenAI',           modeloPadrao: 'gpt-4o-mini',                    aceitaPdf: false, url: 'https://platform.openai.com/api-keys', obs: 'somente imagem' },
   groq:      { nome: 'Groq',             modeloPadrao: 'llama-3.2-90b-vision-preview',   aceitaPdf: false, url: 'https://console.groq.com/keys',       obs: 'somente imagem' },
