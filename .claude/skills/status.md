@@ -25,6 +25,15 @@ Next logical step: [one-sentence inference, only if obvious]
 
 ---
 
+## ▶️ RETOMAR NA PRÓXIMA SESSÃO (consolidado 2026-06-17)
+Tudo commitado/pushado na `main`. Nenhuma migration pendente. Frentes em aberto:
+1. **Revisão colaborativa tela a tela** (formato: eu explico enumerado 1,2,3… e o usuário complementa; gravo em `/biz` + no MANUAL de `apps/web/app/api/ajuda/route.ts`). **Já revisadas:** Operação e Execução do checklist. **Próxima:** Gestão → Checklists (listagem + montador). Usar a lista do `/uimap`.
+2. **Refinamento UI** — montador: mostrar/permitir remover o motivo padrão "Não disponível" com guard ≥1 por tipo (regra forte já garantida por trigger).
+3. **Billing — validar e2e no sandbox Asaas** (assinar→pagar→webhook CONFIRMED) — ação manual do usuário. Depois: **Fase 4 (split parceiro via subconta Asaas)**.
+4. **IA por plano** (flag `ia_habilitada`) e **UX quando tokens acabam** (hoje só bloqueia) — adiados.
+5. **Reserva de qualidade**: cadastrar chave **Claude** em 2º no failover (lê PDF; cobre Consulta Inteligente se Gemini cair). Gemini hoje em `gemini-2.5-flash` ✅.
+6. **Vídeos/conteúdo da Central de Ajuda**: posso escrever roteiros + artigos; (opcional) implementar upload de MP4 direto (Supabase Storage).
+
 ## Revisão colaborativa de telas (em andamento, 2026-06-17)
 - Operação e Execução revisadas com o usuário (gravado em /biz e no MANUAL do assistente): visibilidade por subgrupo, 3 abas, ticket avulso, sem offline, 1+ seções×atividades, dependente por sim/não ou múltipla escolha, retomar via "Não finalizados".
 - ✅ Implementado: plano de ação read-only na Operação (`/operacao/plano/[id]`) + PDF sob demanda.
