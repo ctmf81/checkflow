@@ -141,5 +141,44 @@ See `/db` skill for full table index by migration file.
 - **Verificar erro do Supabase** antes de dar feedback de sucesso (RLS falha em silêncio — retorna `data:[]`/`error`, não exceção).
 - **Responsivo**: telas da Gestão devem funcionar no mobile (a sidebar já colapsa em drawer; usar paddings `p-4 sm:p-6 lg:p-8`).
 
+## Adições 2026-06 (billing, templates, ajuda, IA)
+
+### Novas rotas
+| Rota | Arquivo | Propósito |
+|------|---------|-----------|
+| `/gestao/plano` | `gestao/plano/page.tsx` | Self-service do **admin da empresa**: plano & uso (via RPC `billing_status`), assinar/trocar plano, comprar pacote, cobranças. Banner de troca agendada |
+| `/gestao/checklists/modelos` | `gestao/checklists/modelos/page.tsx` | **Galeria de modelos** por segmento (preview + "Usar" → `clonar_template`) |
+| `/gestao/ajuda` | `gestao/ajuda/page.tsx` | Central de ajuda (visualizador por categoria, busca, vídeo embutido) |
+| `/operacao/plano/[id]` | `operacao/plano/[id]/page.tsx` | Visão **somente-leitura** do plano de ação (mantém o operador na Operação) |
+| `/sistema/planos` · `/sistema/pacotes` | `sistema/planos|pacotes/page.tsx` | CRUD do catálogo de planos e pacotes (admin) |
+| `/sistema/templates` (+ `novo/montar`, `[id]/montar`) | `sistema/templates/**` | Curadoria de modelos (reusa `ChecklistMontador` em `modoTemplate`) + **"Gerar com IA"** |
+| `/sistema/ajuda` | `sistema/ajuda/page.tsx` | CRUD dos artigos da central de ajuda |
+| `/sistema/empresas/[id]` aba **Plano** | `sistema/empresas/[id]/AssinaturaEmpresa.tsx` | Admin atribui/troca plano da empresa (snapshot) + barras de uso |
+
+⚠️ **Sistema agora tem menu lateral** (`sistema/layout.tsx` reescrito: `SistemaSidebar` + `SidebarProvider`, drawer mobile). O `ChecklistMontador` ganhou props `modoTemplate` + `baseRoute`.
+
+### Novos componentes
+| Arquivo | Propósito |
+|---------|-----------|
+| `components/onboarding/PrimeirosPassos.tsx` | Card "Primeiros passos" na Home (passos detectados do banco, dispensar via localStorage) |
+| `components/ajuda/AssistenteAjuda.tsx` | Chat flutuante do assistente de IA (gestão) |
+| `components/onboarding/Onboarding.tsx` | **Mudou**: só 1ª visita, sem ícone "?" persistente (usa o assistente de IA) |
+
+### Novas rotas de API (apps/web)
+| Rota | Propósito |
+|------|-----------|
+| `/api/ajuda` | Assistente de IA (failover `ia_provedores`, manual + artigos da central; não conta tokens do plano; loga falha em `ia_falhas`) |
+| `/api/templates/gerar` | Gera template de checklist com IA (admin) → rascunho |
+| `/api/execucoes/[id]/pdf` | Geração de PDF da execução **sob demanda** (chamada por botão) |
+
+### apps/api
+| Arquivo | Propósito |
+|---------|-----------|
+| `routes/billing.ts` | `/billing/assinar`, `/comprar-pacote`, `/webhook/asaas` (Asaas) |
+| `lib/asaas.ts` | Cliente Asaas (env por ambiente: `ASAAS_API_KEY_SANDBOX/PROD`, `ASAAS_ENV`) |
+
+### Diagnóstico de IA
+`pentest/test-ia.mjs` (testa provedores) · `pentest/billing-templates-rls.mjs` (RLS das telas novas).
+
 ## Evolution Rule
 When new pages or components are created, add them to the relevant table above.
