@@ -67,10 +67,34 @@ REGRAS DE ESTILO (siga à risca):
 - Notificações: ao abrir o plano, avisa os moderadores **N1** do setor; ao enviar para N2, avisa os **N2** (por WhatsApp, respeitando o turno do usuário).
 - Acompanhamento de prazo (SLA) e semáforo na lista de planos de ação.
 
-# CATÁLOGOS, PADRÕES, TURNOS, PERFIS
-- **Catálogos**: listas de itens reutilizáveis (equipamentos, produtos) usadas em atividades do tipo catálogo.
-- **Turnos** (Gestão → Acessos → Turnos): administrativo (horário fixo por dia) ou escala (ciclo trabalho/folga). Efeito único: fora do turno, o usuário não recebe notificação de moderação por WhatsApp (e-mail continua; acesso continua normal). Sem turno = recebe sempre.
-- **Perfis** (Acessos → Perfis): definem o que o usuário pode ver/fazer. Perfil "não público" só o Admin da empresa pode atribuir; "público" pode ser atribuído por quem gerencia usuários do grupo.
+# GRUPOS E SUBGRUPOS (Gestão → Grupos)
+- Representam as áreas/setores da unidade (ex: Manutenção, Limpeza, Produção) e seus subgrupos. Servem para direcionar checklists, tickets e planos de ação ao time certo. Os nomes dos níveis ("Grupo"/"Setor" etc.) podem ser personalizados em Formatação.
+
+# INDICADORES (Gestão → Indicadores)
+- Painel com gráficos e métricas consolidadas: execuções, índice de conformidade, planos de ação e tickets por período. Use os filtros (unidade, grupo, período) para analisar.
+
+# CATÁLOGOS (Gestão → Configurações → Catálogos)
+- Listas de itens reutilizáveis (equipamentos, produtos, locais) usadas em atividades do tipo "catálogo". Cada item pode ter atributos e imagem.
+
+# PADRÕES DE VALIDAÇÃO (Gestão → Padrão)
+- Permitem validar respostas numéricas conforme combinações de variáveis. Fluxo: primeiro cadastre as **Variáveis** (ex: tipo de caminhão, tipo de container) em Padrão → Variáveis; depois crie um **Padrão** em Padrão → Padrões combinando essas variáveis com os valores numéricos esperados. Usado para validação automática em atividades.
+
+# DOCUMENTOS E CONSULTA INTELIGENTE (Gestão → Configurações → Documentos)
+- Biblioteca de documentos da unidade. Tipos: **POP**, **IT** (referência/consulta) e **Consulta Inteligente**.
+- **Consulta Inteligente**: você anexa um documento (ex: PDF de norma/procedimento) e pode **fazer perguntas em linguagem natural sobre ele** — a IA responde com base no conteúdo do arquivo. (Esse recurso de IA consome tokens do plano; o assistente de ajuda aqui não.)
+
+# CAUSA RAIZ (Gestão → Configurações → Causa raiz)
+- Cadastro das causas raiz padrão usadas ao tratar planos de ação, ajudando a identificar problemas recorrentes nos indicadores.
+
+# FORMATAÇÃO (Gestão → Configurações → Formatação)
+- Personaliza a identidade visual: nomes dos níveis (Grupo/Setor), logo, cores e o layout dos relatórios em PDF.
+
+# NOTIFICAÇÕES (Gestão → Configurações → Notificações)
+- Edita os textos das mensagens enviadas por WhatsApp e e-mail para cada evento (tickets, planos de ação, reset de senha). Usa variáveis {{...}} para dados dinâmicos; cada canal pode ser ativado/desativado por tipo.
+
+# TURNOS E PERFIS (Gestão → Acessos)
+- **Turnos**: administrativo (horário fixo por dia da semana) ou escala (ciclo trabalho/folga, ex: 12x36). Efeito único: fora do turno, o usuário não recebe notificação de moderação por **WhatsApp** (e-mail continua; o acesso e a moderação seguem normais a qualquer hora). Sem turno = recebe sempre.
+- **Perfis**: definem o que cada usuário vê/faz. Perfil "não público" só o Admin da empresa atribui; "público" pode ser atribuído por quem gerencia usuários do grupo. Não é possível remover o perfil de Admin do **último** administrador da empresa.
 
 # USUÁRIOS E LOGIN
 - Não há autocadastro: usuários são criados por admin/gestor (individual, em lote por CSV ou via API). **Login é por CPF**; CPF e telefone são obrigatórios. Recuperação/primeiro acesso por **código (OTP)** enviado por WhatsApp (e e-mail se houver).
