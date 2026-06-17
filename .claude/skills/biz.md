@@ -179,6 +179,17 @@ aberto → em_tratamento (aceite) → aguardando_informacao ↔ em_tratamento
 | `cancelar` | Cancelar / marcar improcedente |
 | `categorias_gerir` | Gerenciar categorias de tickets |
 
+## Planos de Ação — moderação N1/N2
+- Aberto automaticamente quando uma execução tem atividade **não conforme** marcada para gerar plano. Nasce em `em_moderacao_n1`.
+- Funções do usuário no plano: `operacao` | `nivel_1` (N1) | `nivel_2` (N2). **admin = N2**. (N1/N2 são camadas de moderação, não pessoas fixas.)
+- Estados: `em_moderacao_n1` → `em_moderacao_n2` (se escalado) → `corrigido` | `nao_corrigido` (terminais).
+- Ações por papel/estado (`gestao/planos-acao/[id]/page.tsx` → `botoesDisponiveis`):
+  - `em_moderacao_n1` + (N1/N2/admin): `corrigido`, `nao_corrigido`, `enviado_n2` (escala)
+  - `em_moderacao_n2` + (N2/admin): `corrigido`, `nao_corrigido`, `devolvido_n1`
+  - terminal + N1: `reaberto` (→ `em_moderacao_n1`)
+- Cada movimentação exige **observação obrigatória** + evidências opcionais (fotos/vídeos em `plano_acao_movimentacao_evidencias`).
+- Notificações: abertura → N1 do subgrupo; `enviado_n2` → N2 do subgrupo (WhatsApp respeita turno). Ver tabela de destinatários abaixo.
+
 ## Templates de Notificação
 
 - Cada empresa tem **10 templates** padrão (5 tipos × 2 canais: whatsapp/email)
