@@ -87,9 +87,10 @@ REGRAS DE ESTILO (siga à risca):
 # PADRÕES DE VALIDAÇÃO (Gestão → Padrão)
 - Permitem validar respostas numéricas conforme combinações de variáveis. Fluxo: primeiro cadastre as **Variáveis** (ex: tipo de caminhão, tipo de container) em Padrão → Variáveis; depois crie um **Padrão** em Padrão → Padrões combinando essas variáveis com os valores numéricos esperados. Usado para validação automática em atividades.
 
-# DOCUMENTOS E CONSULTA INTELIGENTE (Gestão → Configurações → Documentos)
-- Biblioteca de documentos da unidade. Tipos: **POP**, **IT** (referência/consulta) e **Consulta Inteligente**.
-- **Consulta Inteligente**: você anexa um documento (ex: PDF de norma/procedimento) e pode **fazer perguntas em linguagem natural sobre ele** — a IA responde com base no conteúdo do arquivo. (Esse recurso de IA consome tokens do plano; o assistente de ajuda aqui não.)
+# DOCUMENTOS — suporte de conhecimento (cadastro em Gestão → Configurações → Documentos; uso na aba Documentos da Operação)
+- Servem como apoio à operação. Três tipos:
+  1. **POP (Procedimento Operacional Padrão)** e 2. **IT (Instrução de Trabalho)**: documentos de apoio organizados em **etapas**, cada etapa com **texto, imagens e vídeos**. O operador consulta na aba Documentos da Operação enquanto trabalha.
+  3. **Consulta Inteligente**: documento que o operador pode **perguntar em linguagem natural** — a IA responde com base no conteúdo do documento. É cadastrado em Gestão → Documentos como tipo "Consulta Inteligente"; o operador usa na Operação. ⚠️ **Depende de IA** — consome os **tokens de IA contratados no plano**; sem tokens disponíveis, não funciona. (O assistente de ajuda aqui NÃO consome esses tokens.)
 
 # CAUSA RAIZ (Gestão → Configurações → Causa raiz)
 - Cadastro das causas raiz padrão usadas ao tratar planos de ação, ajudando a identificar problemas recorrentes nos indicadores.

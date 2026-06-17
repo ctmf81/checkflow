@@ -60,6 +60,11 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - **Abrir Ticket** (FAB): chamado avulso para não conformidades **fora do roteiro** dos checklists (ex: máquina quebrou → ticket p/ Manutenção). Checklist = roteiro fixo; ticket = a qualquer momento.
 - **Não funciona offline** — requer conexão.
 
+## Documentos (suporte de conhecimento da Operação)
+- Cadastrados em **Gestão → Configurações → Documentos**; consultados na aba **Documentos** da Operação. Três tipos:
+  - **POP** (Procedimento Operacional Padrão) e **IT** (Instrução de Trabalho): organizados em **etapas**, cada uma com texto, imagens e vídeos de apoio (`documento_etapas`/`etapa_imagens`).
+  - **Consulta Inteligente**: documento sobre o qual o operador faz perguntas em linguagem natural; resposta por **IA** (rota `/api/documentos/consultar`). ⚠️ Consome os **tokens de IA do plano** (enforcement `billing_pode_consumir_ia`); só Gemini/Claude leem PDF.
+
 ## Execução de Checklist
 - Ao finalizar, salva em `checklist_execucoes` com `status = 'concluido'`
 - `resultado` = `'aprovado'` se todas as atividades conformes; `'reprovado'` se qualquer `calcularValidacao() === false`
