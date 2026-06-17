@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, LayoutGrid, Pencil, Trash2 } from 'lucide-react'
+import { Plus, LayoutGrid, Pencil, Trash2, Sparkles, Loader2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
 import { useToast, useConfirm } from '@/components/ui/feedback'
@@ -24,6 +24,7 @@ export default function SistemaTemplatesPage() {
   const confirm = useConfirm()
   const [rows, setRows] = useState<TemplateRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [gerarAberto, setGerarAberto] = useState(false)
 
   async function carregar() {
     setLoading(true)
@@ -61,7 +62,10 @@ export default function SistemaTemplatesPage() {
           <h1 className="text-xl font-bold text-gray-800">Modelos de checklist</h1>
           <p className="text-sm text-gray-500 mt-0.5">Modelos prontos por segmento que as empresas podem clonar na galeria.</p>
         </div>
-        <Button size="sm" onClick={() => router.push('/sistema/templates/novo/montar')}><Plus size={14} /> Novo modelo</Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setGerarAberto(true)}><Sparkles size={14} /> Gerar com IA</Button>
+          <Button size="sm" onClick={() => router.push('/sistema/templates/novo/montar')}><Plus size={14} /> Novo modelo</Button>
+        </div>
       </div>
 
       {loading ? (
@@ -96,6 +100,65 @@ export default function SistemaTemplatesPage() {
           ))}
         </div>
       )}
+
+      {gerarAberto && <GerarIAModal onClose={() => setGerarAberto(false)} onGerado={(id) => router.push(`/sistema/templates/${id}/montar`)} />}
     </>
+  )
+}
+
+function GerarIAModal({ onClose, onGerado }: { onClose: () => void; onGerado: (id: string) => void }) {
+  const toast = useToast()
+  const [descricao, setDescricao] = useState('')
+  const [segmentos, setSegmentos] = useState('')
+  const [gerando, setGerando] = useState(false)
+
+  async function gerar() {
+    if (!descricao.trim()) { toast.error('Descreva o checklist que deseja gerar.'); return }
+    setGerando(true)
+    const { data: { session } } = await createClient().auth.getSession()
+    try {
+      const res = await fetch('/api/templates/gerar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ descricao: descricao.trim(), segmentos: segmentos.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.id) { toast.error(json?.error ?? 'Falha ao gerar o modelo.'); setGerando(false); return }
+      toast.success('Modelo gerado! Revise e publique.')
+      onGerado(json.id)
+    } catch {
+      toast.error('Erro de conexão.'); setGerando(false)
+    }
+  }
+
+  const inputCls = 'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200'
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-800 inline-flex items-center gap-2"><Sparkles size={16} className="text-orange-500" /> Gerar modelo com IA</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600" disabled={gerando}><X size={18} /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">O que você precisa?</label>
+            <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={4} className={inputCls}
+              placeholder="Ex: Checklist de abertura de restaurante, com foco em higiene e segurança alimentar, conferindo temperatura de câmaras e uniforme da equipe." />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Segmentos (vírgula, opcional)</label>
+            <input value={segmentos} onChange={e => setSegmentos(e.target.value)} className={inputCls} placeholder="restaurante, food" />
+          </div>
+          <p className="text-xs text-gray-400">A IA gera um rascunho com seções e atividades. Você revisa e ajusta no montador antes de publicar.</p>
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">
+          <Button variant="outline" size="sm" onClick={onClose} disabled={gerando}>Cancelar</Button>
+          <Button size="sm" onClick={gerar} disabled={gerando}>
+            {gerando ? <><Loader2 size={13} className="animate-spin" /> Gerando…</> : <><Sparkles size={14} /> Gerar</>}
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }
