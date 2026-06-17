@@ -4,6 +4,7 @@ import { SessionProvider } from '@/contexts/SessionContext'
 import { SidebarProvider } from '@/components/layout/SidebarContext'
 import { EscolherEmpresaModal } from '@/components/layout/EscolherEmpresaModal'
 import { TermosGate } from '@/components/layout/TermosGate'
+import { AssistenteAjuda } from '@/components/ajuda/AssistenteAjuda'
 
 export default function GestaoLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -19,6 +20,7 @@ export default function GestaoLayout({ children }: { children: React.ReactNode }
               {children}
             </main>
           </div>
+          <AssistenteAjuda />
         </div>
       </SidebarProvider>
     </SessionProvider>
