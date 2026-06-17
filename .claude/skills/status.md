@@ -28,12 +28,12 @@ Next logical step: [one-sentence inference, only if obvious]
 ## Revisão colaborativa de telas (em andamento, 2026-06-17)
 - Operação e Execução revisadas com o usuário (gravado em /biz e no MANUAL do assistente): visibilidade por subgrupo, 3 abas, ticket avulso, sem offline, 1+ seções×atividades, dependente por sim/não ou múltipla escolha, retomar via "Não finalizados".
 - ✅ Implementado: plano de ação read-only na Operação (`/operacao/plano/[id]`) + PDF sob demanda.
-- ✅ **Motivo padrão "Não disponível"** (migration `20260617160000` ⏳ APLICAR): trigger associa ≥1 motivo de cada tipo a todo checklist novo + retroativo. ⏳ refinamento: exibir/remover o padrão no montador (guard ≥1 por tipo).
+- ✅ **Motivo padrão "Não disponível"** (migration `20260617160000` ✅ aplicada): trigger associa ≥1 motivo de cada tipo a todo checklist novo + retroativo. ⏳ refinamento: exibir/remover o padrão no montador (guard ≥1 por tipo).
 - ⏳ Próxima tela da revisão: Gestão → Checklists (listagem + montador).
 
 ## Pentest telas novas + fix catálogo (2026-06-17)
 - ✅ `pentest/billing-templates-rls.mjs` — 18/18, sem vazamento (billing/templates/ajuda/ia). Usuário comum/anon não leem sensível nem escrevem.
-- 🔴→✅ **Bug achado**: `planos`/`pacotes_adicionais` admin-only quebrava o self-service `/gestao/plano`. Fix: migration **`20260617140000_billing_catalogo_leitura.sql`** ⏳ **APLICAR** (leitura de ativos p/ autenticados; escrita segue admin).
+- 🔴→✅ **Bug achado e corrigido**: `planos`/`pacotes_adicionais` admin-only quebrava o self-service `/gestao/plano`. Fix: migration **`20260617140000`** ✅ aplicada (leitura de ativos p/ autenticados; escrita segue admin).
 
 ## IA: observabilidade e modelo (2026-06-17)
 - ✅ Migration `20260617120000_ia_falhas.sql` aplicada — tabela `ia_falhas` (admin-only) loga falhas do failover (contexto/provedor/modelo/erro). Gravada no catch de `/api/ajuda` e `/api/documentos/consultar`; painel "Últimas falhas" em `/sistema/integracoes-ia`.

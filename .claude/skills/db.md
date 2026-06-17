@@ -136,9 +136,9 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 | `billing_pode_executar` / `billing_pode_consumir_ia` / `billing_armazenamento_disponivel(empresa,bytes)` | Booleans de enforcement. Sem assinatura → não bloqueia; limite null → ilimitado |
 | `billing_status(empresa)` → jsonb | Leitura consolidada (plano, período, uso×limite×extra dos 3 recursos). Valida permissão (admin_sistema ou Admin da empresa) |
 
-### Migrations 2026-06-17 (⏳ verificar aplicação)
-- `20260617140000_billing_catalogo_leitura.sql` — leitura de `planos`/`pacotes_adicionais` **ativos** por autenticados (corrige self-service `/gestao/plano`; escrita segue admin). ⏳ aplicar.
-- `20260617160000_motivo_padrao_nao_execucao.sql` — motivo padrão "Não disponível" por unidade (grupo/subgrupo nulos), `motivo_padrao_unidade(unidade,tipo)`, trigger `checklist_seed_motivos_padrao` (AFTER INSERT em checklists, associa ≥1 de cada tipo a checklist novo não-template) + retroativo. ⏳ aplicar.
+### Migrations 2026-06-17 (✅ aplicadas)
+- `20260617140000_billing_catalogo_leitura.sql` — leitura de `planos`/`pacotes_adicionais` **ativos** por autenticados (corrige self-service `/gestao/plano`; escrita segue admin).
+- `20260617160000_motivo_padrao_nao_execucao.sql` — motivo padrão "Não disponível" por unidade (grupo/subgrupo nulos), `motivo_padrao_unidade(unidade,tipo)`, trigger `checklist_seed_motivos_padrao` (AFTER INSERT em checklists, associa ≥1 de cada tipo a checklist novo não-template) + retroativo.
 
 ### IA — log de falhas (migration 20260617120000, ✅ aplicada)
 - `ia_falhas` (admin-only RLS): `contexto` (ajuda|consulta), `provedor`, `modelo`, `erro`, `empresa_id`, `criado_em`. Gravada (fire-and-forget, service-role) no catch do failover em `/api/ajuda` e `/api/documentos/consultar`. Exibida em `/sistema/integracoes-ia` ("Últimas falhas").
