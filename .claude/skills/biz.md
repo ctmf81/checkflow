@@ -117,6 +117,7 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - Ativar/pausar e excluir agendamentos pela própria tela
 
 ## Motivo de Não Execução
+- **Motivo padrão "Não disponível" (✅ 20260617160000)**: todo checklist deve ter SEMPRE ≥1 motivo de **cada tipo** (checklist e atividade). Há um motivo padrão "Não disponível" **por unidade** (grupo/subgrupo nulos → vale p/ todos os grupos). Um **trigger** (`checklist_seed_motivos_padrao` em `checklists` AFTER INSERT) associa o padrão dos 2 tipos a todo checklist novo não-template (inclui clonados de template); migration também aplicou **retroativo** aos existentes sem motivo. Helper `motivo_padrao_unidade(unidade, tipo)`. ⏳ Refinamento de UI pendente: mostrar/permitir remover o padrão no montador (com guard "≥1 por tipo") — hoje o padrão fica associado mas não aparece no seletor (filtrado por grupo).
 - Configurado na criação do checklist (`checklist_nao_execucao_motivos`), tipado como `'checklist'` (todo o checklist) ou `'atividade'` (atividade obrigatória individual)
 - Atividade obrigatória com motivos do tipo `'atividade'` associados exibe link "Não consigo executar esta atividade" → seleciona motivo, marca como "Não executado" (conta como respondida), pode desfazer
 - Checklist com motivos do tipo `'checklist'` associados exibe link "Não foi possível executar este checklist" → modal com motivo + observação → cria `checklist_execucoes` direto com `status='nao_executado'`
