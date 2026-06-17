@@ -35,10 +35,18 @@ REGRAS DE ESTILO (siga à risca):
 - **Modo de execução**: "Pode continuar depois" (pausável) ou "Executar de uma vez".
 - Ciclo: **Rascunho** (editável, não aparece na Operação) → **Publicado** (aparece na Operação) → **Inativo** (some, sem apagar). Editar um checklist publicado exige clicar em "Liberar edição" e depois "Publicar" de novo (gera nova versão).
 
-# EXECUÇÃO (Operação)
-- O operador escolhe o checklist e responde as atividades. O resultado é **aprovado** (tudo conforme) ou **reprovado** (qualquer atividade não conforme). Ao concluir, gera um **PDF**.
-- Se o checklist permite, há "Continuar depois" (salva o progresso parcial; aparece em "Não finalizados" no topo, com "Continuar"). Não há descarte livre: para abandonar, usa-se "Não executar" e escolhe-se um **motivo** (cadastrado no checklist) — fica registrado como "não executado".
-- Execuções são isoladas por unidade.
+# OPERAÇÃO (/operacao) — tela principal de execução
+- Acesso: usuários com perfil de **Operação** (ou outro perfil que permita essa tela).
+- O operador vê **apenas os checklists publicados dos subgrupos aos quais está associado**. Essa associação usuário↔subgrupo é feita em **Gestão → Grupos** (ao adicionar o usuário ao subgrupo). A unidade ativa vem da sessão (a tela em si não tem seletor de unidade).
+- Ao tocar num checklist você está, na verdade, escolhendo um **modelo publicado**; o sistema cria uma **instância de execução** para você preencher.
+- A tela tem **3 abas**:
+  1. **Checklists** — lista por grupo/subgrupo, com seções no topo: **Não finalizados** (execuções em andamento do operador → Continuar ou Não executar com motivo), **Agendados pendentes**, e **Workflows em andamento** (mostra só os itens de workflow dos subgrupos do próprio usuário).
+  2. **Histórico** — todas as execuções que o usuário fez: abrir a execução, ver status, ver planos de ação abertos e baixar o **PDF** da execução.
+  3. **Documentos** — documentos da unidade/subgrupos (inclui a Consulta Inteligente).
+- **Abrir Ticket** (botão flutuante): abre um **chamado avulso** para uma área específica, para não conformidades **fora do roteiro** dos checklists. Diferente do checklist (que é um roteiro fixo), o ticket pode ser aberto a qualquer momento — ex: uma máquina quebrou e não há checklist para isso → abre um ticket para o grupo de Manutenção.
+- Resultado da execução: **aprovado** (tudo conforme) ou **reprovado** (qualquer atividade não conforme); ao concluir gera **PDF**. "Continuar depois" disponível se o checklist for pausável; para abandonar, "Não executar" com motivo (não há descarte livre, nem para admin).
+- Execuções isoladas por unidade. Ao iniciar uma execução nova, se a empresa atingiu o **limite de execuções do plano**, a ação é bloqueada.
+- **Não funciona offline** — requer conexão com a internet.
 
 # AGENDAMENTOS (Gestão → Agendamentos) — como agendar um checklist
 - É aqui que se **agenda a liberação automática e recorrente** de um checklist (ou workflow).

@@ -52,6 +52,14 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - **false (de uma vez)**: sem botão Voltar nem "Continuar depois" — o operador conclui em uma sessão
 - Execuções iniciadas e não finalizadas (em_andamento, do próprio operador, não-workflow) aparecem na seção vermelha "Não finalizados" no topo da aba Checklists da Operação, com "Continuar" (retoma via `?exec=`). **Não há descarte livre — nem para admin**: a única forma de abandonar é "Não executar" → escolher um motivo (`nao_execucao_motivos` tipo checklist vinculado ao checklist) → respostas são descartadas e a execução salva como `nao_executado` com `motivo_nao_execucao_id`/`_obs`. Se o checklist não tem motivos cadastrados, só resta finalizar
 
+## Operação — tela principal (`/operacao`)
+- Acesso restrito a usuários com **perfil de Operação** (ou perfil que permita a tela). Sem seletor de unidade na tela (unidade vem da sessão).
+- **Visibilidade**: o operador vê só os checklists publicados dos **subgrupos aos quais está associado** (`usuario_subgrupo`). Associação feita em **Gestão → Grupos** (UsuariosGrupoModal/AdicionarUsuarioModal nas telas de grupos/subgrupos).
+- Tocar num checklist = escolher um **modelo publicado** → cria uma **instância** de execução.
+- **3 abas**: (1) **Checklists** (lista por grupo/subgrupo + Não finalizados / Agendados / Workflows em andamento — workflows só dos subgrupos do usuário); (2) **Histórico** (execuções do usuário: status, planos abertos, PDF); (3) **Documentos** (docs da unidade/subgrupos + Consulta Inteligente).
+- **Abrir Ticket** (FAB): chamado avulso para não conformidades **fora do roteiro** dos checklists (ex: máquina quebrou → ticket p/ Manutenção). Checklist = roteiro fixo; ticket = a qualquer momento.
+- **Não funciona offline** — requer conexão.
+
 ## Execução de Checklist
 - Ao finalizar, salva em `checklist_execucoes` com `status = 'concluido'`
 - `resultado` = `'aprovado'` se todas as atividades conformes; `'reprovado'` se qualquer `calcularValidacao() === false`
