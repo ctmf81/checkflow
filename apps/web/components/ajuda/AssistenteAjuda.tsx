@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { MessageCircleQuestion, X, Send, Loader2, Sparkles } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { MessageCircleQuestion, X, Send, Loader2, Sparkles, BookOpen } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 type Msg = { role: 'user' | 'assistant'; content: string }
@@ -13,6 +14,7 @@ const SUGESTOES = [
 ]
 
 export function AssistenteAjuda() {
+  const router = useRouter()
   const [aberto, setAberto] = useState(false)
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [input, setInput] = useState('')
@@ -61,7 +63,13 @@ export function AssistenteAjuda() {
               <Sparkles size={16} className="text-orange-500" />
               <span className="font-semibold text-gray-800 text-sm">Assistente CheckFlow</span>
             </div>
-            <button onClick={() => setAberto(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => { setAberto(false); router.push('/gestao/ajuda') }}
+                className="text-gray-400 hover:text-orange-500 inline-flex items-center gap-1 text-xs" title="Central de ajuda">
+                <BookOpen size={15} />
+              </button>
+              <button onClick={() => setAberto(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
