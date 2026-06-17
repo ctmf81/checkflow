@@ -25,6 +25,10 @@ Next logical step: [one-sentence inference, only if obvious]
 
 ---
 
+## Pentest telas novas + fix catálogo (2026-06-17)
+- ✅ `pentest/billing-templates-rls.mjs` — 18/18, sem vazamento (billing/templates/ajuda/ia). Usuário comum/anon não leem sensível nem escrevem.
+- 🔴→✅ **Bug achado**: `planos`/`pacotes_adicionais` admin-only quebrava o self-service `/gestao/plano`. Fix: migration **`20260617140000_billing_catalogo_leitura.sql`** ⏳ **APLICAR** (leitura de ativos p/ autenticados; escrita segue admin).
+
 ## IA: observabilidade e modelo (2026-06-17)
 - ✅ Migration `20260617120000_ia_falhas.sql` aplicada — tabela `ia_falhas` (admin-only) loga falhas do failover (contexto/provedor/modelo/erro). Gravada no catch de `/api/ajuda` e `/api/documentos/consultar`; painel "Últimas falhas" em `/sistema/integracoes-ia`.
 - ✅ Modelo Gemini padrão atualizado p/ `gemini-2.5-flash` (2.0-flash desativado) nas rotas + placeholder. Usuário trocou o modelo no banco e Gemini voltou a ✅ (test-ia.mjs).
