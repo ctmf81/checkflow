@@ -25,6 +25,9 @@ Next logical step: [one-sentence inference, only if obvious]
 
 ---
 
+## Facilitadores low-touch (2026-06-16)
+- ✅ #1 Galeria de templates (ver abaixo) · ✅ #2 "Primeiros passos" (`components/onboarding/PrimeirosPassos.tsx` na Home) · ✅ #3 Assistente de ajuda IA (`/api/ajuda` + `components/ajuda/AssistenteAjuda.tsx`, failover ia_provedores, manual no system prompt, NÃO conta no limite de tokens; botão flutuante bottom-20 right-5 na gestão) · ⏳ #4 Central de ajuda/vídeos (conteúdo)
+
 ## ⏳ Galeria de templates de checklist (2026-06-16)
 - ✅ Migration `20260616120000_checklist_templates.sql` aplicada (2026-06-16): `checklists.is_template`+`template_segmentos`, leitura pública de modelos, RPC `clonar_template`, seed oficina+restaurante
 - ✅ Galeria `/gestao/checklists/modelos` (filtro por segmento, preview, "Usar"→clona pra unidade→abre montador). Botão "Usar um modelo" na lista de checklists
