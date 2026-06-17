@@ -25,6 +25,12 @@ Next logical step: [one-sentence inference, only if obvious]
 
 ---
 
+## 🔴 IA: provedores (diagnóstico 2026-06-17 via `node pentest/test-ia.mjs`)
+- **Gemini** (1º): ❌ HTTP 429 cota 0 (free tier zerado) — habilitar billing na chave do Google AI Studio.
+- **Anthropic/OpenAI**: sem chave cadastrada.
+- **Groq** llama-3.1-8b (4º): ✅ único funcionando → é ele (modelo pequeno) que está servindo o assistente, daí respostas fracas.
+- ⚠️ **Impacto**: Consulta Inteligente com **PDF** está quebrada (só Gemini/Claude leem PDF; Gemini sem cota, sem Claude). AÇÃO: reativar cota do Gemini **ou** adicionar chave Claude/OpenAI e pôr em 1º. Resolve assistente + Consulta de uma vez.
+
 ## Facilitadores low-touch (2026-06-16)
 - ✅ #1 Galeria de templates (ver abaixo) · ✅ #2 "Primeiros passos" (`components/onboarding/PrimeirosPassos.tsx` na Home) · ✅ #3 Assistente de ajuda IA (`/api/ajuda` + `components/ajuda/AssistenteAjuda.tsx`, failover ia_provedores, manual no system prompt, NÃO conta no limite de tokens; botão flutuante bottom-20 right-5 na gestão) · ✅ #4 Central de ajuda: `ajuda_artigos` (migration `20260616140000` ✅ aplicada 2026-06-17), admin `/sistema/ajuda`, visualizador `/gestao/ajuda` (busca+vídeo), link no assistente. Falta só preencher conteúdo/vídeos
 
