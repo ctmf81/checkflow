@@ -34,6 +34,7 @@ Next logical step: [one-sentence inference, only if obvious]
 - Prompt **proíbe respostas vagas** ("acredito/parece"), exige objetividade; sem info → 1 frase sem especular. NÃO conta no limite de tokens da empresa.
 - **Sem RAG/embeddings** (contexto direto). Quando a base crescer muito, migrar p/ pgvector.
 - ⚠️ **MANUTENÇÃO**: ao evoluir o sistema, atualizar o `MANUAL` junto com o `/biz` (incluído no fluxo "atualize as skills"). Para subir o patamar das respostas, pode-se reordenar provedores em `/sistema/integracoes-ia` (Claude/GPT antes do Gemini Flash).
+- ⏳ **PENDENTE — revisão tela a tela colaborativa**: percorrer cada tela do sistema com o usuário (eu explico o que a tela faz, ele complementa/corrige com regras de negócio e detalhes que só ele sabe) para enriquecer o `MANUAL` do assistente e o `/biz`. Objetivo: base de conhecimento ainda mais fiel. Fazer em sessão dedicada, tela por tela (usar a lista do `/uimap`).
 
 ## ⏳ Galeria de templates de checklist (2026-06-16)
 - ✅ Migration `20260616120000_checklist_templates.sql` aplicada (2026-06-16): `checklists.is_template`+`template_segmentos`, leitura pública de modelos, RPC `clonar_template`, seed oficina+restaurante
