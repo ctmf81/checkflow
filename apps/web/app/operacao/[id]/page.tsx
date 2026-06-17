@@ -1214,8 +1214,9 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   const [erroFinalizar, setErroFinalizar] = useState<string | null>(null)
   const [concluido, setConcluido] = useState(false)
   const [resultadoFinal, setResultadoFinal] = useState<'aprovado' | 'reprovado' | null>(null)
-  const [pdfStatus, setPdfStatus] = useState<'gerando' | 'pronto' | 'erro'>('gerando')
+  const [pdfStatus, setPdfStatus] = useState<'idle' | 'gerando' | 'pronto' | 'erro'>('idle')
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [execConcluidaId, setExecConcluidaId] = useState<string | null>(null)
   // Planos de ação capturados durante a execução (salvos no finalizar)
   const [planosCapturados, setPlanosCapturados] = useState<Record<string, DadosPlano>>({})
   const [modalPlanoAtividade, setModalPlanoAtividade] = useState<Atividade | null>(null)
@@ -1783,29 +1784,27 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
 
     setSalvando(false)
     setResultadoFinal(resultado)
-    setConcluido(true)
-
-    // Gera PDF da execução em background — atualiza o status na tela de conclusão
-    setPdfStatus('gerando')
+    setExecConcluidaId(execId)
+    setPdfStatus('idle')
     setPdfUrl(null)
-    sb.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session?.access_token) { setPdfStatus('erro'); return }
-      try {
-        const res = await fetch(`/api/execucoes/${execId}/pdf`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${session.access_token}` },
-        })
-        const json = await res.json().catch(() => null)
-        if (res.ok && json?.pdf_url) {
-          setPdfUrl(json.pdf_url)
-          setPdfStatus('pronto')
-        } else {
-          setPdfStatus('erro')
-        }
-      } catch {
-        setPdfStatus('erro')
-      }
-    })
+    setConcluido(true)
+  }
+
+  // Geração do PDF sob demanda (não é mais automática)
+  async function gerarPdf() {
+    if (!execConcluidaId) return
+    setPdfStatus('gerando')
+    const sb = createClient()
+    const { data: { session } } = await sb.auth.getSession()
+    if (!session?.access_token) { setPdfStatus('erro'); return }
+    try {
+      const res = await fetch(`/api/execucoes/${execConcluidaId}/pdf`, {
+        method: 'POST', headers: { 'Authorization': `Bearer ${session.access_token}` },
+      })
+      const json = await res.json().catch(() => null)
+      if (res.ok && json?.pdf_url) { setPdfUrl(json.pdf_url); setPdfStatus('pronto') }
+      else setPdfStatus('erro')
+    } catch { setPdfStatus('erro') }
   }
 
   // ─── Estados de loading / erro / concluído ─────────────────────────────────
@@ -1843,11 +1842,17 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
           </span>
           <p className="text-sm text-gray-500 mb-6">Execução registrada com sucesso.</p>
 
-          {/* Status do PDF gerado em background */}
+          {/* PDF da execução — gerado sob demanda */}
           <div className="mb-6 flex items-center justify-center">
+            {pdfStatus === 'idle' && (
+              <button onClick={gerarPdf}
+                className="inline-flex items-center gap-2 text-xs font-medium text-orange-600 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 hover:bg-orange-100 transition-colors">
+                <FileText size={13} /> Gerar PDF da execução
+              </button>
+            )}
             {pdfStatus === 'gerando' && (
               <span className="inline-flex items-center gap-2 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                <Loader2 size={13} className="animate-spin" /> Gerando PDF da execução…
+                <Loader2 size={13} className="animate-spin" /> Gerando PDF…
               </span>
             )}
             {pdfStatus === 'pronto' && pdfUrl && (
@@ -1857,9 +1862,10 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
               </a>
             )}
             {pdfStatus === 'erro' && (
-              <span className="inline-flex items-center gap-2 text-xs text-gray-400 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                <FileText size={13} /> PDF ficará disponível no histórico em instantes
-              </span>
+              <button onClick={gerarPdf}
+                className="inline-flex items-center gap-2 text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2 hover:bg-red-100 transition-colors">
+                <FileText size={13} /> Falha ao gerar — tentar novamente
+              </button>
             )}
           </div>
 
