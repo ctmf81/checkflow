@@ -66,6 +66,8 @@ Rule: **never mutate a published checklist structure** — create a new version 
   - **Consulta Inteligente**: documento sobre o qual o operador faz perguntas em linguagem natural; resposta por **IA** (rota `/api/documentos/consultar`). ⚠️ Consome os **tokens de IA do plano** (enforcement `billing_pode_consumir_ia`); só Gemini/Claude leem PDF.
 
 ## Execução de Checklist
+- **PDF sob demanda** (2026-06-17): não é mais gerado automaticamente ao concluir. Botão "Gerar PDF" na tela de conclusão e no Histórico → chama `/api/execucoes/[id]/pdf` e mostra "Baixar" quando pronto.
+- **Plano de ação na Operação**: do Histórico, o link abre `/operacao/plano/[id]` (visão **somente-leitura**: status, atividade, evidências, andamento N1/N2) — mantém o operador na Operação (antes ia para `/gestao/planos-acao`, sem acesso). Moderação segue na Gestão. RLS de `planos_acao` já permite leitura pelo executor (`checklist_execucao_id` executado por ele) + tabelas filhas via `plano_acao_id in (select id from planos_acao)`.
 - Ao finalizar, salva em `checklist_execucoes` com `status = 'concluido'`
 - `resultado` = `'aprovado'` se todas as atividades conformes; `'reprovado'` se qualquer `calcularValidacao() === false`
 - `data_expiracao` = `data_execucao + tempo_guarda_meses` meses (calculado pela aplicação)
