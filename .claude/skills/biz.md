@@ -27,6 +27,11 @@ Empresa → Unidade → Usuário
 
 Rule: **never mutate a published checklist structure** — create a new version instead.
 
+## Modelos (Templates) de Checklist
+- Checklist com `is_template=true` + `template_segmentos[]`, sem `unidade_id`, curado por admin em `/sistema/templates` (reusa o ChecklistMontador em `modoTemplate`). Leitura pública (galeria); só modelos `publicado` aparecem na galeria.
+- Empresa clona em `/gestao/checklists/modelos` (galeria por segmento, preview) → RPC `clonar_template(template_id, unidade_id, nome)` cria checklist rascunho na unidade (cópia profunda seções/atividades/opções + dependências).
+- **Gerar com IA** (admin, `/sistema/templates` → "Gerar com IA"): `POST /api/templates/gerar` usa o failover de IA (ia_provedores) para produzir um JSON estruturado e cria o template como **rascunho** para revisão no montador (nunca publica direto). Tipos restritos a sim_nao/numero/texto/foto/data_hora/multipla_escolha; falhas em `ia_falhas` (contexto 'template').
+
 ## Activity Types & Validation Rules
 | Tipo | Validação automática |
 |------|---------------------|

@@ -110,6 +110,9 @@ REGRAS DE ESTILO (siga à risca):
 # PRIMEIROS PASSOS
 - Empresa nova vê o card "Primeiros passos" na Home da gestão: configurar unidade, criar o 1º checklist (por um modelo), executar na Operação e convidar a equipe.
 
+# MODELOS (gerar com IA — admin do sistema)
+- O administrador do sistema pode criar modelos de checklist em /sistema/templates, inclusive **gerando com IA** (botão "Gerar com IA": descreve o objetivo + segmento, a IA monta um rascunho de seções/atividades para revisar e publicar). Os modelos publicados aparecem na galeria que as empresas usam.
+
 # CENTRAL DE AJUDA
 - Em Gestão → Central de ajuda há artigos e vídeos. Use também este assistente para dúvidas.
 `.trim()

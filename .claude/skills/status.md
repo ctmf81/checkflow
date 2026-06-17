@@ -40,6 +40,9 @@ Next logical step: [one-sentence inference, only if obvious]
 ## Facilitadores low-touch (2026-06-16)
 - ✅ #1 Galeria de templates (ver abaixo) · ✅ #2 "Primeiros passos" (`components/onboarding/PrimeirosPassos.tsx` na Home) · ✅ #3 Assistente de ajuda IA (`/api/ajuda` + `components/ajuda/AssistenteAjuda.tsx`, failover ia_provedores, manual no system prompt, NÃO conta no limite de tokens; botão flutuante bottom-20 right-5 na gestão) · ✅ #4 Central de ajuda: `ajuda_artigos` (migration `20260616140000` ✅ aplicada 2026-06-17), admin `/sistema/ajuda`, visualizador `/gestao/ajuda` (busca+vídeo), link no assistente. Falta só preencher conteúdo/vídeos
 
+### Gerar template com IA (2026-06-17)
+- Botão "Gerar com IA" em `/sistema/templates` → modal (descrição + segmentos) → `POST /api/templates/gerar` (admin-only): failover IA → JSON estruturado → cria template **rascunho** (seções/atividades/opções, tipos validados) → abre no montador p/ revisar/publicar. Nunca publica direto. Falha logada em `ia_falhas` (contexto 'template'). Sem migration.
+
 ### Base de conhecimento do assistente de IA (2026-06-17)
 - A base vive no `MANUAL` (constante em `apps/web/app/api/ajuda/route.ts`) — **cobre TODAS as telas** (levantamento tela a tela via /biz + /uimap + código): execução, checklists/modelos, agendamentos (passo a passo), workflows, tickets, **planos de ação + moderação N1/N2**, grupos, indicadores, catálogos, padrões (variáveis+padrões), documentos & Consulta Inteligente, causa raiz, formatação, notificações, turnos, perfis (incl. guard do último admin), login CPF/OTP, plano & cobrança, primeiros passos.
 - A rota **injeta os artigos publicados de `ajuda_artigos`** no system prompt → fica melhor conforme a Central de Ajuda é curada.
