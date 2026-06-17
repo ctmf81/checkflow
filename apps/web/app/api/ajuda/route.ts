@@ -187,18 +187,23 @@ export async function POST(req: NextRequest) {
   const k = (prov: string, env?: string) => cfg.get(prov)?.api_key || env
   const m = (prov: string, env: string | undefined, padrao: string) => cfg.get(prov)?.modelo || env || padrao
 
-  const candidatos: { nome: string; run: () => Promise<string> }[] = []
+  const gMod = m('gemini', process.env.GEMINI_MODEL, 'gemini-2.5-flash')
+  const aMod = m('anthropic', process.env.ANTHROPIC_MODEL, 'claude-3-5-haiku-20241022')
+  const oMod = m('openai', process.env.OPENAI_MODEL, 'gpt-4o-mini')
+  const grMod = m('groq', process.env.GROQ_MODEL, 'llama-3.1-8b-instant')
+
+  const candidatos: { nome: string; modelo: string; run: () => Promise<string> }[] = []
   const gk = k('gemini', process.env.GEMINI_API_KEY)
-  if (gk) candidatos.push({ nome: 'gemini', run: () => gemini(gk, m('gemini', process.env.GEMINI_MODEL, 'gemini-2.0-flash'), systemPrompt, mensagens) })
+  if (gk) candidatos.push({ nome: 'gemini', modelo: gMod, run: () => gemini(gk, gMod, systemPrompt, mensagens) })
   const ak = k('anthropic', process.env.ANTHROPIC_API_KEY)
-  if (ak) candidatos.push({ nome: 'anthropic', run: () => anthropic(ak, m('anthropic', process.env.ANTHROPIC_MODEL, 'claude-3-5-haiku-20241022'), systemPrompt, mensagens) })
+  if (ak) candidatos.push({ nome: 'anthropic', modelo: aMod, run: () => anthropic(ak, aMod, systemPrompt, mensagens) })
   const ok = k('openai', process.env.OPENAI_API_KEY)
-  if (ok) candidatos.push({ nome: 'openai', run: () => openaiCompat('https://api.openai.com/v1', ok, m('openai', process.env.OPENAI_MODEL, 'gpt-4o-mini'), systemPrompt, mensagens) })
+  if (ok) candidatos.push({ nome: 'openai', modelo: oMod, run: () => openaiCompat('https://api.openai.com/v1', ok, oMod, systemPrompt, mensagens) })
   const grk = k('groq', process.env.GROQ_API_KEY)
-  if (grk) candidatos.push({ nome: 'groq', run: () => openaiCompat('https://api.groq.com/openai/v1', grk, m('groq', process.env.GROQ_MODEL, 'llama-3.1-8b-instant'), systemPrompt, mensagens) })
+  if (grk) candidatos.push({ nome: 'groq', modelo: grMod, run: () => openaiCompat('https://api.groq.com/openai/v1', grk, grMod, systemPrompt, mensagens) })
   for (const cn of ['custom1', 'custom2']) {
     const ck = cfg.get(cn)?.api_key, cu = cfg.get(cn)?.base_url, cm = cfg.get(cn)?.modelo
-    if (ck && cu && cm) candidatos.push({ nome: cn, run: () => openaiCompat(cu, ck, cm, systemPrompt, mensagens) })
+    if (ck && cu && cm) candidatos.push({ nome: cn, modelo: cm, run: () => openaiCompat(cu, ck, cm, systemPrompt, mensagens) })
   }
 
   const ordem = (provDb ?? []).map((p: any) => p.provedor)
@@ -214,6 +219,9 @@ export async function POST(req: NextRequest) {
       if (resposta?.trim()) return Response.json({ resposta: resposta.trim() })
     } catch (e: any) {
       console.error(`[ajuda] provedor ${c.nome} falhou:`, e?.message)
+      // registra a falha para o admin (failover) — fire-and-forget
+      admin.from('ia_falhas').insert({ contexto: 'ajuda', provedor: c.nome, modelo: c.modelo, erro: String(e?.message ?? e).slice(0, 500) })
+        .then(() => {}, () => {})
     }
   }
   return Response.json({ error: 'Não foi possível obter resposta no momento. Tente novamente.' }, { status: 502 })

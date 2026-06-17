@@ -275,7 +275,7 @@ export async function POST(req: NextRequest) {
   const c1Key = chaveDe('custom1'); const c1Url = baseUrlDe('custom1'); const c1Modelo = cfgPorProvedor.get('custom1')?.modelo
   const c2Key = chaveDe('custom2'); const c2Url = baseUrlDe('custom2'); const c2Modelo = cfgPorProvedor.get('custom2')?.modelo
 
-  const geminiModelo    = modeloDe('gemini', process.env.GEMINI_MODEL, 'gemini-2.0-flash')
+  const geminiModelo    = modeloDe('gemini', process.env.GEMINI_MODEL, 'gemini-2.5-flash')
   const anthropicModelo = modeloDe('anthropic', process.env.ANTHROPIC_MODEL, 'claude-3-5-haiku-20241022')
   const openaiModelo    = modeloDe('openai', process.env.OPENAI_MODEL, 'gpt-4o-mini')
   const groqModelo      = modeloDe('groq', process.env.GROQ_MODEL, 'llama-3.2-90b-vision-preview')
@@ -329,6 +329,11 @@ export async function POST(req: NextRequest) {
           return
         } catch (err: any) {
           console.error(`[consultar] provedor ${p.nome} falhou:`, err?.message)
+          // registra a falha para o admin (failover) — fire-and-forget
+          supabaseAdmin.from('ia_falhas').insert({
+            contexto: 'consulta', provedor: p.nome, modelo: p.modelo,
+            erro: String(err?.message ?? err).slice(0, 500), empresa_id: empresaId,
+          }).then(() => {}, () => {})
           // Se já começou a emitir texto, não dá para trocar de provedor no meio
           if (c.emitiu) {
             controller.enqueue(encoder.encode('\n\n⚠️ A resposta foi interrompida. Tente novamente.'))

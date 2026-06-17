@@ -42,6 +42,7 @@ export default function IntegracoesIAPage() {
   const [salvando, setSalvando] = useState<Provedor | null>(null)
   // edições locais: nova chave digitada e modelo por provedor
   const [novaChave, setNovaChave] = useState<Record<string, string>>({})
+  const [falhas, setFalhas] = useState<{ id: string; contexto: string; provedor: string; modelo: string | null; erro: string | null; criado_em: string }[]>([])
 
   async function carregar() {
     setLoading(true)
@@ -51,6 +52,10 @@ export default function IntegracoesIAPage() {
       .select('provedor, chave_mascara, modelo, base_url, nome_exibicao, ativo, ordem')
       .order('ordem', { ascending: true })
     setRows((data ?? []) as ProvedorRow[])
+    const { data: f } = await sb.from('ia_falhas')
+      .select('id, contexto, provedor, modelo, erro, criado_em')
+      .order('criado_em', { ascending: false }).limit(15)
+    setFalhas((f as any) ?? [])
     setLoading(false)
   }
 
@@ -220,6 +225,25 @@ export default function IntegracoesIAPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Últimas falhas de IA (failover) */}
+      {falhas.length > 0 && (
+        <div className="mt-8 max-w-2xl">
+          <h2 className="text-sm font-semibold text-gray-700 mb-2">Últimas falhas (failover)</h2>
+          <p className="text-xs text-gray-400 mb-3">Quando um provedor falha, o sistema tenta o próximo. Aqui ficam os motivos — útil para detectar chave/cota/modelo com problema.</p>
+          <div className="rounded-xl border border-gray-200 bg-white divide-y divide-gray-50">
+            {falhas.map(f => (
+              <div key={f.id} className="px-4 py-2.5 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-gray-700">{f.provedor}{f.modelo ? ` · ${f.modelo}` : ''}</span>
+                  <span className="text-xs text-gray-400">{f.contexto} · {new Date(f.criado_em).toLocaleString('pt-BR')}</span>
+                </div>
+                {f.erro && <p className="text-xs text-red-500 mt-0.5 break-words">{f.erro}</p>}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </>
