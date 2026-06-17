@@ -25,6 +25,12 @@ Next logical step: [one-sentence inference, only if obvious]
 
 ---
 
+## IA: observabilidade e modelo (2026-06-17)
+- ✅ Migration `20260617120000_ia_falhas.sql` aplicada — tabela `ia_falhas` (admin-only) loga falhas do failover (contexto/provedor/modelo/erro). Gravada no catch de `/api/ajuda` e `/api/documentos/consultar`; painel "Últimas falhas" em `/sistema/integracoes-ia`.
+- ✅ Modelo Gemini padrão atualizado p/ `gemini-2.5-flash` (2.0-flash desativado) nas rotas + placeholder. Usuário trocou o modelo no banco e Gemini voltou a ✅ (test-ia.mjs).
+- ✅ Painel do Sistema agora com **menu lateral** (`sistema/layout.tsx`, drawer mobile via SidebarProvider).
+- ⏳ Reserva recomendada: cadastrar chave **Claude** em 2º no failover (lê PDF — cobre Consulta Inteligente se Gemini cair).
+
 ## 🔴 IA: provedores (diagnóstico 2026-06-17 via `node pentest/test-ia.mjs`)
 - **Gemini** (1º): ❌ HTTP 429 cota 0 (free tier zerado) — habilitar billing na chave do Google AI Studio.
 - **Anthropic/OpenAI**: sem chave cadastrada.

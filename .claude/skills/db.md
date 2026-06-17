@@ -136,6 +136,10 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 | `billing_pode_executar` / `billing_pode_consumir_ia` / `billing_armazenamento_disponivel(empresa,bytes)` | Booleans de enforcement. Sem assinatura → não bloqueia; limite null → ilimitado |
 | `billing_status(empresa)` → jsonb | Leitura consolidada (plano, período, uso×limite×extra dos 3 recursos). Valida permissão (admin_sistema ou Admin da empresa) |
 
+### IA — log de falhas (migration 20260617120000, ✅ aplicada)
+- `ia_falhas` (admin-only RLS): `contexto` (ajuda|consulta), `provedor`, `modelo`, `erro`, `empresa_id`, `criado_em`. Gravada (fire-and-forget, service-role) no catch do failover em `/api/ajuda` e `/api/documentos/consultar`. Exibida em `/sistema/integracoes-ia` ("Últimas falhas").
+- Modelo Gemini padrão nas rotas: `gemini-2.5-flash` (2.0-flash foi desativado pelo Google).
+
 ### Templates de checklist (migration 20260616120000, ✅ aplicada)
 - `checklists.is_template boolean` + `template_segmentos text[]` — modelo é um checklist sem `unidade_id`, curado por admin. Policies de leitura de `checklists`/`checklist_secoes`/`checklist_atividades`/`checklist_atividade_opcoes` liberam `is_template` pra qualquer autenticado (galeria pública).
 - RPC `clonar_template(p_template_id, p_unidade_id, p_nome)` → cópia profunda (seções/atividades/opções + remapeia `atividade_pai_id`) como rascunho na unidade; valida admin OU membro da unidade. Seed idempotente (oficina, restaurante).
