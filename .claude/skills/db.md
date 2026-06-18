@@ -140,6 +140,11 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 - `20260617140000_billing_catalogo_leitura.sql` — leitura de `planos`/`pacotes_adicionais` **ativos** por autenticados (corrige self-service `/gestao/plano`; escrita segue admin).
 - `20260617160000_motivo_padrao_nao_execucao.sql` — motivo padrão "Não disponível" por unidade (grupo/subgrupo nulos), `motivo_padrao_unidade(unidade,tipo)`, trigger `checklist_seed_motivos_padrao` (AFTER INSERT em checklists, associa ≥1 de cada tipo a checklist novo não-template) + retroativo.
 
+### Listas de Tarefas (migration `20260618120000_tarefas.sql`, ✅ aplicada 2026-06-18)
+- `tarefa_listas` (modelo: unidade_id, titulo, status rascunho|publicada|encerrada, `abertura_data_limite`, `abertura_max_respostas`, `edicao_janela_horas`, `notificar_whatsapp`), `tarefa_lista_grupos`/`tarefa_lista_subgrupos` (atribuição), `tarefa_itens` (titulo, ordem, flags `aceita_observacao`/`aceita_evidencia`/`exige_checkin`), `tarefa_execucoes` (1 por usuário: `unique(lista_id,usuario_id)`, `aberta_em`, `editavel_ate`, status), `tarefa_respostas` (`unique(execucao_id,item_id)`, feito, observacao, evidencia_url/tipo, lat/lng).
+- Permissão `tarefas` (ver/criar/editar/deletar), concedida aos perfis `is_system`. Helper `usuario_tem_permissao`.
+- RLS padrão: leitura por membro da unidade (`usuario_unidade`); escrita da lista exige `usuario_tem_permissao('tarefas',...)`; execução/respostas: usuário cria/edita as **suas** (`usuario_id = auth.uid()`), gestão lê todas da unidade. Mídia no bucket `execucoes` sob `tarefas/`.
+
 ### IA — log de falhas (migration 20260617120000, ✅ aplicada)
 - `ia_falhas` (admin-only RLS): `contexto` (ajuda|consulta), `provedor`, `modelo`, `erro`, `empresa_id`, `criado_em`. Gravada (fire-and-forget, service-role) no catch do failover em `/api/ajuda` e `/api/documentos/consultar`. Exibida em `/sistema/integracoes-ia` ("Últimas falhas").
 - Modelo Gemini padrão nas rotas: `gemini-2.5-flash` (2.0-flash foi desativado pelo Google).

@@ -25,6 +25,8 @@ Layout: `gestao/layout.tsx` — sidebar + SessionProvider
 | `/gestao/checklists/novo/montar` | `gestao/checklists/novo/montar/page.tsx` | Builder for new |
 | `/gestao/checklists/[id]` | `gestao/checklists/[id]/page.tsx` | Edit checklist meta |
 | `/gestao/checklists/[id]/montar` | `gestao/checklists/[id]/montar/page.tsx` | Builder for existing |
+| `/gestao/tarefas` | `gestao/tarefas/page.tsx` | Listas de tarefas (listagem + criar + modal indicadores) |
+| `/gestao/tarefas/[id]` | `gestao/tarefas/[id]/page.tsx` | Montador da lista de tarefas (encerramento data/qtd, janela edição, grupos/subgrupos, itens c/ flags) |
 | `/gestao/grupos` | `gestao/grupos/page.tsx` | Grupos list |
 | `/gestao/grupos/[id]/subgrupos` | `gestao/grupos/[id]/subgrupos/page.tsx` | Subgrupos |
 | `/gestao/acessos/usuarios` | `gestao/acessos/usuarios/page.tsx` | User management |

@@ -5,6 +5,21 @@ description: Business rules and product logic for CheckFlow. Consult this skill 
 
 # Business Rules
 
+## Listas de Tarefas — IMPLEMENTADO 2026-06-18 (migration `20260618120000_tarefas.sql` ✅ aplicada)
+Feature **separada do Checklist** (leve, pontual, broadcast). Tabelas: `tarefa_listas`, `tarefa_lista_grupos`, `tarefa_lista_subgrupos`, `tarefa_itens`, `tarefa_execucoes`, `tarefa_respostas`. Permissão `tarefas` (ver/criar/editar/deletar). UI: Gestão `/gestao/tarefas` (listagem + indicadores) e `/gestao/tarefas/[id]` (montador); Operação 4ª aba "Tarefas" (`operacao/AbaTarefas.tsx`).
+**Decisões fechadas na implementação**: janela de edição = `edicao_janela_horas` a partir da abertura da instância (null = até encerrar), com countdown na execução; 1 instância por pessoa por lista (`unique(lista_id,usuario_id)`); flags **por tarefa** (observação/evidência/checkin); mídia no bucket `execucoes` sob `tarefas/{execId}/`; notificar WhatsApp = flag `notificar_whatsapp` (toggle, default off) — **envio ainda NÃO wired** (só persiste a flag). Quota de armazenamento das mídias de tarefa **ainda não contabilizada** (pendência).
+Espec original abaixo (mantida como referência):
+- **Conceito**: existe um **modelo de lista** (título + N tarefas/itens "to-do") distribuído a **1+ grupos e 1+ subgrupos**. Enquanto o modelo está liberado, **vários usuários executam** — **cada um gera sua própria instância** de resposta.
+- **DUAS janelas de tempo distintas** (parte da configuração da lista):
+  1. **Janela de abertura de novas instâncias**: até quando se pode **abrir** uma nova execução da lista — encerra por **data limite** OU **nº de respostas** (o que vier primeiro). Enquanto aberta, o usuário pode iniciar uma nova instância.
+  2. **Janela de edição da instância**: depois de aberta, por quanto tempo ele pode **continuar respondendo/editando** (marcar/desmarcar tarefa, adicionar/editar observação, adicionar/editar evidências). Pode ser "ao longo do dia" ou o período definido. Na execução, **mostrar o tempo restante até o bloqueio da edição** daquela instância.
+- **Montagem** (quem tem perfil que permite criar): título + tarefas; flags **por tarefa** — cada tarefa define se aceita **observação**, **evidência** (foto/vídeo) e se **exige checkin** (localização).
+- **Execução** (Operação): aparece numa **nova aba "Tarefas"** (4ª aba, junto de Checklists/Histórico/Documentos), para quem está nos subgrupos atribuídos. Para cada tarefa: marca se realizou + (se a tarefa permitir) texto/evidência + (se exigir) checkin.
+- **Menu/permissão**: pelo menu o usuário executa as listas dos seus grupos/subgrupos; com permissão (perfil), também **cria modelos** de lista.
+- **Acompanhamento (Gestão)**: na listagem, por lista, abrir **modal/tela de indicadores de execução** (progresso respostas/alvo, quem respondeu, evidências).
+- **Notificação ao publicar (RECOMENDAÇÃO a confirmar)**: canal garantido = aba Tarefas na Operação. WhatsApp **individual por pessoa** do subgrupo deve ser **opcional por lista** (toggle "avisar por WhatsApp"), **respeitando o turno** de cada um; default **desligado** (evita custo/spam de disparo automático p/ subgrupo inteiro).
+- **Pontos a confirmar**: se mídias contam na cota de armazenamento (como no checklist); se há limite de 1 instância por pessoa por janela de abertura, ou várias.
+
 ## Core Product
 CheckFlow is a checklist management SaaS with two distinct areas:
 - **Gestão** (`/gestao`) — admin backoffice: create checklists, configure activities, manage users/units
@@ -78,11 +93,65 @@ Rule: **never mutate a published checklist structure** — create a new version 
 ## Estrutura do Checklist
 - Um checklist tem **1 ou mais seções**; cada seção tem **1 ou mais atividades**.
 
+## Gestão → Checklists (listagem + montador) — revisado 2026-06-17
+**Listagem** (`/gestao/checklists`):
+- Lista os checklists publicados/rascunho **dos subgrupos a que o usuário tem acesso**, da unidade ativa; inativos nunca aparecem (nem no filtro). Filtros: busca + Todos/Rascunho/Publicado.
+- **"Usar um modelo"** → galeria `/gestao/checklists/modelos`. O modelo é genérico (criado pela CheckFlow/admin do sistema); usar = **copiar** para a unidade. **A cópia é independente**: adicionar atividade no modelo de origem **não** reflete na cópia (sem vínculo).
+- **"Novo checklist"** → cria do zero numa unidade/grupo/subgrupo. A empresa contratante pode criar o próprio e **duplicar para outra unidade/grupo/subgrupo**.
+- Menu por item: **Duplicar** e **Inativar**.
+
+**Inativar** (regra forte):
+- **Pede confirmação** (ConfirmDialog) — não é mais otimista silencioso.
+- Se o checklist está vinculado a **um ou mais workflows publicados**, **NÃO pode ser inativado**: o sistema avisa, listando o(s) **nome(s) do(s) workflow(s)**, e exige que seja **desvinculado do workflow primeiro** (ou inativar o workflow). Guard duplo: pré-checagem na UI (`workflow_estagio_itens`→`workflow_estagios`→`workflows`, status publicado) + trigger no banco (`checklist_bloquear_inativacao_em_uso`). Obs: workflow é transversal à empresa, não tem "grupo de criação" próprio.
+- Inativar preserva o histórico (só muda status → `inativo`).
+
+**Duplicar** (modal, copia profunda → rascunho v0):
+- Escolhe unidade de destino (pode ser outra), grupo, subgrupo e nome.
+- Copia seções, atividades (incl. dependentes multinível), opções de múltipla escolha, **motivos de não execução** e **catálogos**.
+- **Catálogos**: ao duplicar para **outra unidade**, recria o(s) catálogo(s) (estrutura + valores) no **cadastro de catálogos da unidade de destino** e remapeia `config.catalogo_id`. **Avisa + pede confirmação** antes (catálogo novo será criado lá). No mesmo destino, o `catalogo_id` continua válido (não recria).
+
+**Tempo de guarda das mídias** (montador): opções 1/3/6/12/24/36/48/**60** meses (default **1 mês**). Apaga **só as mídias** (fotos/vídeos/PDFs) após o prazo — **o registro da execução é preservado**. Quanto maior o prazo, maior o consumo da **cota de armazenamento do plano**. ⏳ PENDENTE: prever configuração para a empresa guardar mídias em **repositório próprio (ex: S3)** — nesse modo o tempo de guarda não apagaria nada, só arquivaria.
+
+## Grupos / Subgrupos — visibilidade e funções — revisado 2026-06-17
+- Grupos e subgrupos são as áreas/setores da unidade (`unidade_id`/`grupo_id`, status ativo/inativo). Labels personalizáveis em Formatação.
+- **Visibilidade**: o operador vê os checklists publicados dos subgrupos a que está associado (`usuario_subgrupo`). **Regra do "nenhum subgrupo selecionado = acesso a todos"**: aparece em `AdicionarUsuarioModal` e `SubgruposUsuarioModal` — confirmar implementação real no fetch da Operação.
+- **Perfil público** (`perfis.publico=true`): perfil que **gestores de grupo/setor** podem atribuir (ex: cobertura temporária de liderança); não-público só o **Admin da empresa** (ou admin de sistema) atribui — trigger `validar_troca_perfil` garante. NÃO confundir com `empresa_id is null` (= perfil de sistema/global, modelo p/ todas as empresas). No `UsuariosGrupoModal` (contexto de gestor) o seletor de perfil mostra **só os públicos** (+ o perfil atual do usuário, mesmo não-público, apenas para exibição; só atualiza se mudar). Em Acessos → Usuários (admin da empresa) mostra todos.
+- **Pré-requisito p/ adicionar ao grupo**: o usuário precisa **já estar cadastrado na empresa** (`usuario_empresa`). O `AdicionarUsuarioModal` só lista usuários da empresa; cadastro de novo usuário é em `/gestao/acessos/usuarios`.
+- **"Gerenciar usuários"** (`UsuariosGrupoModal`) — por usuário do grupo: editar **nome/telefone/perfil**; gerenciar **subgrupos** de acesso; **reenviar senha** (envia código por WhatsApp via `/api/usuarios/resetar-senha` — fluxo CPF+OTP, exige telefone); **remover do grupo** (apaga `usuario_grupo` **e** os `usuario_subgrupo` daquele grupo, sem acesso órfão — não exclui o usuário do sistema). Editar perfil respeita o guard do último admin (trigger). Corrigido 2026-06-17.
+- **Funções por subgrupo** (`usuario_subgrupo.funcao`): definem o papel do usuário sobre os checklists daquela área.
+  - **— (null)**: só visualiza.
+  - **Operação**: executa checklists.
+  - **Nível 1**: executa + **modera** os planos de ação abertos por não conformidade → ações: **corrigir, não corrigir, escalar para N2**.
+  - **Nível 2**: recebe a moderação **escalada pelo N1** → ações: **corrigir, não corrigir, devolver para N1**; também pode atuar como N1 e executar checklist.
+  - **Notificações por nível**: cada nível só recebe alerta (WhatsApp + e-mail) quando a ação é **compatível com o seu nível** (N1 recebe o que é de N1; N2 recebe o escalado para N2).
+
+## Acessos → Usuários — revisado/corrigido 2026-06-17
+- Lista usuários ativos da empresa (`usuario_empresa`). Login por CPF; telefone obrigatório (OTP WhatsApp); e-mail opcional (→ `cpf@checkflow.local`).
+- **Cadastro (modal `UsuarioModal`)**: nome, CPF, telefone, e-mail, **perfil** (obrigatório; só públicos p/ não-admin), **turno**, **unidades**. 
+- 🔴→✅ **Bug corrigido (2026-06-17)**: a criação avulsa **não vinculava `usuario_empresa`/perfil/unidades** (usuário ficava órfão, não aparecia na lista nem podia entrar em grupos) e a **edição não salvava perfil/unidades**. Fix: rota `/api/usuarios/criar` agora recebe `empresaId/perfilId/unidades` e insere `usuario_empresa` (com rollback) + `usuario_unidade`; o modal salva perfil (`usuario_empresa`) e sincroniza unidades (`usuario_unidade`) na edição, e carrega as unidades atuais ao abrir. Avatar removido (não haverá foto de pessoa).
+- ⚠️ **Nota RLS**: escrita em `usuario_empresa`/`usuario_unidade` só tem policy `is_admin_sistema()`. As edições client-side (perfil/unidades) seguem o mesmo padrão do `alterarPerfil` já existente — se o operador não for admin de sistema, pode ser bloqueado por RLS (avaliar policy p/ admin da empresa). A criação usa service role (rota), então funciona sempre.
+
+## Premissa de montagem (mental model) — 2026-06-17
+- Ao montar uma atividade, o que importa é o **tipo de resposta** desejado, não a pergunta. O usuário escolhe o **tipo** pela resposta que quer obter (sim ou não → Sim/Não; valor numérico → Número; escolher entre opções → Múltipla escolha; etc.). A pergunta vai no nome/descrição.
+- Entender as **dependências entre campos** é parte do desenho: a resposta de uma atividade-pai (Sim/Não ou Múltipla escolha) define quais dependentes serão exibidas. Montar = decidir o tipo de cada resposta + a ramificação.
+
+## Tipos de atividade — detalhes revisados 2026-06-17
+- **Data/Hora**: na execução o campo já vem **pré-preenchido com o horário atual** (local); o operador pode ajustar. (`CampoDataHora` em `operacao/[id]/page.tsx`.)
+- **Texto com QR Code / Barcode**: a leitura usa a câmera e **só funciona no app mobile**. No montador (`AtividadeModal`), ao habilitar QR/barcode, aparece aviso de que no desktop o operador digita o valor manualmente.
+
 ## Atividades Dependentes
 - Uma atividade pode ter `atividade_pai_id` + `valor_gatilho`
 - Ela só aparece na execução quando a resposta do pai === `valor_gatilho`
 - A atividade-**pai** só pode ser do tipo **sim/não** ou **múltipla escolha** (tipos que servem de gatilho); múltipla escolha compara `valor_gatilho` com o array de seleção
 - **Retomar execução pausada**: o operador NÃO usa URL — clica em **"Continuar"** na seção "Não finalizados" (topo da aba Checklists), que reabre restaurando as respostas (internamente via `?exec=`)
+
+## Limites de mídia (fixos, globais) — 2026-06-17
+- Constantes em `apps/web/app/operacao/[id]/page.tsx`: `MAX_FOTOS=5`, `MAX_VIDEO_SEG=10`, `VIDEO_BITRATE=1.5Mbps`, `FOTO_MAX_PX=1600`, `FOTO_QUALIDADE=0.8`.
+- **Fotos**: comprimidas no navegador ao capturar (`comprimirImagem`: redimensiona p/ 1600px no lado maior + JPEG 0.8 → ~300–500 KB). Evidência de **plano de ação** aceita até **5 fotos** (botão some + aviso ao atingir; contador "n/5"). Atividade tipo **foto** continua **1 foto** (também comprimida).
+- **Vídeo** (`GravadorVideo`, getUserMedia): bitrate fixo ~1,5 Mbps + **auto-stop em 10s**; ~2 MB por clipe. Contador mostra "mm:ss / 00:10".
+- Racional de cota: 1 vídeo + 5 fotos ≈ 4–5 MB; **1 GB ≈ ~200 execuções** com mídia cheia. Tempo de guarda é a alavanca para liberar espaço (apaga só mídias).
+- Decisão: limites **fixos no código** (padrão de mercado), não configuráveis por atividade/plano por enquanto.
+- **Atividade tipo foto = exatamente 1 foto** (decisão fechada 2026-06-17). Múltiplas fotos só nas evidências de plano de ação (até 5).
 
 ## Catálogo
 - Estrutura: `catalogos` (metadados) → `catalogo_valores` (itens)

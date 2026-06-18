@@ -127,6 +127,9 @@ Espelho TS de 3 funções Postgres (migration 20260609000001): `calcularDeadline
 ### ✅ Unit — `calcularValidacao` tipo `padrao` (7 testes, em `validacao.unit.test.ts`)
 Cobre a validação por faixa [min, max] resolvida via combinação de variáveis (feature "Padrões e Variáveis"): dentro/fora da faixa, limites inclusivos, faixa só-min ou só-max, sem instância correspondente → null, valor não numérico → null, formato de resposta inesperado → null.
 
+### ✅ Unit — Listas de Tarefas — `tests/unit/lib/tarefas.unit.test.ts` (21 testes)
+Criado `lib/tarefas.ts` (lógica pura, **importada** por `app/operacao/AbaTarefas.tsx` — fonte única, não espelho). Cobre: `aberturaAberta` (sem limite, data futura/passada, qtd abaixo/igual ao máximo, "o que vier primeiro" nas duas combinações), `visivelPara` (interseção por subgrupo; sem subgrupo cai p/ grupo; sem atribuição = invisível), `listaDisponivel` (aberta E visível), `calcularEditavelAte` (null sem janela, soma de horas, atravessa o dia), `edicaoExpirada` (null nunca expira, futuro/passado). **21/21 ✅ (2026-06-18).** Rodar: `cd apps/web && npx vitest run tests/unit/lib/tarefas.unit.test.ts`.
+
 ### 🔴 Unit — `operacao/[id]` (pendente)
 | Teste | O que testa | Prioridade |
 |-------|-------------|-----------|
