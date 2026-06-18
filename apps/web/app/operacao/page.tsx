@@ -1074,6 +1074,16 @@ export default function OperacaoPage() {
     setLoading(true)
     const sb = createClient()
 
+    // Visibilidade por subgrupo: o operador vê só os checklists dos subgrupos
+    // a que pertence (+ os sem subgrupo = gerais da unidade). Admin vê todos.
+    const { data: { user: authUser } } = await sb.auth.getUser()
+    const isAdmin = authUser?.user_metadata?.role === 'admin_sistema'
+    let meusSubgrupos = new Set<string>()
+    if (authUser && !isAdmin) {
+      const { data: us } = await sb.from('usuario_subgrupo').select('subgrupo_id').eq('usuario_id', authUser.id)
+      meusSubgrupos = new Set((us ?? []).map((r: any) => r.subgrupo_id))
+    }
+
     const { data } = await sb
       .from('checklists')
       .select(`id, nome, descricao, subgrupo_id, subgrupo:subgrupo_id(id, nome, grupo:grupo_id(id, nome))`)
@@ -1097,9 +1107,14 @@ export default function OperacaoPage() {
           subgrupo_id: sub?.id ?? null, subgrupo_nome: sub?.nome ?? null, grupo_id: grp?.id ?? null, grupo_nome: grp?.nome ?? null }
       })
 
+      // Filtra por subgrupo do usuário (admin vê todos; sem subgrupo = geral)
+      const visiveis = isAdmin
+        ? comContagem
+        : comContagem.filter(cl => cl.subgrupo_id == null || meusSubgrupos.has(cl.subgrupo_id))
+
       const gruposMap = new Map<string, GrupoAgrupado>()
       const semGrupoList: Checklist[] = []
-      for (const cl of comContagem) {
+      for (const cl of visiveis) {
         if (!cl.grupo_id) { semGrupoList.push(cl); continue }
         if (!gruposMap.has(cl.grupo_id)) gruposMap.set(cl.grupo_id, { id: cl.grupo_id, nome: cl.grupo_nome!, subgrupos: [] })
         const grupo = gruposMap.get(cl.grupo_id)!
