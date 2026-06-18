@@ -140,6 +140,12 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 - `20260617140000_billing_catalogo_leitura.sql` — leitura de `planos`/`pacotes_adicionais` **ativos** por autenticados (corrige self-service `/gestao/plano`; escrita segue admin).
 - `20260617160000_motivo_padrao_nao_execucao.sql` — motivo padrão "Não disponível" por unidade (grupo/subgrupo nulos), `motivo_padrao_unidade(unidade,tipo)`, trigger `checklist_seed_motivos_padrao` (AFTER INSERT em checklists, associa ≥1 de cada tipo a checklist novo não-template) + retroativo.
 
+### Listas de Tarefas — cota de mídia (migration `20260618160000_uso_armazenamento_tarefa.sql`, ✅ aplicada 2026-06-18)
+- `uso_armazenamento.origem` aceita `'tarefa'`; policy de insert ganhou bypass `is_admin_sistema()`. Mídia de tarefa contabilizada via `lib/uso.ts` + bloqueio `billing_armazenamento_disponivel`.
+
+### Listas de Tarefas — fix RLS (migration `20260618140000_tarefas_admin_exec.sql`, ✅ aplicada 2026-06-18)
+- `tarefa_exec_insert` ganhou bypass `is_admin_sistema()` (admin não tem `usuario_unidade`, então não conseguia abrir/responder uma lista). Mantém `usuario_id = auth.uid()`.
+
 ### Listas de Tarefas (migration `20260618120000_tarefas.sql`, ✅ aplicada 2026-06-18)
 - `tarefa_listas` (modelo: unidade_id, titulo, status rascunho|publicada|encerrada, `abertura_data_limite`, `abertura_max_respostas`, `edicao_janela_horas`, `notificar_whatsapp`), `tarefa_lista_grupos`/`tarefa_lista_subgrupos` (atribuição), `tarefa_itens` (titulo, ordem, flags `aceita_observacao`/`aceita_evidencia`/`exige_checkin`), `tarefa_execucoes` (1 por usuário: `unique(lista_id,usuario_id)`, `aberta_em`, `editavel_ate`, status), `tarefa_respostas` (`unique(execucao_id,item_id)`, feito, observacao, evidencia_url/tipo, lat/lng).
 - Permissão `tarefas` (ver/criar/editar/deletar), concedida aos perfis `is_system`. Helper `usuario_tem_permissao`.
