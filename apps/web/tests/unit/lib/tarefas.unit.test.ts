@@ -75,6 +75,13 @@ describe('visivelPara', () => {
   it('lista sem nenhuma atribuição: invisível', () => {
     expect(visivelPara(lista(), meusGrupos, meusSubgrupos)).toBe(false)
   })
+
+  it('admin de sistema vê todas, mesmo sem grupo/subgrupo em comum', () => {
+    const vazio = new Set<string>()
+    expect(visivelPara(lista({ subgrupos: ['s9'] }), vazio, vazio, true)).toBe(true)
+    expect(visivelPara(lista({ grupos: ['g9'] }), vazio, vazio, true)).toBe(true)
+    expect(visivelPara(lista(), vazio, vazio, true)).toBe(true)
+  })
 })
 
 describe('listaDisponivel', () => {
@@ -91,6 +98,12 @@ describe('listaDisponivel', () => {
 
   it('indisponível: aberta mas não visível', () => {
     expect(listaDisponivel(lista({ subgrupos: ['s9'] }), AGORA, meusGrupos, meusSubgrupos)).toBe(false)
+  })
+
+  it('admin: disponível mesmo sem vínculo, mas respeita a janela de abertura', () => {
+    const vazio = new Set<string>()
+    expect(listaDisponivel(lista({ subgrupos: ['s9'], abertura_data_limite: FUTURO }), AGORA, vazio, vazio, true)).toBe(true)
+    expect(listaDisponivel(lista({ subgrupos: ['s9'], abertura_data_limite: PASSADO }), AGORA, vazio, vazio, true)).toBe(false)
   })
 })
 
