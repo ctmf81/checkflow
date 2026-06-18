@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { ListChecks, Loader2, ChevronLeft, Check, Camera, MapPin, Clock, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { listaDisponivel, calcularEditavelAte, edicaoExpirada } from '@/lib/tarefas'
+import { registrarUsoArmazenamento } from '@/lib/uso'
 
 interface Lista {
   id: string
@@ -32,7 +33,7 @@ interface Resposta {
   lng: number | null
 }
 
-export function AbaTarefas({ unidadeId }: { unidadeId: string }) {
+export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empresaId?: string }) {
   const [listas, setListas] = useState<Lista[]>([])
   const [loading, setLoading] = useState(true)
   const [aberta, setAberta] = useState<Lista | null>(null)
@@ -82,7 +83,7 @@ export function AbaTarefas({ unidadeId }: { unidadeId: string }) {
   useEffect(() => { carregar() }, [carregar])
 
   if (aberta) {
-    return <ExecutarLista lista={aberta} unidadeId={unidadeId} onVoltar={() => { setAberta(null); carregar() }} />
+    return <ExecutarLista lista={aberta} unidadeId={unidadeId} empresaId={empresaId} onVoltar={() => { setAberta(null); carregar() }} />
   }
 
   if (loading) return <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
@@ -117,7 +118,7 @@ export function AbaTarefas({ unidadeId }: { unidadeId: string }) {
 }
 
 // ─── Execução de uma lista ───────────────────────────────────────────────────
-function ExecutarLista({ lista, unidadeId, onVoltar }: { lista: Lista; unidadeId: string; onVoltar: () => void }) {
+function ExecutarLista({ lista, unidadeId, empresaId, onVoltar }: { lista: Lista; unidadeId: string; empresaId?: string; onVoltar: () => void }) {
   const [itens, setItens] = useState<Item[]>([])
   const [respostas, setRespostas] = useState<Record<string, Resposta>>({})
   const [execucaoId, setExecucaoId] = useState<string | null>(null)
@@ -190,13 +191,14 @@ function ExecutarLista({ lista, unidadeId, onVoltar }: { lista: Lista; unidadeId
   }
 
   async function marcarFeito(item: Item, feito: boolean) {
-    // Check-in obrigatório ao marcar como feito
-    if (feito && item.exige_checkin) {
-      if (!navigator.geolocation) { setErro('Este dispositivo não permite check-in de localização.'); return }
+    // Check-in: tenta capturar a localização, mas NÃO bloqueia a conclusão.
+    // Se o GPS não estiver disponível/for negado, conclui sem localização.
+    if (feito && item.exige_checkin && navigator.geolocation) {
       setSalvando(item.id)
       navigator.geolocation.getCurrentPosition(
-        pos => { salvarResposta(item, { feito: true, lat: pos.coords.latitude, lng: pos.coords.longitude }) },
-        () => { setSalvando(null); setErro('Não foi possível obter a localização para o check-in.') }
+        pos => salvarResposta(item, { feito: true, lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => salvarResposta(item, { feito: true, lat: null, lng: null }),
+        { timeout: 10000 },
       )
       return
     }
@@ -206,12 +208,26 @@ function ExecutarLista({ lista, unidadeId, onVoltar }: { lista: Lista; unidadeId
   async function enviarEvidencia(item: Item, file: File) {
     if (!execucaoId) return
     setSalvando(item.id)
+    setErro('')
     const supabase = createClient()
+
+    // Bloqueio por capacidade de armazenamento do plano (mesma regra do checklist)
+    if (empresaId) {
+      const { data: cabe } = await supabase.rpc('billing_armazenamento_disponivel', { p_empresa_id: empresaId, p_bytes: file.size })
+      if (cabe === false) {
+        setSalvando(null)
+        setErro('Capacidade de armazenamento do plano atingida. Contate o administrador para ampliar o plano ou comprar mais espaço.')
+        return
+      }
+    }
+
     const ext = file.name.split('.').pop() ?? 'bin'
     const tipo: 'foto' | 'video' = file.type.startsWith('video') ? 'video' : 'foto'
     const path = `tarefas/${execucaoId}/${item.id}.${ext}`
     const { error: upErr } = await supabase.storage.from('execucoes').upload(path, file, { contentType: file.type, upsert: true })
     if (upErr) { setSalvando(null); setErro('Erro ao enviar a evidência.'); return }
+    // Contabiliza o uso de armazenamento (fire-and-forget)
+    registrarUsoArmazenamento(empresaId, 'tarefa', file.size)
     const { data: pub } = supabase.storage.from('execucoes').getPublicUrl(path)
     salvarResposta(item, { evidencia_url: pub.publicUrl, evidencia_tipo: tipo })
   }
@@ -256,7 +272,7 @@ function ExecutarLista({ lista, unidadeId, onVoltar }: { lista: Lista; unidadeId
                   <p className={`text-sm ${r.feito ? 'text-gray-800' : 'text-gray-700'}`}>{item.titulo}</p>
                   {item.exige_checkin && (
                     <span className="inline-flex items-center gap-1 text-xs text-gray-400 mt-0.5">
-                      <MapPin size={11} />{r.lat ? 'Check-in registrado' : 'Exige check-in ao concluir'}
+                      <MapPin size={11} />{r.lat ? 'Check-in registrado' : r.feito ? 'Concluído sem localização' : 'Exige check-in ao concluir'}
                     </span>
                   )}
 

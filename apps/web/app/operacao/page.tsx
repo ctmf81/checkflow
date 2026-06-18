@@ -1053,7 +1053,7 @@ function ChecklistCard({ checklist, onClick }: { checklist: Checklist; onClick: 
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function OperacaoPage() {
-  const { unidadeAtiva } = useSession()
+  const { unidadeAtiva, empresaAtiva } = useSession()
   const router = useRouter()
   const [aba, setAba] = useState<Aba>('checklists')
   const [ticketModalOpen, setTicketModalOpen] = useState(false)
@@ -1107,10 +1107,11 @@ export default function OperacaoPage() {
           subgrupo_id: sub?.id ?? null, subgrupo_nome: sub?.nome ?? null, grupo_id: grp?.id ?? null, grupo_nome: grp?.nome ?? null }
       })
 
-      // Filtra por subgrupo do usuário (admin vê todos; sem subgrupo = geral)
+      // Filtra por subgrupo do usuário (admin vê todos). Checklist sempre tem
+      // subgrupo; quem não pertence ao subgrupo não vê.
       const visiveis = isAdmin
         ? comContagem
-        : comContagem.filter(cl => cl.subgrupo_id == null || meusSubgrupos.has(cl.subgrupo_id))
+        : comContagem.filter(cl => cl.subgrupo_id != null && meusSubgrupos.has(cl.subgrupo_id))
 
       const gruposMap = new Map<string, GrupoAgrupado>()
       const semGrupoList: Checklist[] = []
@@ -1253,7 +1254,7 @@ export default function OperacaoPage() {
               onNaoExecutado={() => carregarChecklists()}
               busca={busca} setBusca={setBusca} />
           )}
-          {aba === 'tarefas' && <AbaTarefas unidadeId={unidadeAtiva.id} />}
+          {aba === 'tarefas' && <AbaTarefas unidadeId={unidadeAtiva.id} empresaId={empresaAtiva?.id} />}
           {aba === 'historico' && <AbaHistorico unidadeId={unidadeAtiva.id} />}
           {aba === 'documentos' && <AbaDocumentos unidadeId={unidadeAtiva.id} />}
         </>
