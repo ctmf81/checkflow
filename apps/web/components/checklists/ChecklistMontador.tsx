@@ -276,6 +276,12 @@ export default function ChecklistMontador({ checklistId, modoTemplate = false, b
   }
 
   async function publicar() {
+    // Todo checklist (não-modelo) precisa estar associado a um subgrupo —
+    // é o que define quem o vê na Operação.
+    if (!modoTemplate && !subgrupoId) {
+      toast.error(`Selecione um ${subgrupoLabel.toLowerCase()} antes de publicar — é ele que define quem vê o checklist na Operação.`)
+      return
+    }
     if (!id) { await salvar(); return }
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -448,7 +454,7 @@ export default function ChecklistMontador({ checklistId, modoTemplate = false, b
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{subgrupoLabel}</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{subgrupoLabel} <span className="text-red-400">*</span></label>
               <select value={subgrupoId} onChange={e => setSubgrupoId(e.target.value)}
                 disabled={!grupoId}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 disabled:opacity-50">
