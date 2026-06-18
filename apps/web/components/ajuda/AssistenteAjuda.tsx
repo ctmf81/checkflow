@@ -50,7 +50,7 @@ export function AssistenteAjuda() {
     <>
       {!aberto && (
         <button onClick={() => setAberto(true)}
-          className="fixed bottom-20 right-5 z-40 w-12 h-12 rounded-full bg-orange-500 hover:bg-orange-600 text-white shadow-lg flex items-center justify-center transition-colors"
+          className="fixed bottom-5 right-5 z-40 w-12 h-12 rounded-full bg-orange-500 hover:bg-orange-600 text-white shadow-lg flex items-center justify-center transition-colors"
           aria-label="Abrir ajuda">
           <MessageCircleQuestion size={22} />
         </button>

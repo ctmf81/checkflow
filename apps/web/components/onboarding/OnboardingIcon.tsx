@@ -9,7 +9,7 @@ export function OnboardingIcon({ onClick }: Props) {
     <button
       onClick={onClick}
       title="Ver dicas desta página"
-      className="hidden md:flex fixed right-5 bottom-5 z-30
+      className="hidden md:flex fixed right-5 bottom-20 z-30
         bg-white border border-gray-200
         rounded-full shadow-md
         w-10 h-10
