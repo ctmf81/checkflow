@@ -156,6 +156,16 @@ export default function MontadorTarefaPage({ params }: { params: Promise<{ id: s
     if (error) { toast.error('Erro ao publicar.'); return }
     setStatus('publicada')
     toast.success('Lista publicada — já aparece na Operação para os grupos atribuídos.')
+
+    // Aviso por WhatsApp (opcional) — fire-and-forget, não bloqueia a publicação
+    if (notificar) {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api-production-5bce.up.railway.app'
+      fetch(`${API_URL}/tarefas/notificar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lista_id: id }),
+      }).catch(() => { /* silencia: o aviso é best-effort */ })
+    }
   }
 
   async function encerrar() {
