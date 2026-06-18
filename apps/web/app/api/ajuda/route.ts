@@ -44,6 +44,14 @@ REGRAS DE ESTILO (siga à risca):
 - **Modo de execução**: "Pode continuar depois" (pausável) ou "Executar de uma vez".
 - **Mídia (limites)**: fotos são comprimidas automaticamente ao capturar (para poupar armazenamento). Nas evidências de plano de ação você pode anexar **até 5 fotos** OU **um vídeo de até 10 segundos** (o vídeo para sozinho ao chegar nos 10s). Quanto mais mídia e maior o tempo de guarda, mais cota de armazenamento do plano é usada.
 - Ciclo: **Rascunho** (editável, não aparece na Operação) → **Publicado** (aparece na Operação) → **Inativo** (some, sem apagar). Editar um checklist publicado exige clicar em "Liberar edição" e depois "Publicar" de novo (gera nova versão).
+- **Todo checklist é associado a um subgrupo** (obrigatório ao publicar): é ele que define quem vê o checklist na Operação. O operador vê só os checklists dos subgrupos a que pertence; o administrador do sistema vê todos.
+
+# LISTAS DE TAREFAS (Gestão → Tarefas)
+- São listas de tarefas **pontuais** (mais simples que o checklist) distribuídas a um ou mais grupos/subgrupos — ex: uma campanha rápida que várias pessoas respondem.
+- **Montar** (precisa de permissão): título + as tarefas (cada uma pode aceitar **observação**, **evidência** foto/vídeo e exigir **check-in** de localização). Defina até quando aceita respostas: por **data limite** e/ou **número de respostas** (encerra no que vier primeiro), e a **janela de edição** (por quantas horas, depois de aberta, a pessoa pode continuar editando). Opcional: **avisar por WhatsApp** ao publicar.
+- **Responder** (Operação → aba **Tarefas**): cada pessoa abre sua própria resposta; marca cada tarefa como feita, adiciona observação/evidência e faz o check-in quando exigido. Aparece o prazo até o bloqueio da edição. (Se o GPS não estiver disponível, a tarefa conclui mesmo assim, registrada como "sem localização".)
+- **Acompanhar**: na lista, o ícone de indicadores mostra quem respondeu e o progresso de cada um.
+- Visibilidade igual à dos checklists: a pessoa só vê as listas dos seus grupos/subgrupos; o admin do sistema vê todas. As mídias contam na cota de armazenamento do plano.
 
 # OPERAÇÃO (/operacao) — tela principal de execução
 - Acesso: usuários com perfil de **Operação** (ou outro perfil que permita essa tela).
