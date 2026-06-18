@@ -9,15 +9,16 @@ import {
   GitBranch, Play, History, FileText, X, ChevronDown, ChevronUp,
   ClipboardList, Clock, User, CheckCircle, XCircle, AlertTriangle,
   RotateCcw, ExternalLink, Image as ImageIcon, Video,
-  Bot, Send, Loader2, MessageSquare, Ticket,
+  Bot, Send, Loader2, MessageSquare, Ticket, ListChecks,
 } from 'lucide-react'
 import NovoTicketModal from '@/components/tickets/NovoTicketModal'
+import { AbaTarefas } from './AbaTarefas'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_OPERACAO } from '@/components/onboarding/configs'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-type Aba = 'checklists' | 'historico' | 'documentos'
+type Aba = 'checklists' | 'tarefas' | 'historico' | 'documentos'
 
 interface Checklist {
   id: string; nome: string; descricao: string | null
@@ -1186,6 +1187,7 @@ export default function OperacaoPage() {
 
   const ABAS: { id: Aba; label: string; icon: React.ReactNode }[] = [
     { id: 'checklists', label: 'Checklists',  icon: <CheckSquare size={15} /> },
+    { id: 'tarefas',    label: 'Tarefas',     icon: <ListChecks size={15} /> },
     { id: 'historico',  label: 'Histórico',   icon: <History size={15} /> },
     { id: 'documentos', label: 'Documentos',  icon: <FileText size={15} /> },
   ]
@@ -1222,6 +1224,7 @@ export default function OperacaoPage() {
               onNaoExecutado={() => carregarChecklists()}
               busca={busca} setBusca={setBusca} />
           )}
+          {aba === 'tarefas' && <AbaTarefas unidadeId={unidadeAtiva.id} />}
           {aba === 'historico' && <AbaHistorico unidadeId={unidadeAtiva.id} />}
           {aba === 'documentos' && <AbaDocumentos unidadeId={unidadeAtiva.id} />}
         </>

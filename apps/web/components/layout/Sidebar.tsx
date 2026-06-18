@@ -7,7 +7,7 @@ import { clsx } from 'clsx'
 import {
   Home, Users, CheckSquare, BarChart2, Settings,
   ChevronDown, ChevronUp, ClipboardList, Layers,
-  Network, UserCircle, GitBranch, Clock, Ticket, X, CreditCard
+  Network, UserCircle, GitBranch, Clock, Ticket, X, CreditCard, ListChecks
 } from 'lucide-react'
 import { useSession } from '@/contexts/SessionContext'
 import { useSidebar } from './SidebarContext'
@@ -34,6 +34,7 @@ const nav: NavItem[] = [
   },
   { label: 'Planos de Ação', href: '/gestao/planos-acao',  icon: ClipboardList },
   { label: 'Checklists',   href: '/gestao/checklists',     icon: CheckSquare },
+  { label: 'Tarefas',      href: '/gestao/tarefas',        icon: ListChecks },
   { label: 'Workflows',    href: '/gestao/workflows',      icon: GitBranch },
   { label: 'Agendamentos', href: '/gestao/agendamentos',   icon: Clock },
   { label: 'Indicadores',  href: '/gestao/indicadores',    icon: BarChart2 },
