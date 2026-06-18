@@ -7,6 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { useToast, useConfirm } from '@/components/ui/feedback'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_CHECKLISTS } from '@/components/onboarding/configs'
 
@@ -40,6 +41,8 @@ export default function ChecklistsPage() {
 
 function ChecklistsContent() {
   const { unidadeAtiva, subgrupoLabel, empresaAtiva } = useSession()
+  const toast = useToast()
+  const confirm = useConfirm()
   const searchParams = useSearchParams()
   const router = useRouter()
   const filtroSubgrupoId = searchParams.get('subgrupo')
@@ -123,13 +126,54 @@ function ChecklistsContent() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  async function inativar(id: string) {
-    setInativando(id)
+  async function inativar(id: string, nome: string) {
     setMenuAberto(null)
     const supabase = createClient()
-    await supabase.from('checklists').update({ status: 'inativo' }).eq('id', id)
+
+    // Guard: checklist em uso por workflow publicado não pode ser inativado.
+    // Precisa ser desvinculado do(s) workflow(s) primeiro. (Há também um
+    // trigger no banco que bloqueia — aqui damos a mensagem amigável antes.)
+    const { data: vinculos } = await supabase
+      .from('workflow_estagio_itens')
+      .select('estagio:estagio_id(workflow:workflow_id(nome, status))')
+      .eq('checklist_id', id)
+
+    const workflowsPublicados = Array.from(new Set(
+      (vinculos ?? [])
+        .map((v: any) => {
+          const estagio = Array.isArray(v.estagio) ? v.estagio[0] : v.estagio
+          const wf = estagio ? (Array.isArray(estagio.workflow) ? estagio.workflow[0] : estagio.workflow) : null
+          return wf && wf.status === 'publicado' ? wf.nome : null
+        })
+        .filter(Boolean) as string[]
+    ))
+
+    if (workflowsPublicados.length > 0) {
+      toast.error(
+        `Não é possível inativar "${nome}": está vinculado ao(s) workflow(s) ${workflowsPublicados.map(n => `"${n}"`).join(', ')}. ` +
+        `Remova o checklist desse(s) workflow(s) (ou inative o workflow) antes de inativar.`
+      )
+      return
+    }
+
+    const ok = await confirm({
+      titulo: 'Inativar este checklist?',
+      mensagem: `"${nome}" deixará de aparecer na listagem e não poderá mais ser executado. O histórico de execuções é preservado. Você pode duplicá-lo depois se precisar reutilizá-lo.`,
+      confirmarLabel: 'Inativar',
+      perigo: true,
+    })
+    if (!ok) return
+
+    setInativando(id)
+    const { error } = await supabase.from('checklists').update({ status: 'inativo' }).eq('id', id)
+    if (error) {
+      toast.error('Não foi possível inativar este checklist. Verifique se ele está em uso por algum workflow.')
+      setInativando(null)
+      return
+    }
     setChecklists(prev => prev.filter(c => c.id !== id))
     setInativando(null)
+    toast.success('Checklist inativado.')
   }
 
   const filtrados = checklists.filter(c => {
@@ -267,7 +311,7 @@ function ChecklistsContent() {
                           Duplicar
                         </button>
                         <button
-                          onClick={() => inativar(cl.id)}
+                          onClick={() => inativar(cl.id, cl.nome)}
                           className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
                         >
                           <EyeOff size={14} className="text-red-400" />
@@ -288,6 +332,7 @@ function ChecklistsContent() {
         <DuplicarModal
           checklist={duplicando}
           empresaId={empresaAtiva?.id ?? ''}
+          origemUnidadeId={unidadeAtiva.id}
           onClose={() => setDuplicando(null)}
           onDuplicado={() => { setDuplicando(null); carregar() }}
         />
@@ -301,11 +346,12 @@ function ChecklistsContent() {
 interface DuplicarModalProps {
   checklist: Checklist
   empresaId: string
+  origemUnidadeId: string
   onClose: () => void
   onDuplicado: () => void
 }
 
-function DuplicarModal({ checklist, empresaId, onClose, onDuplicado }: DuplicarModalProps) {
+function DuplicarModal({ checklist, empresaId, origemUnidadeId, onClose, onDuplicado }: DuplicarModalProps) {
   const [unidades, setUnidades] = useState<Unidade[]>([])
   const [grupos, setGrupos] = useState<Grupo[]>([])
   const [subgrupos, setSubgrupos] = useState<Subgrupo[]>([])
@@ -315,8 +361,33 @@ function DuplicarModal({ checklist, empresaId, onClose, onDuplicado }: DuplicarM
   const [subgrupoId, setSubgrupoId] = useState('')
   const [nome, setNome] = useState(`${checklist.nome} (cópia)`)
 
+  // Catálogos referenciados pelas atividades (config.catalogo_id).
+  // Ao duplicar para outra unidade, esses catálogos são recriados no destino.
+  const [catalogosVinculados, setCatalogosVinculados] = useState<string[]>([])
+
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
+  const confirm = useConfirm()
+
+  // Detecta catálogos usados pelo checklist de origem (para avisar o usuário)
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.from('checklist_atividades')
+      .select('config')
+      .eq('checklist_id', checklist.id)
+      .eq('tipo', 'catalogo')
+      .then(({ data }) => {
+        const ids = Array.from(new Set(
+          (data ?? [])
+            .map((a: any) => a.config?.catalogo_id)
+            .filter(Boolean) as string[]
+        ))
+        setCatalogosVinculados(ids)
+      })
+  }, [checklist.id])
+
+  const outraUnidade = !!unidadeId && unidadeId !== origemUnidadeId
+  const recriaCatalogos = outraUnidade && catalogosVinculados.length > 0
 
   useEffect(() => {
     if (!empresaId) return
@@ -348,12 +419,53 @@ function DuplicarModal({ checklist, empresaId, onClose, onDuplicado }: DuplicarM
   async function duplicar() {
     if (!unidadeId) { setErro('Selecione uma unidade de destino.'); return }
     if (!nome.trim()) { setErro('Informe um nome para o checklist.'); return }
+
+    // Avisa que catálogos serão recriados no destino (cadastro de catálogos da outra unidade)
+    if (recriaCatalogos) {
+      const ok = await confirm({
+        titulo: 'Recriar catálogos no destino?',
+        mensagem: `Este checklist usa ${catalogosVinculados.length} catálogo(s). Como a cópia vai para outra unidade, será criado um novo catálogo (com seus valores) no cadastro de catálogos da unidade de destino. Deseja continuar?`,
+        confirmarLabel: 'Duplicar e recriar catálogos',
+      })
+      if (!ok) return
+    }
+
     setSalvando(true)
     setErro('')
     const supabase = createClient()
     let novoClId: string | null = null
 
     try {
+      // 0. Recria catálogos no destino (só quando vai para outra unidade).
+      //    No mesmo destino o catalogo_id continua válido.
+      const mapaCatalogos: Record<string, string> = {}
+      if (recriaCatalogos) {
+        for (const catId of catalogosVinculados) {
+          const { data: cat } = await supabase.from('catalogos').select('*').eq('id', catId).single()
+          if (!cat) continue
+          const { data: novoCat, error: errCat } = await supabase.from('catalogos').insert({
+            unidade_id: unidadeId,
+            nome: cat.nome, descricao: cat.descricao, campo_chave: cat.campo_chave,
+            atributo_1: cat.atributo_1, atributo_2: cat.atributo_2,
+            atributo_3: cat.atributo_3, atributo_4: cat.atributo_4,
+            api_url: cat.api_url, api_headers: cat.api_headers, api_mapeamento: cat.api_mapeamento,
+            status: 'ativo',
+          }).select('id').single()
+          if (errCat || !novoCat) throw new Error('Erro ao recriar catálogo no destino.')
+          mapaCatalogos[catId] = novoCat.id
+
+          // Copia os valores do catálogo
+          const { data: valores } = await supabase.from('catalogo_valores')
+            .select('valor_chave, atributo_1, atributo_2, atributo_3, atributo_4, imagem_url')
+            .eq('catalogo_id', catId)
+          if (valores && valores.length) {
+            const { error: errVal } = await supabase.from('catalogo_valores')
+              .insert(valores.map(v => ({ ...v, catalogo_id: novoCat.id })))
+            if (errVal) throw new Error('Erro ao copiar valores do catálogo.')
+          }
+        }
+      }
+
       // 1. Cria novo checklist
       const { data: novoCl, error: errCl } = await supabase
         .from('checklists')
@@ -412,6 +524,11 @@ function DuplicarModal({ checklist, empresaId, onClose, onDuplicado }: DuplicarM
           continue
         }
         tentativas = 0
+        // Remapeia o catálogo quando recriado no destino
+        let configFinal = a.config
+        if (a.tipo === 'catalogo' && a.config?.catalogo_id && mapaCatalogos[a.config.catalogo_id]) {
+          configFinal = { ...a.config, catalogo_id: mapaCatalogos[a.config.catalogo_id] }
+        }
         const { data: novaA, error: errA } = await supabase
           .from('checklist_atividades')
           .insert({
@@ -424,7 +541,7 @@ function DuplicarModal({ checklist, empresaId, onClose, onDuplicado }: DuplicarM
             obrigatoria: a.obrigatoria,
             critica: a.critica,
             gera_plano_acao: a.gera_plano_acao,
-            config: a.config,
+            config: configFinal,
             atividade_pai_id: a.atividade_pai_id ? (mapaAtividades[a.atividade_pai_id] ?? null) : null,
             valor_gatilho: a.valor_gatilho,
           })
@@ -455,6 +572,19 @@ function DuplicarModal({ checklist, empresaId, onClose, onDuplicado }: DuplicarM
           const { error: errOpc } = await supabase.from('checklist_atividade_opcoes').insert(novasOpcoes)
           if (errOpc) throw new Error('Erro ao copiar opções.')
         }
+      }
+
+      // 5. Copia os motivos de não execução vinculados (ignora os que o
+      //    trigger já associou por padrão, evitando conflito de duplicata).
+      const { data: motivos } = await supabase
+        .from('checklist_nao_execucao_motivos')
+        .select('motivo_id')
+        .eq('checklist_id', checklist.id)
+      if (motivos && motivos.length) {
+        await supabase.from('checklist_nao_execucao_motivos').upsert(
+          motivos.map(m => ({ checklist_id: novoCl.id, motivo_id: m.motivo_id })),
+          { onConflict: 'checklist_id,motivo_id', ignoreDuplicates: true }
+        )
       }
 
       setSalvando(false)
@@ -535,6 +665,12 @@ function DuplicarModal({ checklist, empresaId, onClose, onDuplicado }: DuplicarM
                 </select>
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
+            </div>
+          )}
+
+          {recriaCatalogos && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-xs text-amber-700">
+              ⚠️ Este checklist usa <strong>{catalogosVinculados.length} catálogo(s)</strong>. Como a cópia vai para outra unidade, um novo catálogo (com seus valores) será criado no cadastro de catálogos da unidade de destino.
             </div>
           )}
 

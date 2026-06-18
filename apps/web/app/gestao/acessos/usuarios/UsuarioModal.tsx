@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { X, ImagePlus } from 'lucide-react'
+import { X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 
@@ -102,6 +102,19 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
     if (empresaId) uq = uq.eq('empresa_id', empresaId) as typeof uq
     uq.then(({ data }) => { if (data) setUnidades(data) })
 
+    // Na edição, carrega as unidades já vinculadas ao usuário (a lista da página vem vazia)
+    if (usuario?.id) {
+      supabase.from('usuario_unidade').select('unidade:unidade_id(id, nome)')
+        .eq('usuario_id', usuario.id)
+        .then(({ data }) => {
+          if (!data) return
+          const us = data
+            .map((r: any) => Array.isArray(r.unidade) ? r.unidade[0] : r.unidade)
+            .filter(Boolean)
+          setUnidadesSel(us)
+        })
+    }
+
     let tq = supabase.from('turnos').select('id, nome, tipo').eq('ativo', true).order('nome')
     if (empresaId) tq = tq.eq('empresa_id', empresaId) as typeof tq
     tq.then(({ data }) => { if (data) setTurnos(data as Turno[]) })
@@ -127,6 +140,10 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
       setErro('Telefone (com DDD) é obrigatório — usado para login e recuperação de senha via WhatsApp.')
       return
     }
+    if (!perfilId) {
+      setErro('Selecione um perfil para o usuário.')
+      return
+    }
 
     setSalvando(true)
 
@@ -138,13 +155,43 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
         await supabase.from('usuarios').update({
           nome, cpf: cpf || null, telefone: telefone || null, turno_id: turnoId || null
         }).eq('id', usuario.id)
+
+        // Atualiza o perfil na empresa (guard do último admin via trigger)
+        if (perfilId && empresaId) {
+          const { error: errPerfil } = await supabase.from('usuario_empresa')
+            .update({ perfil_id: perfilId })
+            .eq('usuario_id', usuario.id).eq('empresa_id', empresaId)
+          if (errPerfil) {
+            setErro(errPerfil.message.includes('último administrador')
+              ? 'Não é possível remover o perfil de Admin da empresa do último administrador.'
+              : 'Erro ao alterar o perfil.')
+            setSalvando(false)
+            return
+          }
+        }
+
+        // Sincroniza as unidades (escopo: só as unidades desta empresa)
+        const empresaUnidadeIds = unidades.map(u => u.id)
+        if (empresaUnidadeIds.length > 0) {
+          await supabase.from('usuario_unidade').delete()
+            .eq('usuario_id', usuario.id).in('unidade_id', empresaUnidadeIds)
+        }
+        const selDestaEmpresa = unidadesSel.filter(u => empresaUnidadeIds.includes(u.id))
+        if (selDestaEmpresa.length > 0) {
+          await supabase.from('usuario_unidade').insert(
+            selDestaEmpresa.map(u => ({ usuario_id: usuario.id, unidade_id: u.id }))
+          )
+        }
       } else {
-        // Cria usuário no Supabase Auth com senha temporária
+        // Cria usuário no Supabase Auth com senha temporária + vínculo de empresa/perfil/unidades
         const senhaTemp = Math.random().toString(36).slice(-10) + 'A1!'
         const res = await fetch('/api/usuarios/criar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, nome, cpf, telefone, senhaTemp }),
+          body: JSON.stringify({
+            email, nome, cpf, telefone, senhaTemp,
+            empresaId, perfilId, unidades: unidadesSel.map(u => u.id),
+          }),
         })
         if (!res.ok) {
           const err = await res.json()
@@ -173,16 +220,6 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
         </div>
 
         <form onSubmit={handleSubmit} className="overflow-y-auto px-6 py-5 space-y-4">
-          {/* Foto */}
-          <div className="flex justify-center mb-2">
-            <div className="relative">
-              <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-gray-200">
-                <ImagePlus size={24} className="text-gray-300" />
-              </div>
-              <span className="absolute bottom-0 right-0 bg-orange-500 rounded-full w-6 h-6 flex items-center justify-center text-white text-xs font-bold cursor-pointer">+</span>
-            </div>
-          </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
             <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome completo"

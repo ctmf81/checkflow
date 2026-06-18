@@ -11,7 +11,7 @@ function makeAdmin() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, nome, cpf, telefone, senhaTemp } = await req.json()
+    const { email, nome, cpf, telefone, senhaTemp, empresaId, perfilId, unidades } = await req.json()
 
     const cpfDigits = (cpf ?? '').replace(/\D/g, '')
     const telDigits = (telefone ?? '').replace(/\D/g, '')
@@ -21,6 +21,9 @@ export async function POST(req: NextRequest) {
     }
     if (telDigits.length < 10 || telDigits.length > 11) {
       return NextResponse.json({ message: 'Telefone (com DDD) é obrigatório.' }, { status: 400 })
+    }
+    if (!empresaId || !perfilId) {
+      return NextResponse.json({ message: 'Empresa e perfil são obrigatórios.' }, { status: 400 })
     }
 
     const supabaseAdmin = makeAdmin()
@@ -61,6 +64,29 @@ export async function POST(req: NextRequest) {
             : 'Já existe um usuário cadastrado com esse CPF ou e-mail.')
         : 'Erro ao salvar usuário.'
       return NextResponse.json({ message: msg }, { status: 409 })
+    }
+
+    // Vincula à empresa com o perfil escolhido (obrigatório p/ aparecer na empresa)
+    const { error: ueError } = await supabaseAdmin.from('usuario_empresa').insert({
+      usuario_id: authData.user.id, empresa_id: empresaId, perfil_id: perfilId,
+    })
+    if (ueError) {
+      // Rollback: remove o usuário recém-criado para não deixar órfão
+      await supabaseAdmin.from('usuarios').delete().eq('id', authData.user.id)
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+      return NextResponse.json({ message: 'Erro ao vincular o usuário à empresa.' }, { status: 400 })
+    }
+
+    // Vincula às unidades selecionadas (opcional)
+    if (Array.isArray(unidades) && unidades.length > 0) {
+      const { error: uuError } = await supabaseAdmin.from('usuario_unidade').insert(
+        unidades.map((uid: string) => ({ usuario_id: authData.user.id, unidade_id: uid }))
+      )
+      if (uuError) {
+        await supabaseAdmin.from('usuarios').delete().eq('id', authData.user.id)
+        await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+        return NextResponse.json({ message: 'Erro ao vincular o usuário às unidades.' }, { status: 400 })
+      }
     }
 
     // Dispara código de primeiro acesso por WhatsApp (e e-mail, se houver)

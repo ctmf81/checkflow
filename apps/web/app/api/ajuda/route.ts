@@ -28,13 +28,21 @@ REGRAS DE ESTILO (siga à risca):
 - Hierarquia: Empresa → Unidades → (Grupos/Setores e Subgrupos, opcionais) → Usuários. Um usuário pode pertencer a uma ou mais unidades. Checklists pertencem a uma unidade. Usuários são ilimitados (não se paga por usuário).
 
 # CHECKLISTS (Gestão → Checklists)
-- Criar do zero ("Novo checklist") ou **a partir de um modelo** pronto ("Usar um modelo" → escolher segmento → pré-visualizar → "Usar" → o modelo é copiado como rascunho na sua unidade para você ajustar e publicar).
+- Criar do zero ("Novo checklist") ou **a partir de um modelo** pronto ("Usar um modelo" → escolher segmento → pré-visualizar → "Usar" → o modelo é copiado como rascunho na sua unidade para você ajustar e publicar). Os modelos são genéricos, criados pela CheckFlow. A cópia é **independente**: alterações no modelo original não afetam a sua cópia.
+- **Só aparecem os checklists dos subgrupos a que você tem acesso.** Inativos não aparecem na lista.
+- **Duplicar** (menu do item): copia o checklist como novo rascunho — pode ser para outra unidade/grupo/subgrupo. Leva junto seções, atividades, opções, motivos de não execução e catálogos. Ao duplicar para **outra unidade**, os catálogos usados são **recriados no cadastro de catálogos da unidade de destino** (o sistema avisa e pede confirmação).
+- **Inativar** (menu do item): pede confirmação; o histórico é preservado. **Não é possível inativar um checklist vinculado a um workflow publicado** — o sistema informa o(s) workflow(s) e você precisa desvinculá-lo de lá (ou inativar o workflow) primeiro.
 - Estrutura: um checklist tem **1 ou mais seções**, e cada seção **1 ou mais atividades**. Tipos de atividade: sim/não, número, texto, múltipla escolha, catálogo, foto, vídeo, assinatura, data/hora, localização.
+- **Premissa ao montar uma atividade**: pense no **tipo de resposta** que você quer do operador, não na pergunta em si. Ex.: se a resposta deve ser "sim ou não", escolha o tipo **Sim/Não**; se for um valor numérico (temperatura, peso), escolha **Número**; se for escolher entre opções, **Múltipla escolha**; e assim por diante. O texto da pergunta vai no nome/descrição; o **tipo** define como o operador responde e como o sistema valida.
+- **Pense também nas dependências entre campos**: uma atividade pode existir só para decidir o que aparece depois. A partir da resposta de uma atividade "pai" (Sim/Não ou Múltipla escolha), você exibe ou não atividades **dependentes**. Monte primeiro a pergunta que ramifica e depois pendure nela as atividades que só fazem sentido para cada resposta.
 - **Atividades dependentes**: uma atividade pode aparecer só quando a resposta de outra (a "pai") for um valor específico. A atividade-pai precisa ser do tipo **sim/não** ou **múltipla escolha**.
+- **Data/Hora**: na execução o campo já vem preenchido com o horário atual; o operador pode ajustar se precisar.
+- **Texto com QR Code / Barcode**: a leitura por câmera só funciona no **app mobile**. No computador, o operador digita o valor manualmente.
 - **Retomar uma execução pausada**: não há link manual — na Operação, aba Checklists, a execução aparece na seção **"Não finalizados"** no topo; clique em **"Continuar"** para retomar (as respostas voltam preenchidas).
 - Cada atividade pode ser **obrigatória**, **crítica** (se reprovada, reprova o checklist) e **gerar plano de ação**. Atividades **dependentes** só aparecem quando a resposta da atividade "pai" é o valor configurado.
-- **Tempo de guarda**: por quantos meses as execuções (e fotos/vídeos) ficam guardadas antes de poderem ser limpas. Padrão 12 meses; opções 1 a 64.
+- **Tempo de guarda das mídias**: por quantos meses as **mídias** (fotos, vídeos, PDFs) das execuções ficam guardadas. Padrão **1 mês**; opções 1, 3, 6, 12, 24, 36, 48, 60 meses. Após o prazo, **só as mídias** são apagadas para liberar espaço — o registro da execução é sempre preservado. Quanto maior o prazo, maior o consumo da **cota de armazenamento do seu plano**.
 - **Modo de execução**: "Pode continuar depois" (pausável) ou "Executar de uma vez".
+- **Mídia (limites)**: fotos são comprimidas automaticamente ao capturar (para poupar armazenamento). Nas evidências de plano de ação você pode anexar **até 5 fotos** OU **um vídeo de até 10 segundos** (o vídeo para sozinho ao chegar nos 10s). Quanto mais mídia e maior o tempo de guarda, mais cota de armazenamento do plano é usada.
 - Ciclo: **Rascunho** (editável, não aparece na Operação) → **Publicado** (aparece na Operação) → **Inativo** (some, sem apagar). Editar um checklist publicado exige clicar em "Liberar edição" e depois "Publicar" de novo (gera nova versão).
 
 # OPERAÇÃO (/operacao) — tela principal de execução
@@ -79,6 +87,16 @@ REGRAS DE ESTILO (siga à risca):
 
 # GRUPOS E SUBGRUPOS (Gestão → Grupos)
 - Representam as áreas/setores da unidade (ex: Manutenção, Limpeza, Produção) e seus subgrupos. Servem para direcionar checklists, tickets e planos de ação ao time certo. Os nomes dos níveis ("Grupo"/"Setor" etc.) podem ser personalizados em Formatação.
+- **Quem vê o quê**: o usuário enxerga os checklists publicados dos subgrupos a que está associado. Esse vínculo é feito em Gestão → Grupos (ao adicionar/gerenciar o usuário, marcando os subgrupos).
+- **Para adicionar alguém a um grupo, a pessoa precisa já estar cadastrada na empresa.** O cadastro do usuário é feito antes em Gestão → Acessos → Usuários; depois você o adiciona ao grupo.
+- **Gerenciar usuários** (botão no card do grupo): por usuário você pode editar nome/telefone, escolher os subgrupos de acesso, reenviar a senha e remover do grupo. (Remover do grupo tira o acesso àquele grupo; não exclui o usuário do sistema.)
+- **Funções por área** (botão "Funções" no subgrupo): definem o papel do usuário sobre os checklists daquela área:
+  - **— (só visualiza)**: apenas vê.
+  - **Operação**: executa os checklists.
+  - **Nível 1**: executa e **modera** os planos de ação abertos por não conformidade — pode corrigir, não corrigir ou escalar para o Nível 2.
+  - **Nível 2**: recebe os casos escalados pelo N1 — pode corrigir, não corrigir ou devolver para o N1; também atua como N1 e executa checklists.
+  - Cada nível só é avisado (WhatsApp + e-mail) quando a ação é do seu nível.
+- **Perfil público**: um perfil marcado como "público" pode ser atribuído por gestores de grupo/setor (ex: para cobrir uma liderança temporariamente). Perfis não-públicos só o Admin da empresa atribui. Por isso, ao editar um usuário pela tela de Grupos, só aparecem os perfis públicos.
 
 # INDICADORES (Gestão → Indicadores)
 - Painel com gráficos e métricas consolidadas: execuções, índice de conformidade, planos de ação e tickets por período. Use os filtros (unidade, grupo, período) para analisar.
@@ -107,8 +125,12 @@ REGRAS DE ESTILO (siga à risca):
 - **Turnos**: administrativo (horário fixo por dia da semana) ou escala (ciclo trabalho/folga, ex: 12x36). Efeito único: fora do turno, o usuário não recebe notificação de moderação por **WhatsApp** (e-mail continua; o acesso e a moderação seguem normais a qualquer hora). Sem turno = recebe sempre.
 - **Perfis**: definem o que cada usuário vê/faz. Perfil "não público" só o Admin da empresa atribui; "público" pode ser atribuído por quem gerencia usuários do grupo. Não é possível remover o perfil de Admin do **último** administrador da empresa.
 
-# USUÁRIOS E LOGIN
+# USUÁRIOS E LOGIN (Gestão → Acessos → Usuários)
 - Não há autocadastro: usuários são criados por admin/gestor (individual, em lote por CSV ou via API). **Login é por CPF**; CPF e telefone são obrigatórios. Recuperação/primeiro acesso por **código (OTP)** enviado por WhatsApp (e e-mail se houver).
+- **Cadastrar usuário** (modal): informe nome, CPF (login), telefone (WhatsApp), e-mail (opcional), **perfil**, **turno** e **unidades de acesso**. Ao salvar, o usuário é criado, vinculado à empresa com o perfil escolhido e às unidades marcadas, e recebe o código de primeiro acesso. Sem perfil não é possível salvar.
+- **Editar usuário**: dá para alterar nome/telefone/turno, trocar o **perfil** e ajustar as **unidades de acesso** (tudo persiste). O e-mail não é editável.
+- **Ações na lista**: trocar perfil (atalho), "Login como" (só admin de sistema, entra como o usuário), inativar (perde acesso na hora) e resetar senha (envia código por WhatsApp — exige telefone).
+- **Turno**: fora do turno o usuário não recebe mensagens de moderação por WhatsApp, mas continua podendo moderar pelo sistema.
 
 # PLANO & ASSINATURA (Gestão → Plano — só o administrador da empresa)
 - Mostra o **uso do período**: execuções/mês, tokens de IA/mês e armazenamento total, cada um com seu limite.

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { X, Users, Pencil, PowerOff, RefreshCw, Check, ChevronDown, ChevronUp, Loader2, UserCircle, Phone, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
+import { useSession } from '@/contexts/SessionContext'
 import { useConfirm, useToast } from '@/components/ui/feedback'
 
 interface Props {
@@ -31,21 +32,66 @@ function EditarUsuarioModal({ usuario, onClose, onSalvo }: {
   onClose: () => void
   onSalvo: () => void
 }) {
+  const { empresaAtiva } = useSession()
   const [nome, setNome] = useState(usuario.nome)
   const [telefone, setTelefone] = useState(usuario.telefone ?? '')
+  const [perfis, setPerfis] = useState<{ id: string; nome: string }[]>([])
+  const [perfilId, setPerfilId] = useState('')
+  const [perfilOriginal, setPerfilOriginal] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
+
+  // Carrega só os perfis PÚBLICOS (atribuíveis por gestor de grupo/setor) +
+  // o perfil atual do usuário nesta empresa. Perfis não-públicos só o Admin
+  // da empresa atribui (em Acessos → Usuários) — o trigger valida_troca_perfil garante.
+  useEffect(() => {
+    if (!empresaAtiva?.id) return
+    const supabase = createClient()
+    Promise.all([
+      supabase.from('perfis').select('id, nome').eq('publico', true)
+        .or(`empresa_id.eq.${empresaAtiva.id},empresa_id.is.null`).order('nome'),
+      supabase.from('usuario_empresa').select('perfil:perfil_id(id, nome)')
+        .eq('usuario_id', usuario.id).eq('empresa_id', empresaAtiva.id).single(),
+    ]).then(([pubRes, ueRes]) => {
+      const publicos = pubRes.data ?? []
+      const atual: any = (ueRes.data as any)?.perfil
+      const atualNorm = Array.isArray(atual) ? atual[0] : atual
+      // Inclui o perfil atual na lista mesmo se não for público, só para exibição
+      const lista = atualNorm && !publicos.some(p => p.id === atualNorm.id)
+        ? [atualNorm, ...publicos]
+        : publicos
+      setPerfis(lista)
+      if (atualNorm?.id) { setPerfilId(atualNorm.id); setPerfilOriginal(atualNorm.id) }
+    })
+  }, [empresaAtiva?.id, usuario.id])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!nome.trim()) { setErro('Nome é obrigatório.'); return }
     setSalvando(true)
-    const { error } = await createClient()
+    setErro('')
+    const supabase = createClient()
+    const { error } = await supabase
       .from('usuarios')
       .update({ nome: nome.trim(), telefone: telefone.trim() || null })
       .eq('id', usuario.id)
+    if (error) { setSalvando(false); setErro('Erro ao salvar.'); return }
+
+    // Atualiza o perfil só se mudou (evita reenviar um perfil não-público que o
+    // gestor não pode atribuir). Guard do último admin protegido por trigger.
+    if (perfilId && perfilId !== perfilOriginal && empresaAtiva?.id) {
+      const { error: errPerfil } = await supabase.from('usuario_empresa')
+        .update({ perfil_id: perfilId })
+        .eq('usuario_id', usuario.id).eq('empresa_id', empresaAtiva.id)
+      if (errPerfil) {
+        setSalvando(false)
+        setErro(errPerfil.message.includes('último administrador')
+          ? 'Não é possível remover o perfil de Admin da empresa do último administrador.'
+          : 'Erro ao alterar o perfil.')
+        return
+      }
+    }
     setSalvando(false)
-    if (error) { setErro('Erro ao salvar.'); return }
     onSalvo()
     onClose()
   }
@@ -69,6 +115,14 @@ function EditarUsuarioModal({ usuario, onClose, onSalvo }: {
             <input value={telefone} onChange={e => setTelefone(e.target.value)}
               placeholder="(11) 99999-9999"
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Perfil</label>
+            <select value={perfilId} onChange={e => setPerfilId(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
+              <option value="">Selecione um perfil</option>
+              {perfis.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+            </select>
           </div>
           {erro && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{erro}</p>}
           <div className="flex justify-end gap-2 pt-1">
@@ -230,19 +284,49 @@ export function UsuariosGrupoModal({ grupoId, grupoNome, subgrupoLabel, onClose,
   }
 
   async function reenviarSenha(usuario: UsuarioGrupo) {
+    // Fluxo atual: envia código de redefinição por WhatsApp (login é CPF + OTP).
+    if (!usuario.telefone) {
+      toast.error('Usuário sem telefone cadastrado para receber o código de redefinição.')
+      return
+    }
     setEnviandoSenha(usuario.id)
-    await createClient().auth.resetPasswordForEmail(usuario.email, {
-      redirectTo: `${window.location.origin}/auth/reset-password`,
-    })
-    setEnviandoSenha(null)
-    setSenhaEnviada(usuario.id)
-    setTimeout(() => setSenhaEnviada(null), 3000)
+    try {
+      const { data: { session } } = await createClient().auth.getSession()
+      const token = session?.access_token
+      if (!token) { toast.error('Sessão inválida.'); return }
+      const res = await fetch('/api/usuarios/resetar-senha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ usuarioId: usuario.id }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        setSenhaEnviada(usuario.id)
+        toast.success(json.message ?? 'Código enviado por WhatsApp.')
+        setTimeout(() => setSenhaEnviada(null), 3000)
+      } else {
+        toast.error(json.message ?? 'Erro ao enviar código.')
+      }
+    } catch (e: any) {
+      toast.error(e.message ?? 'Erro inesperado.')
+    } finally {
+      setEnviandoSenha(null)
+    }
   }
 
   async function inativar(usuario: UsuarioGrupo) {
-    if (!await confirm({ titulo: `Remover "${usuario.nome}" deste grupo?`, confirmarLabel: 'Remover', perigo: true })) return
+    if (!await confirm({ titulo: `Remover "${usuario.nome}" deste grupo?`, mensagem: `Ele perde o acesso a este grupo e aos ${subgrupoLabel.toLowerCase()} dele.`, confirmarLabel: 'Remover', perigo: true })) return
     setInativando(usuario.id)
     const supabase = createClient()
+
+    // Remove também os vínculos de subgrupo deste grupo (evita acesso órfão)
+    const { data: subs } = await supabase.from('subgrupos').select('id').eq('grupo_id', grupoId)
+    const subIds = (subs ?? []).map((s: any) => s.id)
+    if (subIds.length > 0) {
+      await supabase.from('usuario_subgrupo').delete()
+        .eq('usuario_id', usuario.id).in('subgrupo_id', subIds)
+    }
+
     const { error } = await supabase.from('usuario_grupo').delete()
       .eq('usuario_id', usuario.id).eq('grupo_id', grupoId)
     setInativando(null)

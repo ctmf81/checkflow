@@ -665,16 +665,65 @@ function CampoLocalizacao({ atividade, onChange }: { atividade: Atividade; onCha
   )
 }
 
+// ── Limites de mídia (fixos, globais) ─────────────────────────
+const MAX_FOTOS = 5              // máximo de fotos por evidência (plano de ação)
+const MAX_VIDEO_SEG = 10         // duração máxima do vídeo gravado
+const VIDEO_BITRATE = 1_500_000  // ~1,5 Mbps de vídeo → ~2 MB em 10s
+const FOTO_MAX_PX = 1600         // lado maior após compressão
+const FOTO_QUALIDADE = 0.8       // qualidade JPEG
+
+// Comprime/redimensiona uma imagem no navegador antes do upload, para
+// padronizar o tamanho e poupar a cota de armazenamento. Se algo falhar,
+// devolve o arquivo original (degradação graciosa).
+async function comprimirImagem(file: File): Promise<File> {
+  if (!file.type.startsWith('image/')) return file
+  try {
+    const bitmap = await createImageBitmap(file)
+    const escala = Math.min(1, FOTO_MAX_PX / Math.max(bitmap.width, bitmap.height))
+    const w = Math.round(bitmap.width * escala)
+    const h = Math.round(bitmap.height * escala)
+    const canvas = document.createElement('canvas')
+    canvas.width = w; canvas.height = h
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return file
+    ctx.drawImage(bitmap, 0, 0, w, h)
+    const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', FOTO_QUALIDADE))
+    if (!blob) return file
+    const nome = file.name.replace(/\.[^.]+$/, '') + '.jpg'
+    return new File([blob], nome, { type: 'image/jpeg' })
+  } catch {
+    return file
+  }
+}
+
+// Data/Hora — pré-preenche com o horário atual (local) quando ainda não respondida
+function CampoDataHora({ atividade, onChange }: { atividade: Atividade; onChange: (v: any) => void }) {
+  useEffect(() => {
+    if (atividade.resposta) return
+    const agora = new Date()
+    // Ajusta o fuso para o formato datetime-local (YYYY-MM-DDTHH:mm)
+    const local = new Date(agora.getTime() - agora.getTimezoneOffset() * 60000)
+    onChange(local.toISOString().slice(0, 16))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return (
+    <input type="datetime-local" value={atividade.resposta ?? ''} onChange={e => onChange(e.target.value)}
+      className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
+  )
+}
+
 // Foto
 function CampoFoto({ atividade, onChange }: { atividade: Atividade; onChange: (v: any) => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const val = atividade.resposta
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    const url = URL.createObjectURL(file)
-    onChange({ file, url, nome: file.name })
+    const comprimida = await comprimirImagem(file)
+    const url = URL.createObjectURL(comprimida)
+    onChange({ file: comprimida, url, nome: comprimida.name })
   }
 
   if (val?.url) return (
@@ -754,7 +803,13 @@ function GravadorVideo({ onGravado }: { onGravado: (file: File, url: string) => 
   function iniciarGravacao() {
     if (!streamRef.current) return
     chunksRef.current = []
-    const mr = new MediaRecorder(streamRef.current)
+    // Bitrate fixo para manter o arquivo pequeno e previsível (~2 MB em 10s)
+    let mr: MediaRecorder
+    try {
+      mr = new MediaRecorder(streamRef.current, { videoBitsPerSecond: VIDEO_BITRATE, audioBitsPerSecond: 128_000 })
+    } catch {
+      mr = new MediaRecorder(streamRef.current) // fallback se o navegador recusar as opções
+    }
     mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
     mr.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: 'video/webm' })
@@ -767,7 +822,12 @@ function GravadorVideo({ onGravado }: { onGravado: (file: File, url: string) => 
     mr.start()
     setGravando(true)
     setTempoSeg(0)
-    timerRef.current = setInterval(() => setTempoSeg(s => s + 1), 1000)
+    // Para automaticamente ao atingir a duração máxima
+    timerRef.current = setInterval(() => setTempoSeg(s => {
+      const novo = s + 1
+      if (novo >= MAX_VIDEO_SEG) pararGravacao()
+      return novo
+    }), 1000)
   }
 
   function pararGravacao() {
@@ -793,7 +853,7 @@ function GravadorVideo({ onGravado }: { onGravado: (file: File, url: string) => 
           {gravando && (
             <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-black/60 rounded-full px-2 py-0.5">
               <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-              <span className="text-xs text-white font-mono">{mm}:{ss}</span>
+              <span className="text-xs text-white font-mono">{mm}:{ss} / 00:{String(MAX_VIDEO_SEG).padStart(2, '0')}</span>
             </div>
           )}
         </div>
@@ -810,7 +870,7 @@ function GravadorVideo({ onGravado }: { onGravado: (file: File, url: string) => 
             <button onClick={iniciarGravacao}
               className="w-full py-2.5 bg-pink-600 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 hover:bg-pink-700 active:scale-[0.99] transition-all">
               <Camera size={16} />
-              Iniciar gravação
+              Iniciar gravação (máx {MAX_VIDEO_SEG}s)
             </button>
           )
         )
@@ -922,11 +982,8 @@ function CampoResposta({ atividade, onChange }: { atividade: Atividade; onChange
           <p className="text-xs text-gray-400">Assinatura (disponível no app móvel)</p>
         </div>
       )
-    case 'data_hora':
-      return (
-        <input type="datetime-local" value={atividade.resposta ?? ''} onChange={e => onChange(e.target.value)}
-          className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
-      )
+    case 'data_hora':      return <CampoDataHora atividade={atividade} onChange={onChange} />
+
     default:
       return (
         <input value={atividade.resposta ?? ''} onChange={e => onChange(e.target.value)}
@@ -955,11 +1012,13 @@ function PlanoAcaoModal({ atividade, dadosIniciais, onClose, onConfirmar }: {
   const fotoInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
 
-  function adicionarFoto(e: React.ChangeEvent<HTMLInputElement>) {
+  async function adicionarFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file) return
-    setFotos(prev => [...prev, { file, url: URL.createObjectURL(file) }])
     e.target.value = ''
+    if (!file) return
+    if (fotos.length >= MAX_FOTOS) return
+    const comprimida = await comprimirImagem(file)
+    setFotos(prev => prev.length >= MAX_FOTOS ? prev : [...prev, { file: comprimida, url: URL.createObjectURL(comprimida) }])
   }
 
   return (
@@ -998,7 +1057,7 @@ function PlanoAcaoModal({ atividade, dadosIniciais, onClose, onConfirmar }: {
           {/* Evidências */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Evidências</label>
-            <p className="text-xs text-gray-400 mb-3">Adicione <strong>várias fotos</strong> ou <strong>um vídeo</strong> — não os dois.</p>
+            <p className="text-xs text-gray-400 mb-3">Adicione até <strong>{MAX_FOTOS} fotos</strong> ou <strong>um vídeo de {MAX_VIDEO_SEG}s</strong> — não os dois.{fotos.length > 0 && <span className="text-gray-500"> ({fotos.length}/{MAX_FOTOS})</span>}</p>
 
             {/* Grid de fotos existentes */}
             {fotos.length > 0 && (
@@ -1016,8 +1075,8 @@ function PlanoAcaoModal({ atividade, dadosIniciais, onClose, onConfirmar }: {
               </div>
             )}
 
-            {/* Botão adicionar foto — disponível se não tiver vídeo */}
-            {video === null && (
+            {/* Botão adicionar foto — disponível se não tiver vídeo e abaixo do limite */}
+            {video === null && fotos.length < MAX_FOTOS && (
               <>
                 <input ref={fotoInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={adicionarFoto} />
                 <button onClick={() => fotoInputRef.current?.click()}
@@ -1026,6 +1085,9 @@ function PlanoAcaoModal({ atividade, dadosIniciais, onClose, onConfirmar }: {
                   {fotos.length > 0 ? 'Adicionar mais fotos' : 'Adicionar foto'}
                 </button>
               </>
+            )}
+            {video === null && fotos.length >= MAX_FOTOS && (
+              <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-2">Limite de {MAX_FOTOS} fotos atingido.</p>
             )}
 
             {/* Separador OU */}
