@@ -33,7 +33,10 @@ export function visivelPara(
   l: ListaVisibilidade,
   meusGrupos: Set<string>,
   meusSubgrupos: Set<string>,
+  isAdmin = false,
 ): boolean {
+  // Admin de sistema "faz parte" de todos os grupos/subgrupos → vê todas.
+  if (isAdmin) return true
   if (l.subgrupos.length > 0) return l.subgrupos.some(s => meusSubgrupos.has(s))
   return l.grupos.some(g => meusGrupos.has(g))
 }
@@ -44,8 +47,9 @@ export function listaDisponivel(
   agoraMs: number,
   meusGrupos: Set<string>,
   meusSubgrupos: Set<string>,
+  isAdmin = false,
 ): boolean {
-  return aberturaAberta(l, agoraMs) && visivelPara(l, meusGrupos, meusSubgrupos)
+  return aberturaAberta(l, agoraMs) && visivelPara(l, meusGrupos, meusSubgrupos, isAdmin)
 }
 
 /** Calcula até quando a instância pode ser editada (null = sem limite próprio). */

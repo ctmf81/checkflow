@@ -42,6 +42,7 @@ export function AbaTarefas({ unidadeId }: { unidadeId: string }) {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setLoading(false); return }
+    const isAdmin = user.user_metadata?.role === 'admin_sistema'
 
     // Grupos/subgrupos do usuário
     const [{ data: ug }, { data: us }] = await Promise.all([
@@ -67,7 +68,7 @@ export function AbaTarefas({ unidadeId }: { unidadeId: string }) {
         grupos: (l.grupos ?? []).map((g: any) => g.grupo_id),
         subgrupos: (l.subgrupos ?? []).map((s: any) => s.subgrupo_id),
       },
-      agora, meusGrupos, meusSubgrupos,
+      agora, meusGrupos, meusSubgrupos, isAdmin,
     )).map((l: any) => ({
       id: l.id, titulo: l.titulo, descricao: l.descricao,
       abertura_data_limite: l.abertura_data_limite, abertura_max_respostas: l.abertura_max_respostas,
