@@ -589,23 +589,37 @@ function AbaDocumentos({ unidadeId }: { unidadeId: string }) {
 
         const { data: { user } } = await sb.auth.getUser()
         if (!user) { setLoading(false); return }
+        const isAdmin = user.user_metadata?.role === 'admin_sistema'
 
-        // 1. Subgrupos do usuário — busca simples sem inner join filtrado
-        const { data: us } = await sb
-          .from('usuario_subgrupo')
-          .select('subgrupo_id, subgrupos(grupo_id, grupos(unidade_id))')
-          .eq('usuario_id', user.id)
+        let subgrupoIds: string[] = []
+        let grupoIds: string[] = []
 
-        // Filtra só os que pertencem a esta unidade
-        const usUnidade = (us ?? []).filter((r: any) => {
-          const grp = r.subgrupos?.grupos
-          return grp?.unidade_id === unidadeId
-        })
+        if (isAdmin) {
+          // Admin "faz parte" de todos os grupos/subgrupos da unidade
+          const { data: gs } = await sb.from('grupos').select('id').eq('unidade_id', unidadeId).eq('status', 'ativo')
+          grupoIds = (gs ?? []).map((g: any) => g.id)
+          const { data: ss } = grupoIds.length
+            ? await sb.from('subgrupos').select('id').in('grupo_id', grupoIds).eq('status', 'ativo')
+            : { data: [] }
+          subgrupoIds = (ss ?? []).map((s: any) => s.id)
+        } else {
+          // 1. Subgrupos do usuário — busca simples sem inner join filtrado
+          const { data: us } = await sb
+            .from('usuario_subgrupo')
+            .select('subgrupo_id, subgrupos(grupo_id, grupos(unidade_id))')
+            .eq('usuario_id', user.id)
 
-        const subgrupoIds: string[] = usUnidade.map((r: any) => r.subgrupo_id)
-        const grupoIds: string[] = [...new Set(
-          usUnidade.map((r: any) => r.subgrupos?.grupo_id).filter(Boolean) as string[]
-        )]
+          // Filtra só os que pertencem a esta unidade
+          const usUnidade = (us ?? []).filter((r: any) => {
+            const grp = r.subgrupos?.grupos
+            return grp?.unidade_id === unidadeId
+          })
+
+          subgrupoIds = usUnidade.map((r: any) => r.subgrupo_id)
+          grupoIds = [...new Set(
+            usUnidade.map((r: any) => r.subgrupos?.grupo_id).filter(Boolean) as string[]
+          )]
+        }
 
         // 2. Busca documentos: começa pelos da unidade, depois filtra por subgrupo/grupo
         let query = sb.from('documentos')
