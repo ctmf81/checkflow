@@ -437,6 +437,11 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
                   Leitura por Barcode
                 </label>
               </div>
+              {(textoQrcode || textoBarcode) && (
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                  ⚠️ A leitura por QR Code / Barcode usa a câmera e só está disponível no <strong>app mobile</strong>. No desktop, o operador digita o valor manualmente.
+                </p>
+              )}
             </div>
           )}
 

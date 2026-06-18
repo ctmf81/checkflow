@@ -465,10 +465,10 @@ export default function ChecklistMontador({ checklistId, modoTemplate = false, b
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Tempo de guarda</label>
-          <p className="text-xs text-gray-400 mb-2">Por quantos meses os registros de execução devem ser retidos antes de poderem ser excluídos.</p>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Tempo de guarda das mídias</label>
+          <p className="text-xs text-gray-400 mb-2">Por quantos meses as <strong>mídias</strong> (fotos, vídeos, PDFs) das execuções ficam guardadas. Depois desse prazo, só as mídias são removidas para liberar espaço — o registro da execução é preservado. Quanto maior o prazo, maior o consumo da cota de armazenamento do seu plano.</p>
           <div className="flex flex-wrap gap-2">
-            {[1, 3, 6, 12, 24, 36, 48, 64].map(m => (
+            {[1, 3, 6, 12, 24, 36, 48, 60].map(m => (
               <button key={m} type="button" onClick={() => setTempoGuarda(m)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                   tempoGuarda === m
