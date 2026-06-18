@@ -33,6 +33,7 @@ Tudo commitado/pushado na `main`. Nenhuma migration pendente. Frentes em aberto:
 2c. ⚠️ **Verificar RLS de `catalogos`**: a única policy de escrita é `catalogos_admin` (is_admin_sistema). `NovoCatalogoModal` e o novo recriar-catálogo-no-duplicar inserem direto via supabase como usuário comum — confirmar se gestor não-admin realmente consegue criar catálogo (pode ser bug latente de RLS).
 3. **Billing — validar e2e no sandbox Asaas** (assinar→pagar→webhook CONFIRMED) — ação manual do usuário. Depois: **Fase 4 (split parceiro via subconta Asaas)**.
 4. **IA por plano** (flag `ia_habilitada`) e **UX quando tokens acabam** (hoje só bloqueia) — adiados.
+4b. ⏳ **BACKLOG — Funcionalidades modulares por empresa** (ver `/biz`): empresa habilita só as telas que usa (escolha na criação + toggle em Acessos); só o habilitado aparece na montagem de perfis e no menu; **mapear grafo de dependências** entre funcionalidades. Não implementado.
 5. **Reserva de qualidade**: cadastrar chave **Claude** em 2º no failover (lê PDF; cobre Consulta Inteligente se Gemini cair). Gemini hoje em `gemini-2.5-flash` ✅.
 6. **Vídeos/conteúdo da Central de Ajuda**: posso escrever roteiros + artigos; (opcional) implementar upload de MP4 direto (Supabase Storage).
 

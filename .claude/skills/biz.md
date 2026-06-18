@@ -5,6 +5,14 @@ description: Business rules and product logic for CheckFlow. Consult this skill 
 
 # Business Rules
 
+## ⏳ BACKLOG — Funcionalidades modulares por empresa (pendente) — 2026-06-18
+O sistema é grande e pode confundir empresas pequenas. Ideia: cada empresa **habilita só as funcionalidades (telas) que usa**.
+- **Na criação da empresa**, o admin escolhe quais funcionalidades/telas ficam liberadas (começa enxuto).
+- Depois, pelo menu **Acessos**, o admin pode **habilitar/desabilitar** as demais funções a qualquer momento.
+- **Integração com perfis**: só as funcionalidades habilitadas aparecem na **montagem dos perfis** (permissões). Se não está habilitada para a empresa, não aparece como opção no perfil (e fica oculta no menu).
+- ⚠️ **Mapear dependências entre funcionalidades** para não gerar inconsistências (ex: Planos de Ação dependem de Checklists; Workflows dependem de Checklists; Tickets podem depender de Grupos; Tarefas dependem de Grupos/Subgrupos; SLA depende de Tickets). Habilitar/desabilitar deve respeitar o grafo de dependências (não deixar uma função ativa sem o pré-requisito).
+- A definir: modelo de dados (flags por empresa, ex. `empresa_funcionalidades`), como o menu lateral e o construtor de perfis leem essas flags, e defaults por porte de empresa.
+
 ## Listas de Tarefas — IMPLEMENTADO 2026-06-18 (migration `20260618120000_tarefas.sql` ✅ aplicada)
 Feature **separada do Checklist** (leve, pontual, broadcast). Tabelas: `tarefa_listas`, `tarefa_lista_grupos`, `tarefa_lista_subgrupos`, `tarefa_itens`, `tarefa_execucoes`, `tarefa_respostas`. Permissão `tarefas` (ver/criar/editar/deletar). UI: Gestão `/gestao/tarefas` (listagem + indicadores) e `/gestao/tarefas/[id]` (montador); Operação 4ª aba "Tarefas" (`operacao/AbaTarefas.tsx`).
 **Decisões fechadas na implementação**: janela de edição = `edicao_janela_horas` a partir da abertura da instância (null = até encerrar), com countdown na execução; 1 instância por pessoa por lista (`unique(lista_id,usuario_id)`); flags **por tarefa** (observação/evidência/checkin); mídia no bucket `execucoes` sob `tarefas/{execId}/` (conta na cota: `registrarUsoArmazenamento(..., 'tarefa', ...)` + bloqueio por `billing_armazenamento_disponivel` antes do upload — migration `20260618160000`); **check-in tolerante** (se GPS indisponível/negado, conclui mesmo assim como "sem localização", lat/lng null); notificar WhatsApp = flag `notificar_whatsapp` (toggle, default off) — **wired 2026-06-18**: ao publicar com a flag, o web chama `POST /tarefas/notificar` (apps/api, `routes/tarefas.ts`) que envia WhatsApp aos membros dos subgrupos atribuídos (ou dos grupos, se não houver subgrupo), respeitando o turno (`usuario_esta_no_turno`). Fire-and-forget, não bloqueia a publicação. Quota de armazenamento das mídias de tarefa **ainda não contabilizada** (pendência).
