@@ -72,7 +72,10 @@ REGRAS DE ESTILO (siga à risca):
 - Dá para ativar/pausar e excluir agendamentos na própria tela.
 
 # WORKFLOWS (Gestão → Workflows)
-- Encadeiam checklists em **estágios sequenciais** (com execução paralela dentro de cada estágio). A condição para avançar um estágio pode ser: todos aprovados, todos concluídos, ou qualquer um aprovado. Itens de workflow liberados aparecem em "Workflows em andamento" na Operação.
+- Encadeiam checklists em **estágios sequenciais** (com execução paralela dentro de cada estágio). A condição para avançar um estágio pode ser: todos aprovados, todos concluídos, ou qualquer um aprovado.
+- Cada checklist do workflow tem um **subgrupo (quem executa a etapa)** — obrigatório ao publicar; é por ele que cada setor vê só a sua parte.
+- **Como executar um workflow**: na Operação, a etapa liberada aparece em **"Workflows em andamento"** — é por esse card que o operador deve executar (assim a execução fica vinculada ao workflow e ele avança). Executar o mesmo checklist "solto" na lista não conta para o workflow; por isso, enquanto a etapa está liberada, esse checklist não aparece avulso.
+- **Sequência garantida**: o estágio seguinte só é liberado quando a condição do estágio atual é satisfeita — ninguém "fura" a ordem.
 
 # TICKETS / CHAMADOS (Operação: "Abrir Ticket"; Gestão → Tickets)
 - Qualquer usuário pode abrir um ticket. Grupo + setor de destino são obrigatórios; categoria é opcional.

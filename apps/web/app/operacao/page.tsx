@@ -1084,6 +1084,36 @@ export default function OperacaoPage() {
       meusSubgrupos = new Set((us ?? []).map((r: any) => r.subgrupo_id))
     }
 
+    // Itens de workflow LIBERADOS visíveis ao operador (admin vê todos; senão só
+    // os dos seus subgrupos). Também usados para esconder da lista avulsa os
+    // checklists que devem ser executados PELO fluxo do workflow (evita a "porta
+    // dupla": executar solto não vincula nem avança o workflow).
+    const { data: wfItemsRaw } = await sb.from('workflow_item_execucoes').select(`
+      id, estagio_item_id,
+      workflow_execucao:workflow_execucao_id(id, unidade_id, workflow:workflow_id(nome)),
+      item:estagio_item_id(checklist_id, subgrupo_id, checklist:checklist_id(nome), subgrupo:subgrupo_id(nome), estagio:estagio_id(nome))
+    `).eq('status', 'liberado')
+
+    const liberados: ItemWorkflowLiberado[] = []
+    const checklistsEmWorkflow = new Set<string>()
+    for (const wie of (wfItemsRaw ?? [])) {
+      const exec = Array.isArray(wie.workflow_execucao) ? wie.workflow_execucao[0] : wie.workflow_execucao
+      if (!exec || exec.unidade_id !== unidadeAtiva!.id) continue
+      const item = Array.isArray(wie.item) ? wie.item[0] : wie.item
+      if (!item) continue
+      // Cada setor só vê a SUA etapa (admin vê todas)
+      if (!isAdmin && !(item.subgrupo_id && meusSubgrupos.has(item.subgrupo_id))) continue
+      const wf = Array.isArray(exec.workflow) ? exec.workflow[0] : exec.workflow
+      const cl = Array.isArray(item.checklist) ? item.checklist[0] : item.checklist
+      const sg = Array.isArray(item.subgrupo) ? item.subgrupo[0] : item.subgrupo
+      const est = Array.isArray(item.estagio) ? item.estagio[0] : item.estagio
+      liberados.push({ item_execucao_id: wie.id, checklist_id: item.checklist_id,
+        checklist_nome: cl?.nome ?? '—', workflow_nome: wf?.nome ?? '—',
+        estagio_nome: est?.nome ?? '—', subgrupo_nome: sg?.nome ?? null })
+      checklistsEmWorkflow.add(item.checklist_id)
+    }
+    setItensWorkflow(liberados)
+
     const { data } = await sb
       .from('checklists')
       .select(`id, nome, descricao, subgrupo_id, subgrupo:subgrupo_id(id, nome, grupo:grupo_id(id, nome))`)
@@ -1107,11 +1137,13 @@ export default function OperacaoPage() {
           subgrupo_id: sub?.id ?? null, subgrupo_nome: sub?.nome ?? null, grupo_id: grp?.id ?? null, grupo_nome: grp?.nome ?? null }
       })
 
-      // Filtra por subgrupo do usuário (admin vê todos). Checklist sempre tem
-      // subgrupo; quem não pertence ao subgrupo não vê.
-      const visiveis = isAdmin
+      // Filtra por subgrupo do usuário (admin vê todos; checklist sempre tem
+      // subgrupo) E esconde os que estão liberados via workflow — esses devem
+      // ser executados pelo card "Workflows em andamento", não avulso.
+      const visiveis = (isAdmin
         ? comContagem
         : comContagem.filter(cl => cl.subgrupo_id != null && meusSubgrupos.has(cl.subgrupo_id))
+      ).filter(cl => !checklistsEmWorkflow.has(cl.id))
 
       const gruposMap = new Map<string, GrupoAgrupado>()
       const semGrupoList: Checklist[] = []
@@ -1128,30 +1160,7 @@ export default function OperacaoPage() {
       setSemGrupo(semGrupoList)
     }
 
-    // Workflow items
-    const { data: wfItems } = await sb.from('workflow_item_execucoes').select(`
-      id, estagio_item_id,
-      workflow_execucao:workflow_execucao_id(id, unidade_id, workflow:workflow_id(nome)),
-      item:estagio_item_id(checklist_id, subgrupo_id, checklist:checklist_id(nome), subgrupo:subgrupo_id(nome), estagio:estagio_id(nome))
-    `).eq('status', 'liberado')
-
-    if (wfItems) {
-      const liberados: ItemWorkflowLiberado[] = []
-      for (const wie of wfItems) {
-        const exec = Array.isArray(wie.workflow_execucao) ? wie.workflow_execucao[0] : wie.workflow_execucao
-        if (!exec || exec.unidade_id !== unidadeAtiva!.id) continue
-        const item = Array.isArray(wie.item) ? wie.item[0] : wie.item
-        if (!item) continue
-        const wf = Array.isArray(exec.workflow) ? exec.workflow[0] : exec.workflow
-        const cl = Array.isArray(item.checklist) ? item.checklist[0] : item.checklist
-        const sg = Array.isArray(item.subgrupo) ? item.subgrupo[0] : item.subgrupo
-        const est = Array.isArray(item.estagio) ? item.estagio[0] : item.estagio
-        liberados.push({ item_execucao_id: wie.id, checklist_id: item.checklist_id,
-          checklist_nome: cl?.nome ?? '—', workflow_nome: wf?.nome ?? '—',
-          estagio_nome: est?.nome ?? '—', subgrupo_nome: sg?.nome ?? null })
-      }
-      setItensWorkflow(liberados)
-    }
+    // (itens de workflow liberados já carregados acima, antes da listagem)
 
     // Execuções agendadas pendentes da unidade (criadas por agendamentos_processar,
     // executado_por nulo = ainda sem operador). Qualquer operador pode assumir.
