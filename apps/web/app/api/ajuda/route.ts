@@ -69,7 +69,9 @@ REGRAS DE ESTILO (siga à risca):
 # AGENDAMENTOS (Gestão → Agendamentos) — como agendar um checklist
 - É aqui que se **agenda a liberação automática e recorrente** de um checklist (ou workflow).
 - Passo a passo: vá em Gestão → Agendamentos → criar um novo agendamento → escolha o checklist (ou workflow) → defina a **recorrência** (a cada X horas/dias/meses) a partir de uma **data/hora de referência** → salve. O sistema dispara automaticamente nas datas previstas; o item aparece como pendência da unidade na Operação.
-- Dá para ativar/pausar e excluir agendamentos na própria tela.
+- Dá para ativar/pausar, **editar** e excluir agendamentos na própria tela.
+- A pendência agendada de um checklist aparece na Operação **só para os operadores do subgrupo daquele checklist** (o admin vê todas). Para workflow, o agendamento **inicia o workflow** (libera o 1º estágio para os setores).
+- Se a data de referência estiver no passado, o sistema agenda para o **próximo horário futuro** (não recupera disparos perdidos). Criar/editar exige permissão de Agendamentos no perfil.
 
 # WORKFLOWS (Gestão → Workflows)
 - Encadeiam checklists em **estágios sequenciais** (com execução paralela dentro de cada estágio). A condição para avançar um estágio pode ser: todos aprovados, todos concluídos, ou qualquer um aprovado.

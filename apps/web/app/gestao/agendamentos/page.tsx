@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import {
   Plus, Clock, GitBranch, CheckSquare, Trash2, Power, PowerOff,
-  Loader2, AlertCircle, X, ChevronDown, Check, Calendar
+  Loader2, AlertCircle, X, ChevronDown, Check, Calendar, Pencil
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
@@ -43,25 +43,35 @@ function formatarData(iso: string | null) {
 
 // ─── Modal de criação ─────────────────────────────────────────────────────────
 
+function isoParaLocal(iso: string): { data: string; hora: string } {
+  const d = new Date(iso)
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString()
+  return { data: local.slice(0, 10), hora: local.slice(11, 16) }
+}
+
 function NovoAgendamentoModal({
   empresaId,
   unidadeId,
+  agendamento,
   onClose,
   onCriado,
 }: {
   empresaId: string
   unidadeId: string
+  agendamento?: Agendamento | null
   onClose: () => void
   onCriado: () => void
 }) {
-  const [tipoAlvo, setTipoAlvo]       = useState<'workflow' | 'checklist'>('workflow')
+  const isEdicao = !!agendamento
+  const refLocal = agendamento ? isoParaLocal(agendamento.referencia_inicio) : null
+  const [tipoAlvo, setTipoAlvo]       = useState<'workflow' | 'checklist'>(agendamento?.tipo_alvo ?? 'workflow')
   const [workflows, setWorkflows]     = useState<Opcao[]>([])
   const [checklists, setChecklists]   = useState<Opcao[]>([])
-  const [alvoId, setAlvoId]           = useState('')
-  const [intervaloUnidade, setIntervaloUnidade] = useState<'horas' | 'dias' | 'meses'>('dias')
-  const [intervaloValor, setIntervaloValor]     = useState('1')
-  const [dataRef, setDataRef]         = useState('')
-  const [horaRef, setHoraRef]         = useState('08:00')
+  const [alvoId, setAlvoId]           = useState(agendamento ? (agendamento.tipo_alvo === 'workflow' ? agendamento.workflow_id : agendamento.checklist_id) ?? '' : '')
+  const [intervaloUnidade, setIntervaloUnidade] = useState<'horas' | 'dias' | 'meses'>(agendamento?.intervalo_unidade ?? 'dias')
+  const [intervaloValor, setIntervaloValor]     = useState(agendamento ? String(agendamento.intervalo_valor) : '1')
+  const [dataRef, setDataRef]         = useState(refLocal?.data ?? '')
+  const [horaRef, setHoraRef]         = useState(refLocal?.hora ?? '08:00')
   const [salvando, setSalvando]       = useState(false)
   const [erro, setErro]               = useState('')
   const [loading, setLoading]         = useState(true)
@@ -95,18 +105,17 @@ function NovoAgendamentoModal({
     const { data: { user } } = await sb.auth.getUser()
 
     const payload: any = {
-      empresa_id: empresaId,
-      unidade_id: unidadeId,
       tipo_alvo: tipoAlvo,
       workflow_id: tipoAlvo === 'workflow' ? alvoId : null,
       checklist_id: tipoAlvo === 'checklist' ? alvoId : null,
       intervalo_unidade: intervaloUnidade,
       intervalo_valor: valor,
       referencia_inicio: referencia.toISOString(),
-      criado_por: user?.id,
     }
 
-    const { error } = await sb.from('agendamentos').insert(payload)
+    const { error } = isEdicao
+      ? await sb.from('agendamentos').update(payload).eq('id', agendamento!.id)
+      : await sb.from('agendamentos').insert({ ...payload, empresa_id: empresaId, unidade_id: unidadeId, criado_por: user?.id })
     setSalvando(false)
     if (error) { setErro('Erro ao salvar agendamento: ' + error.message); return }
     onCriado()
@@ -116,7 +125,7 @@ function NovoAgendamentoModal({
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md flex flex-col max-h-[90vh]">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
-          <h3 className="text-sm font-semibold text-gray-800">Novo agendamento</h3>
+          <h3 className="text-sm font-semibold text-gray-800">{isEdicao ? 'Editar agendamento' : 'Novo agendamento'}</h3>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
             <X size={16} />
           </button>
@@ -213,7 +222,7 @@ function NovoAgendamentoModal({
           <button onClick={salvar} disabled={salvando}
             className="flex items-center gap-2 px-4 py-2 text-sm bg-violet-500 text-white rounded-lg hover:bg-violet-600 transition-colors disabled:opacity-50">
             {salvando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-            Criar agendamento
+            {isEdicao ? 'Salvar' : 'Criar agendamento'}
           </button>
         </div>
       </div>
@@ -230,6 +239,7 @@ export default function AgendamentosPage() {
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
   const [loading, setLoading]           = useState(true)
   const [modalAberto, setModalAberto]   = useState(false)
+  const [editando, setEditando]         = useState<Agendamento | null>(null)
   const [alterando, setAlterando]       = useState<string | null>(null)
 
   useEffect(() => { carregar() }, [empresaAtiva?.id, unidadeAtiva?.id])
@@ -349,6 +359,13 @@ export default function AgendamentosPage() {
 
               <div className="flex items-center gap-1 flex-shrink-0">
                 <button
+                  onClick={() => setEditando(a)}
+                  disabled={alterando === a.id}
+                  title="Editar"
+                  className="p-1.5 text-gray-400 hover:text-violet-500 rounded-lg hover:bg-violet-50 transition-colors disabled:opacity-50">
+                  <Pencil size={15} />
+                </button>
+                <button
                   onClick={() => alternarAtivo(a)}
                   disabled={alterando === a.id}
                   title={a.ativo ? 'Pausar' : 'Ativar'}
@@ -374,6 +391,16 @@ export default function AgendamentosPage() {
           unidadeId={unidadeAtiva.id}
           onClose={() => setModalAberto(false)}
           onCriado={() => { setModalAberto(false); carregar() }}
+        />
+      )}
+
+      {editando && empresaAtiva && unidadeAtiva && (
+        <NovoAgendamentoModal
+          empresaId={empresaAtiva.id}
+          unidadeId={unidadeAtiva.id}
+          agendamento={editando}
+          onClose={() => setEditando(null)}
+          onCriado={() => { setEditando(null); carregar() }}
         />
       )}
     </>
