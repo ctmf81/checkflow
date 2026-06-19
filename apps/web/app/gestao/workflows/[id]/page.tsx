@@ -410,6 +410,11 @@ export default function WorkflowEditorPage({ params }: { params: Promise<{ id: s
       setErro('Todos os estágios precisam ter pelo menos um checklist.')
       return
     }
+    const statusAlvo = novoStatus ?? status
+    if (statusAlvo === 'publicado' && estagios.some(e => e.itens.some(it => !it.subgrupoId))) {
+      setErro('Para publicar, cada checklist precisa ter um subgrupo (quem executa a etapa) definido.')
+      return
+    }
     setSalvando(true)
     setErro('')
     const sb = createClient()

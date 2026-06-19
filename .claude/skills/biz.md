@@ -181,11 +181,13 @@ Rule: **never mutate a published checklist structure** — create a new version 
 ## Workflows
 - Pipeline de checklists com estágios **sequenciais** e execução **paralela dentro** de cada estágio
 - Transversal à unidade — `workflows` pertence à `empresa_id`, execuções são por `unidade_id`
-- Cada item de estágio tem `subgrupo_id` opcional — define quem vê o checklist em Operação
+- Cada item de estágio tem `subgrupo_id` = quem executa a etapa. **Obrigatório ao publicar** (2026-06-18) — é o que define o setor responsável e a visibilidade por setor na Operação.
 - Condição de avanço por estágio: `todos_aprovados` | `todos_concluidos` | `qualquer_aprovado`
 - Motor 100% em Postgres: trigger em `checklist_execucoes` avança estágio automaticamente
 - Status de workflow_execucoes: `em_andamento` → `concluido` (sucesso) | `bloqueado` (reprovado sem condição satisfeita) | `cancelado`
-- Em Operação, itens de workflow `liberados` aparecem na seção "Workflows em andamento" antes dos checklists avulsos
+- **Vínculo execução↔workflow**: só quando o operador entra pelo card "Workflows em andamento" (`?wf_item=`); ao concluir, grava `checklist_execucao_id` no `workflow_item_execucoes` e o trigger avança. Executar o checklist **avulso NÃO conta** para o workflow.
+- **Sequência entre setores** garantida pelo motor: só os itens do **estágio atual** ficam `liberado`; os próximos ficam `bloqueado` e nem aparecem até a condição do estágio ser satisfeita.
+- **Operação (2026-06-18)**: "Workflows em andamento" mostra só os itens dos **subgrupos do operador** (admin vê todos); e os checklists que estão como item de workflow liberado **somem da lista avulsa** (evita a "porta dupla" de executar solto sem vincular).
 
 ## Agendamentos (recorrência)
 - Tela `/gestao/agendamentos`: cria disparos recorrentes de workflows ou checklists
