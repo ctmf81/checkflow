@@ -1163,22 +1163,30 @@ export default function OperacaoPage() {
     // (itens de workflow liberados já carregados acima, antes da listagem)
 
     // Execuções agendadas pendentes da unidade (criadas por agendamentos_processar,
-    // executado_por nulo = ainda sem operador). Qualquer operador pode assumir.
+    // executado_por nulo = ainda sem operador). Só os operadores do subgrupo do
+    // checklist veem/assumem (admin vê todas) — mesma regra dos checklists avulsos.
     const { data: pendAgendadas } = await sb
       .from('checklist_execucoes')
-      .select('id, data_execucao, checklist_id, checklists(nome)')
+      .select('id, data_execucao, checklist_id, checklists(nome, subgrupo_id)')
       .eq('unidade_id', unidadeAtiva!.id)
       .eq('status', 'em_andamento')
       .is('executado_por', null)
       .not('agendamento_id', 'is', null)
       .order('data_execucao', { ascending: true })
 
-    setAgendadas((pendAgendadas ?? []).map((e: any) => ({
-      execucao_id: e.id,
-      checklist_id: e.checklist_id,
-      checklist_nome: (Array.isArray(e.checklists) ? e.checklists[0] : e.checklists)?.nome ?? '—',
-      criado_em: e.data_execucao,
-    })))
+    setAgendadas((pendAgendadas ?? [])
+      .map((e: any) => {
+        const cl = Array.isArray(e.checklists) ? e.checklists[0] : e.checklists
+        return {
+          execucao_id: e.id,
+          checklist_id: e.checklist_id,
+          checklist_nome: cl?.nome ?? '—',
+          subgrupo_id: cl?.subgrupo_id ?? null,
+          criado_em: e.data_execucao,
+        }
+      })
+      .filter((e: any) => isAdmin || (e.subgrupo_id && meusSubgrupos.has(e.subgrupo_id)))
+      .map(({ subgrupo_id, ...e }: any) => e))
 
     // Execuções que ESTE operador iniciou/assumiu e não finalizou (em_andamento).
     // Ficam como pendência incômoda até serem concluídas ou descartadas.
