@@ -248,15 +248,48 @@ export default function AgendamentosPage() {
     if (!empresaAtiva?.id) { setLoading(false); return }
     setLoading(true)
     const sb = createClient()
+    const { data: { user } } = await sb.auth.getUser()
+    const isAdmin = user?.user_metadata?.role === 'admin_sistema'
+
     let q = sb.from('agendamentos')
-      .select('id, tipo_alvo, workflow_id, checklist_id, intervalo_unidade, intervalo_valor, referencia_inicio, proxima_execucao, ultima_execucao_em, ativo, workflow:workflow_id(nome), checklist:checklist_id(nome)')
+      .select('id, tipo_alvo, workflow_id, checklist_id, intervalo_unidade, intervalo_valor, referencia_inicio, proxima_execucao, ultima_execucao_em, ativo, workflow:workflow_id(nome), checklist:checklist_id(nome, subgrupo_id)')
       .eq('empresa_id', empresaAtiva.id)
       .order('proxima_execucao')
 
     if (unidadeAtiva?.id) q = q.eq('unidade_id', unidadeAtiva.id)
 
     const { data } = await q
-    const lista: Agendamento[] = (data ?? []).map((a: any) => {
+    let linhas: any[] = data ?? []
+
+    // Gestor não-admin só vê agendamentos dos grupos/subgrupos a que pertence.
+    // Checklist → subgrupo do checklist; Workflow → subgrupos dos itens do workflow.
+    if (!isAdmin && user) {
+      const { data: us } = await sb.from('usuario_subgrupo').select('subgrupo_id').eq('usuario_id', user.id)
+      const meusSubgrupos = new Set((us ?? []).map((r: any) => r.subgrupo_id))
+
+      const wfIds = [...new Set(linhas.filter(a => a.tipo_alvo === 'workflow' && a.workflow_id).map(a => a.workflow_id))]
+      const wfSubs: Record<string, Set<string>> = {}
+      if (wfIds.length) {
+        const { data: est } = await sb.from('workflow_estagios')
+          .select('workflow_id, itens:workflow_estagio_itens(subgrupo_id)')
+          .in('workflow_id', wfIds)
+        for (const e of (est ?? [])) {
+          const set = wfSubs[e.workflow_id] ?? (wfSubs[e.workflow_id] = new Set<string>())
+          for (const it of ((e as any).itens ?? [])) if (it.subgrupo_id) set.add(it.subgrupo_id)
+        }
+      }
+
+      linhas = linhas.filter(a => {
+        if (a.tipo_alvo === 'checklist') {
+          const cl = Array.isArray(a.checklist) ? a.checklist[0] : a.checklist
+          return cl?.subgrupo_id && meusSubgrupos.has(cl.subgrupo_id)
+        }
+        const set = wfSubs[a.workflow_id]
+        return !!set && [...set].some(s => meusSubgrupos.has(s))
+      })
+    }
+
+    const lista: Agendamento[] = linhas.map((a: any) => {
       const wf = Array.isArray(a.workflow) ? a.workflow[0] : a.workflow
       const cl = Array.isArray(a.checklist) ? a.checklist[0] : a.checklist
       return {
