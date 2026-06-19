@@ -269,6 +269,16 @@ where ce.unidade_id = '<unidade_id>'
   and ce.data_expiracao < now();
 ```
 
+### Checklists sem subgrupo (não aparecem para operadores — só admin)
+```sql
+-- Desde 2026-06-18 o checklist exige subgrupo; legados sem subgrupo ficam
+-- invisíveis na Operação. Associe um subgrupo a cada um.
+select id, nome, status, unidade_id
+from checklists
+where subgrupo_id is null and status <> 'inativo'
+order by unidade_id, nome;
+```
+
 ### Checklist usado em workflow publicado (não pode ser inativado)
 ```sql
 select w.nome as workflow, w.status
@@ -434,6 +444,50 @@ from empresa_status_eventos ev
 join empresas e on e.id = ev.empresa_id
 where ev.status_novo = 'inativo'
   and ev.criado_em >= date_trunc('month', now());
+```
+
+---
+
+## 15. Listas de Tarefas (`/gestao/tarefas`)
+
+### Listas de uma unidade com progresso
+```sql
+select tl.id, tl.titulo, tl.status, tl.abertura_data_limite, tl.abertura_max_respostas,
+       (select count(*) from tarefa_itens ti where ti.lista_id = tl.id) as tarefas,
+       (select count(*) from tarefa_execucoes te where te.lista_id = tl.id) as respostas
+from tarefa_listas tl
+where tl.unidade_id = '<unidade_id>'
+order by tl.criado_em desc;
+```
+
+### Quem respondeu uma lista e quanto concluiu
+```sql
+select u.nome, te.status, te.aberta_em, te.editavel_ate,
+       (select count(*) from tarefa_respostas tr where tr.execucao_id = te.id and tr.feito) as feitas,
+       (select count(*) from tarefa_itens ti where ti.lista_id = te.lista_id) as total
+from tarefa_execucoes te
+join usuarios u on u.id = te.usuario_id
+where te.lista_id = '<lista_id>'
+order by te.aberta_em desc;
+```
+
+### Quem ainda NÃO respondeu (membros dos subgrupos atribuídos sem instância)
+```sql
+select distinct u.nome, u.email
+from tarefa_lista_subgrupos tls
+join usuario_subgrupo us on us.subgrupo_id = tls.subgrupo_id
+join usuarios u on u.id = us.usuario_id
+where tls.lista_id = '<lista_id>'
+  and not exists (
+    select 1 from tarefa_execucoes te
+    where te.lista_id = tls.lista_id and te.usuario_id = u.id
+  );
+```
+
+### Encerrar uma lista manualmente
+```sql
+-- ⚠️ some da Operação e ninguém mais responde/edita
+update tarefa_listas set status = 'encerrada' where id = '<lista_id>';
 ```
 
 ---
