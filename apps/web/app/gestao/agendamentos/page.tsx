@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { useToast, useConfirm } from '@/components/ui/feedback'
+import { WORKFLOWS_HABILITADO } from '@/lib/features'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -64,7 +65,7 @@ function NovoAgendamentoModal({
 }) {
   const isEdicao = !!agendamento
   const refLocal = agendamento ? isoParaLocal(agendamento.referencia_inicio) : null
-  const [tipoAlvo, setTipoAlvo]       = useState<'workflow' | 'checklist'>(agendamento?.tipo_alvo ?? 'workflow')
+  const [tipoAlvo, setTipoAlvo]       = useState<'workflow' | 'checklist'>(agendamento?.tipo_alvo ?? (WORKFLOWS_HABILITADO ? 'workflow' : 'checklist'))
   const [workflows, setWorkflows]     = useState<Opcao[]>([])
   const [checklists, setChecklists]   = useState<Opcao[]>([])
   const [alvoId, setAlvoId]           = useState(agendamento ? (agendamento.tipo_alvo === 'workflow' ? agendamento.workflow_id : agendamento.checklist_id) ?? '' : '')
@@ -132,7 +133,8 @@ function NovoAgendamentoModal({
         </div>
 
         <div className="px-5 py-5 space-y-4 overflow-y-auto">
-          {/* Tipo de alvo */}
+          {/* Tipo de alvo — só aparece se Workflows estiver habilitado */}
+          {WORKFLOWS_HABILITADO && (
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">O que deseja agendar?</label>
             <div className="grid grid-cols-2 gap-2">
@@ -146,6 +148,7 @@ function NovoAgendamentoModal({
               </button>
             </div>
           </div>
+          )}
 
           {/* Seleção do alvo */}
           <div>
@@ -260,6 +263,9 @@ export default function AgendamentosPage() {
 
     const { data } = await q
     let linhas: any[] = data ?? []
+
+    // Workflow desabilitado: não lista agendamentos de workflow
+    if (!WORKFLOWS_HABILITADO) linhas = linhas.filter(a => a.tipo_alvo !== 'workflow')
 
     // Gestor não-admin só vê agendamentos dos grupos/subgrupos a que pertence.
     // Checklist → subgrupo do checklist; Workflow → subgrupos dos itens do workflow.

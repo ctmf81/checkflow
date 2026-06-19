@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { useToast } from '@/components/ui/feedback'
+import { WORKFLOWS_HABILITADO } from '@/lib/features'
 
 interface Workflow {
   id: string
@@ -26,6 +27,21 @@ const STATUS_CFG = {
 }
 
 export default function WorkflowsPage() {
+  if (!WORKFLOWS_HABILITADO) return <WorkflowsIndisponivel />
+  return <WorkflowsConteudo />
+}
+
+function WorkflowsIndisponivel() {
+  return (
+    <div className="py-20 text-center">
+      <GitBranch size={40} className="text-gray-200 mx-auto mb-3" />
+      <p className="text-sm text-gray-600 font-medium">Workflows temporariamente indisponível</p>
+      <p className="text-xs text-gray-400 mt-1">Esta funcionalidade está em revisão.</p>
+    </div>
+  )
+}
+
+function WorkflowsConteudo() {
   const { empresaAtiva, unidadeAtiva } = useSession()
   const toast = useToast()
   const [workflows, setWorkflows] = useState<Workflow[]>([])
