@@ -197,7 +197,8 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - **Disparo**: workflow → `workflow_iniciar` (inicia o workflow, libera estágio 1). Checklist → cria `checklist_execucoes` como pendência da unidade (`executado_por` null + `agendamento_id`).
 - **Visibilidade do agendado (2026-06-18)**: a pendência agendada de checklist aparece na Operação **só para operadores do subgrupo do checklist** (admin vê todas) — não mais para qualquer operador da unidade.
 - **Ativar/pausar, editar e excluir** pela própria tela (edição reabre o modal e recalcula `proxima_execucao`).
-- **Permissão**: criar/editar/excluir exige a permissão `agendamentos` no perfil (RLS). ⏳ pendência (a decidir): filtrar a **listagem da Gestão por grupo** (só ver agendamentos dos grupos que o gestor faz parte) — hoje é por unidade.
+- **Permissão**: criar/editar/excluir exige a permissão `agendamentos` no perfil (RLS).
+- **Listagem da Gestão por grupo (2026-06-18)**: gestor não-admin vê só os agendamentos dos seus subgrupos (`usuario_subgrupo`) — checklist pelo subgrupo do checklist; workflow pelos subgrupos dos itens. Admin vê todos.
 
 ## Motivo de Não Execução
 - **Motivo padrão "Não disponível" (✅ 20260617160000)**: todo checklist deve ter SEMPRE ≥1 motivo de **cada tipo** (checklist e atividade). Há um motivo padrão "Não disponível" **por unidade** (grupo/subgrupo nulos → vale p/ todos os grupos). Um **trigger** (`checklist_seed_motivos_padrao` em `checklists` AFTER INSERT) associa o padrão dos 2 tipos a todo checklist novo não-template (inclui clonados de template); migration também aplicou **retroativo** aos existentes sem motivo. Helper `motivo_padrao_unidade(unidade, tipo)`. ⏳ Refinamento de UI pendente: mostrar/permitir remover o padrão no montador (com guard "≥1 por tipo") — hoje o padrão fica associado mas não aparece no seletor (filtrado por grupo).
