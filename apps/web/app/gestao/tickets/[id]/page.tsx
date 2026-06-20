@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { notificarTicket } from '@/lib/notificacoes'
 import { registrarUsoArmazenamento } from '@/lib/uso'
+import { acoesDisponiveis as calcularAcoes, type Acao } from '@/lib/tickets'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -150,53 +151,14 @@ export default function TicketDetalhe() {
   const ehDoSubgrupo = isAdmin || (!!ticket && meusSubgrupos.has(ticket.subgrupo_id))
 
   // ─── Ações disponíveis por status + papel ─────────────────────────────────
-
-  type Acao = { label: string; tipo: string; novoStatus: TicketStatus; variante: 'primary' | 'danger' | 'ghost' }
+  // Regra de negócio pura em lib/tickets.ts (coberta por testes unitários).
 
   function acoesDisponiveis(): Acao[] {
     if (!ticket) return []
-    const s = ticket.status
-    const acoes: Acao[] = []
-
-    if (s === 'aberto' && ehDoSubgrupo) {
-      acoes.push({ label: 'Assumir ticket', tipo: 'aceite', novoStatus: 'em_tratamento', variante: 'primary' })
-    }
-    if (s === 'em_tratamento' && ehAssignee) {
-      acoes.push({ label: 'Solicitar informação', tipo: 'devolucao', novoStatus: 'aguardando_informacao', variante: 'ghost' })
-      // Responsável conclui direto; o abridor é avisado e pode reabrir se discordar
-      acoes.push({ label: 'Concluir: corrigido',         tipo: 'conclusao', novoStatus: 'corrigido',              variante: 'primary' })
-      acoes.push({ label: 'Concluir: corrigido parcial', tipo: 'conclusao', novoStatus: 'corrigido_parcialmente', variante: 'ghost' })
-      acoes.push({ label: 'Marcar não corrigido',        tipo: 'conclusao', novoStatus: 'nao_corrigido',          variante: 'ghost' })
-      acoes.push({ label: `Transferir para outro ${grupoLabel.toLowerCase()}/${subgrupoLabel.toLowerCase()}`, tipo: 'transferencia', novoStatus: 'aberto', variante: 'ghost' })
-    }
-    // Improcedência exige a permissão ticket.cancelar (regra de negócio)
-    if (s === 'em_tratamento' && ehAssignee && podeCancelar) {
-      acoes.push({ label: 'Marcar improcedente', tipo: 'improcedencia', novoStatus: 'improcedente', variante: 'danger' })
-    }
-    if (s === 'aguardando_informacao' && ehAbridor) {
-      acoes.push({ label: 'Responder e retomar', tipo: 'resposta_devolucao', novoStatus: 'em_tratamento', variante: 'primary' })
-    }
-    if (s === 'aguardando_validacao' && ehAbridor) {
-      acoes.push({ label: 'Confirmar: corrigido',          tipo: 'validacao', novoStatus: 'corrigido',              variante: 'primary' })
-      acoes.push({ label: 'Confirmar: corrigido parcial',  tipo: 'validacao', novoStatus: 'corrigido_parcialmente', variante: 'ghost' })
-      acoes.push({ label: 'Devolver: não corrigido',       tipo: 'validacao', novoStatus: 'nao_corrigido',          variante: 'danger' })
-    }
-    // Reabertura volta para 'aberto' (sem assignee) — novo aceite é necessário
-    const fechados = ['corrigido', 'nao_corrigido', 'corrigido_parcialmente']
-    if (fechados.includes(s) && ehAbridor) {
-      acoes.push({ label: 'Reabrir ticket', tipo: 'reabertura', novoStatus: 'aberto', variante: 'ghost' })
-    }
-    // Comentário sempre disponível em tickets abertos
-    const abertos = ['aberto','em_tratamento','aguardando_informacao','aguardando_validacao']
-    if (abertos.includes(s)) {
-      acoes.push({ label: 'Comentar', tipo: 'comentario', novoStatus: s, variante: 'ghost' })
-    }
-    // Cancelar: abridor do ticket ou quem tem a permissão ticket.cancelar
-    const naoFinalizados = ['aberto','em_tratamento','aguardando_informacao','aguardando_validacao']
-    if (naoFinalizados.includes(s) && (ehAbridor || podeCancelar)) {
-      acoes.push({ label: 'Cancelar ticket', tipo: 'cancelamento', novoStatus: 'cancelado', variante: 'danger' })
-    }
-    return acoes
+    return calcularAcoes({
+      status: ticket.status, ehDoSubgrupo, ehAssignee, ehAbridor, podeCancelar,
+      grupoLabel, subgrupoLabel,
+    })
   }
 
   async function executarAcao(acao: Acao) {

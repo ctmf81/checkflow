@@ -8,6 +8,7 @@ import { useSession } from '@/contexts/SessionContext'
 import NovoTicketModal from '@/components/tickets/NovoTicketModal'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_TICKETS } from '@/components/onboarding/configs'
+import { ticketVisivel, slaStatus, STATUS_ABERTOS } from '@/lib/tickets'
 
 interface TicketRow {
   id: string
@@ -47,28 +48,13 @@ const PRIORIDADE_CONFIG: Record<string, { label: string; cor: string }> = {
   baixa:   { label: 'Baixa',   cor: 'bg-green-400 text-white' },
 }
 
-function slaStatus(ticket: TicketRow): 'verde' | 'amarelo' | 'vermelho' | null {
-  if (!ticket.sla_deadline_at) return null
-  const fechados = ['corrigido', 'nao_corrigido', 'corrigido_parcialmente', 'cancelado', 'improcedente']
-  if (fechados.includes(ticket.status)) return null
-  const agora   = Date.now()
-  const pausa   = ticket.sla_pausado_em ? agora - new Date(ticket.sla_pausado_em).getTime() : 0
-  const deadline = new Date(ticket.sla_deadline_at).getTime() + (ticket.sla_segundos_pausados * 1000) + pausa
-  const total    = deadline - new Date(ticket.criado_em).getTime()
-  const restante = deadline - agora
-  const pct      = 1 - restante / total
-  if (pct >= 1)    return 'vermelho'
-  if (pct >= 0.8)  return 'amarelo'
-  return 'verde'
-}
-
 const SLA_DOT: Record<string, string> = {
   verde:    'bg-green-400',
   amarelo:  'bg-yellow-400',
   vermelho: 'bg-red-500 animate-pulse',
 }
 
-const ABERTOS = ['aberto', 'em_tratamento', 'aguardando_informacao', 'aguardando_validacao']
+const ABERTOS = STATUS_ABERTOS as readonly string[]
 
 export default function TicketsPage() {
   const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
@@ -113,9 +99,9 @@ export default function TicketsPage() {
 
   useEffect(() => { carregar() }, [unidadeAtiva])
 
+  const visCtx = { userId, isAdmin, meusSubgrupos }
   const filtrados = tickets.filter(t => {
-    const podeVer = isAdmin || meusSubgrupos.has(t.subgrupo_id) || t.aberto_por_id === userId
-    if (!podeVer) return false
+    if (!ticketVisivel(t, visCtx)) return false
     const matchStatus = filtroStatus === 'todos' ? true
       : filtroStatus === 'abertos' ? ABERTOS.includes(t.status) : !ABERTOS.includes(t.status)
     const matchBusca = !busca || t.titulo.toLowerCase().includes(busca.toLowerCase())
@@ -123,7 +109,7 @@ export default function TicketsPage() {
     return matchStatus && matchBusca
   })
 
-  const visiveis = tickets.filter(t => isAdmin || meusSubgrupos.has(t.subgrupo_id) || t.aberto_por_id === userId)
+  const visiveis = tickets.filter(t => ticketVisivel(t, visCtx))
   const contadores = {
     abertos:  visiveis.filter(t => ABERTOS.includes(t.status)).length,
     fechados: visiveis.filter(t => !ABERTOS.includes(t.status)).length,
