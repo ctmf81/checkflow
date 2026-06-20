@@ -23,6 +23,7 @@ const EVENTO_LABEL: Record<string, string> = {
   aceite:             'Ticket assumido',
   devolucao:          'Devolução — aguardando informação',
   resposta_devolucao: 'Resposta enviada',
+  conclusao:          'Ticket concluído',
   conclusao_proposta: 'Conclusão proposta',
   validacao:          'Ticket validado',
   reabertura:         'Ticket reaberto',
