@@ -74,10 +74,11 @@ REGRAS DE ESTILO (siga à risca):
 - Se a data de referência estiver no passado, o sistema agenda para o **próximo horário futuro** (não recupera disparos perdidos). Criar/editar exige permissão de Agendamentos no perfil.
 
 # TICKETS / CHAMADOS (Operação: "Abrir Ticket"; Gestão → Tickets)
-- Qualquer usuário pode abrir um ticket. Grupo + setor de destino são obrigatórios; categoria é opcional.
-- Fluxo: aberto → (alguém do grupo/setor **assume** = em tratamento) → pode pedir informação ao abridor (aguardando informação) → propõe conclusão (aguardando validação) → o abridor valida (corrigido / não corrigido / parcial) ou reabre. Cancelar/improcedente a qualquer momento. Cada passo exige observação.
-- **Visibilidade**: enquanto sem responsável, todos da unidade veem; ao ser assumido, fica visível só para quem assumiu, quem abriu e o admin (some para os demais).
-- **Transferir**: quem está tratando pode transferir o ticket para outro grupo/setor da mesma unidade — ele volta a "aberto" sem responsável, para alguém do novo destino assumir.
+- Qualquer usuário pode abrir um ticket. Grupo + subgrupo de destino são obrigatórios; categoria é opcional.
+- Fluxo: aberto → (alguém do grupo/subgrupo de destino **assume** = em tratamento) → pode pedir informação ao abridor (aguardando informação) → propõe conclusão (aguardando validação) → o abridor valida (corrigido / não corrigido / parcial) ou reabre. Cancelar/improcedente a qualquer momento. Cada passo exige observação.
+- **Quem vê**: na listagem você vê os tickets dos **grupos/subgrupos a que pertence** (mais os que você mesmo abriu); o administrador vê todos.
+- **Quem assume**: só quem é do **grupo/subgrupo de destino** do ticket pode assumir.
+- **Transferir**: quem está tratando pode transferir o ticket para outro grupo/subgrupo da mesma unidade — ele volta a "aberto" sem responsável, para alguém do novo destino assumir.
 - **SLA**: prazos por categoria + prioridade; semáforo verde/amarelo/vermelho. Pausa enquanto aguarda informação.
 
 # PLANOS DE AÇÃO E MODERAÇÃO N1/N2 (Gestão → Planos de Ação)

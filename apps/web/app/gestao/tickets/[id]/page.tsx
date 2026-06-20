@@ -73,7 +73,7 @@ function formatarTempo(iso: string) {
 export default function TicketDetalhe() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const { unidadeAtiva, empresaAtiva } = useSession()
+  const { unidadeAtiva, empresaAtiva, grupoLabel, subgrupoLabel } = useSession()
   const supabase = createClient()
   const endRef = useRef<HTMLDivElement>(null)
 
@@ -82,6 +82,8 @@ export default function TicketDetalhe() {
   const [loading,  setLoading]  = useState(true)
   const [userId,   setUserId]   = useState<string | null>(null)
   const [podeCancelar, setPodeCancelar] = useState(false)
+  const [isAdmin, setIsAdmin]   = useState(false)
+  const [meusSubgrupos, setMeusSubgrupos] = useState<Set<string>>(new Set())
 
   // Formulário de ação
   const [texto,    setTexto]    = useState('')
@@ -101,7 +103,16 @@ export default function TicketDetalhe() {
   const [transferindo, setTransferindo] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null))
+    supabase.auth.getUser().then(async ({ data }) => {
+      const u = data.user
+      setUserId(u?.id ?? null)
+      const admin = u?.user_metadata?.role === 'admin_sistema'
+      setIsAdmin(admin)
+      if (u && !admin) {
+        const { data: us } = await supabase.from('usuario_subgrupo').select('subgrupo_id').eq('usuario_id', u.id)
+        setMeusSubgrupos(new Set((us ?? []).map((r: any) => r.subgrupo_id)))
+      }
+    })
     supabase.rpc('usuario_tem_permissao', { p_recurso: 'ticket', p_acao: 'cancelar' })
       .then(({ data }) => setPodeCancelar(!!data))
   }, [])
@@ -134,6 +145,8 @@ export default function TicketDetalhe() {
   const ehAssignee   = ticket?.assignee?.id === userId
   const ehAbridor    = ticket?.aberto_por?.id === userId
   const semAssignee  = !ticket?.assignee
+  // Só quem é do subgrupo de destino (ou admin) pode assumir/tratar o ticket
+  const ehDoSubgrupo = isAdmin || (!!ticket && meusSubgrupos.has(ticket.subgrupo_id))
 
   // ─── Ações disponíveis por status + papel ─────────────────────────────────
 
@@ -144,13 +157,13 @@ export default function TicketDetalhe() {
     const s = ticket.status
     const acoes: Acao[] = []
 
-    if (s === 'aberto') {
+    if (s === 'aberto' && ehDoSubgrupo) {
       acoes.push({ label: 'Assumir ticket', tipo: 'aceite', novoStatus: 'em_tratamento', variante: 'primary' })
     }
     if (s === 'em_tratamento' && ehAssignee) {
       acoes.push({ label: 'Solicitar informação', tipo: 'devolucao', novoStatus: 'aguardando_informacao', variante: 'ghost' })
       acoes.push({ label: 'Propor conclusão', tipo: 'conclusao_proposta', novoStatus: 'aguardando_validacao', variante: 'primary' })
-      acoes.push({ label: 'Transferir para outro grupo/setor', tipo: 'transferencia', novoStatus: 'aberto', variante: 'ghost' })
+      acoes.push({ label: `Transferir para outro ${grupoLabel.toLowerCase()}/${subgrupoLabel.toLowerCase()}`, tipo: 'transferencia', novoStatus: 'aberto', variante: 'ghost' })
     }
     // Improcedência exige a permissão ticket.cancelar (regra de negócio)
     if (s === 'em_tratamento' && ehAssignee && podeCancelar) {
@@ -263,9 +276,9 @@ export default function TicketDetalhe() {
   async function confirmarTransferencia() {
     if (!ticket) return
     if (!obsTransfer.trim()) { setErroTransfer('Observação é obrigatória.'); return }
-    if (!grupoSel || !subgrupoSel) { setErroTransfer('Selecione o grupo e o setor de destino.'); return }
+    if (!grupoSel || !subgrupoSel) { setErroTransfer(`Selecione o ${grupoLabel.toLowerCase()} e o ${subgrupoLabel.toLowerCase()} de destino.`); return }
     if (grupoSel === ticket.grupo_id && subgrupoSel === ticket.subgrupo_id) {
-      setErroTransfer('Selecione um grupo/setor diferente do atual.'); return
+      setErroTransfer(`Selecione um ${grupoLabel.toLowerCase()}/${subgrupoLabel.toLowerCase()} diferente do atual.`); return
     }
 
     setTransferindo(true); setErroTransfer(null)
@@ -323,6 +336,9 @@ export default function TicketDetalhe() {
       return ehAbridor
         ? 'Este ticket está encerrado.'
         : 'Este ticket está encerrado. Apenas quem o abriu pode reabri-lo.'
+    }
+    if (s === 'aberto' && !ehDoSubgrupo) {
+      return `Aguardando alguém do ${subgrupoLabel.toLowerCase()} de destino (${ticket.subgrupo.nome}) assumir. Só quem é desse ${subgrupoLabel.toLowerCase()} pode assumir.`
     }
     if (s === 'em_tratamento') {
       return `Em tratamento por ${ticket.assignee?.nome ?? 'um responsável'}. Apenas o responsável pode movimentá-lo agora.`
@@ -472,10 +488,10 @@ export default function TicketDetalhe() {
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-5">
             <h2 className="text-sm font-semibold text-gray-800 mb-1">Transferir ticket</h2>
             <p className="text-xs text-gray-500 mb-4">
-              O ticket volta para "Aberto" sem responsável, para que alguém do novo grupo/setor possa assumi-lo.
+              O ticket volta para "Aberto" sem responsável, para que alguém do novo {grupoLabel.toLowerCase()}/{subgrupoLabel.toLowerCase()} possa assumi-lo.
             </p>
 
-            <label className="block text-xs font-medium text-gray-600 mb-1">Grupo</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">{grupoLabel}</label>
             <select value={grupoSel}
               onChange={e => { setGrupoSel(e.target.value); setSubgrupoSel('') }}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -483,7 +499,7 @@ export default function TicketDetalhe() {
               {grupos.map(g => <option key={g.id} value={g.id}>{g.nome}</option>)}
             </select>
 
-            <label className="block text-xs font-medium text-gray-600 mb-1">Setor</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">{subgrupoLabel}</label>
             <select value={subgrupoSel} onChange={e => setSubgrupoSel(e.target.value)}
               disabled={!grupoSel}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3 disabled:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
