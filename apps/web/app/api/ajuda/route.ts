@@ -75,7 +75,7 @@ REGRAS DE ESTILO (siga à risca):
 
 # TICKETS / CHAMADOS (Operação: "Abrir Ticket"; Gestão → Tickets)
 - Qualquer usuário pode abrir um ticket. Grupo + subgrupo de destino são obrigatórios; categoria é opcional.
-- Fluxo: aberto → (alguém do grupo/subgrupo de destino **assume** = em tratamento) → pode pedir informação ao abridor (aguardando informação) → propõe conclusão (aguardando validação) → o abridor valida (corrigido / não corrigido / parcial) ou reabre. Cancelar/improcedente a qualquer momento. Cada passo exige observação.
+- Fluxo: aberto → (alguém do grupo/subgrupo de destino **assume** = em tratamento) → pode pedir informação ao abridor (aguardando informação) → o **responsável conclui** (corrigido / corrigido parcial / não corrigido). O **abridor é avisado e pode reabrir** se não concordar com o resultado. Cancelar/improcedente a qualquer momento. Cada passo exige observação.
 - **Quem vê**: na listagem você vê os tickets dos **grupos/subgrupos a que pertence** (mais os que você mesmo abriu); o administrador vê todos.
 - **Quem assume**: só quem é do **grupo/subgrupo de destino** do ticket pode assumir.
 - **Transferir**: quem está tratando pode transferir o ticket para outro grupo/subgrupo da mesma unidade — ele volta a "aberto" sem responsável, para alguém do novo destino assumir.

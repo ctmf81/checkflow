@@ -48,6 +48,7 @@ const TIPO_EVENTO: Record<string, { label: string; cor: string }> = {
   devolucao:          { label: 'Devolvido para informação',  cor: 'text-yellow-600' },
   resposta_devolucao: { label: 'Resposta enviada',           cor: 'text-blue-500' },
   transferencia:      { label: 'Transferido',                cor: 'text-indigo-600' },
+  conclusao:          { label: 'Concluído pelo responsável', cor: 'text-green-600' },
   conclusao_proposta: { label: 'Conclusão proposta',         cor: 'text-orange-600' },
   validacao:          { label: 'Validado',                   cor: 'text-green-600' },
   reabertura:         { label: 'Reaberto',                   cor: 'text-red-500' },
@@ -162,7 +163,10 @@ export default function TicketDetalhe() {
     }
     if (s === 'em_tratamento' && ehAssignee) {
       acoes.push({ label: 'Solicitar informação', tipo: 'devolucao', novoStatus: 'aguardando_informacao', variante: 'ghost' })
-      acoes.push({ label: 'Propor conclusão', tipo: 'conclusao_proposta', novoStatus: 'aguardando_validacao', variante: 'primary' })
+      // Responsável conclui direto; o abridor é avisado e pode reabrir se discordar
+      acoes.push({ label: 'Concluir: corrigido',         tipo: 'conclusao', novoStatus: 'corrigido',              variante: 'primary' })
+      acoes.push({ label: 'Concluir: corrigido parcial', tipo: 'conclusao', novoStatus: 'corrigido_parcialmente', variante: 'ghost' })
+      acoes.push({ label: 'Marcar não corrigido',        tipo: 'conclusao', novoStatus: 'nao_corrigido',          variante: 'ghost' })
       acoes.push({ label: `Transferir para outro ${grupoLabel.toLowerCase()}/${subgrupoLabel.toLowerCase()}`, tipo: 'transferencia', novoStatus: 'aberto', variante: 'ghost' })
     }
     // Improcedência exige a permissão ticket.cancelar (regra de negócio)
