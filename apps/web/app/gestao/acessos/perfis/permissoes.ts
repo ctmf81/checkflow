@@ -9,7 +9,9 @@ export interface Recurso {
   acoes: Acao[]
 }
 
-export const recursos: Recurso[] = [
+import { WORKFLOWS_HABILITADO } from '@/lib/features'
+
+const recursosTodos: Recurso[] = [
   {
     key: 'home',
     label: 'Home',
@@ -187,3 +189,8 @@ export const recursos: Recurso[] = [
     ],
   },
 ]
+
+// Workflow desabilitado: não aparece no construtor de perfis
+export const recursos: Recurso[] = recursosTodos.filter(
+  r => WORKFLOWS_HABILITADO || r.key !== 'workflows'
+)

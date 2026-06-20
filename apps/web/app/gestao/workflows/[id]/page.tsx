@@ -11,6 +11,7 @@ import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_WORKFLOWS } from '@/components/onboarding/configs'
 import { useToast } from '@/components/ui/feedback'
+import { WORKFLOWS_HABILITADO } from '@/lib/features'
 
 // ─── Tipos locais ─────────────────────────────────────────────────────────────
 
@@ -276,7 +277,18 @@ function PickerModal({
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 
-export default function WorkflowEditorPage({ params }: { params: Promise<{ id: string }> }) {
+export default function WorkflowEditorPage(props: { params: Promise<{ id: string }> }) {
+  if (!WORKFLOWS_HABILITADO) return (
+    <div className="py-20 text-center">
+      <GitBranch size={40} className="text-gray-200 mx-auto mb-3" />
+      <p className="text-sm text-gray-600 font-medium">Workflows temporariamente indisponível</p>
+      <p className="text-xs text-gray-400 mt-1">Esta funcionalidade está em revisão.</p>
+    </div>
+  )
+  return <WorkflowEditorInner {...props} />
+}
+
+function WorkflowEditorInner({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const isNovo = id === 'novo'
   const router = useRouter()

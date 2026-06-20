@@ -179,6 +179,7 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - Failover com 2 números: NÃO suportado hoje (instância única `EVO_INSTANCE`); avaliado em 2026-06-11, ficou para depois — exigiria `EVO_INSTANCE_BACKUP` + fallback em `lib/whatsapp.ts`
 
 ## Workflows
+- ⛔ **DESABILITADO na UI desde 2026-06-18** (flag `WORKFLOWS_HABILITADO=false` em `apps/web/lib/features.ts`). Some do menu lateral, das telas `/gestao/workflows/*` (mostram "indisponível"), da seção "Workflows em andamento" na Operação, da opção em Agendamentos (criação + listagem) e do construtor de Perfis. Código e dados intactos — basta `true` para reativar tudo. Motivo: tema em estudo antes de publicar. **Não revisar/“fechar” esta tela enquanto a flag estiver off.**
 - Pipeline de checklists com estágios **sequenciais** e execução **paralela dentro** de cada estágio
 - Transversal à unidade — `workflows` pertence à `empresa_id`, execuções são por `unidade_id`
 - Cada item de estágio tem `subgrupo_id` = quem executa a etapa. **Obrigatório ao publicar** (2026-06-18) — é o que define o setor responsável e a visibilidade por setor na Operação.

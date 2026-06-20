@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { WORKFLOWS_HABILITADO } from '@/lib/features'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -79,7 +80,18 @@ interface ExecucaoRow {
   total_estagios: number
 }
 
-export default function WorkflowExecucoesPage({ params }: { params: Promise<{ id: string }> }) {
+export default function WorkflowExecucoesPage(props: { params: Promise<{ id: string }> }) {
+  if (!WORKFLOWS_HABILITADO) return (
+    <div className="py-20 text-center">
+      <GitBranch size={40} className="text-gray-200 mx-auto mb-3" />
+      <p className="text-sm text-gray-600 font-medium">Workflows temporariamente indisponível</p>
+      <p className="text-xs text-gray-400 mt-1">Esta funcionalidade está em revisão.</p>
+    </div>
+  )
+  return <WorkflowExecucoesInner {...props} />
+}
+
+function WorkflowExecucoesInner({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
   const { unidadeAtiva } = useSession()

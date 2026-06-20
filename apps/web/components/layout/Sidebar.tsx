@@ -12,6 +12,7 @@ import {
 import { useSession } from '@/contexts/SessionContext'
 import { useSidebar } from './SidebarContext'
 import { createClient } from '@/lib/supabase'
+import { WORKFLOWS_HABILITADO } from '@/lib/features'
 
 interface NavItem {
   label: string
@@ -35,7 +36,7 @@ const nav: NavItem[] = [
   { label: 'Planos de Ação', href: '/gestao/planos-acao',  icon: ClipboardList },
   { label: 'Checklists',   href: '/gestao/checklists',     icon: CheckSquare },
   { label: 'Tarefas',      href: '/gestao/tarefas',        icon: ListChecks },
-  { label: 'Workflows',    href: '/gestao/workflows',      icon: GitBranch },
+  ...(WORKFLOWS_HABILITADO ? [{ label: 'Workflows', href: '/gestao/workflows', icon: GitBranch }] : []),
   { label: 'Agendamentos', href: '/gestao/agendamentos',   icon: Clock },
   { label: 'Indicadores',  href: '/gestao/indicadores',    icon: BarChart2 },
   {
