@@ -16,6 +16,8 @@ interface TicketRow {
   prioridade: 'critica' | 'alta' | 'media' | 'baixa'
   status: string
   criado_em: string
+  subgrupo_id: string
+  aberto_por_id: string
   sla_deadline_at: string | null
   sla_segundos_pausados: number
   sla_pausado_em: string | null
@@ -77,14 +79,26 @@ export default function TicketsPage() {
   const [busca,   setBusca]       = useState('')
   const [filtroStatus, setFiltroStatus] = useState<'abertos' | 'fechados' | 'todos'>('abertos')
   const [novoOpen, setNovoOpen]   = useState(false)
+  const [userId, setUserId]       = useState<string | null>(null)
+  const [isAdmin, setIsAdmin]     = useState(false)
+  const [meusSubgrupos, setMeusSubgrupos] = useState<Set<string>>(new Set())
 
   async function carregar() {
     if (!unidadeAtiva) return
     setLoading(true)
+    // Visibilidade: usuário vê os tickets dos seus subgrupos (+ os que abriu); admin vê todos
+    const { data: { user } } = await supabase.auth.getUser()
+    setUserId(user?.id ?? null)
+    const admin = user?.user_metadata?.role === 'admin_sistema'
+    setIsAdmin(admin)
+    if (user && !admin) {
+      const { data: us } = await supabase.from('usuario_subgrupo').select('subgrupo_id').eq('usuario_id', user.id)
+      setMeusSubgrupos(new Set((us ?? []).map((r: any) => r.subgrupo_id)))
+    }
     const { data } = await supabase
       .from('tickets')
       .select(`
-        id, numero, titulo, prioridade, status, criado_em,
+        id, numero, titulo, prioridade, status, criado_em, subgrupo_id, aberto_por_id,
         sla_deadline_at, sla_segundos_pausados, sla_pausado_em,
         grupo:grupos(nome), subgrupo:subgrupos(nome),
         categoria:ticket_categorias(nome),
@@ -100,6 +114,8 @@ export default function TicketsPage() {
   useEffect(() => { carregar() }, [unidadeAtiva])
 
   const filtrados = tickets.filter(t => {
+    const podeVer = isAdmin || meusSubgrupos.has(t.subgrupo_id) || t.aberto_por_id === userId
+    if (!podeVer) return false
     const matchStatus = filtroStatus === 'todos' ? true
       : filtroStatus === 'abertos' ? ABERTOS.includes(t.status) : !ABERTOS.includes(t.status)
     const matchBusca = !busca || t.titulo.toLowerCase().includes(busca.toLowerCase())
@@ -107,10 +123,11 @@ export default function TicketsPage() {
     return matchStatus && matchBusca
   })
 
+  const visiveis = tickets.filter(t => isAdmin || meusSubgrupos.has(t.subgrupo_id) || t.aberto_por_id === userId)
   const contadores = {
-    abertos:  tickets.filter(t => ABERTOS.includes(t.status)).length,
-    fechados: tickets.filter(t => !ABERTOS.includes(t.status)).length,
-    criticos: tickets.filter(t => t.prioridade === 'critica' && ABERTOS.includes(t.status)).length,
+    abertos:  visiveis.filter(t => ABERTOS.includes(t.status)).length,
+    fechados: visiveis.filter(t => !ABERTOS.includes(t.status)).length,
+    criticos: visiveis.filter(t => t.prioridade === 'critica' && ABERTOS.includes(t.status)).length,
   }
 
   return (
