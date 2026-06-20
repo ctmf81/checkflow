@@ -1,20 +1,94 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { MessageCircleQuestion, X, Send, Loader2, Sparkles, BookOpen } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 type Msg = { role: 'user' | 'assistant'; content: string }
 
-const SUGESTOES = [
+// Sugestões genéricas (fallback quando a tela não está no mapa)
+const SUGESTOES_PADRAO = [
   'Como crio um checklist a partir de um modelo?',
   'Como funciona o plano de ação?',
   'O que acontece quando atinjo o limite do plano?',
 ]
 
+// Perguntas pertinentes por tela. A chave é o prefixo da rota; vale o
+// prefixo MAIS específico que casar com a rota atual. Assim, ao abrir o
+// assistente na tela, já aparecem dúvidas do contexto certo.
+const SUGESTOES_POR_TELA: { rota: string; perguntas: string[] }[] = [
+  { rota: '/gestao/checklists', perguntas: [
+    'Como crio um checklist?',
+    'Por que um checklist não aparece na Operação?',
+    'Como duplico um checklist para outra unidade?',
+    'Para que serve o tempo de guarda das mídias?',
+  ]},
+  { rota: '/gestao/tarefas', perguntas: [
+    'Como crio uma lista de tarefas?',
+    'Qual a diferença entre data limite e nº de respostas?',
+    'Quem vê a lista de tarefas na Operação?',
+  ]},
+  { rota: '/gestao/grupos', perguntas: [
+    'Qual a diferença entre grupo e subgrupo?',
+    'Como adiciono um usuário a um grupo?',
+    'O que faz cada função (Operação, Nível 1, Nível 2)?',
+  ]},
+  { rota: '/gestao/agendamentos', perguntas: [
+    'Como agendo um checklist recorrente?',
+    'Quem vê a execução agendada na Operação?',
+    'O que acontece se a data de referência estiver no passado?',
+  ]},
+  { rota: '/gestao/tickets', perguntas: [
+    'Como funciona o fluxo de um ticket?',
+    'O que é o SLA do ticket?',
+    'Quem pode assumir e tratar um chamado?',
+  ]},
+  { rota: '/gestao/planos-acao', perguntas: [
+    'Como funciona a moderação N1 e N2?',
+    'Quem é avisado quando abre um plano de ação?',
+    'Como escalo um plano para o Nível 2?',
+  ]},
+  { rota: '/gestao/acessos/usuarios', perguntas: [
+    'Como cadastro um novo usuário?',
+    'Como o usuário faz login (CPF)?',
+    'Como reenvio a senha de um usuário?',
+  ]},
+  { rota: '/gestao/acessos/perfis', perguntas: [
+    'O que é um perfil público?',
+    'Como defino as permissões de um perfil?',
+  ]},
+  { rota: '/gestao/configuracoes/catalogos', perguntas: [
+    'Para que serve um catálogo?',
+    'Como importo os valores de um catálogo?',
+  ]},
+  { rota: '/gestao/configuracoes/documentos', perguntas: [
+    'Como disponibilizo um documento para a equipe?',
+    'O que é a Consulta Inteligente?',
+  ]},
+  { rota: '/gestao/plano', perguntas: [
+    'O que acontece quando atinjo o limite do plano?',
+    'Como compro um pacote adicional?',
+    'Como troco de plano?',
+  ]},
+  { rota: '/gestao/indicadores', perguntas: [
+    'O que cada indicador mostra?',
+    'Como filtro os indicadores por período?',
+  ]},
+]
+
+function resolverSugestoes(pathname: string | null): string[] {
+  if (!pathname) return SUGESTOES_PADRAO
+  const match = SUGESTOES_POR_TELA
+    .filter(s => pathname === s.rota || pathname.startsWith(s.rota + '/') || pathname.startsWith(s.rota))
+    .sort((a, b) => b.rota.length - a.rota.length)[0]
+  return match?.perguntas ?? SUGESTOES_PADRAO
+}
+
 export function AssistenteAjuda() {
   const router = useRouter()
+  const pathname = usePathname()
+  const sugestoes = resolverSugestoes(pathname)
   const [aberto, setAberto] = useState(false)
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [input, setInput] = useState('')
@@ -77,7 +151,7 @@ export function AssistenteAjuda() {
               <div className="text-sm text-gray-500">
                 <p className="mb-3">Oi! Posso ajudar com dúvidas sobre o CheckFlow. Pergunte algo ou comece por:</p>
                 <div className="space-y-1.5">
-                  {SUGESTOES.map(s => (
+                  {sugestoes.map(s => (
                     <button key={s} onClick={() => enviar(s)}
                       className="block w-full text-left text-xs px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-600 transition-colors">
                       {s}
