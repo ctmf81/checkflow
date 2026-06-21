@@ -181,11 +181,14 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - Decisão: limites **fixos no código** (padrão de mercado), não configuráveis por atividade/plano por enquanto.
 - **Atividade tipo foto = exatamente 1 foto** (decisão fechada 2026-06-17). Múltiplas fotos só nas evidências de plano de ação (até 5).
 
-## Catálogo
-- Estrutura: `catalogos` (metadados) → `catalogo_valores` (itens)
-- Cada valor tem: `valor_chave`, `atributo_1..4`, `imagem_url`
-- Labels dos atributos vêm de `catalogos.atributo_1..4`
-- Na execução: busca por texto, card expandido com imagem + todos atributos ao selecionar
+## Catálogo (revisado 2026-06-20)
+- Estrutura: `catalogos` (metadados, **por unidade**) → `catalogo_valores` (itens). Campo-chave + até 4 atributos. Cada valor: `valor_chave`, `atributo_1..4`, `imagem_url`.
+- Na execução: atividade tipo catálogo → busca por texto/código, card com imagem + atributos. **Visibilidade por unidade** (qualquer membro da unidade vê) — confirmado correto.
+- **Quem gerencia**: quem tem **permissão `catalogos`** (criar/editar/excluir) + admin de sistema/empresa. RLS de escrita por permissão adicionado em `20260620140000` (antes era só `is_admin_sistema` → gestor tomava erro silencioso). Vale p/ `catalogos` e `catalogo_valores`.
+- **Excluir** (soft-delete `status='inativo'`): **bloqueia** se algum checklist **ativo** usa o catálogo (atividade com `config.catalogo_id`), listando os nomes — remover a referência antes. (2026-06-20)
+- **Duplicar**: copia **estrutura + todos os valores** (cross-unidade remapeia `config.catalogo_id` quando vem do duplicar de checklist).
+- **Integração via API**: aba "API" no modal — URL + headers(JSON); "Carregar campos" (`/catalogos/test-api`), mapeia campos→atributos, prévia, e "Sincronizar" (`/catalogos/{id}/sync`, upsert; aceita array ou `{data|items|results}`).
+- **Sync automático (cron)**: `POST /catalogos/sync-all` sincroniza todos os catálogos com API configurada — **protegido por `x-cron-secret`** (2026-06-20). ⚠️ Requer um **agendador (Railway cron)** chamando o endpoint com o header; confirmar nas configs de ops.
 
 ## WhatsApp (Evolution API)
 - Integração via Evolution API **v2.3.7** (imagem `evoapicloud/evolution-api:v2.3.7` no Railway — atualizada em 2026-06-11; a org `atendai` no Docker Hub está desatualizada)

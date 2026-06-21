@@ -136,8 +136,15 @@ export async function catalogoRoutes(app: FastifyInstance) {
   })
 
   // POST /catalogos/sync-all — sincroniza todos os catálogos com API configurada
-  // Usado pelo agendador (cron)
+  // Usado pelo agendador (cron). Protegido por header `x-cron-secret` (env CRON_SECRET),
+  // mesmo padrão de /cron/limpeza-execucoes.
   app.post('/catalogos/sync-all', async (req, reply) => {
+    const secret = process.env.CRON_SECRET
+    if (!secret) return reply.status(500).send({ error: 'CRON_SECRET não configurado' })
+    if (req.headers['x-cron-secret'] !== secret) {
+      return reply.status(401).send({ error: 'Não autorizado' })
+    }
+
     const supabase = createClient(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_SECRET_KEY!,

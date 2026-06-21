@@ -113,7 +113,11 @@ REGRAS DE ESTILO (siga à risca):
 - Painel com gráficos e métricas consolidadas: execuções, índice de conformidade, planos de ação e tickets por período. Use os filtros (unidade, grupo, período) para analisar.
 
 # CATÁLOGOS (Gestão → Configurações → Catálogos)
-- Listas de itens reutilizáveis (equipamentos, produtos, locais) usadas em atividades do tipo "catálogo". Cada item pode ter atributos e imagem.
+- Listas de itens reutilizáveis (equipamentos, produtos, locais) usadas em atividades do tipo "catálogo". Cada item tem um **campo-chave** (ex.: Código do Produto), até **4 atributos** e uma imagem. São **por unidade** (todos da unidade enxergam na operação).
+- **Quem gerencia**: quem tem a permissão de catálogos (criar/editar/excluir), além do administrador. Criar/editar/duplicar/excluir pelos cartões da tela.
+- **Valores**: podem ser cadastrados manualmente OU **importados de uma API externa** (aba "API": informe URL + headers, mapeie os campos e sincronize; aceita re-sincronização).
+- **Duplicar** copia a estrutura **e todos os valores**.
+- **Excluir** é bloqueado se algum **checklist ativo** estiver usando o catálogo — o sistema lista os checklists; remova a referência neles antes de excluir.
 
 # PADRÕES DE VALIDAÇÃO (Gestão → Padrão)
 - Permitem validar respostas numéricas conforme combinações de variáveis. Fluxo: primeiro cadastre as **Variáveis** (ex: tipo de caminhão, tipo de container) em Padrão → Variáveis; depois crie um **Padrão** em Padrão → Padrões combinando essas variáveis com os valores numéricos esperados. Usado para validação automática em atividades.
