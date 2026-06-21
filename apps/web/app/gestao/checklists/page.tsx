@@ -7,7 +7,6 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
-import { FiltroUnidade } from '@/components/ui/FiltroUnidade'
 import { useToast, useConfirm } from '@/components/ui/feedback'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_CHECKLISTS } from '@/components/onboarding/configs'
@@ -214,7 +213,6 @@ function ChecklistsContent() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <FiltroUnidade />
           <Link href="/gestao/checklists/modelos">
             <Button variant="outline"><LayoutGrid size={16} />Usar um modelo</Button>
           </Link>

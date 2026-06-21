@@ -11,7 +11,6 @@ import { useConfirm, useToast } from '@/components/ui/feedback'
 import { NovoCatalogoModal, Catalogo } from './NovoCatalogoModal'
 import { ValoresModal } from './ValoresModal'
 import { DuplicarCatalogoModal } from './DuplicarCatalogoModal'
-import { FiltroUnidade } from '@/components/ui/FiltroUnidade'
 
 interface CatalogoCard extends Catalogo { totalValores: number }
 
@@ -144,12 +143,9 @@ export default function CatalogosPage() {
           <p className="text-sm text-gray-500 mt-0.5">Campos dinâmicos com atributos vinculados a um código</p>
           <p className="text-xs text-gray-400 mt-0.5">Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
-        <div className="flex items-center gap-2">
-          <FiltroUnidade />
-          <Button onClick={() => { setEditando(undefined); setModalNovo(true) }}>
-            <Plus size={16} />Novo catálogo
-          </Button>
-        </div>
+        <Button onClick={() => { setEditando(undefined); setModalNovo(true) }}>
+          <Plus size={16} />Novo catálogo
+        </Button>
       </div>
 
       {loading ? (
