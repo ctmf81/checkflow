@@ -83,10 +83,17 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - **Abrir Ticket** (FAB): chamado avulso para não conformidades **fora do roteiro** dos checklists (ex: máquina quebrou → ticket p/ Manutenção). Checklist = roteiro fixo; ticket = a qualquer momento.
 - **Não funciona offline** — requer conexão.
 
-## Documentos (suporte de conhecimento da Operação)
-- Cadastrados em **Gestão → Configurações → Documentos**; consultados na aba **Documentos** da Operação. Três tipos:
-  - **POP** (Procedimento Operacional Padrão) e **IT** (Instrução de Trabalho): organizados em **etapas**, cada uma com texto, imagens e vídeos de apoio (`documento_etapas`/`etapa_imagens`).
+## Documentos (suporte de conhecimento da Operação) — revisado 2026-06-20
+- Cadastrados em **Gestão → Configurações → Documentos**; consultados na aba **Documentos** da Operação. **Por unidade**. Três tipos:
+  - **POP** (Procedimento Operacional Padrão) e **IT** (Instrução de Trabalho): organizados em **etapas**, cada uma com texto, imagens e **vídeo** (`documento_etapas`/`etapa_imagens`).
   - **Consulta Inteligente**: documento sobre o qual o operador faz perguntas em linguagem natural; resposta por **IA** (rota `/api/documentos/consultar`). ⚠️ Consome os **tokens de IA do plano** (enforcement `billing_pode_consumir_ia`); só Gemini/Claude leem PDF.
+- **IA: dois mecanismos distintos** — o **Assistente de Ajuda** (`/api/ajuda`) usa a IA da **plataforma CheckFlow** (`ia_provedores`) e **NÃO** debita a cota do cliente; a **Consulta Inteligente** debita os **tokens do plano do cliente**.
+- **Visibilidade na operação**: por subgrupo/grupo do documento, ou **geral** (sem vínculo). Admin/admin-empresa vê tudo.
+- **Quem gerencia** (revisado 2026-06-20): quem tem a **permissão `documentos`** (criar/excluir) + admin de sistema/empresa. RLS de escrita por permissão em `documentos`/`documento_etapas`/`etapa_imagens` + **storage** das imagens (bucket `empresas`, prefixo `etapas/`) — migration `20260620160000`. Antes era só `is_admin_sistema` (gestor tomava erro).
+- **Vídeo da etapa**: link do **YouTube OU Google Drive público** (helper `lib/videoEmbed.ts` resolve a URL de embed; Drive → `/preview`; aceita ID legado de 11 chars do YT). Sem upload de vídeo — só link.
+- **Imagens de etapa contam na cota** de armazenamento (`registrarUsoArmazenamento(..., 'documento', ...)`; origem `'documento'` adicionada ao CHECK). Documento é permanente (a limpeza por tempo de guarda NÃO apaga imagens de documento).
+- **Excluir**: soft-delete (`status='inativo'`) **direto** (documento é consulta livre, não referenciado por checklist) — sem guard.
+- **Duplicar**: copia documento + **etapas + imagens** (reusa as URLs das imagens; não re-faz upload). Pode duplicar p/ outra unidade/grupo/subgrupo.
 
 ## Execução de Checklist
 - **PDF sob demanda** (2026-06-17): não é mais gerado automaticamente ao concluir. Botão "Gerar PDF" na tela de conclusão e no Histórico → chama `/api/execucoes/[id]/pdf` e mostra "Baixar" quando pronto.

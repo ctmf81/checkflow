@@ -9,7 +9,7 @@ description: Quality Assurance for CheckFlow — test strategy, suites por tela/
 
 | Camada | Ferramenta | Status |
 |--------|-----------|--------|
-| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **197 testes / 9 arquivos** (2026-06-20) |
+| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **212 testes / 11 arquivos** (2026-06-20) |
 | E2E / Funcional | Playwright | 🔴 não instalado |
 | Pen Test (security, RLS) | `pentest/run.mjs` (Node nativo) | ✅ 48/48 (2026-06-12) — seções 1-10, inclui OTP e Programa de Parceiros |
 | HTTP Security Probe | `pentest/http_probe.mjs` (Node nativo, sem creds) | ✅ 25/26 (2026-06-08, após fix CORS + headers) |
@@ -79,6 +79,9 @@ Obs: `billing_status` tem guard de permissão (`auth.uid()`), por isso o harness
 ### Pen Test — telas novas billing/templates/ajuda (`pentest/billing-templates-rls.mjs`)
 18 checagens de RLS das tabelas criadas (planos, pacotes_adicionais, empresa_assinaturas, empresa_cobrancas, asaas_webhook_eventos, ia_falhas, ajuda_artigos, checklists template): usuário comum (autenticado) e anon **não** leem dados sensíveis nem escrevem; ajuda respeita `publicado`; template é leitura pública (intencional). **18/18 ✅ (2026-06-17).** Rodar: `export SUPABASE_URL/SUPABASE_ANON_KEY/SUPABASE_SERVICE_KEY; node pentest/billing-templates-rls.mjs`.
 ⚠️ Achou (2026-06-17): `planos`/`pacotes_adicionais` eram admin-only → self-service `/gestao/plano` não listava catálogo p/ admin da empresa. Fix: migration `20260617140000_billing_catalogo_leitura.sql` (leitura de ativos p/ autenticados).
+
+### ✅ Unit — Vídeo embed (YouTube/Drive) — `tests/unit/lib/videoEmbed.unit.test.ts` (8 testes)
+`lib/videoEmbed.ts` `videoEmbedUrl()` resolve link de YouTube (watch/youtu.be/embed + ID legado 11 chars) ou Google Drive (file/d/, open?id=, uc?id=) para URL de iframe; texto/Vimeo/nulo → null. `videoProvedor()` detecta youtube/drive. Usado nas etapas de documentos (montagem `EtapasModal` + operação `ViewerDocumento`). **8/8 ✅ (2026-06-20).**
 
 ### Pen Test — Admin da empresa (isolamento) (`pentest/admin-empresa-rls.mjs`)
 20 checagens: cria 2 empresas (A com 2 unidades, B com 1) + um Admin da empresa A autenticado. Prova que ele **vê toda a empresa A cross-unidade** (unidades, grupos, checklists, catálogos+valores, documentos — inclusive de unidade onde não é membro), **não vê NADA de B**, **gerencia A** (cria grupo) mas **não B** (42501 / update 0 linhas), **promove outro Admin da empresa em A**, e **não consegue** atribuir Admin de SISTEMA nem vincular em B. Asserções distinguem RLS (42501) de erro de query. **20/20 ✅ (2026-06-20).** Rodar: creds dos `.env` (ver abaixo) + `node pentest/admin-empresa-rls.mjs`.

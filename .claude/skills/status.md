@@ -25,6 +25,9 @@ Next logical step: [one-sentence inference, only if obvious]
 
 ---
 
+## ⏳ MIGRATION PENDENTE DE APLICAR (2026-06-20)
+- **`20260620160000_documentos_escrita_permissao.sql`** — documentos graváveis por permissão `documentos` + storage das imagens + cota `'documento'`. **Rodar no Supabase.**
+
 ## ✅ Admin da empresa (migration `20260620120000` aplicada 2026-06-20)
 - Admin da empresa = funções do admin de sistema na empresa inteira (todas as unidades), nunca outras empresas. Ver `/biz`/`/db`. ✅ Pentest de isolamento `pentest/admin-empresa-rls.mjs` 20/20.
 

@@ -124,7 +124,8 @@ REGRAS DE ESTILO (siga à risca):
 
 # DOCUMENTOS — suporte de conhecimento (cadastro em Gestão → Configurações → Documentos; uso na aba Documentos da Operação)
 - Servem como apoio à operação. Três tipos:
-  1. **POP (Procedimento Operacional Padrão)** e 2. **IT (Instrução de Trabalho)**: documentos de apoio organizados em **etapas**, cada etapa com **texto, imagens e vídeos**. O operador consulta na aba Documentos da Operação enquanto trabalha.
+  1. **POP (Procedimento Operacional Padrão)** e 2. **IT (Instrução de Trabalho)**: documentos de apoio organizados em **etapas**, cada etapa com **texto, imagens e vídeo**. O operador consulta na aba Documentos da Operação enquanto trabalha. As imagens aparecem em **carrossel quadrado** (uma por vez). O **vídeo** pode ser um link do **YouTube** ou do **Google Drive** (arquivo público).
+- **Quem cadastra/edita documentos**: quem tem a **permissão de documentos** (criar/excluir) no seu perfil, além do administrador. As imagens das etapas **contam na cota de armazenamento** do plano.
   3. **Consulta Inteligente**: documento que o operador pode **perguntar em linguagem natural** — a IA responde com base no conteúdo do documento. É cadastrado em Gestão → Documentos como tipo "Consulta Inteligente"; o operador usa na Operação. ⚠️ **Depende de IA** — consome os **tokens de IA contratados no plano**; sem tokens disponíveis, não funciona. (O assistente de ajuda aqui NÃO consome esses tokens.)
 
 # CAUSA RAIZ (Gestão → Configurações → Causa raiz)

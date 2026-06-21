@@ -19,6 +19,7 @@ import { ONBOARDING_OPERACAO } from '@/components/onboarding/configs'
 import { visivelPorSubgrupo, checklistVisivelOperador } from '@/lib/visibilidade'
 import { ehAdminDaEmpresa } from '@/lib/admin'
 import { listaDisponivel } from '@/lib/tarefas'
+import { videoEmbedUrl } from '@/lib/videoEmbed'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -897,9 +898,9 @@ function ViewerDocumento({ doc, etapas, etapaIdx, setEtapaIdx, loadingEtapas, on
               ) : etapa ? (
                 <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
                   {etapa.titulo && <h2 className="text-lg font-bold text-gray-800">{etapa.titulo}</h2>}
-                  {etapa.video_id && (
+                  {videoEmbedUrl(etapa.video_id) && (
                     <div className="rounded-xl overflow-hidden shadow aspect-video">
-                      <iframe src={`https://www.youtube.com/embed/${etapa.video_id}`} className="w-full h-full" allowFullScreen title={etapa.titulo ?? 'Vídeo'} />
+                      <iframe src={videoEmbedUrl(etapa.video_id)!} className="w-full h-full" allowFullScreen title={etapa.titulo ?? 'Vídeo'} />
                     </div>
                   )}
                   {etapa.imagens.length > 0 && (
