@@ -8,6 +8,7 @@ import { ONBOARDING_PLANOS_ACAO } from '@/components/onboarding/configs'
 import { visivelPorSubgrupo } from '@/lib/visibilidade'
 import { ehAdminDaEmpresa } from '@/lib/admin'
 import { useSession } from '@/contexts/SessionContext'
+import { FiltroUnidade } from '@/components/ui/FiltroUnidade'
 import {
   ClipboardList, Clock, CheckCircle2, XCircle,
   ChevronRight, Loader2, RefreshCw, X
@@ -141,10 +142,13 @@ function PlanosAcaoContent() {
           <h1 className="text-xl font-bold text-gray-800">Planos de Ação</h1>
           <p className="text-sm text-gray-400 mt-0.5">Acompanhe e modere os planos abertos na sua área</p>
         </div>
-        <button onClick={() => carregar(filtro)}
-          className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors">
-          <RefreshCw size={16} />
-        </button>
+        <div className="flex items-center gap-2">
+          <FiltroUnidade />
+          <button onClick={() => carregar(filtro)}
+            className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors">
+            <RefreshCw size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Filtro por execução (vindo do histórico de checklists) */}

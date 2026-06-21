@@ -13,6 +13,7 @@ import { EditarDocumentoModal } from './EditarDocumentoModal'
 import { DuplicarDocumentoModal } from './DuplicarDocumentoModal'
 import { EtapasModal } from './EtapasModal'
 import { ConsultaInteligenteModal } from './ConsultaInteligenteModal'
+import { FiltroUnidade } from '@/components/ui/FiltroUnidade'
 
 interface Documento {
   id: string
@@ -184,7 +185,10 @@ export default function DocumentosPage() {
           <h1 className="text-xl font-semibold text-gray-800">Documentos</h1>
           <p className="text-xs text-gray-400 mt-0.5">Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
-        <Button onClick={() => setModalNovo(true)}><Plus size={16} />Novo documento</Button>
+        <div className="flex items-center gap-2">
+          <FiltroUnidade />
+          <Button onClick={() => setModalNovo(true)}><Plus size={16} />Novo documento</Button>
+        </div>
       </div>
 
       <div className="flex items-center gap-3 mb-5 flex-wrap">
