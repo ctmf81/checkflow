@@ -142,7 +142,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   async function carregarUnidades(empresaId: string, userId: string, isAdmin: boolean): Promise<Unidade[]> {
     const supabase = createClient()
     let lista: Unidade[] = []
-    if (isAdmin) {
+
+    // Admin de sistema OU admin da empresa (perfil ...002) enxerga TODAS as
+    // unidades da empresa. Demais veem só as suas (usuario_unidade).
+    let veTodas = isAdmin
+    if (!veTodas) {
+      const { data: vinc } = await supabase
+        .from('usuario_empresa')
+        .select('perfil_id')
+        .eq('usuario_id', userId)
+        .eq('empresa_id', empresaId)
+        .maybeSingle()
+      veTodas = vinc?.perfil_id === '00000000-0000-0000-0000-000000000002'
+    }
+
+    if (veTodas) {
       const { data } = await supabase.from('unidades').select('id, nome').eq('empresa_id', empresaId).order('nome')
       lista = data ?? []
     } else {
