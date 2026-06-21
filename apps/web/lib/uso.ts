@@ -1,6 +1,6 @@
 import { createClient } from './supabase'
 
-type OrigemUso = 'execucao' | 'ticket' | 'pdf' | 'tarefa'
+type OrigemUso = 'execucao' | 'ticket' | 'pdf' | 'tarefa' | 'documento'
 
 /**
  * Registra o consumo de armazenamento de um upload (fotos/vídeos de

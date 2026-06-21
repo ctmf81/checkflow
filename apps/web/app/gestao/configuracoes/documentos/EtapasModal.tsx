@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { ImageCropModal } from '@/components/ui/ImageCropModal'
 import { useConfirm } from '@/components/ui/feedback'
+import { useSession } from '@/contexts/SessionContext'
+import { registrarUsoArmazenamento } from '@/lib/uso'
+import { videoEmbedUrl } from '@/lib/videoEmbed'
 
 interface Etapa {
   id: string
@@ -23,6 +26,7 @@ interface Props {
 
 export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
   const confirm = useConfirm()
+  const { empresaAtiva } = useSession()
   const [etapas, setEtapas] = useState<Etapa[]>([])
   const [busca, setBusca] = useState('')
   const [etapaAtiva, setEtapaAtiva] = useState<Etapa | null>(null)
@@ -108,6 +112,7 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
       const path = `etapas/${etapaAtiva.id}/${Date.now()}.jpg`
       const { error } = await supabase.storage.from('empresas').upload(path, img.blob!, { contentType: 'image/jpeg' })
       if (!error) {
+        registrarUsoArmazenamento(empresaAtiva?.id, 'documento', img.blob!.size)
         const { data: pub } = supabase.storage.from('empresas').getPublicUrl(path)
         await supabase.from('etapa_imagens').insert({ etapa_id: etapaAtiva.id, url: pub.publicUrl, ordem: imagens.indexOf(img) })
       }
@@ -177,9 +182,9 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
                       <p className="text-sm text-gray-600 whitespace-pre-wrap">{etapa.conteudo}</p>
                     )}
 
-                    {etapa.video_id && etapa.video_id.length === 11 && (
+                    {videoEmbedUrl(etapa.video_id) && (
                       <div className="rounded-lg overflow-hidden aspect-video">
-                        <iframe src={`https://www.youtube.com/embed/${etapa.video_id}`}
+                        <iframe src={videoEmbedUrl(etapa.video_id)!}
                           title={etapa.titulo ?? `Etapa ${idx + 1}`}
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                           allowFullScreen className="w-full h-full" />
@@ -277,31 +282,23 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
                 </label>
                 <input
                   value={videoId}
-                  onChange={e => {
-                    const v = e.target.value.trim()
-                    // Extrai o ID de qualquer formato de URL do YouTube
-                    const match =
-                      v.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/) ||
-                      v.match(/^([A-Za-z0-9_-]{11})$/)
-                    setVideoId(match ? match[1] : v)
-                  }}
-                  placeholder="Cole a URL ou o ID do vídeo"
+                  onChange={e => setVideoId(e.target.value)}
+                  placeholder="Cole o link do YouTube ou do Google Drive (público)"
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200"
                 />
-                {videoId && videoId.length === 11 && (
+                {videoEmbedUrl(videoId) ? (
                   <div className="mt-2 rounded-lg overflow-hidden border border-gray-200 aspect-video">
                     <iframe
-                      src={`https://www.youtube.com/embed/${videoId}`}
+                      src={videoEmbedUrl(videoId)!}
                       title="Preview"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
                       className="w-full h-full"
                     />
                   </div>
-                )}
-                {videoId && videoId.length !== 11 && (
-                  <p className="text-xs text-amber-600 mt-1">URL inválida. Cole o link completo do YouTube.</p>
-                )}
+                ) : videoId.trim() ? (
+                  <p className="text-xs text-amber-600 mt-1">Link não reconhecido. Use um link do YouTube ou do Google Drive (arquivo público).</p>
+                ) : null}
               </div>
 
               <div>
