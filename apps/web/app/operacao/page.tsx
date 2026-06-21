@@ -16,6 +16,7 @@ import { AbaTarefas } from './AbaTarefas'
 import { WORKFLOWS_HABILITADO } from '@/lib/features'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_OPERACAO } from '@/components/onboarding/configs'
+import { visivelPorSubgrupo, checklistVisivelOperador } from '@/lib/visibilidade'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -1104,7 +1105,7 @@ export default function OperacaoPage() {
         const item = Array.isArray(wie.item) ? wie.item[0] : wie.item
         if (!item) continue
         // Cada setor só vê a SUA etapa (admin vê todas)
-        if (!isAdmin && !(item.subgrupo_id && meusSubgrupos.has(item.subgrupo_id))) continue
+        if (!visivelPorSubgrupo(item.subgrupo_id, { isAdmin, meusSubgrupos })) continue
         const wf = Array.isArray(exec.workflow) ? exec.workflow[0] : exec.workflow
         const cl = Array.isArray(item.checklist) ? item.checklist[0] : item.checklist
         const sg = Array.isArray(item.subgrupo) ? item.subgrupo[0] : item.subgrupo
@@ -1145,10 +1146,8 @@ export default function OperacaoPage() {
       // Filtra por subgrupo do usuário (admin vê todos; checklist sempre tem
       // subgrupo) E esconde os que estão liberados via workflow — esses devem
       // ser executados pelo card "Workflows em andamento", não avulso.
-      const visiveis = (isAdmin
-        ? comContagem
-        : comContagem.filter(cl => cl.subgrupo_id != null && meusSubgrupos.has(cl.subgrupo_id))
-      ).filter(cl => !checklistsEmWorkflow.has(cl.id))
+      const visiveis = comContagem.filter(cl =>
+        checklistVisivelOperador(cl, { isAdmin, meusSubgrupos }, checklistsEmWorkflow))
 
       const gruposMap = new Map<string, GrupoAgrupado>()
       const semGrupoList: Checklist[] = []
@@ -1190,7 +1189,7 @@ export default function OperacaoPage() {
           criado_em: e.data_execucao,
         }
       })
-      .filter((e: any) => isAdmin || (e.subgrupo_id && meusSubgrupos.has(e.subgrupo_id)))
+      .filter((e: any) => visivelPorSubgrupo(e.subgrupo_id, { isAdmin, meusSubgrupos }))
       .map(({ subgrupo_id, ...e }: any) => e))
 
     // Execuções que ESTE operador iniciou/assumiu e não finalizou (em_andamento).
