@@ -5,8 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_PLANOS_ACAO } from '@/components/onboarding/configs'
+import { visivelPorSubgrupo } from '@/lib/visibilidade'
 import {
-  ClipboardList, Clock, CheckCircle2, XCircle, AlertTriangle,
+  ClipboardList, Clock, CheckCircle2, XCircle,
   ChevronRight, Loader2, RefreshCw, X
 } from 'lucide-react'
 
@@ -17,9 +18,10 @@ type StatusPlano = 'em_moderacao_n1' | 'em_moderacao_n2' | 'corrigido' | 'nao_co
 interface PlanoItem {
   id: string
   status: StatusPlano
+  subgrupo_id: string
+  criado_por: string
   identificador: string | null
   observacao_abertura: string | null
-  sla_prazo: string | null
   created_at: string
   subgrupos: { nome: string } | null
   checklist_atividades: { nome: string } | null
@@ -52,24 +54,6 @@ function statusDeFiltro(f: Filtro): StatusPlano[] {
   return ['em_moderacao_n1', 'em_moderacao_n2', 'corrigido', 'nao_corrigido']
 }
 
-function SlaTag({ prazo }: { prazo: string | null }) {
-  if (!prazo) return null
-  const diff = new Date(prazo).getTime() - Date.now()
-  const horas = Math.round(diff / 3600000)
-  if (horas > 0) {
-    return (
-      <span className="flex items-center gap-1 text-xs text-amber-600 font-medium">
-        <Clock size={11} />SLA: {horas}h restantes
-      </span>
-    )
-  }
-  return (
-    <span className="flex items-center gap-1 text-xs text-red-500 font-medium">
-      <AlertTriangle size={11} />SLA vencido ({Math.abs(horas)}h atrás)
-    </span>
-  )
-}
-
 function DataRelativa({ iso }: { iso: string }) {
   const diff = Date.now() - new Date(iso).getTime()
   const min = Math.floor(diff / 60000)
@@ -95,24 +79,25 @@ function PlanosAcaoContent() {
   const searchParams = useSearchParams()
   const execId = searchParams.get('exec')
   const [filtro, setFiltro] = useState<Filtro>('abertos')
+  const [ordem, setOrdem] = useState<'antigos' | 'recentes'>('antigos')
   const [planos, setPlanos] = useState<PlanoItem[]>([])
   const [loading, setLoading] = useState(true)
   const [nomeChecklist, setNomeChecklist] = useState<string | null>(null)
 
-  async function carregar(f: Filtro) {
+  async function carregar(f: Filtro, ord: 'antigos' | 'recentes') {
     setLoading(true)
     const sb = createClient()
 
     let query = sb
       .from('planos_acao')
       .select(`
-        id, status, identificador, observacao_abertura, sla_prazo, created_at,
+        id, status, subgrupo_id, criado_por, identificador, observacao_abertura, created_at,
         subgrupos(nome),
         checklist_atividades(nome),
         checklist_execucoes(checklists(nome)),
         usuarios!criado_por(nome)
       `)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: ord === 'antigos' })
 
     if (execId) {
       query = query.eq('checklist_execucao_id', execId)
@@ -122,13 +107,24 @@ function PlanosAcaoContent() {
 
     const { data } = await query
 
-    const lista = (data ?? []) as unknown as PlanoItem[]
+    // Visibilidade: só vê o plano quem o ABRIU ou quem PERTENCE ao grupo/subgrupo
+    // de resolução (subgrupo do checklist que originou o plano). Admin vê todos.
+    const { data: { user } } = await sb.auth.getUser()
+    const isAdmin = user?.user_metadata?.role === 'admin_sistema'
+    let meusSubgrupos = new Set<string>()
+    if (user && !isAdmin) {
+      const { data: us } = await sb.from('usuario_subgrupo').select('subgrupo_id').eq('usuario_id', user.id)
+      meusSubgrupos = new Set((us ?? []).map((r: any) => r.subgrupo_id))
+    }
+
+    const lista = ((data ?? []) as unknown as PlanoItem[])
+      .filter(p => visivelPorSubgrupo(p.subgrupo_id, { isAdmin, meusSubgrupos }) || p.criado_por === user?.id)
     setPlanos(lista)
     setNomeChecklist(execId ? (lista[0]?.checklist_execucoes?.checklists?.nome ?? null) : null)
     setLoading(false)
   }
 
-  useEffect(() => { carregar(filtro) }, [filtro, execId])
+  useEffect(() => { carregar(filtro, ordem) }, [filtro, ordem, execId])
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -139,7 +135,7 @@ function PlanosAcaoContent() {
           <h1 className="text-xl font-bold text-gray-800">Planos de Ação</h1>
           <p className="text-sm text-gray-400 mt-0.5">Acompanhe e modere os planos abertos na sua área</p>
         </div>
-        <button onClick={() => carregar(filtro)}
+        <button onClick={() => carregar(filtro, ordem)}
           className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors">
           <RefreshCw size={16} />
         </button>
@@ -158,19 +154,26 @@ function PlanosAcaoContent() {
         </div>
       )}
 
-      {/* Filtros */}
+      {/* Filtros + ordenação */}
       {!execId && (
-        <div className="flex gap-1.5 mb-5 bg-gray-100 p-1 rounded-xl w-fit">
-          {FILTROS.map(f => (
-            <button key={f.valor} onClick={() => setFiltro(f.valor)}
-              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                filtro === f.valor
-                  ? 'bg-white text-gray-800 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}>
-              {f.label}
-            </button>
-          ))}
+        <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+          <div className="flex gap-1.5 bg-gray-100 p-1 rounded-xl w-fit">
+            {FILTROS.map(f => (
+              <button key={f.valor} onClick={() => setFiltro(f.valor)}
+                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  filtro === f.valor
+                    ? 'bg-white text-gray-800 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <select value={ordem} onChange={e => setOrdem(e.target.value as 'antigos' | 'recentes')}
+            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-orange-200">
+            <option value="antigos">Mais antigos primeiro</option>
+            <option value="recentes">Mais recentes primeiro</option>
+          </select>
         </div>
       )}
 
@@ -237,7 +240,6 @@ function PlanosAcaoContent() {
                         Aberto por <span className="font-medium text-gray-600">{p.usuarios?.nome ?? '—'}</span>
                         {' · '}<DataRelativa iso={p.created_at} />
                       </span>
-                      <SlaTag prazo={p.sla_prazo} />
                     </div>
                   </div>
 

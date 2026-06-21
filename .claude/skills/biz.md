@@ -301,16 +301,20 @@ aberto → em_tratamento (aceite) → aguardando_informacao ↔ em_tratamento
 | `cancelar` | Cancelar / marcar improcedente |
 | `categorias_gerir` | Gerenciar categorias de tickets |
 
-## Planos de Ação — moderação N1/N2
-- Aberto automaticamente quando uma execução tem atividade **não conforme** marcada para gerar plano. Nasce em `em_moderacao_n1`.
-- Funções do usuário no plano: `operacao` | `nivel_1` (N1) | `nivel_2` (N2). **admin = N2**. (N1/N2 são camadas de moderação, não pessoas fixas.)
+## Planos de Ação — moderação N1/N2 (revisado 2026-06-20)
+- **Origem**: PA é aberto **automaticamente** quando uma execução tem atividade **não conforme** marcada para gerar plano. Nasce em `em_moderacao_n1`. **Por enquanto NÃO há abertura manual** (sem não-conformidade não há PA).
+- **Visibilidade da listagem**: só vê o plano quem **o abriu** (`criado_por`) **OU** quem **pertence ao grupo/subgrupo de resolução** (`planos_acao.subgrupo_id` = subgrupo do checklist). Admin vê todos. Filtro client-side via `visivelPorSubgrupo` + `criado_por === user.id` (`lib/visibilidade.ts`). Antes só filtrava por status (confiava só no RLS) — **corrigido**.
+- **Ordenação da lista**: seletor "Mais antigos primeiro" (default) / "Mais recentes primeiro" (por `created_at`).
+- **SLA arquivado por enquanto** (decisão 2026-06-20): removidas as tags de SLA da lista e do detalhe. `sla_prazo` ainda existe no banco mas não é exibido. Retomar quando o tema de SLA for definido.
+- Funções do usuário no plano: `operacao` | `nivel_1` (N1) | `nivel_2` (N2). **admin = N2**. N1/N2 são camadas de moderação, não pessoas fixas — **N1 e N2 também executam checklist**, além de moderar.
 - Estados: `em_moderacao_n1` → `em_moderacao_n2` (se escalado) → `corrigido` | `nao_corrigido` (terminais).
 - Ações por papel/estado (`gestao/planos-acao/[id]/page.tsx` → `botoesDisponiveis`):
   - `em_moderacao_n1` + (N1/N2/admin): `corrigido`, `nao_corrigido`, `enviado_n2` (escala)
   - `em_moderacao_n2` + (N2/admin): `corrigido`, `nao_corrigido`, `devolvido_n1`
-  - terminal + N1: `reaberto` (→ `em_moderacao_n1`)
+  - terminal + N1: `reaberto` (→ `em_moderacao_n1`) — **N1 pode reabrir mesmo o que o N2 fechou** (decisão confirmada).
+- **Fallback sem N2**: o gestor do grupo deveria ser N2; se o subgrupo **não tem nenhum** `nivel_2`, o botão "Enviar para N2" fica **desabilitado** com aviso ("Não existe um moderador N2 configurado para o subgrupo X"). Contagem via `usuario_subgrupo` count `funcao='nivel_2'`.
 - Cada movimentação exige **observação obrigatória** + evidências opcionais (fotos/vídeos em `plano_acao_movimentacao_evidencias`).
-- Notificações: abertura → N1 do subgrupo; `enviado_n2` → N2 do subgrupo (WhatsApp respeita turno). Ver tabela de destinatários abaixo.
+- **Notificações (WhatsApp/Email, respeita turno)**: abertura → **N1** do subgrupo; `enviado_n2` → **N2**; `devolvido_n1` → **N1** (devolução adicionada 2026-06-20; usa mensagem hardcoded, sem template dedicado). Ver tabela de destinatários abaixo.
 
 ## Templates de Notificação
 

@@ -49,6 +49,25 @@ function waMensagemEnviadoN2(dados: {
   )
 }
 
+function waMensagemDevolvidoN1(dados: {
+  n2Nome: string
+  nomeAtividade: string
+  nomeChecklist: string
+  nomeSubgrupo: string
+  observacao: string
+  link: string
+}): string {
+  return (
+    `🟡 *Plano de Ação devolvido para N1*\n\n` +
+    `*Área:* ${dados.nomeSubgrupo}\n` +
+    `*Atividade:* ${dados.nomeAtividade}\n` +
+    `*Checklist:* ${dados.nomeChecklist}\n` +
+    `*Devolvido por (N2):* ${dados.n2Nome}\n` +
+    `*Observação:* ${dados.observacao}\n\n` +
+    `🔗 ${dados.link}`
+  )
+}
+
 // ─── Rota ────────────────────────────────────────────────────────────────────
 
 export async function planosAcaoRoutes(app: FastifyInstance) {
@@ -68,7 +87,7 @@ export async function planosAcaoRoutes(app: FastifyInstance) {
   app.post('/planos-acao/notificar', async (req, reply) => {
     const { plano_id, evento, observacao, ator_nome } = req.body as {
       plano_id: string
-      evento: 'aberto' | 'enviado_n2'
+      evento: 'aberto' | 'enviado_n2' | 'devolvido_n1'
       observacao: string
       ator_nome: string
     }
@@ -115,9 +134,9 @@ export async function planosAcaoRoutes(app: FastifyInstance) {
     const primeiraFoto: string | null = evidencias?.[0]?.url ?? null
 
     // 3. Destinatários conforme evento
-    const funcoesAlvo = evento === 'aberto'
-      ? ['nivel_1']   // apenas N1 recebe quando o plano é aberto
-      : ['nivel_2']   // N2 só recebe quando N1 escala
+    const funcoesAlvo = evento === 'enviado_n2'
+      ? ['nivel_2']   // N2 recebe quando N1 escala
+      : ['nivel_1']   // N1 recebe na abertura e quando N2 devolve
 
     const { data: membros } = await sb.from('usuario_subgrupo')
       .select('usuario_id, funcao, usuarios(nome, email, telefone)')
@@ -140,10 +159,10 @@ export async function planosAcaoRoutes(app: FastifyInstance) {
     const baseUrl = process.env.APP_URL ?? 'https://web-production-36880.up.railway.app'
     const link = `${baseUrl}/gestao/planos-acao/${plano_id}`
 
-    // 3. Busca templates da empresa
+    // 3. Busca templates da empresa (devolvido_n1 não tem template → hardcoded)
     const empresaId = await empresaDeSubgrupo(sb, plano.subgrupo_id)
     const tipoNotif = evento === 'aberto' ? 'plano_aberto' as const : 'plano_enviado_n2' as const
-    const [tmplWa, tmplEmail] = empresaId
+    const [tmplWa, tmplEmail] = empresaId && evento !== 'devolvido_n1'
       ? await Promise.all([
           buscarTemplate(sb, empresaId, tipoNotif, 'whatsapp'),
           buscarTemplate(sb, empresaId, tipoNotif, 'email'),
@@ -186,6 +205,8 @@ export async function planosAcaoRoutes(app: FastifyInstance) {
         } else if (!tmplWa) {
           mensagemWa = evento === 'aberto'
             ? waMensagemAberto({ atorNome: ator_nome, nomeAtividade, nomeChecklist, nomeSubgrupo, observacao, sla: slaFormatado, link })
+            : evento === 'devolvido_n1'
+            ? waMensagemDevolvidoN1({ n2Nome: ator_nome, nomeAtividade, nomeChecklist, nomeSubgrupo, observacao, link })
             : waMensagemEnviadoN2({ n1Nome: ator_nome, nomeAtividade, nomeChecklist, nomeSubgrupo, observacao, link })
         }
 
@@ -208,6 +229,16 @@ export async function planosAcaoRoutes(app: FastifyInstance) {
           const corpoHtml = renderizar(tmplEmail.corpo, vars)
             .split('\n').map(l => `<p style="margin:0 0 8px;font-size:14px;color:#374151;line-height:1.6">${l || '&nbsp;'}</p>`).join('')
           html = buildEmailHtml(assunto, corpoHtml, link)
+        } else if (!tmplEmail && evento === 'devolvido_n1') {
+          // Sem template dedicado — monta e-mail simples inline.
+          assunto = `Plano de Ação devolvido para N1 — ${nomeAtividade}`
+          const corpo = [
+            `Olá ${nome},`,
+            `O plano de ação de <strong>${nomeAtividade}</strong> (${nomeChecklist}) foi devolvido para N1 por ${ator_nome}.`,
+            `Área: ${nomeSubgrupo}`,
+            `Observação: ${observacao}`,
+          ].map(l => `<p style="margin:0 0 8px;font-size:14px;color:#374151;line-height:1.6">${l}</p>`).join('')
+          html = buildEmailHtml(assunto, corpo, link)
         } else if (!tmplEmail) {
           const tpl = evento === 'aberto'
             ? emailPlanoAberto({ nomeDestinatario: nome, nomeAtividade, nomeChecklist, nomeSubgrupo, observacao, atorNome: ator_nome, sla: slaFormatado, planoId: plano_id, fotoUrl: primeiraFoto })
