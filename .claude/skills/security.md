@@ -46,6 +46,7 @@ Para dar a um admin **da empresa** as mesmas funções de gestão sem furar o mu
 - ✅ **`/catalogos/sync-all` protegido por `x-cron-secret` (2026-06-20)**: antes estava aberto (qualquer um podia disparar sync de todos os catálogos). Agora exige `CRON_SECRET` (mesmo padrão de `/cron/limpeza-execucoes`). Disparado por um job no **cron-job.org** ("Checkflow | Atualizar Catálogos", POST + header `x-cron-secret`) → testado 200 OK (2026-06-20). `CRON_SECRET` já existe no Railway (serviço `api`).
 - ✅ **Fastify content-type parser catch-all (2026-06-20, `server.ts`)**: POST de serviços de cron vinha com Content-Type não-JSON → 415. Parser `'*'` ignora o corpo em endpoints que não o usam; `application/json` segue no parser padrão (webhook Asaas intacto).
 - ✅ **Catálogos — escrita por permissão** (migration `20260620140000`): `catalogos`/`catalogo_valores` graváveis por quem tem permissão `catalogos` + unidade (antes só `is_admin_sistema`).
+- ✅ **Documentos — escrita por permissão** (migration `20260620160000`): `documentos`/`documento_etapas`/`etapa_imagens` + storage (`empresas/etapas/`) graváveis por quem tem permissão `documentos` + unidade. Pentest `pentest/documentos-rls.mjs` **7/7** (gestor com permissão escreve na sua unidade, não em outra empresa; comum sem permissão não escreve; leitura por unidade ok).
 
 ⚠️ **PostgREST não lança erro em UPDATE/DELETE bloqueado por RLS** — retorna `data: []` silenciosamente. Testes de segurança devem verificar se o dado realmente mudou no banco, não se houve exceção.
 

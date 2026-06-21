@@ -140,7 +140,7 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 - `20260617140000_billing_catalogo_leitura.sql` — leitura de `planos`/`pacotes_adicionais` **ativos** por autenticados (corrige self-service `/gestao/plano`; escrita segue admin).
 - `20260617160000_motivo_padrao_nao_execucao.sql` — motivo padrão "Não disponível" por unidade (grupo/subgrupo nulos), `motivo_padrao_unidade(unidade,tipo)`, trigger `checklist_seed_motivos_padrao` (AFTER INSERT em checklists, associa ≥1 de cada tipo a checklist novo não-template) + retroativo.
 
-### Documentos — escrita por permissão + cota (migration `20260620160000_documentos_escrita_permissao.sql`, ⏳ APLICAR)
+### Documentos — escrita por permissão + cota (migration `20260620160000_documentos_escrita_permissao.sql`, ✅ aplicada 2026-06-20)
 - RLS de escrita em `documentos`/`documento_etapas`/`etapa_imagens` por **permissão `documentos`** (criar/excluir) + unidade (antes só `is_admin_sistema`).
 - **Storage**: imagens de etapa (bucket `empresas`, prefixo `etapas/`) graváveis/deletáveis por quem tem permissão `documentos` (antes só admin).
 - **Cota**: `uso_armazenamento.origem` passa a aceitar `'documento'` — imagens de etapa contam na cota (registradas via `lib/uso.ts`).

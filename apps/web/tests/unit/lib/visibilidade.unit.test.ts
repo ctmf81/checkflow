@@ -13,6 +13,7 @@ import {
   visivelPorSubgrupo,
   checklistVisivelOperador,
   agendamentoVisivelGestor,
+  documentoVisivelOperador,
 } from '../../../lib/visibilidade'
 
 // ─── Predicado base ─────────────────────────────────────────────────────────────
@@ -130,5 +131,31 @@ describe('agendamentoVisivelGestor() — listagem de Agendamentos', () => {
         { tipo_alvo: 'workflow', workflow_id: null, checklist_subgrupo_id: null }, ctx, {},
       )).toBe(false)
     })
+  })
+})
+
+// ─── Documentos (operação) ──────────────────────────────────────────────────────
+
+describe('documentoVisivelOperador()', () => {
+  const ctx = { isAdmin: false, meusGrupos: new Set(['g-1']), meusSubgrupos: new Set(['sg-1']) }
+
+  it('documento do meu subgrupo → visível', () => {
+    expect(documentoVisivelOperador({ subgrupo_id: 'sg-1', grupo_id: 'g-9' }, ctx)).toBe(true)
+  })
+  it('documento do meu grupo (sem subgrupo) → visível', () => {
+    expect(documentoVisivelOperador({ subgrupo_id: null, grupo_id: 'g-1' }, ctx)).toBe(true)
+  })
+  it('documento geral (sem grupo nem subgrupo) → visível p/ todos', () => {
+    expect(documentoVisivelOperador({ subgrupo_id: null, grupo_id: null }, ctx)).toBe(true)
+  })
+  it('documento de outro subgrupo+grupo → invisível', () => {
+    expect(documentoVisivelOperador({ subgrupo_id: 'sg-9', grupo_id: 'g-9' }, ctx)).toBe(false)
+  })
+  it('subgrupo de fora mas grupo meu → visível (cai p/ grupo)', () => {
+    expect(documentoVisivelOperador({ subgrupo_id: 'sg-9', grupo_id: 'g-1' }, ctx)).toBe(true)
+  })
+  it('admin vê qualquer documento', () => {
+    const admin = { isAdmin: true, meusGrupos: new Set<string>(), meusSubgrupos: new Set<string>() }
+    expect(documentoVisivelOperador({ subgrupo_id: 'sg-9', grupo_id: 'g-9' }, admin)).toBe(true)
   })
 })
