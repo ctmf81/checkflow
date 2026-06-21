@@ -11,6 +11,7 @@ import { useSession } from '@/contexts/SessionContext'
 import { notificarTicket } from '@/lib/notificacoes'
 import { registrarUsoArmazenamento } from '@/lib/uso'
 import { acoesDisponiveis as calcularAcoes, type Acao } from '@/lib/tickets'
+import { ehAdminDaEmpresa } from '@/lib/admin'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -108,7 +109,7 @@ export default function TicketDetalhe() {
     supabase.auth.getUser().then(async ({ data }) => {
       const u = data.user
       setUserId(u?.id ?? null)
-      const admin = u?.user_metadata?.role === 'admin_sistema'
+      const admin = await ehAdminDaEmpresa(supabase, empresaAtiva?.id)
       setIsAdmin(admin)
       if (u && !admin) {
         const { data: us } = await supabase.from('usuario_subgrupo').select('subgrupo_id').eq('usuario_id', u.id)
@@ -117,7 +118,7 @@ export default function TicketDetalhe() {
     })
     supabase.rpc('usuario_tem_permissao', { p_recurso: 'ticket', p_acao: 'cancelar' })
       .then(({ data }) => setPodeCancelar(!!data))
-  }, [])
+  }, [empresaAtiva?.id])
 
   async function carregar() {
     const [{ data: t }, { data: ev }] = await Promise.all([

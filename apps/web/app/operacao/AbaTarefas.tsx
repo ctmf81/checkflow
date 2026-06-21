@@ -5,6 +5,7 @@ import { ListChecks, Loader2, ChevronLeft, Check, Camera, MapPin, Clock, AlertTr
 import { createClient } from '@/lib/supabase'
 import { listaDisponivel, calcularEditavelAte, edicaoExpirada } from '@/lib/tarefas'
 import { registrarUsoArmazenamento } from '@/lib/uso'
+import { ehAdminDaEmpresa } from '@/lib/admin'
 
 interface Lista {
   id: string
@@ -43,7 +44,7 @@ export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empres
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setLoading(false); return }
-    const isAdmin = user.user_metadata?.role === 'admin_sistema'
+    const isAdmin = await ehAdminDaEmpresa(supabase, empresaId)
 
     // Grupos/subgrupos do usuário
     const [{ data: ug }, { data: us }] = await Promise.all([
@@ -78,7 +79,7 @@ export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empres
 
     setListas(visiveis)
     setLoading(false)
-  }, [unidadeId])
+  }, [unidadeId, empresaId])
 
   useEffect(() => { carregar() }, [carregar])
 

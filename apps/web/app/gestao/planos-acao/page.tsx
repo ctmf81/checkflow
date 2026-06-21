@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_PLANOS_ACAO } from '@/components/onboarding/configs'
 import { visivelPorSubgrupo } from '@/lib/visibilidade'
+import { ehAdminDaEmpresa } from '@/lib/admin'
+import { useSession } from '@/contexts/SessionContext'
 import {
   ClipboardList, Clock, CheckCircle2, XCircle,
   ChevronRight, Loader2, RefreshCw, X
@@ -77,6 +79,7 @@ export default function PlanosAcaoPage() {
 function PlanosAcaoContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { empresaAtiva } = useSession()
   const execId = searchParams.get('exec')
   const [filtro, setFiltro] = useState<Filtro>('abertos')
   const [ordem, setOrdem] = useState<'antigos' | 'recentes'>('antigos')
@@ -110,7 +113,7 @@ function PlanosAcaoContent() {
     // Visibilidade: só vê o plano quem o ABRIU ou quem PERTENCE ao grupo/subgrupo
     // de resolução (subgrupo do checklist que originou o plano). Admin vê todos.
     const { data: { user } } = await sb.auth.getUser()
-    const isAdmin = user?.user_metadata?.role === 'admin_sistema'
+    const isAdmin = await ehAdminDaEmpresa(sb, empresaAtiva?.id)
     let meusSubgrupos = new Set<string>()
     if (user && !isAdmin) {
       const { data: us } = await sb.from('usuario_subgrupo').select('subgrupo_id').eq('usuario_id', user.id)
@@ -124,7 +127,7 @@ function PlanosAcaoContent() {
     setLoading(false)
   }
 
-  useEffect(() => { carregar(filtro, ordem) }, [filtro, ordem, execId])
+  useEffect(() => { carregar(filtro, ordem) }, [filtro, ordem, execId, empresaAtiva?.id])
 
   return (
     <div className="max-w-4xl mx-auto">

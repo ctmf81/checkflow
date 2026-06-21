@@ -25,8 +25,11 @@ Next logical step: [one-sentence inference, only if obvious]
 
 ---
 
+## ⏳ MIGRATION PENDENTE DE APLICAR (2026-06-20)
+- **`20260620120000_admin_empresa_rls.sql`** — Admin da empresa com funções escopadas (helpers `is_admin_empresa*` + policies aditivas em estrutura e acessos). **Rodar no Supabase.** Sem isso, o admin da empresa não consegue gerenciar usuários/estrutura via RLS. Ver `/db` e `/biz` "Admin da empresa".
+
 ## ▶️ RETOMAR NA PRÓXIMA SESSÃO (consolidado 2026-06-17)
-Tudo commitado/pushado na `main`. Nenhuma migration pendente. Frentes em aberto:
+Tudo commitado/pushado na `main`. Frentes em aberto:
 1. **Revisão colaborativa tela a tela** (formato: eu explico enumerado 1,2,3… e o usuário complementa; gravo em `/biz` + no MANUAL de `apps/web/app/api/ajuda/route.ts`). **Já revisadas:** Operação, Execução, **Gestão → Checklists (listagem + montador) ✅ 2026-06-17**. **Próxima:** abrir **cada atividade** do montador (os 10 tipos no `AtividadeModal`) com o usuário, tipo a tipo.
 2. **Refinamento UI** — montador: mostrar/permitir remover o motivo padrão "Não disponível" com guard ≥1 por tipo (regra forte já garantida por trigger).
 2b. **PENDENTE (tempo de guarda)**: prever config para a empresa guardar mídias em **repositório próprio (ex: S3)** — nesse modo o tempo de guarda só arquivaria, sem apagar nada. Ver `/biz` "Gestão → Checklists".
