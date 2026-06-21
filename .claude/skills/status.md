@@ -25,6 +25,15 @@ Next logical step: [one-sentence inference, only if obvious]
 
 ---
 
+## 📋 CHECKLIST REVISÃO TELA A TELA (menu Gestão, ordem do menu) — 2026-06-20
+Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste · ❌=pendente
+1. Home `/gestao` ✅ (dashboard só de checklist; escopo unidade ativa; funil por execução + indicador moderação N1/N2; SLA removido)  2. Grupos ✅  3. Tickets→Chamados 🟡 · Categorias ❌ · Config.SLA ❌
+4. Planos de Ação ✅  5. Checklists ✅  6. Tarefas ✅  7. Workflows ⛔off  8. Agendamentos ✅
+9. Indicadores ❌  10. Padrão→Variáveis ❌ · Padrões ❌
+11. Acessos→Empresa ❌ · Perfis ❌ · Turnos ❌ · Usuários ✅
+12. Plano ❌  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ❌ · Formatação ❌ · Relatórios ❌ · Dashboards ❌ · Causa raiz ❌ · Notificações ❌
++ Ambiente **Sistema** (admin plataforma: empresas, planos/preços, templates, parceiros, integrações IA, onboarding) — revisar ao final/à parte.
+
 ## ✅ Admin da empresa (migration `20260620120000` aplicada 2026-06-20)
 - Admin da empresa = funções do admin de sistema na empresa inteira (todas as unidades), nunca outras empresas. Ver `/biz`/`/db`. ✅ Pentest de isolamento `pentest/admin-empresa-rls.mjs` 20/20.
 
