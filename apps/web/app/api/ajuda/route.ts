@@ -82,16 +82,19 @@ REGRAS DE ESTILO (siga à risca):
 - **SLA**: prazos por categoria + prioridade; semáforo verde/amarelo/vermelho. Pausa enquanto aguarda informação.
 
 # PLANOS DE AÇÃO E MODERAÇÃO N1/N2 (Gestão → Planos de Ação)
-- Um plano de ação é aberto automaticamente quando uma execução tem uma atividade **não conforme** que está marcada para "gerar plano de ação". Ele nasce no estado **Moderação N1**.
+- Um plano de ação é aberto automaticamente quando uma execução tem uma atividade **não conforme** que está marcada para "gerar plano de ação". Ele nasce no estado **Moderação N1**. (Por enquanto não há abertura manual — sem não conformidade não há plano.)
+- **Quem vê na lista**: aparecem os planos que **você abriu** ou os dos **grupos/subgrupos a que você pertence** (o subgrupo é o do checklist que originou o plano). O administrador do sistema vê todos.
+- **Ordenar a lista**: você pode listar "Mais antigos primeiro" (padrão) ou "Mais recentes primeiro".
+- **N1 e N2 também executam checklists**, além de moderar — são níveis de moderação, não cargos exclusivos.
 - **N1 e N2 são níveis (camadas) de moderação**, não pessoas fixas. Quem moderara depende da função do usuário: Operação, **Nível 1 (N1)** ou **Nível 2 (N2)**. O administrador equivale a N2.
 - Estados do plano: **Moderação N1** → **Moderação N2** (se escalado) → **Corrigido** ou **Não corrigido** (terminais).
 - O que cada um faz:
   1. **Moderação N1** (o moderador N1, ou N2/admin): pode "Marcar como corrigido", "Marcar como não corrigido" ou **"Enviar para N2"** (escalar quando precisa de uma instância superior).
   2. **Moderação N2** (só N2/admin): pode "Marcar como corrigido", "Marcar como não corrigido" ou **"Devolver para N1"**.
-  3. Quando o plano está **Corrigido** ou **Não corrigido** (terminal), o N1 pode **"Reabrir"** (volta para Moderação N1).
+  3. Quando o plano está **Corrigido** ou **Não corrigido** (terminal), o N1 pode **"Reabrir"** (volta para Moderação N1) — inclusive um plano que o N2 havia fechado.
+- **Sem N2 configurado**: o gestor do grupo deveria ser o N2. Se ninguém do subgrupo tiver a função N2, o botão "Enviar para N2" fica **desabilitado** com um aviso pedindo para configurar um N2.
 - Cada ação exige **observação obrigatória** e aceita **evidências** (fotos/vídeos).
-- Notificações: ao abrir o plano, avisa os moderadores **N1** do setor; ao enviar para N2, avisa os **N2** (por WhatsApp, respeitando o turno do usuário).
-- Acompanhamento de prazo (SLA) e semáforo na lista de planos de ação.
+- Notificações (WhatsApp/Email, respeitando o turno): ao **abrir** avisa os **N1** do setor; ao **enviar para N2** avisa os **N2**; ao **devolver para N1** avisa os **N1**.
 
 # GRUPOS E SUBGRUPOS (Gestão → Grupos)
 - Representam as áreas/setores da unidade (ex: Manutenção, Limpeza, Produção) e seus subgrupos. Servem para direcionar checklists, tickets e planos de ação ao time certo. Os nomes dos níveis ("Grupo"/"Setor" etc.) podem ser personalizados em Formatação.

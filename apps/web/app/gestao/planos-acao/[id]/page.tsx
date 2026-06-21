@@ -4,7 +4,7 @@ import { use, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
-import { notificarPlanoEnviadoN2 } from '@/lib/notificacoes'
+import { notificarPlanoEnviadoN2, notificarPlanoDevolvidoN1 } from '@/lib/notificacoes'
 import { registrarUsoArmazenamento } from '@/lib/uso'
 import {
   ArrowLeft, Clock, CheckCircle2, XCircle, AlertTriangle,
@@ -59,22 +59,6 @@ const ACAO_CONFIG: Record<Acao, { label: string; cor: string }> = {
   corrigido:     { label: 'Marcado como corrigido', cor: 'text-green-600' },
   nao_corrigido: { label: 'Marcado como não corrigido', cor: 'text-red-600' },
   reaberto:      { label: 'Plano reaberto',      cor: 'text-blue-600' },
-}
-
-function SlaTag({ prazo }: { prazo: string | null }) {
-  if (!prazo) return null
-  const diff = new Date(prazo).getTime() - Date.now()
-  const horas = Math.round(diff / 3600000)
-  if (horas > 0) return (
-    <span className="flex items-center gap-1 text-xs text-amber-600 font-medium">
-      <Clock size={12} />SLA: {horas}h restantes
-    </span>
-  )
-  return (
-    <span className="flex items-center gap-1 text-xs text-red-500 font-medium">
-      <AlertTriangle size={12} />SLA vencido ({Math.abs(horas)}h atrás)
-    </span>
-  )
 }
 
 function formatarData(iso: string) {
@@ -193,6 +177,7 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([])
   const [funcaoUsuario, setFuncaoUsuario] = useState<Funcao>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [temN2, setTemN2] = useState(true)
   const [loading, setLoading] = useState(true)
   const [modalAcao, setModalAcao] = useState<{ acao: Acao; titulo: string; corBtn: string } | null>(null)
   const [salvando, setSalvando] = useState(false)
@@ -235,6 +220,13 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
         setFuncaoUsuario((us?.funcao ?? null) as Funcao)
       }
     }
+
+    // O subgrupo tem algum moderador N2 configurado? (gestor do grupo deveria ser N2;
+    // se ninguém for, o botão "Enviar para N2" fica desabilitado com aviso.)
+    const { count: n2Count } = await sb.from('usuario_subgrupo')
+      .select('usuario_id', { count: 'exact', head: true })
+      .eq('subgrupo_id', (p as any).subgrupo_id).eq('funcao', 'nivel_2')
+    setTemN2((n2Count ?? 0) > 0)
 
     setLoading(false)
   }
@@ -298,14 +290,15 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
     // Atualiza status do plano
     await sb.from('planos_acao').update({ status }).eq('id', plano.id)
 
-    // Notifica N2 via WhatsApp quando escalado (fire-and-forget)
-    if (acao === 'enviado_n2') {
+    // Notifica via WhatsApp/Email quando escalado (N2) ou devolvido (N1) — fire-and-forget
+    if (acao === 'enviado_n2' || acao === 'devolvido_n1') {
       const { data: perfil } = await sb.from('usuarios').select('nome').eq('id', user?.id ?? '').single()
-      notificarPlanoEnviadoN2({
-        plano_id: plano.id,
-        observacao: dados.observacao,
-        ator_nome: perfil?.nome ?? 'Moderador N1',
-      })
+      const ator_nome = perfil?.nome ?? (acao === 'enviado_n2' ? 'Moderador N1' : 'Moderador N2')
+      if (acao === 'enviado_n2') {
+        notificarPlanoEnviadoN2({ plano_id: plano.id, observacao: dados.observacao, ator_nome })
+      } else {
+        notificarPlanoDevolvidoN1({ plano_id: plano.id, observacao: dados.observacao, ator_nome })
+      }
     }
 
     setSalvando(false)
@@ -392,7 +385,6 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
           <cfg.Icon size={15} />{cfg.label}
         </span>
         <div className="flex items-center gap-3">
-          <SlaTag prazo={plano.sla_prazo} />
           <span className="text-xs opacity-70">{formatarData(plano.created_at)}</span>
         </div>
       </div>
@@ -495,18 +487,30 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
         <div className="bg-white border border-gray-200 rounded-xl p-4">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Sua ação</p>
           <div className="flex flex-col gap-2">
-            {botoes.map(b => (
-              <button key={b.acao}
-                onClick={() => setModalAcao({ acao: b.acao, titulo: b.label, corBtn: b.corBtn })}
-                className={`w-full py-3 text-sm font-semibold border rounded-xl flex items-center justify-center gap-2 transition-colors ${b.cor}`}>
-                {b.acao === 'corrigido'     && <CheckCircle2 size={15} />}
-                {b.acao === 'nao_corrigido' && <XCircle size={15} />}
-                {b.acao === 'enviado_n2'    && <ChevronRight size={15} />}
-                {b.acao === 'devolvido_n1'  && <RotateCcw size={15} />}
-                {b.acao === 'reaberto'      && <RotateCcw size={15} />}
-                {b.label}
-              </button>
-            ))}
+            {botoes.map(b => {
+              const semN2 = b.acao === 'enviado_n2' && !temN2
+              return (
+                <div key={b.acao}>
+                  <button
+                    onClick={() => setModalAcao({ acao: b.acao, titulo: b.label, corBtn: b.corBtn })}
+                    disabled={semN2}
+                    className={`w-full py-3 text-sm font-semibold border rounded-xl flex items-center justify-center gap-2 transition-colors ${b.cor} disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent`}>
+                    {b.acao === 'corrigido'     && <CheckCircle2 size={15} />}
+                    {b.acao === 'nao_corrigido' && <XCircle size={15} />}
+                    {b.acao === 'enviado_n2'    && <ChevronRight size={15} />}
+                    {b.acao === 'devolvido_n1'  && <RotateCcw size={15} />}
+                    {b.acao === 'reaberto'      && <RotateCcw size={15} />}
+                    {b.label}
+                  </button>
+                  {semN2 && (
+                    <p className="flex items-center gap-1.5 text-xs text-amber-600 mt-1.5 px-1">
+                      <AlertTriangle size={12} className="flex-shrink-0" />
+                      Não existe um moderador N2 configurado para o subgrupo "{plano.subgrupos?.nome ?? '—'}". Peça ao gestor para definir um N2.
+                    </p>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

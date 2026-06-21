@@ -9,7 +9,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
 
 async function notificarPlanoAcao(payload: {
   plano_id: string
-  evento: 'aberto' | 'enviado_n2'
+  evento: 'aberto' | 'enviado_n2' | 'devolvido_n1'
   observacao: string
   ator_nome: string
 }): Promise<void> {
@@ -48,6 +48,18 @@ export function notificarPlanoEnviadoN2(params: {
   ator_nome: string
 }): void {
   notificarPlanoAcao({ ...params, evento: 'enviado_n2' })
+}
+
+/**
+ * Disparar quando N2 devolve o plano para N1.
+ * Notifica todos os usuários N1 do subgrupo.
+ */
+export function notificarPlanoDevolvidoN1(params: {
+  plano_id: string
+  observacao: string
+  ator_nome: string
+}): void {
+  notificarPlanoAcao({ ...params, evento: 'devolvido_n1' })
 }
 
 // ─── Tickets ──────────────────────────────────────────────────────────────────
