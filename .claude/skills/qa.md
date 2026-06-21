@@ -9,7 +9,7 @@ description: Quality Assurance for CheckFlow — test strategy, suites por tela/
 
 | Camada | Ferramenta | Status |
 |--------|-----------|--------|
-| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` |
+| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **197 testes / 9 arquivos** (2026-06-20) |
 | E2E / Funcional | Playwright | 🔴 não instalado |
 | Pen Test (security, RLS) | `pentest/run.mjs` (Node nativo) | ✅ 48/48 (2026-06-12) — seções 1-10, inclui OTP e Programa de Parceiros |
 | HTTP Security Probe | `pentest/http_probe.mjs` (Node nativo, sem creds) | ✅ 25/26 (2026-06-08, após fix CORS + headers) |
@@ -130,6 +130,12 @@ Cobre a validação por faixa [min, max] resolvida via combinação de variávei
 ### ✅ Unit — Listas de Tarefas — `tests/unit/lib/tarefas.unit.test.ts` (21 testes)
 Criado `lib/tarefas.ts` (lógica pura, **importada** por `app/operacao/AbaTarefas.tsx` — fonte única, não espelho). Cobre: `aberturaAberta` (sem limite, data futura/passada, qtd abaixo/igual ao máximo, "o que vier primeiro" nas duas combinações), `visivelPara` (interseção por subgrupo; sem subgrupo cai p/ grupo; sem atribuição = invisível), `listaDisponivel` (aberta E visível), `calcularEditavelAte` (null sem janela, soma de horas, atravessa o dia), `edicaoExpirada` (null nunca expira, futuro/passado). **21/21 ✅ (2026-06-18).** Rodar: `cd apps/web && npx vitest run tests/unit/lib/tarefas.unit.test.ts`.
 
+### ✅ Unit — Regras de Tickets — `tests/unit/lib/tickets.unit.test.ts` (41 testes)
+Criado `lib/tickets.ts` (lógica pura, **importada** pelas telas `gestao/tickets/page.tsx` e `gestao/tickets/[id]/page.tsx` — fonte única, não espelho). Cobre: `ticketVisivel` (admin vê tudo; demais por subgrupo de destino OU por terem aberto; userId null), `acoesDisponiveis` (por status × papel — assumir só do subgrupo; em_tratamento → responsável conclui direto corrigido/parcial/não-corrigido + solicitar info + transferir; improcedência só com permissão `ticket.cancelar`; aguardando_informacao → só abridor; reabertura só abridor nos status reabríveis; comentar/cancelar nos abertos; terminais cancelado/improcedente sem ações; label de transferência usa rótulos da empresa), `slaStatus` (verde <80% / amarelo ≥80% / vermelho ≥100%/vencido; pausa ativa e acumulada estendem o prazo; fechado/sem-deadline → null). **Limpeza:** removido o fluxo legado `aguardando_validacao` (código morto — nenhuma ação gera mais esse status; valor mantido no enum/type só por compatibilidade). **41/41 ✅ (2026-06-20).** A matemática de deadline/pausa do SLA continua coberta à parte em `ticketSla.unit.test.ts`.
+
+### ✅ Unit — Visibilidade por subgrupo — `tests/unit/lib/visibilidade.unit.test.ts` (19 testes)
+Criado `lib/visibilidade.ts` (lógica pura, **importada** por `operacao/page.tsx` e `gestao/agendamentos/page.tsx` — centraliza predicado antes repetido inline em 4 pontos). Cobre: `visivelPorSubgrupo` (admin vê tudo; não-admin só seus subgrupos; subgrupo nulo/sem-subgrupos → invisível), `checklistVisivelOperador` (visível por subgrupo E não estar em workflow — evita porta-dupla; admin também não vê na lista avulsa um checklist em workflow), `agendamentoVisivelGestor` (alvo checklist pelo subgrupo do checklist; alvo workflow por algum subgrupo dos itens via mapa `wfSubgrupos`). **19/19 ✅ (2026-06-20).** ⚠️ Não substitui RLS (barreira de segurança real no Postgres) — é o espelho da regra de exibição no cliente.
+
 ### 🔴 Unit — `operacao/[id]` (pendente)
 | Teste | O que testa | Prioridade |
 |-------|-------------|-----------|
@@ -178,6 +184,11 @@ Testa diretamente `lib/passwordReset.ts` (importado, não espelhado) via mock de
 ```bash
 # Unit + Integration (Vitest)
 cd apps/web && npx vitest run
+
+# ⚠️ Se rodar a partir da RAIZ do repo, o alias "@/..." NÃO resolve
+# (vitest.config.ts está em apps/web). Passe o root explicitamente:
+#   npx vitest run --root apps/web tests/unit
+# Testes com import relativo (../../../lib/...) rodam de qualquer lugar.
 
 # Watch mode
 cd apps/web && npx vitest
