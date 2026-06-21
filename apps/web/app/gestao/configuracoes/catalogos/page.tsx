@@ -91,8 +91,28 @@ export default function CatalogosPage() {
   useEffect(() => { carregar() }, [unidadeAtiva?.id])
 
   async function excluir(id: string, nome: string) {
+    const supabase = createClient()
+    // Bloqueia se algum checklist (ativo) usa este catálogo numa atividade
+    const { data: usos } = await supabase
+      .from('checklist_atividades')
+      .select('checklist:checklist_id(nome, status)')
+      .eq('config->>catalogo_id', id)
+    const nomesEmUso = [...new Set(
+      (usos ?? [])
+        .map((u: any) => Array.isArray(u.checklist) ? u.checklist[0] : u.checklist)
+        .filter((c: any) => c && c.status !== 'inativo')
+        .map((c: any) => c.nome)
+    )]
+    if (nomesEmUso.length > 0) {
+      await confirm({
+        titulo: `Não é possível excluir "${nome}"`,
+        mensagem: `Este catálogo está sendo usado por ${nomesEmUso.length} checklist(s): ${nomesEmUso.join(', ')}. Remova a referência nesses checklists antes de excluir.`,
+        confirmarLabel: 'Entendi', perigo: false,
+      })
+      return
+    }
     if (!await confirm({ titulo: `Excluir catálogo "${nome}"?`, mensagem: 'Todos os valores serão removidos.', confirmarLabel: 'Excluir', perigo: true })) return
-    const { error } = await createClient().from('catalogos').update({ status: 'inativo' }).eq('id', id)
+    const { error } = await supabase.from('catalogos').update({ status: 'inativo' }).eq('id', id)
     if (error) { toast.error('Não foi possível excluir o catálogo.'); return }
     toast.success('Catálogo excluído.')
     carregar()

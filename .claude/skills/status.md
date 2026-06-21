@@ -25,6 +25,9 @@ Next logical step: [one-sentence inference, only if obvious]
 
 ---
 
+## ⏳ MIGRATION PENDENTE DE APLICAR (2026-06-20)
+- **`20260620140000_catalogos_escrita_permissao.sql`** — escrita de `catalogos`/`catalogo_valores` por permissão `catalogos` (resolve item 2c). **Rodar no Supabase.**
+
 ## ✅ Admin da empresa (migration `20260620120000` aplicada 2026-06-20)
 - Admin da empresa = funções do admin de sistema na empresa inteira (todas as unidades), nunca outras empresas. Ver `/biz`/`/db`. ✅ Pentest de isolamento `pentest/admin-empresa-rls.mjs` 20/20.
 
@@ -33,7 +36,7 @@ Tudo commitado/pushado na `main`. Frentes em aberto:
 1. **Revisão colaborativa tela a tela** (formato: eu explico enumerado 1,2,3… e o usuário complementa; gravo em `/biz` + no MANUAL de `apps/web/app/api/ajuda/route.ts`). **Já revisadas:** Operação, Execução, **Gestão → Checklists (listagem + montador) ✅ 2026-06-17**. **Próxima:** abrir **cada atividade** do montador (os 10 tipos no `AtividadeModal`) com o usuário, tipo a tipo.
 2. **Refinamento UI** — montador: mostrar/permitir remover o motivo padrão "Não disponível" com guard ≥1 por tipo (regra forte já garantida por trigger).
 2b. **PENDENTE (tempo de guarda)**: prever config para a empresa guardar mídias em **repositório próprio (ex: S3)** — nesse modo o tempo de guarda só arquivaria, sem apagar nada. Ver `/biz` "Gestão → Checklists".
-2c. ⚠️ **Verificar RLS de `catalogos`**: a única policy de escrita é `catalogos_admin` (is_admin_sistema). `NovoCatalogoModal` e o novo recriar-catálogo-no-duplicar inserem direto via supabase como usuário comum — confirmar se gestor não-admin realmente consegue criar catálogo (pode ser bug latente de RLS).
+2c. ✅ **RLS de `catalogos` resolvido (2026-06-20)**: escrita por permissão `catalogos` (migration `20260620140000`). Antes só `is_admin_sistema`.
 3. **Billing — validar e2e no sandbox Asaas** (assinar→pagar→webhook CONFIRMED) — ação manual do usuário. Depois: **Fase 4 (split parceiro via subconta Asaas)**.
 4. **IA por plano** (flag `ia_habilitada`) e **UX quando tokens acabam** (hoje só bloqueia) — adiados.
 4b. ⏳ **BACKLOG — Funcionalidades modulares por empresa** (ver `/biz`): empresa habilita só as telas que usa (escolha na criação + toggle em Acessos); só o habilitado aparece na montagem de perfis e no menu; **mapear grafo de dependências** entre funcionalidades. Não implementado.
