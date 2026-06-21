@@ -11,6 +11,7 @@ import {
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { PrimeirosPassos } from '@/components/onboarding/PrimeirosPassos'
+import { useSession } from '@/contexts/SessionContext'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -100,6 +101,7 @@ function FunilBar({ valor, total, cor }: { valor: number; total: number; cor: st
 
 export default function GestaoHomePage() {
   const router = useRouter()
+  const { unidadeAtiva } = useSession()
   const [periodo, setPeriodo] = useState<Periodo>('24h')
   const [filtroExec, setFiltroExec] = useState<'todos' | 'reprovado' | 'pa_aberto'>('todos')
   const [funil, setFunil] = useState<Funil>({ executados: 0, aprovados: 0, reprovados: 0, em_moderacao: 0 })
@@ -108,47 +110,23 @@ export default function GestaoHomePage() {
   const [loadingFunil, setLoadingFunil] = useState(true)
   const [loadingExec, setLoadingExec]   = useState(true)
   const [loadingSla,  setLoadingSla]    = useState(true)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [unidadeIds, setUnidadeIds] = useState<string[]>([])
-  const [pronto, setPronto] = useState(false)
 
-  // 1. Descobre escopo do usuário (admin = todas unidades, senão só as suas)
-  useEffect(() => {
-    async function init() {
-      const sb = createClient()
-      const { data: { user } } = await sb.auth.getUser()
-      if (!user) return
-
-      const admin = user.user_metadata?.role === 'admin_sistema'
-      setIsAdmin(admin)
-
-      if (!admin) {
-        const { data: uu } = await sb
-          .from('usuario_unidade')
-          .select('unidade_id')
-          .eq('usuario_id', user.id)
-        setUnidadeIds((uu ?? []).map((r: any) => r.unidade_id))
-      }
-      setPronto(true)
-    }
-    init()
-  }, [])
+  // Toda a Home é escopada pela UNIDADE ATIVA da sessão (como as demais telas).
+  // O admin da empresa troca de unidade para ver cada uma; RLS garante o acesso.
+  const unidadeId = unidadeAtiva?.id ?? null
 
   // 2. Funil — depende do período
   const carregarFunil = useCallback(async () => {
-    if (!pronto) return
+    if (!unidadeId) return
     setLoadingFunil(true)
     const sb   = createClient()
     const from = periodoParaISO(periodo)
 
-    let q = sb.from('checklist_execucoes')
+    const q = sb.from('checklist_execucoes')
       .select('resultado, status, planos_acao(status)')
       .gte('data_execucao', from)
       .eq('status', 'concluido')
-
-    if (!isAdmin && unidadeIds.length > 0) {
-      q = q.in('unidade_id', unidadeIds)
-    }
+      .eq('unidade_id', unidadeId)
 
     const { data } = await q
     const rows = (data ?? []) as any[]
@@ -163,27 +141,24 @@ export default function GestaoHomePage() {
       ).length, 0),
     })
     setLoadingFunil(false)
-  }, [pronto, periodo, isAdmin, unidadeIds])
+  }, [unidadeId, periodo])
 
   // 3. Últimas execuções
   const carregarExecucoes = useCallback(async () => {
-    if (!pronto) return
+    if (!unidadeId) return
     setLoadingExec(true)
     const sb = createClient()
 
-    let q = sb.from('checklist_execucoes')
+    const q = sb.from('checklist_execucoes')
       .select(`
         id, resultado, data_execucao, pdf_url,
         checklists(nome),
         planos_acao(id, status)
       `)
       .eq('status', 'concluido')
+      .eq('unidade_id', unidadeId)
       .order('data_execucao', { ascending: false })
       .limit(50)
-
-    if (!isAdmin && unidadeIds.length > 0) {
-      q = q.in('unidade_id', unidadeIds)
-    }
 
     const { data } = await q
     let rows: ExecucaoItem[] = (data ?? []).map((e: any) => ({
@@ -206,11 +181,11 @@ export default function GestaoHomePage() {
 
     setExecucoes(rows.slice(0, 20))
     setLoadingExec(false)
-  }, [pronto, filtroExec, isAdmin, unidadeIds])
+  }, [unidadeId, filtroExec])
 
-  // 4. Planos com SLA vencendo (próximas 8h ou já vencido)
+  // 4. Planos com SLA vencendo (próximas 8h ou já vencido) — da unidade ativa
   const carregarPlanosSla = useCallback(async () => {
-    if (!pronto) return
+    if (!unidadeId) return
     setLoadingSla(true)
     const sb = createClient()
     const em8h = new Date(Date.now() + 8 * 3600000).toISOString()
@@ -221,6 +196,7 @@ export default function GestaoHomePage() {
         checklist_atividades(nome),
         checklist_execucoes(checklists(nome))
       `)
+      .eq('unidade_id', unidadeId)
       .in('status', ['em_moderacao_n1', 'em_moderacao_n2'])
       .not('sla_prazo', 'is', null)
       .lte('sla_prazo', em8h)
@@ -236,7 +212,7 @@ export default function GestaoHomePage() {
       horas_restantes: Math.round((new Date(p.sla_prazo).getTime() - Date.now()) / 3600000),
     })))
     setLoadingSla(false)
-  }, [pronto, isAdmin, unidadeIds])
+  }, [unidadeId])
 
   useEffect(() => { carregarFunil() },     [carregarFunil])
   useEffect(() => { carregarExecucoes() }, [carregarExecucoes])
@@ -258,7 +234,7 @@ export default function GestaoHomePage() {
         <div>
           <h1 className="text-xl font-bold text-gray-800">Visão Geral</h1>
           <p className="text-sm text-gray-400 mt-0.5">
-            {isAdmin ? 'Todas as unidades' : 'Suas unidades'}
+            {unidadeAtiva ? `Unidade: ${unidadeAtiva.nome}` : 'Selecione uma unidade'}
           </p>
         </div>
         <div className="flex items-center gap-2">
