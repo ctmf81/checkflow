@@ -82,12 +82,11 @@ function PlanosAcaoContent() {
   const { empresaAtiva } = useSession()
   const execId = searchParams.get('exec')
   const [filtro, setFiltro] = useState<Filtro>('abertos')
-  const [ordem, setOrdem] = useState<'antigos' | 'recentes'>('antigos')
   const [planos, setPlanos] = useState<PlanoItem[]>([])
   const [loading, setLoading] = useState(true)
   const [nomeChecklist, setNomeChecklist] = useState<string | null>(null)
 
-  async function carregar(f: Filtro, ord: 'antigos' | 'recentes') {
+  async function carregar(f: Filtro) {
     setLoading(true)
     const sb = createClient()
 
@@ -100,7 +99,9 @@ function PlanosAcaoContent() {
         checklist_execucoes(checklists(nome)),
         usuarios!criado_por(nome)
       `)
-      .order('created_at', { ascending: ord === 'antigos' })
+      // Ordena pela última movimentação (updated_at é bumpado por trigger a cada
+      // ação no plano) — mais recente primeiro.
+      .order('updated_at', { ascending: false })
 
     if (execId) {
       query = query.eq('checklist_execucao_id', execId)
@@ -127,7 +128,7 @@ function PlanosAcaoContent() {
     setLoading(false)
   }
 
-  useEffect(() => { carregar(filtro, ordem) }, [filtro, ordem, execId, empresaAtiva?.id])
+  useEffect(() => { carregar(filtro) }, [filtro, execId, empresaAtiva?.id])
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -138,7 +139,7 @@ function PlanosAcaoContent() {
           <h1 className="text-xl font-bold text-gray-800">Planos de Ação</h1>
           <p className="text-sm text-gray-400 mt-0.5">Acompanhe e modere os planos abertos na sua área</p>
         </div>
-        <button onClick={() => carregar(filtro, ordem)}
+        <button onClick={() => carregar(filtro)}
           className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors">
           <RefreshCw size={16} />
         </button>
@@ -157,26 +158,19 @@ function PlanosAcaoContent() {
         </div>
       )}
 
-      {/* Filtros + ordenação */}
+      {/* Filtros (ordenados pela última movimentação, mais recente primeiro) */}
       {!execId && (
-        <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
-          <div className="flex gap-1.5 bg-gray-100 p-1 rounded-xl w-fit">
-            {FILTROS.map(f => (
-              <button key={f.valor} onClick={() => setFiltro(f.valor)}
-                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                  filtro === f.valor
-                    ? 'bg-white text-gray-800 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}>
-                {f.label}
-              </button>
-            ))}
-          </div>
-          <select value={ordem} onChange={e => setOrdem(e.target.value as 'antigos' | 'recentes')}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-orange-200">
-            <option value="antigos">Mais antigos primeiro</option>
-            <option value="recentes">Mais recentes primeiro</option>
-          </select>
+        <div className="flex gap-1.5 mb-5 bg-gray-100 p-1 rounded-xl w-fit">
+          {FILTROS.map(f => (
+            <button key={f.valor} onClick={() => setFiltro(f.valor)}
+              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                filtro === f.valor
+                  ? 'bg-white text-gray-800 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}>
+              {f.label}
+            </button>
+          ))}
         </div>
       )}
 

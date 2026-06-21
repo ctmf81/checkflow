@@ -85,6 +85,33 @@ function AcaoModal({ titulo, corBtn, onClose, onConfirmar, salvando }: {
   const [video, setVideo] = useState<{ file: File; url: string } | null>(null)
   const fotoRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLInputElement>(null)
+  const [erroMidia, setErroMidia] = useState('')
+
+  const MAX_FOTOS = 5
+  const MAX_VIDEO_SEG = 10
+
+  function addFoto(f: File) {
+    setErroMidia('')
+    if (fotos.length >= MAX_FOTOS) { setErroMidia(`Máximo de ${MAX_FOTOS} fotos.`); return }
+    setFotos(p => [...p, { file: f, url: URL.createObjectURL(f) }])
+  }
+
+  function addVideo(f: File) {
+    setErroMidia('')
+    const url = URL.createObjectURL(f)
+    const v = document.createElement('video')
+    v.preload = 'metadata'
+    v.onloadedmetadata = () => {
+      if (v.duration > MAX_VIDEO_SEG + 0.5) {
+        URL.revokeObjectURL(url)
+        setErroMidia(`O vídeo deve ter no máximo ${MAX_VIDEO_SEG} segundos.`)
+        return
+      }
+      setVideo({ file: f, url })
+    }
+    v.onerror = () => { URL.revokeObjectURL(url); setErroMidia('Não foi possível ler o vídeo.') }
+    v.src = url
+  }
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
@@ -120,13 +147,13 @@ function AcaoModal({ titulo, corBtn, onClose, onConfirmar, salvando }: {
                 ))}
               </div>
             )}
-            {video === null && (
+            {video === null && fotos.length < MAX_FOTOS && (
               <>
                 <input ref={fotoRef} type="file" accept="image/*" capture="environment" className="hidden"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) setFotos(p => [...p, { file: f, url: URL.createObjectURL(f) }]); e.target.value = '' }} />
+                  onChange={e => { const f = e.target.files?.[0]; if (f) addFoto(f); e.target.value = '' }} />
                 <button onClick={() => fotoRef.current?.click()}
                   className="w-full py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-xs text-gray-500 flex items-center justify-center gap-2 hover:border-orange-300 hover:text-orange-500 transition-colors mb-2">
-                  <ImagePlus size={14} />{fotos.length > 0 ? 'Mais fotos' : 'Adicionar foto'}
+                  <ImagePlus size={14} />{fotos.length > 0 ? `Mais fotos (${fotos.length}/${MAX_FOTOS})` : `Adicionar foto (até ${MAX_FOTOS})`}
                 </button>
               </>
             )}
@@ -138,14 +165,18 @@ function AcaoModal({ titulo, corBtn, onClose, onConfirmar, salvando }: {
                 </div>
               ) : (
                 <>
-                  <input ref={videoRef} type="file" accept="video/*" className="hidden"
-                    onChange={e => { const f = e.target.files?.[0]; if (f) setVideo({ file: f, url: URL.createObjectURL(f) }); e.target.value = '' }} />
+                  {/* Só câmera (capture), sem galeria; máx. 10s validado ao selecionar */}
+                  <input ref={videoRef} type="file" accept="video/*" capture="environment" className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) addVideo(f); e.target.value = '' }} />
                   <button onClick={() => videoRef.current?.click()}
                     className="w-full py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-xs text-gray-500 flex items-center justify-center gap-2 hover:border-orange-300 hover:text-orange-500 transition-colors">
-                    <Video size={14} />Adicionar vídeo
+                    <Video size={14} />Adicionar vídeo (câmera, até {MAX_VIDEO_SEG}s)
                   </button>
                 </>
               )
+            )}
+            {erroMidia && (
+              <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1"><AlertTriangle size={12} />{erroMidia}</p>
             )}
           </div>
         </div>

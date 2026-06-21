@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import {
-  CheckSquare, ChevronRight, AlertCircle, Layers, Search,
+  CheckSquare, ChevronRight, ChevronLeft, AlertCircle, Layers, Search,
   GitBranch, Play, History, FileText, X, ChevronDown, ChevronUp,
   ClipboardList, Clock, User, CheckCircle, XCircle, AlertTriangle,
   RotateCcw, ExternalLink, Image as ImageIcon, Video,
@@ -18,6 +18,7 @@ import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_OPERACAO } from '@/components/onboarding/configs'
 import { visivelPorSubgrupo, checklistVisivelOperador } from '@/lib/visibilidade'
 import { ehAdminDaEmpresa } from '@/lib/admin'
+import { listaDisponivel } from '@/lib/tarefas'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -778,6 +779,43 @@ function AbaDocumentos({ unidadeId, empresaId }: { unidadeId: string; empresaId?
   )
 }
 
+// Carrossel quadrado das imagens de uma etapa (uma por vez)
+function EtapaImagens({ imagens }: { imagens: { id: string; url: string }[] }) {
+  const [idx, setIdx] = useState(0)
+  const i = Math.min(idx, imagens.length - 1)
+  return (
+    <div className="space-y-2">
+      <div className="relative w-full aspect-square bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={imagens[i].url} alt="" className="w-full h-full object-contain" />
+        {imagens.length > 1 && (
+          <>
+            <button onClick={() => setIdx(Math.max(0, i - 1))} disabled={i === 0}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center disabled:opacity-30 hover:bg-black/60">
+              <ChevronLeft size={18} />
+            </button>
+            <button onClick={() => setIdx(Math.min(imagens.length - 1, i + 1))} disabled={i === imagens.length - 1}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center disabled:opacity-30 hover:bg-black/60">
+              <ChevronRight size={18} />
+            </button>
+            <span className="absolute bottom-2 right-2 text-xs text-white bg-black/50 rounded-full px-2 py-0.5">
+              {i + 1}/{imagens.length}
+            </span>
+          </>
+        )}
+      </div>
+      {imagens.length > 1 && (
+        <div className="flex justify-center gap-1.5">
+          {imagens.map((img, k) => (
+            <button key={img.id} onClick={() => setIdx(k)}
+              className={`w-2 h-2 rounded-full transition-colors ${k === i ? 'bg-orange-500' : 'bg-gray-300'}`} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ViewerDocumento({ doc, etapas, etapaIdx, setEtapaIdx, loadingEtapas, onClose,
   consultaHistorico, consultando, onConsultar }: {
   doc: Documento; etapas: Etapa[]; etapaIdx: number
@@ -865,12 +903,7 @@ function ViewerDocumento({ doc, etapas, etapaIdx, setEtapaIdx, loadingEtapas, on
                     </div>
                   )}
                   {etapa.imagens.length > 0 && (
-                    <div className={`grid gap-2 ${etapa.imagens.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                      {etapa.imagens.map(img => (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img key={img.id} src={img.url} alt="" className="w-full rounded-xl object-cover border border-gray-200" />
-                      ))}
-                    </div>
+                    <EtapaImagens key={etapa.id} imagens={etapa.imagens} />
                   )}
                   {etapa.conteudo && (
                     <div className="bg-white border border-gray-200 rounded-xl px-4 py-4">
@@ -1067,11 +1100,77 @@ export default function OperacaoPage() {
   const [naoFinalizadas, setNaoFinalizadas] = useState<ExecucaoNaoFinalizada[]>([])
   const [busca, setBusca] = useState('')
   const [loading, setLoading] = useState(true)
+  // Disponibilidade de cada aba — abas sem item são suprimidas do menu
+  const [temTarefas, setTemTarefas] = useState(false)
+  const [temDocumentos, setTemDocumentos] = useState(false)
+  const [temHistorico, setTemHistorico] = useState(false)
 
   useEffect(() => {
     if (!unidadeAtiva?.id) { setLoading(false); return }
     carregarChecklists()
   }, [unidadeAtiva?.id])
+
+  // Calcula se Tarefas/Documentos/Histórico têm itens (p/ suprimir abas vazias)
+  useEffect(() => {
+    if (!unidadeAtiva?.id) return
+    let cancel = false
+    ;(async () => {
+      const sb = createClient()
+      const { data: { user } } = await sb.auth.getUser()
+      if (!user) return
+      const isAdmin = await ehAdminDaEmpresa(sb, empresaAtiva?.id)
+      const [{ data: ug }, { data: us }] = await Promise.all([
+        sb.from('usuario_grupo').select('grupo_id').eq('usuario_id', user.id),
+        sb.from('usuario_subgrupo').select('subgrupo_id').eq('usuario_id', user.id),
+      ])
+      const meusGrupos = new Set((ug ?? []).map((r: any) => r.grupo_id))
+      const meusSubgrupos = new Set((us ?? []).map((r: any) => r.subgrupo_id))
+
+      // Tarefas (mesma regra do AbaTarefas)
+      const { data: listas } = await sb.from('tarefa_listas')
+        .select('id, abertura_data_limite, abertura_max_respostas, grupos:tarefa_lista_grupos(grupo_id), subgrupos:tarefa_lista_subgrupos(subgrupo_id), respostas:tarefa_execucoes(id)')
+        .eq('unidade_id', unidadeAtiva!.id).eq('status', 'publicada')
+      const agora = Date.now()
+      const temTar = (listas ?? []).some((l: any) => listaDisponivel({
+        abertura_data_limite: l.abertura_data_limite, abertura_max_respostas: l.abertura_max_respostas,
+        total_respostas: (l.respostas ?? []).length,
+        grupos: (l.grupos ?? []).map((g: any) => g.grupo_id),
+        subgrupos: (l.subgrupos ?? []).map((s: any) => s.subgrupo_id),
+      }, agora, meusGrupos, meusSubgrupos, isAdmin))
+
+      // Documentos (visível por subgrupo/grupo/geral; admin vê todos)
+      const { data: docs } = await sb.from('documentos')
+        .select('id, subgrupo_id, grupo_id').eq('unidade_id', unidadeAtiva!.id)
+      const temDoc = (docs ?? []).some((d: any) => isAdmin
+        || (d.subgrupo_id && meusSubgrupos.has(d.subgrupo_id))
+        || (d.grupo_id && meusGrupos.has(d.grupo_id))
+        || (!d.subgrupo_id && !d.grupo_id))
+
+      // Histórico (execuções do próprio usuário nesta unidade)
+      const { count } = await sb.from('checklist_execucoes')
+        .select('id', { count: 'exact', head: true })
+        .eq('unidade_id', unidadeAtiva!.id).eq('executado_por', user.id)
+
+      if (cancel) return
+      setTemTarefas(temTar)
+      setTemDocumentos(temDoc)
+      setTemHistorico((count ?? 0) > 0)
+    })()
+    return () => { cancel = true }
+  }, [unidadeAtiva?.id, empresaAtiva?.id])
+
+  // Se a aba ativa ficou indisponível (sem itens), pula p/ a primeira disponível
+  useEffect(() => {
+    const disp: Record<Aba, boolean> = {
+      checklists: grupos.length > 0 || semGrupo.length > 0 || agendadas.length > 0
+        || itensWorkflow.length > 0 || naoFinalizadas.length > 0,
+      tarefas: temTarefas, historico: temHistorico, documentos: temDocumentos,
+    }
+    if (!disp[aba]) {
+      const primeira = (['checklists', 'tarefas', 'historico', 'documentos'] as Aba[]).find(id => disp[id])
+      if (primeira) setAba(primeira)
+    }
+  }, [grupos, semGrupo, agendadas, itensWorkflow, naoFinalizadas, temTarefas, temHistorico, temDocumentos, aba])
 
   async function carregarChecklists() {
     setLoading(true)
@@ -1237,12 +1336,17 @@ export default function OperacaoPage() {
     </div>
   )
 
-  const ABAS: { id: Aba; label: string; icon: React.ReactNode }[] = [
+  const temChecklists = grupos.length > 0 || semGrupo.length > 0 || agendadas.length > 0
+    || itensWorkflow.length > 0 || naoFinalizadas.length > 0
+  const dispMap: Record<Aba, boolean> = {
+    checklists: temChecklists, tarefas: temTarefas, historico: temHistorico, documentos: temDocumentos,
+  }
+  const ABAS = ([
     { id: 'checklists', label: 'Checklists',  icon: <CheckSquare size={15} /> },
     { id: 'tarefas',    label: 'Tarefas',     icon: <ListChecks size={15} /> },
     { id: 'historico',  label: 'Histórico',   icon: <History size={15} /> },
     { id: 'documentos', label: 'Documentos',  icon: <FileText size={15} /> },
-  ]
+  ] as { id: Aba; label: string; icon: React.ReactNode }[]).filter(a => dispMap[a.id])
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-16">

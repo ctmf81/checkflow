@@ -140,7 +140,7 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 - `20260617140000_billing_catalogo_leitura.sql` — leitura de `planos`/`pacotes_adicionais` **ativos** por autenticados (corrige self-service `/gestao/plano`; escrita segue admin).
 - `20260617160000_motivo_padrao_nao_execucao.sql` — motivo padrão "Não disponível" por unidade (grupo/subgrupo nulos), `motivo_padrao_unidade(unidade,tipo)`, trigger `checklist_seed_motivos_padrao` (AFTER INSERT em checklists, associa ≥1 de cada tipo a checklist novo não-template) + retroativo.
 
-### Admin da empresa — RLS escopada (migration `20260620120000_admin_empresa_rls.sql`, ⏳ APLICAR)
+### Admin da empresa — RLS escopada (migration `20260620120000_admin_empresa_rls.sql`, ✅ aplicada 2026-06-20)
 - Dá ao "Admin da empresa" (`usuario_empresa.perfil_id='…002'`) as mesmas funções de gestão do admin de sistema, **restritas à sua empresa**. Vários admins por empresa (em paralelo).
 - **Helpers** (security definer, stable, `search_path=public`): `is_admin_empresa(p_empresa_id)`, `is_admin_empresa_unidade(p_unidade_id)`, `is_admin_empresa_grupo(p_grupo_id)`, `is_admin_empresa_subgrupo(p_subgrupo_id)`.
 - **Escopo**: empresa inteira (TODAS as unidades). `is_admin_empresa_unidade(unidade_id)` = é admin da empresa dona da unidade (NÃO exige membership em `usuario_unidade`).

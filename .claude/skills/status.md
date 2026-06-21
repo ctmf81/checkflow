@@ -25,8 +25,8 @@ Next logical step: [one-sentence inference, only if obvious]
 
 ---
 
-## ⏳ MIGRATION PENDENTE DE APLICAR (2026-06-20)
-- **`20260620120000_admin_empresa_rls.sql`** — Admin da empresa com funções escopadas (helpers `is_admin_empresa*` + policies aditivas em estrutura e acessos). **Rodar no Supabase.** Sem isso, o admin da empresa não consegue gerenciar usuários/estrutura via RLS. Ver `/db` e `/biz` "Admin da empresa".
+## ✅ Admin da empresa (migration `20260620120000` aplicada 2026-06-20)
+- Admin da empresa = funções do admin de sistema na empresa inteira (todas as unidades), nunca outras empresas. Ver `/biz`/`/db`. ⏳ Pendente: pentest de isolamento entre empresas.
 
 ## ▶️ RETOMAR NA PRÓXIMA SESSÃO (consolidado 2026-06-17)
 Tudo commitado/pushado na `main`. Frentes em aberto:
