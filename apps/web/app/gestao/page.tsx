@@ -22,7 +22,9 @@ interface Funil {
   executados: number
   aprovados: number
   reprovados: number
-  em_moderacao: number
+  em_moderacao: number   // EXECUÇÕES com ao menos um plano em moderação
+  aguardando_n1: number  // PLANOS aguardando N1 (em_moderacao_n1 + reaberto)
+  aguardando_n2: number  // PLANOS aguardando N2 (em_moderacao_n2)
 }
 
 interface ExecucaoItem {
@@ -105,7 +107,7 @@ export default function GestaoHomePage() {
   const { unidadeAtiva } = useSession()
   const [periodo, setPeriodo] = useState<Periodo>('24h')
   const [filtroExec, setFiltroExec] = useState<'todos' | 'reprovado' | 'pa_aberto'>('todos')
-  const [funil, setFunil] = useState<Funil>({ executados: 0, aprovados: 0, reprovados: 0, em_moderacao: 0 })
+  const [funil, setFunil] = useState<Funil>({ executados: 0, aprovados: 0, reprovados: 0, em_moderacao: 0, aguardando_n1: 0, aguardando_n2: 0 })
   const [execucoes, setExecucoes] = useState<ExecucaoItem[]>([])
   const [planosSla, setPlanosSla] = useState<PlanoSla[]>([])
   const [loadingFunil, setLoadingFunil] = useState(true)
@@ -132,14 +134,18 @@ export default function GestaoHomePage() {
     const { data } = await q
     const rows = (data ?? []) as any[]
 
+    const emMod = (p: any) => p.status === 'em_moderacao_n1' || p.status === 'em_moderacao_n2'
     setFunil({
       executados:    rows.length,
       aprovados:     rows.filter(r => r.resultado === 'aprovado').length,
       reprovados:    rows.filter(r => r.resultado === 'reprovado').length,
-      // Planos de ação ainda em moderação (N1/N2) gerados pelas execuções do período
-      em_moderacao:  rows.reduce((acc, r) => acc + (r.planos_acao ?? []).filter(
-        (p: any) => p.status === 'em_moderacao_n1' || p.status === 'em_moderacao_n2'
-      ).length, 0),
+      // EXECUÇÕES que têm ao menos um plano em moderação (nível de execução)
+      em_moderacao:  rows.filter(r => (r.planos_acao ?? []).some(emMod)).length,
+      // PLANOS aguardando cada nível (nível de plano) — para o indicador de moderação
+      aguardando_n1: rows.reduce((acc, r) => acc + (r.planos_acao ?? []).filter(
+        (p: any) => p.status === 'em_moderacao_n1' || p.status === 'reaberto').length, 0),
+      aguardando_n2: rows.reduce((acc, r) => acc + (r.planos_acao ?? []).filter(
+        (p: any) => p.status === 'em_moderacao_n2').length, 0),
     })
     setLoadingFunil(false)
   }, [unidadeId, periodo])
@@ -293,6 +299,21 @@ export default function GestaoHomePage() {
                 </p>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Moderação de planos (nível de plano): quantos aguardam N1 e N2 */}
+        {!loadingFunil && (funil.aguardando_n1 > 0 || funil.aguardando_n2 > 0) && (
+          <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-3">
+            <span className="text-xs font-medium text-gray-500">Planos em moderação:</span>
+            <button onClick={() => router.push('/gestao/planos-acao')}
+              className="flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1 hover:bg-amber-100 transition-colors">
+              <Clock size={12} />Aguardando N1: <span className="font-bold">{funil.aguardando_n1}</span>
+            </button>
+            <button onClick={() => router.push('/gestao/planos-acao')}
+              className="flex items-center gap-1.5 text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded-full px-2.5 py-1 hover:bg-orange-100 transition-colors">
+              <Clock size={12} />Aguardando N2: <span className="font-bold">{funil.aguardando_n2}</span>
+            </button>
           </div>
         )}
       </div>
