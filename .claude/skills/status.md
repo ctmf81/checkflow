@@ -26,7 +26,7 @@ Next logical step: [one-sentence inference, only if obvious]
 ---
 
 ## ✅ Admin da empresa (migration `20260620120000` aplicada 2026-06-20)
-- Admin da empresa = funções do admin de sistema na empresa inteira (todas as unidades), nunca outras empresas. Ver `/biz`/`/db`. ⏳ Pendente: pentest de isolamento entre empresas.
+- Admin da empresa = funções do admin de sistema na empresa inteira (todas as unidades), nunca outras empresas. Ver `/biz`/`/db`. ✅ Pentest de isolamento `pentest/admin-empresa-rls.mjs` 20/20.
 
 ## ▶️ RETOMAR NA PRÓXIMA SESSÃO (consolidado 2026-06-17)
 Tudo commitado/pushado na `main`. Frentes em aberto:
