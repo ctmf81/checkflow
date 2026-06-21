@@ -15,6 +15,13 @@ import { tarefasRoutes } from './routes/tarefas'
 
 const app = Fastify({ logger: true })
 
+// Serviços de cron (ex.: cron-job.org) batem em endpoints POST sem corpo, às
+// vezes com um Content-Type que o Fastify não conhece → 415 Unsupported Media
+// Type. Esses endpoints não leem o corpo, então aceitamos qualquer content-type
+// não registrado ignorando o body. application/json segue com o parser padrão
+// (webhook Asaas etc. não são afetados).
+app.addContentTypeParser('*', (_req, _payload, done) => done(null, undefined))
+
 app.register(helmet)
 // Allowlist de origens — pentest (2026-06-08) detectou `origin: true`
 // refletindo qualquer Origin (incluindo domínios arbitrários/maliciosos).
