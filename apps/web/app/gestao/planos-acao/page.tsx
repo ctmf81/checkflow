@@ -79,7 +79,7 @@ export default function PlanosAcaoPage() {
 function PlanosAcaoContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { empresaAtiva } = useSession()
+  const { empresaAtiva, unidadeAtiva } = useSession()
   const execId = searchParams.get('exec')
   const [filtro, setFiltro] = useState<Filtro>('abertos')
   const [planos, setPlanos] = useState<PlanoItem[]>([])
@@ -106,6 +106,8 @@ function PlanosAcaoContent() {
     if (execId) {
       query = query.eq('checklist_execucao_id', execId)
     } else {
+      // Escopa pela unidade ativa (cada tela mostra só a unidade selecionada)
+      if (unidadeAtiva?.id) query = query.eq('unidade_id', unidadeAtiva.id)
       query = query.in('status', statusDeFiltro(f))
     }
 
@@ -128,7 +130,7 @@ function PlanosAcaoContent() {
     setLoading(false)
   }
 
-  useEffect(() => { carregar(filtro) }, [filtro, execId, empresaAtiva?.id])
+  useEffect(() => { carregar(filtro) }, [filtro, execId, empresaAtiva?.id, unidadeAtiva?.id])
 
   return (
     <div className="max-w-4xl mx-auto">
