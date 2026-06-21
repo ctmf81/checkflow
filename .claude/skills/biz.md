@@ -77,8 +77,8 @@ Rule: **never mutate a published checklist structure** — create a new version 
 
 ## Home / Visão Geral (`/gestao`) — revisado 2026-06-20
 - Dashboard da **unidade ativa** (escopado por `unidadeAtiva.id` — corrigido 2026-06-20; antes agregava todas as unidades do usuário / global p/ admin).
-- **Funil de Execuções** (período 1h/6h/12h/24h/15d/30d): execuções concluídas → Executados / Aprovados / Reprovados / Em moderação (planos N1/N2). **Planos com SLA crítico** (≤8h) e **Últimas Execuções** (filtros Todos/Reprovados/Com PA, link PDF e planos). + Primeiros Passos (onboarding).
-- ⚠️ Bloco "Planos com SLA crítico" usa `sla_prazo` — coerência com o SLA arquivado em Planos de Ação a definir.
+- **Funil de Execuções** (período 1h/6h/12h/24h/15d/30d): tudo contado em **EXECUÇÕES concluídas** → Executados / Aprovados / Reprovados / **Em moderação** (execuções com ≥1 plano em moderação). Abaixo, **indicador de moderação por nível** (contagem de PLANOS): Aguardando N1 (em_moderacao_n1 + reaberto) e Aguardando N2 (em_moderacao_n2). **Últimas Execuções** (filtros Todos/Reprovados/Com PA, link PDF e planos) + Primeiros Passos.
+- **SLA do plano de ação**: definido **por atividade** no montador (`checklist_atividades.plano_acao_sla_horas`, null = sem SLA); ao abrir o plano, `sla_prazo = abertura + horas`. NÃO existe SLA do checklist inteiro. ⚠️ Bloco "Planos com SLA crítico" (≤8h) na Home ainda usa `sla_prazo` — coerência com o SLA arquivado em Planos de Ação **a decidir** (manter só Home / remover da Home / remover de tudo incl. campo da atividade).
 
 ## Operação — tela principal (`/operacao`)
 - Acesso restrito a usuários com **perfil de Operação** (ou perfil que permita a tela). Sem seletor de unidade na tela (unidade vem da sessão).
