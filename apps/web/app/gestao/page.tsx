@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import {
-  CheckCircle2, XCircle, Clock, AlertTriangle, ClipboardList,
+  CheckCircle2, XCircle, Clock, ClipboardList,
   ChevronRight, Loader2, RefreshCw, FileText, BarChart2,
   Filter, TrendingDown,
 } from 'lucide-react'
@@ -46,15 +46,6 @@ function resumoPlanos(planos: { status: string }[]): { label: string; cor: strin
   if (planos.some(p => p.status === 'nao_corrigido')) return { label: 'Não corrigido', cor: 'red' }
   if (planos.every(p => p.status === 'corrigido')) return { label: 'Corrigido', cor: 'green' }
   return null
-}
-
-interface PlanoSla {
-  id: string
-  identificador: string | null
-  atividade_nome: string
-  checklist_nome: string
-  sla_prazo: string
-  horas_restantes: number
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -109,10 +100,8 @@ export default function GestaoHomePage() {
   const [filtroExec, setFiltroExec] = useState<'todos' | 'reprovado' | 'pa_aberto'>('todos')
   const [funil, setFunil] = useState<Funil>({ executados: 0, aprovados: 0, reprovados: 0, em_moderacao: 0, aguardando_n1: 0, aguardando_n2: 0 })
   const [execucoes, setExecucoes] = useState<ExecucaoItem[]>([])
-  const [planosSla, setPlanosSla] = useState<PlanoSla[]>([])
   const [loadingFunil, setLoadingFunil] = useState(true)
   const [loadingExec, setLoadingExec]   = useState(true)
-  const [loadingSla,  setLoadingSla]    = useState(true)
 
   // Toda a Home é escopada pela UNIDADE ATIVA da sessão (como as demais telas).
   // O admin da empresa troca de unidade para ver cada uma; RLS garante o acesso.
@@ -190,40 +179,8 @@ export default function GestaoHomePage() {
     setLoadingExec(false)
   }, [unidadeId, filtroExec])
 
-  // 4. Planos com SLA vencendo (próximas 8h ou já vencido) — da unidade ativa
-  const carregarPlanosSla = useCallback(async () => {
-    if (!unidadeId) return
-    setLoadingSla(true)
-    const sb = createClient()
-    const em8h = new Date(Date.now() + 8 * 3600000).toISOString()
-
-    const { data } = await sb.from('planos_acao')
-      .select(`
-        id, identificador, sla_prazo,
-        checklist_atividades(nome),
-        checklist_execucoes(checklists(nome))
-      `)
-      .eq('unidade_id', unidadeId)
-      .in('status', ['em_moderacao_n1', 'em_moderacao_n2'])
-      .not('sla_prazo', 'is', null)
-      .lte('sla_prazo', em8h)
-      .order('sla_prazo', { ascending: true })
-      .limit(10)
-
-    setPlanosSla((data ?? []).map((p: any) => ({
-      id: p.id,
-      identificador: p.identificador ?? null,
-      atividade_nome: p.checklist_atividades?.nome ?? '—',
-      checklist_nome: p.checklist_execucoes?.checklists?.nome ?? '—',
-      sla_prazo: p.sla_prazo,
-      horas_restantes: Math.round((new Date(p.sla_prazo).getTime() - Date.now()) / 3600000),
-    })))
-    setLoadingSla(false)
-  }, [unidadeId])
-
   useEffect(() => { carregarFunil() },     [carregarFunil])
   useEffect(() => { carregarExecucoes() }, [carregarExecucoes])
-  useEffect(() => { carregarPlanosSla() }, [carregarPlanosSla])
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -252,7 +209,7 @@ export default function GestaoHomePage() {
             <BarChart2 size={13} />Indicadores
           </button>
           <button
-            onClick={() => { carregarFunil(); carregarExecucoes(); carregarPlanosSla() }}
+            onClick={() => { carregarFunil(); carregarExecucoes() }}
             className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-xl transition-colors">
             <RefreshCw size={15} />
           </button>
@@ -317,49 +274,6 @@ export default function GestaoHomePage() {
           </div>
         )}
       </div>
-
-      {/* ── SLA vencendo ── */}
-      {(loadingSla || planosSla.length > 0) && (
-        <div className="bg-white border border-red-200 rounded-2xl p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <AlertTriangle size={15} className="text-red-500" />
-            <p className="text-sm font-semibold text-red-700">Planos com SLA crítico</p>
-            <span className="text-xs text-red-400 ml-auto">Vencendo nas próximas 8h</span>
-          </div>
-
-          {loadingSla ? (
-            <div className="flex justify-center py-4">
-              <Loader2 size={18} className="animate-spin text-gray-300" />
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {planosSla.map(p => (
-                <button key={p.id}
-                  onClick={() => router.push(`/gestao/planos-acao/${p.id}`)}
-                  className="w-full flex items-center gap-3 bg-red-50 hover:bg-red-100 border border-red-100 rounded-xl px-3 py-2.5 text-left transition-colors group">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      {p.identificador && (
-                        <span className="text-xs font-mono font-bold text-red-600">{p.identificador}</span>
-                      )}
-                      <span className="text-xs font-semibold text-red-800 truncate">{p.atividade_nome}</span>
-                    </div>
-                    <p className="text-xs text-red-400 truncate mt-0.5">{p.checklist_nome}</p>
-                  </div>
-                  <div className="flex-shrink-0 text-right">
-                    <p className={`text-xs font-bold ${p.horas_restantes < 0 ? 'text-red-600' : 'text-amber-600'}`}>
-                      {p.horas_restantes < 0
-                        ? `Vencido ${Math.abs(p.horas_restantes)}h`
-                        : `${p.horas_restantes}h restantes`}
-                    </p>
-                  </div>
-                  <ChevronRight size={14} className="text-red-300 group-hover:text-red-500 flex-shrink-0" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ── Últimas execuções ── */}
       <div className="bg-white border border-gray-200 rounded-2xl p-5">
