@@ -80,6 +80,9 @@ Obs: `billing_status` tem guard de permissão (`auth.uid()`), por isso o harness
 18 checagens de RLS das tabelas criadas (planos, pacotes_adicionais, empresa_assinaturas, empresa_cobrancas, asaas_webhook_eventos, ia_falhas, ajuda_artigos, checklists template): usuário comum (autenticado) e anon **não** leem dados sensíveis nem escrevem; ajuda respeita `publicado`; template é leitura pública (intencional). **18/18 ✅ (2026-06-17).** Rodar: `export SUPABASE_URL/SUPABASE_ANON_KEY/SUPABASE_SERVICE_KEY; node pentest/billing-templates-rls.mjs`.
 ⚠️ Achou (2026-06-17): `planos`/`pacotes_adicionais` eram admin-only → self-service `/gestao/plano` não listava catálogo p/ admin da empresa. Fix: migration `20260617140000_billing_catalogo_leitura.sql` (leitura de ativos p/ autenticados).
 
+### Pen Test — Admin da empresa (isolamento) (`pentest/admin-empresa-rls.mjs`)
+20 checagens: cria 2 empresas (A com 2 unidades, B com 1) + um Admin da empresa A autenticado. Prova que ele **vê toda a empresa A cross-unidade** (unidades, grupos, checklists, catálogos+valores, documentos — inclusive de unidade onde não é membro), **não vê NADA de B**, **gerencia A** (cria grupo) mas **não B** (42501 / update 0 linhas), **promove outro Admin da empresa em A**, e **não consegue** atribuir Admin de SISTEMA nem vincular em B. Asserções distinguem RLS (42501) de erro de query. **20/20 ✅ (2026-06-20).** Rodar: creds dos `.env` (ver abaixo) + `node pentest/admin-empresa-rls.mjs`.
+
 ### Pen Test (`pentest/run.mjs`)
 48 testes de segurança (RLS/multi-tenant, autenticado), seções 1-10, **48/48 ✅ em 2026-06-12**. Ver `/security` para detalhes.
 ⚠️ Achou e corrigiu (2026-06-07): bucket `execucoes` permitia `list()` por `anon` — ver migration `20260607110000`.
