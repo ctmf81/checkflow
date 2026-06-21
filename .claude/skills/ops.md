@@ -40,6 +40,9 @@ Rota `/api/documentos/consultar` tenta provedores em ordem, usando só os que t�
 ## Cron do resumo mensal de parceiros
 `POST /cron/parceiros/resumo-mensal` é chamado 1x/dia pelo **cron-job.org** (conta do usuário) com header `x-cron-secret: $CRON_SECRET`. A rota só age no último dia do mês (idempotente por mês — nos demais dias responde `skip`). `CRON_SECRET` precisa estar no Railway (serviço API) e no job do cron-job.org com o mesmo valor. Teste manual fora do último dia: body JSON `{"force": true}`.
 
+## Cron de sincronização de catálogos (API externa)
+`POST /catalogos/sync-all` (header `x-cron-secret: $CRON_SECRET`) sincroniza todos os catálogos com `api_url` configurada (upsert dos valores via `/catalogos/{id}/sync`). Disparado pelo job **"Checkflow | Atualizar Catálogos"** no cron-job.org (POST + header). Testado 200 OK 2026-06-20. ⚠️ O endpoint **não lê corpo** — `server.ts` tem content-type parser `'*'` para não dar 415 quando o cron manda Content-Type não-JSON. Frequência: catálogo ~1x/dia basta.
+
 ## Cron de limpeza de mídia por tempo de guarda
 `POST /cron/limpeza-execucoes` (mesmo header `x-cron-secret: $CRON_SECRET`) deve ser chamado 1x/dia pelo cron-job.org. Busca `checklist_execucoes` com `data_expiracao` no passado e `midia_removida_em` nulo, remove do bucket `execucoes` as fotos/vídeos da execução (`{execId}/*`), o PDF (`pdfs/{execId}.pdf`) e as evidências de planos de ação vinculados (`planos/{planoId}/*`), limpa as URLs em `checklist_execucao_respostas`/`checklist_execucoes.pdf_url` e marca `midia_removida_em`. O registro da execução e dos planos é preservado — só a mídia é apagada. Idempotente (reprocessa apenas execuções ainda não marcadas). Lógica em `apps/api/src/lib/limpezaExecucoes.ts`. Precisa de migration `20260614020000_limpeza_execucoes_expiradas.sql` aplicada (coluna `midia_removida_em`).
 
