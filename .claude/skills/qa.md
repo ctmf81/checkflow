@@ -9,7 +9,7 @@ description: Quality Assurance for CheckFlow — test strategy, suites por tela/
 
 | Camada | Ferramenta | Status |
 |--------|-----------|--------|
-| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **212 testes / 11 arquivos** (2026-06-20) |
+| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **218 testes / 11 arquivos** (2026-06-20) |
 | E2E / Funcional | Playwright | 🔴 não instalado |
 | Pen Test (security, RLS) | `pentest/run.mjs` (Node nativo) | ✅ 48/48 (2026-06-12) — seções 1-10, inclui OTP e Programa de Parceiros |
 | HTTP Security Probe | `pentest/http_probe.mjs` (Node nativo, sem creds) | ✅ 25/26 (2026-06-08, após fix CORS + headers) |
@@ -82,6 +82,9 @@ Obs: `billing_status` tem guard de permissão (`auth.uid()`), por isso o harness
 
 ### ✅ Unit — Vídeo embed (YouTube/Drive) — `tests/unit/lib/videoEmbed.unit.test.ts` (8 testes)
 `lib/videoEmbed.ts` `videoEmbedUrl()` resolve link de YouTube (watch/youtu.be/embed + ID legado 11 chars) ou Google Drive (file/d/, open?id=, uc?id=) para URL de iframe; texto/Vimeo/nulo → null. `videoProvedor()` detecta youtube/drive. Usado nas etapas de documentos (montagem `EtapasModal` + operação `ViewerDocumento`). **8/8 ✅ (2026-06-20).**
+
+### Pen Test — Documentos (escrita por permissão) (`pentest/documentos-rls.mjs`)
+7 checagens: 2 empresas + um usuário GESTOR (perfil com permissão `documentos`) e um COMUM (perfil sem permissão), ambos membros da unidade A. Prova que o gestor **cria documento/etapa/imagem** na sua unidade, **não escreve na empresa B** (42501 / update 0 linhas), o comum **não escreve** mesmo sendo membro, e a **leitura por unidade** segue liberada a membros. **7/7 ✅ (2026-06-20).** Rodar: creds dos `.env` + `node pentest/documentos-rls.mjs`.
 
 ### Pen Test — Admin da empresa (isolamento) (`pentest/admin-empresa-rls.mjs`)
 20 checagens: cria 2 empresas (A com 2 unidades, B com 1) + um Admin da empresa A autenticado. Prova que ele **vê toda a empresa A cross-unidade** (unidades, grupos, checklists, catálogos+valores, documentos — inclusive de unidade onde não é membro), **não vê NADA de B**, **gerencia A** (cria grupo) mas **não B** (42501 / update 0 linhas), **promove outro Admin da empresa em A**, e **não consegue** atribuir Admin de SISTEMA nem vincular em B. Asserções distinguem RLS (42501) de erro de query. **20/20 ✅ (2026-06-20).** Rodar: creds dos `.env` (ver abaixo) + `node pentest/admin-empresa-rls.mjs`.

@@ -16,7 +16,7 @@ import { AbaTarefas } from './AbaTarefas'
 import { WORKFLOWS_HABILITADO } from '@/lib/features'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_OPERACAO } from '@/components/onboarding/configs'
-import { visivelPorSubgrupo, checklistVisivelOperador } from '@/lib/visibilidade'
+import { visivelPorSubgrupo, checklistVisivelOperador, documentoVisivelOperador } from '@/lib/visibilidade'
 import { ehAdminDaEmpresa } from '@/lib/admin'
 import { listaDisponivel } from '@/lib/tarefas'
 import { videoEmbedUrl } from '@/lib/videoEmbed'
@@ -1142,10 +1142,8 @@ export default function OperacaoPage() {
       // Documentos (visível por subgrupo/grupo/geral; admin vê todos)
       const { data: docs } = await sb.from('documentos')
         .select('id, subgrupo_id, grupo_id').eq('unidade_id', unidadeAtiva!.id)
-      const temDoc = (docs ?? []).some((d: any) => isAdmin
-        || (d.subgrupo_id && meusSubgrupos.has(d.subgrupo_id))
-        || (d.grupo_id && meusGrupos.has(d.grupo_id))
-        || (!d.subgrupo_id && !d.grupo_id))
+      const temDoc = (docs ?? []).some((d: any) =>
+        documentoVisivelOperador(d, { isAdmin, meusGrupos, meusSubgrupos }))
 
       // Histórico (execuções do próprio usuário nesta unidade)
       const { count } = await sb.from('checklist_execucoes')

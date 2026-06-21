@@ -44,6 +44,31 @@ export function checklistVisivelOperador(
   return visivelPorSubgrupo(cl.subgrupo_id, ctx) && !checklistsEmWorkflow.has(cl.id)
 }
 
+// ─── Operação: documentos ───────────────────────────────────────────────────────
+
+export interface CtxGrupoSubgrupo {
+  isAdmin: boolean
+  meusGrupos: Set<string>
+  meusSubgrupos: Set<string>
+}
+
+export interface DocumentoVis {
+  subgrupo_id: string | null
+  grupo_id: string | null
+}
+
+/**
+ * O documento aparece para o operador?
+ * Visível se: é do meu subgrupo, OU do meu grupo, OU é geral (sem grupo nem
+ * subgrupo). Admin vê todos. Espelha o filtro do AbaDocumentos / availability.
+ */
+export function documentoVisivelOperador(d: DocumentoVis, ctx: CtxGrupoSubgrupo): boolean {
+  if (ctx.isAdmin) return true
+  if (d.subgrupo_id && ctx.meusSubgrupos.has(d.subgrupo_id)) return true
+  if (d.grupo_id && ctx.meusGrupos.has(d.grupo_id)) return true
+  return !d.subgrupo_id && !d.grupo_id // geral da unidade
+}
+
 // ─── Agendamentos (gestão) ──────────────────────────────────────────────────────
 
 export interface AgendamentoVis {
