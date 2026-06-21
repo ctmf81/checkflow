@@ -17,6 +17,7 @@ import { WORKFLOWS_HABILITADO } from '@/lib/features'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_OPERACAO } from '@/components/onboarding/configs'
 import { visivelPorSubgrupo, checklistVisivelOperador } from '@/lib/visibilidade'
+import { ehAdminDaEmpresa } from '@/lib/admin'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -572,7 +573,7 @@ function AbaHistorico({ unidadeId }: { unidadeId: string }) {
 
 // ─── ABA: Documentos ─────────────────────────────────────────────────────────
 
-function AbaDocumentos({ unidadeId }: { unidadeId: string }) {
+function AbaDocumentos({ unidadeId, empresaId }: { unidadeId: string; empresaId?: string }) {
   const [documentos, setDocumentos] = useState<Documento[]>([])
   const [loading, setLoading] = useState(true)
   const [docAberto, setDocAberto] = useState<Documento | null>(null)
@@ -591,7 +592,7 @@ function AbaDocumentos({ unidadeId }: { unidadeId: string }) {
 
         const { data: { user } } = await sb.auth.getUser()
         if (!user) { setLoading(false); return }
-        const isAdmin = user.user_metadata?.role === 'admin_sistema'
+        const isAdmin = await ehAdminDaEmpresa(sb, empresaId)
 
         let subgrupoIds: string[] = []
         let grupoIds: string[] = []
@@ -651,7 +652,7 @@ function AbaDocumentos({ unidadeId }: { unidadeId: string }) {
       }
     }
     carregar()
-  }, [unidadeId])
+  }, [unidadeId, empresaId])
 
   async function abrirDocumento(doc: Documento) {
     setDocAberto(doc)
@@ -1079,7 +1080,7 @@ export default function OperacaoPage() {
     // Visibilidade por subgrupo: o operador vê só os checklists dos subgrupos
     // a que pertence (+ os sem subgrupo = gerais da unidade). Admin vê todos.
     const { data: { user: authUser } } = await sb.auth.getUser()
-    const isAdmin = authUser?.user_metadata?.role === 'admin_sistema'
+    const isAdmin = await ehAdminDaEmpresa(sb, empresaAtiva?.id)
     let meusSubgrupos = new Set<string>()
     if (authUser && !isAdmin) {
       const { data: us } = await sb.from('usuario_subgrupo').select('subgrupo_id').eq('usuario_id', authUser.id)
@@ -1277,7 +1278,7 @@ export default function OperacaoPage() {
           )}
           {aba === 'tarefas' && <AbaTarefas unidadeId={unidadeAtiva.id} empresaId={empresaAtiva?.id} />}
           {aba === 'historico' && <AbaHistorico unidadeId={unidadeAtiva.id} />}
-          {aba === 'documentos' && <AbaDocumentos unidadeId={unidadeAtiva.id} />}
+          {aba === 'documentos' && <AbaDocumentos unidadeId={unidadeAtiva.id} empresaId={empresaAtiva?.id} />}
         </>
       )}
 

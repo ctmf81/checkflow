@@ -37,6 +37,13 @@ create policy "X_update" on T for update using (
 create policy "X_delete" on T for delete using ( is_admin_sistema() );
 ```
 
+### Admin da empresa — helpers escopados (2026-06-20)
+Para dar a um admin **da empresa** as mesmas funções de gestão sem furar o multi-tenant, use os helpers (migration `20260620120000_admin_empresa_rls.sql`):
+- `is_admin_empresa(empresa_id)`, `is_admin_empresa_unidade(unidade_id)`, `is_admin_empresa_grupo(grupo_id)`, `is_admin_empresa_subgrupo(subgrupo_id)` — todos `security definer stable set search_path=public`.
+- Adicione policies **aditivas** (não reescreva as existentes): `... using (is_admin_empresa_unidade(unidade_id))`. RLS combina permissivas com OR.
+- ⚠️ **Guard obrigatório** em `usuario_empresa`: o `with check` deve impedir atribuir `perfil_id='…001'` (Admin de sistema) — admin de empresa não escala para sistema.
+- ⏳ **Pentest pendente**: validar que admin da empresa A não lê/escreve dados da empresa B, e não consegue se auto-promover a admin de sistema. Adicionar `pentest/admin-empresa-rls.mjs` (fixtures: 2 empresas, 1 admin em cada). Roda com creds dos `.env` (ver `/qa`).
+
 ⚠️ **PostgREST não lança erro em UPDATE/DELETE bloqueado por RLS** — retorna `data: []` silenciosamente. Testes de segurança devem verificar se o dado realmente mudou no banco, não se houve exceção.
 
 ## Migrations — Sempre Idempotentes

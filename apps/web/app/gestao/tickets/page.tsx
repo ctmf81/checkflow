@@ -9,6 +9,7 @@ import NovoTicketModal from '@/components/tickets/NovoTicketModal'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_TICKETS } from '@/components/onboarding/configs'
 import { ticketVisivel, slaStatus, STATUS_ABERTOS } from '@/lib/tickets'
+import { ehAdminDaEmpresa } from '@/lib/admin'
 
 interface TicketRow {
   id: string
@@ -57,7 +58,7 @@ const SLA_DOT: Record<string, string> = {
 const ABERTOS = STATUS_ABERTOS as readonly string[]
 
 export default function TicketsPage() {
-  const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
+  const { unidadeAtiva, empresaAtiva, grupoLabel, subgrupoLabel } = useSession()
   const supabase = createClient()
 
   const [tickets, setTickets]     = useState<TicketRow[]>([])
@@ -75,7 +76,7 @@ export default function TicketsPage() {
     // Visibilidade: usuário vê os tickets dos seus subgrupos (+ os que abriu); admin vê todos
     const { data: { user } } = await supabase.auth.getUser()
     setUserId(user?.id ?? null)
-    const admin = user?.user_metadata?.role === 'admin_sistema'
+    const admin = await ehAdminDaEmpresa(supabase, empresaAtiva?.id)
     setIsAdmin(admin)
     if (user && !admin) {
       const { data: us } = await supabase.from('usuario_subgrupo').select('subgrupo_id').eq('usuario_id', user.id)

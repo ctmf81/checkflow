@@ -140,6 +140,13 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 - `20260617140000_billing_catalogo_leitura.sql` — leitura de `planos`/`pacotes_adicionais` **ativos** por autenticados (corrige self-service `/gestao/plano`; escrita segue admin).
 - `20260617160000_motivo_padrao_nao_execucao.sql` — motivo padrão "Não disponível" por unidade (grupo/subgrupo nulos), `motivo_padrao_unidade(unidade,tipo)`, trigger `checklist_seed_motivos_padrao` (AFTER INSERT em checklists, associa ≥1 de cada tipo a checklist novo não-template) + retroativo.
 
+### Admin da empresa — RLS escopada (migration `20260620120000_admin_empresa_rls.sql`, ⏳ APLICAR)
+- Dá ao "Admin da empresa" (`usuario_empresa.perfil_id='…002'`) as mesmas funções de gestão do admin de sistema, **restritas à sua empresa**. Vários admins por empresa (em paralelo).
+- **Helpers** (security definer, stable, `search_path=public`): `is_admin_empresa(p_empresa_id)`, `is_admin_empresa_unidade(p_unidade_id)`, `is_admin_empresa_grupo(p_grupo_id)`, `is_admin_empresa_subgrupo(p_subgrupo_id)`.
+- **Policies aditivas** (`for all`, OR com as existentes — não reescreve): `unidades`/`grupos`/`subgrupos`/`turnos` (estrutura) e `usuario_empresa`/`usuario_unidade`/`usuario_grupo`/`usuario_subgrupo` (acessos).
+- **Guard crítico**: `usuario_empresa_admin_empresa` `with check` proíbe atribuir `perfil_id='…001'` (Admin de sistema). `perfis`/`perfil_permissoes` já tinham policy de empresa (20260607120000).
+- **Fase 2 pendente**: leitura cross-unidade das tabelas operacionais ainda é por `usuario_unidade`; estender com `or is_admin_empresa_unidade(...)` quando precisar ver unidades onde o admin não é membro.
+
 ### Listas de Tarefas — cota de mídia (migration `20260618160000_uso_armazenamento_tarefa.sql`, ✅ aplicada 2026-06-18)
 - `uso_armazenamento.origem` aceita `'tarefa'`; policy de insert ganhou bypass `is_admin_sistema()`. Mídia de tarefa contabilizada via `lib/uso.ts` + bloqueio `billing_armazenamento_disponivel`.
 

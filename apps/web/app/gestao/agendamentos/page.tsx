@@ -13,6 +13,7 @@ import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { useToast, useConfirm } from '@/components/ui/feedback'
 import { WORKFLOWS_HABILITADO } from '@/lib/features'
 import { agendamentoVisivelGestor } from '@/lib/visibilidade'
+import { ehAdminDaEmpresa } from '@/lib/admin'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -253,7 +254,7 @@ export default function AgendamentosPage() {
     setLoading(true)
     const sb = createClient()
     const { data: { user } } = await sb.auth.getUser()
-    const isAdmin = user?.user_metadata?.role === 'admin_sistema'
+    const isAdmin = await ehAdminDaEmpresa(sb, empresaAtiva?.id)
 
     let q = sb.from('agendamentos')
       .select('id, tipo_alvo, workflow_id, checklist_id, intervalo_unidade, intervalo_valor, referencia_inicio, proxima_execucao, ultima_execucao_em, ativo, workflow:workflow_id(nome), checklist:checklist_id(nome, subgrupo_id)')
