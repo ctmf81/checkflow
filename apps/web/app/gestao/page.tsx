@@ -12,7 +12,6 @@ import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { PrimeirosPassos } from '@/components/onboarding/PrimeirosPassos'
 import { useSession } from '@/contexts/SessionContext'
-import { FiltroUnidade } from '@/components/ui/FiltroUnidade'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -202,7 +201,6 @@ export default function GestaoHomePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <FiltroUnidade />
           <button
             onClick={() => router.push('/gestao/indicadores')}
             className="flex items-center gap-1.5 text-xs text-gray-500 border border-gray-200 px-3 py-2 rounded-xl hover:bg-gray-50 hover:text-orange-500 transition-colors">

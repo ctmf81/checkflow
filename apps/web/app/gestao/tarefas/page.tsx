@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
-import { FiltroUnidade } from '@/components/ui/FiltroUnidade'
 import { useToast, useConfirm } from '@/components/ui/feedback'
 
 interface Lista {
@@ -95,12 +94,9 @@ export default function TarefasPage() {
           <h1 className="text-xl font-semibold text-gray-800">Tarefas</h1>
           <p className="text-xs text-gray-400 mt-0.5">Listas de tarefas pontuais distribuídas a grupos/subgrupos · Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
-        <div className="flex items-center gap-2">
-          <FiltroUnidade />
-          <Button onClick={novaLista} disabled={criando}>
-            {criando ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}Nova lista
-          </Button>
-        </div>
+        <Button onClick={novaLista} disabled={criando}>
+          {criando ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}Nova lista
+        </Button>
       </div>
 
       {loading ? (

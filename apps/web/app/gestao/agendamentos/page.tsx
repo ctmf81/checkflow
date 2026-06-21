@@ -14,7 +14,6 @@ import { useToast, useConfirm } from '@/components/ui/feedback'
 import { WORKFLOWS_HABILITADO } from '@/lib/features'
 import { agendamentoVisivelGestor } from '@/lib/visibilidade'
 import { ehAdminDaEmpresa } from '@/lib/admin'
-import { FiltroUnidade } from '@/components/ui/FiltroUnidade'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -355,12 +354,9 @@ export default function AgendamentosPage() {
           <h1 className="text-xl font-semibold text-gray-800">Agendamentos</h1>
           <p className="text-xs text-gray-400 mt-0.5">Início programado e recorrente de workflows e checklists</p>
         </div>
-        <div className="flex items-center gap-2">
-          <FiltroUnidade />
-          <Button onClick={() => unidadeAtiva ? setModalAberto(true) : toast.info('Selecione uma unidade para criar um agendamento.')}>
-            <Plus size={16} />Novo agendamento
-          </Button>
-        </div>
+        <Button onClick={() => unidadeAtiva ? setModalAberto(true) : toast.info('Selecione uma unidade para criar um agendamento.')}>
+          <Plus size={16} />Novo agendamento
+        </Button>
       </div>
 
       {loading ? (
