@@ -139,6 +139,7 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 See `/db` skill for full table index by migration file.
 
 ## Padrões de UX (obrigatórios em telas novas)
+- **Filtro de unidade**: TODA listagem deve ter `<FiltroUnidade />` (`components/ui/FiltroUnidade.tsx`) no cabeçalho — ligado ao seletor global (muda `unidadeAtiva`), só aparece p/ quem tem +1 unidade. E a query da listagem **filtra por `unidadeAtiva.id`** (cada tela = 1 unidade).
 - **Feedback**: nunca usar `alert()`/`confirm()` nativos — usar `useToast()` e `useConfirm()` de `components/ui/feedback.tsx`. Toda ação destrutiva → `confirm({ perigo: true })`; todo salvar/erro → toast.
 - **Verificar erro do Supabase** antes de dar feedback de sucesso (RLS falha em silêncio — retorna `data:[]`/`error`, não exceção).
 - **Responsivo**: telas da Gestão devem funcionar no mobile (a sidebar já colapsa em drawer; usar paddings `p-4 sm:p-6 lg:p-8`).
