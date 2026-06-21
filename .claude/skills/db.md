@@ -140,7 +140,7 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 - `20260617140000_billing_catalogo_leitura.sql` — leitura de `planos`/`pacotes_adicionais` **ativos** por autenticados (corrige self-service `/gestao/plano`; escrita segue admin).
 - `20260617160000_motivo_padrao_nao_execucao.sql` — motivo padrão "Não disponível" por unidade (grupo/subgrupo nulos), `motivo_padrao_unidade(unidade,tipo)`, trigger `checklist_seed_motivos_padrao` (AFTER INSERT em checklists, associa ≥1 de cada tipo a checklist novo não-template) + retroativo.
 
-### Catálogos — escrita por permissão (migration `20260620140000_catalogos_escrita_permissao.sql`, ⏳ APLICAR)
+### Catálogos — escrita por permissão (migration `20260620140000_catalogos_escrita_permissao.sql`, ✅ aplicada 2026-06-20)
 - `catalogos` e `catalogo_valores` ganham policy de escrita por **permissão `catalogos`** (criar/editar/excluir) + unidade, além de `is_admin_sistema`/admin da empresa. Antes só `is_admin_sistema` escrevia → gestor com permissão tomava erro de RLS. Espelha o padrão de `agendamentos`.
 
 ### Admin da empresa — RLS escopada (migration `20260620120000_admin_empresa_rls.sql`, ✅ aplicada 2026-06-20)
