@@ -286,6 +286,9 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
                   placeholder="Cole o link do YouTube ou do Google Drive (público)"
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200"
                 />
+                <p className="text-xs text-gray-400 mt-1">
+                  YouTube ou Google Drive. No Drive, o arquivo precisa estar como <span className="font-medium">"Qualquer pessoa com o link"</span>, senão o vídeo não carrega.
+                </p>
                 {videoEmbedUrl(videoId) ? (
                   <div className="mt-2 rounded-lg overflow-hidden border border-gray-200 aspect-video">
                     <iframe
