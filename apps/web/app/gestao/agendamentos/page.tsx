@@ -12,6 +12,7 @@ import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { useToast, useConfirm } from '@/components/ui/feedback'
 import { WORKFLOWS_HABILITADO } from '@/lib/features'
+import { agendamentoVisivelGestor } from '@/lib/visibilidade'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -286,12 +287,12 @@ export default function AgendamentosPage() {
       }
 
       linhas = linhas.filter(a => {
-        if (a.tipo_alvo === 'checklist') {
-          const cl = Array.isArray(a.checklist) ? a.checklist[0] : a.checklist
-          return cl?.subgrupo_id && meusSubgrupos.has(cl.subgrupo_id)
-        }
-        const set = wfSubs[a.workflow_id]
-        return !!set && [...set].some(s => meusSubgrupos.has(s))
+        const cl = Array.isArray(a.checklist) ? a.checklist[0] : a.checklist
+        return agendamentoVisivelGestor(
+          { tipo_alvo: a.tipo_alvo, workflow_id: a.workflow_id, checklist_subgrupo_id: cl?.subgrupo_id ?? null },
+          { isAdmin, meusSubgrupos },
+          wfSubs,
+        )
       })
     }
 
