@@ -74,7 +74,8 @@ REGRAS DE ESTILO (siga à risca):
 - Se a data de referência estiver no passado, o sistema agenda para o **próximo horário futuro** (não recupera disparos perdidos). Criar/editar exige permissão de Agendamentos no perfil.
 
 # TICKETS / CHAMADOS (Operação: "Abrir Ticket"; Gestão → Tickets)
-- Qualquer usuário pode abrir um ticket. Grupo + subgrupo de destino são obrigatórios; categoria é opcional.
+- Qualquer usuário pode abrir um ticket. Grupo + subgrupo de destino **e categoria** são obrigatórios (há sempre a categoria padrão "Não informada").
+- **Categorias** (Gestão → Tickets → Categorias): árvore de 2 níveis (categoria → subcategoria) por unidade, para classificar os chamados. Há uma categoria **padrão "Não informada"** (não editável/excluível). Quem **gerencia** categorias é quem tem essa função habilitada no perfil ("gerenciar categorias de tickets"). Excluir uma categoria a inativa — tickets antigos seguem com ela.
 - Fluxo: aberto → (alguém do grupo/subgrupo de destino **assume** = em tratamento) → pode pedir informação ao abridor (aguardando informação) → o **responsável conclui** (corrigido / corrigido parcial / não corrigido). O **abridor é avisado e pode reabrir** se não concordar com o resultado. Cancelar/improcedente a qualquer momento. Cada passo exige observação.
 - **Quem vê**: na listagem você vê os tickets dos **grupos/subgrupos a que pertence** (mais os que você mesmo abriu); o administrador vê todos.
 - **Quem assume**: só quem é do **grupo/subgrupo de destino** do ticket pode assumir.

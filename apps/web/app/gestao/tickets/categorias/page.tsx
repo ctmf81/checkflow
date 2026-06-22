@@ -112,7 +112,7 @@ export default function TicketCategoriasPage() {
             <div key={cat.id}>
               <div className="flex items-center px-4 py-3 gap-2">
                 <span className="flex-1 text-sm font-medium text-gray-800">{cat.nome}</span>
-                {cat.e_generica && <span className="text-xs text-gray-400 italic">automática</span>}
+                {cat.e_generica && <span className="text-xs text-gray-400 italic">padrão</span>}
                 {!cat.e_generica && (
                   <>
                     <button onClick={() => iniciarNova(cat.id)}
