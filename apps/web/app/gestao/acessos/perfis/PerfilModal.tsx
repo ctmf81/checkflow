@@ -30,28 +30,34 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
   const [perms, setPerms] = useState<Set<string>>(new Set())
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set())
   const [carregando, setCarregando] = useState(isEdicao)
+  const [falhaCarga, setFalhaCarga] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
 
   // Em edição, carrega o estado REAL do perfil (público + permissões salvas).
   // Sem isto o modal abriria zerado e o salvar apagaria as permissões existentes.
+  // Se a carga falhar, bloqueia o salvar (não dá pra sobrescrever às cegas).
   useEffect(() => {
     if (!perfil) return
     const supabase = createClient()
     async function carregar() {
-      const [{ data: p }, { data: pp }] = await Promise.all([
+      const [{ data: p, error: e1 }, { data: pp, error: e2 }] = await Promise.all([
         supabase.from('perfis').select('publico').eq('id', perfil!.id).single(),
         supabase.from('perfil_permissoes').select('permissoes(recurso, acao)').eq('perfil_id', perfil!.id),
       ])
-      if (p) setPublico(p.publico ?? false)
-      if (pp) {
-        const set = new Set<string>()
-        pp.forEach((row: any) => {
-          const perm = row.permissoes
-          if (perm) set.add(`${perm.recurso}.${perm.acao}`)
-        })
-        setPerms(set)
+      if (e1 || e2 || !p || !pp) {
+        setErro('Não foi possível carregar o perfil. Feche e tente novamente.')
+        setFalhaCarga(true)
+        setCarregando(false)
+        return
       }
+      setPublico(p.publico ?? false)
+      const set = new Set<string>()
+      pp.forEach((row: any) => {
+        const perm = row.permissoes
+        if (perm) set.add(`${perm.recurso}.${perm.acao}`)
+      })
+      setPerms(set)
       setCarregando(false)
     }
     carregar()
@@ -104,8 +110,17 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErro('')
+    const nomeOk = nome.trim()
+    if (!nomeOk) { setErro('Informe o nome do perfil.'); return }
     setSalvando(true)
     const supabase = createClient()
+
+    // Nome único por empresa (mesmo nome dificulta a gestão de acessos)
+    const { data: existente } = await supabase
+      .from('perfis').select('id').eq('empresa_id', empresaId).ilike('nome', nomeOk).maybeSingle()
+    if (existente && existente.id !== perfil?.id) {
+      setErro('Já existe um perfil com esse nome.'); setSalvando(false); return
+    }
 
     // Substitui o conjunto inteiro de permissões. Retorna false se algo falhar
     // (RLS pode falhar em silêncio) para não reportar sucesso indevido.
@@ -125,12 +140,12 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
     }
 
     if (isEdicao) {
-      const { error } = await supabase.from('perfis').update({ nome, publico }).eq('id', perfil.id)
+      const { error } = await supabase.from('perfis').update({ nome: nomeOk, publico }).eq('id', perfil.id)
       if (error) { setErro('Não foi possível salvar o perfil.'); setSalvando(false); return }
       if (!await salvarPermissoes(perfil.id)) { setErro('Não foi possível salvar as permissões do perfil.'); setSalvando(false); return }
     } else {
       const { data: novoPerfil, error } = await supabase
-        .from('perfis').insert({ nome, publico, empresa_id: empresaId, is_system: false }).select('id').single()
+        .from('perfis').insert({ nome: nomeOk, publico, empresa_id: empresaId, is_system: false }).select('id').single()
       if (error || !novoPerfil) { setErro('Não foi possível criar o perfil.'); setSalvando(false); return }
       if (!await salvarPermissoes(novoPerfil.id)) { setErro('O perfil foi criado, mas não foi possível salvar as permissões. Edite-o para tentar de novo.'); setSalvando(false); return }
     }
@@ -277,7 +292,7 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
             <button type="button" onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">
               Cancelar
             </button>
-            <Button type="submit" disabled={salvando || carregando}>
+            <Button type="submit" disabled={salvando || carregando || falhaCarga}>
               {salvando ? 'Salvando...' : isEdicao ? 'Salvar alterações' : 'Criar perfil'}
             </Button>
           </div>
