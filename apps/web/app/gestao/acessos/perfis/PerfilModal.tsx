@@ -3,9 +3,13 @@
 import { useEffect, useState } from 'react'
 import { X, Plus, Minus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { recursos, Recurso } from './permissoes'
+import { recursos } from './permissoes'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/components/ui/feedback'
+import {
+  permKey, recursoChecked, recursoIndeterminate, toggleRecurso, toggleAcao,
+  permsFromRows, permissaoIdsToInsert,
+} from '@/lib/perfis'
 
 interface Perfil {
   id: string
@@ -16,10 +20,6 @@ interface Props {
   perfil?: Perfil
   empresaId: string
   onClose: () => void
-}
-
-function permKey(recurso: string, acao?: string) {
-  return acao ? `${recurso}.${acao}` : recurso
 }
 
 export function PerfilModal({ perfil, empresaId, onClose }: Props) {
@@ -52,12 +52,7 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
         return
       }
       setPublico(p.publico ?? false)
-      const set = new Set<string>()
-      pp.forEach((row: any) => {
-        const perm = row.permissoes
-        if (perm) set.add(`${perm.recurso}.${perm.acao}`)
-      })
-      setPerms(set)
+      setPerms(permsFromRows(pp.map((row: any) => row.permissoes).filter(Boolean)))
       setCarregando(false)
     }
     carregar()
@@ -67,42 +62,6 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
     setExpandidos(prev => {
       const n = new Set(prev)
       n.has(key) ? n.delete(key) : n.add(key)
-      return n
-    })
-  }
-
-  function isRecursoChecked(r: Recurso) {
-    if (r.acoes.length === 0) return perms.has(r.key)
-    return r.acoes.every(a => perms.has(permKey(r.key, a.key)))
-  }
-
-  function isRecursoIndeterminate(r: Recurso) {
-    if (r.acoes.length === 0) return false
-    const checked = r.acoes.filter(a => perms.has(permKey(r.key, a.key)))
-    return checked.length > 0 && checked.length < r.acoes.length
-  }
-
-  function toggleRecurso(r: Recurso) {
-    setPerms(prev => {
-      const n = new Set(prev)
-      if (r.acoes.length === 0) {
-        n.has(r.key) ? n.delete(r.key) : n.add(r.key)
-      } else {
-        const allChecked = isRecursoChecked(r)
-        r.acoes.forEach(a => {
-          const k = permKey(r.key, a.key)
-          allChecked ? n.delete(k) : n.add(k)
-        })
-      }
-      return n
-    })
-  }
-
-  function toggleAcao(recurso: string, acao: string) {
-    const k = permKey(recurso, acao)
-    setPerms(prev => {
-      const n = new Set(prev)
-      n.has(k) ? n.delete(k) : n.add(k)
       return n
     })
   }
@@ -129,9 +88,8 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
       if (errLista || !permsDb) return false
       const { error: errDel } = await supabase.from('perfil_permissoes').delete().eq('perfil_id', perfilId)
       if (errDel) return false
-      const inserts = permsDb
-        .filter(p => perms.has(`${p.recurso}.${p.acao}`) || perms.has(p.recurso))
-        .map(p => ({ perfil_id: perfilId, permissao_id: p.id }))
+      const inserts = permissaoIdsToInsert(permsDb, perms)
+        .map(permissao_id => ({ perfil_id: perfilId, permissao_id }))
       if (inserts.length > 0) {
         const { error: errIns } = await supabase.from('perfil_permissoes').insert(inserts)
         if (errIns) return false
@@ -205,8 +163,8 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
               <p className="text-sm text-gray-400 py-4 text-center">Carregando permissões...</p>
             )}
             {!carregando && recursos.map(r => {
-              const checked = isRecursoChecked(r)
-              const indeterminate = isRecursoIndeterminate(r)
+              const checked = recursoChecked(r, perms)
+              const indeterminate = recursoIndeterminate(r, perms)
               const expanded = expandidos.has(r.key)
 
               return (
@@ -228,7 +186,7 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
                     {/* Checkbox do recurso */}
                     <button
                       type="button"
-                      onClick={() => toggleRecurso(r)}
+                      onClick={() => setPerms(p => toggleRecurso(r, p))}
                       className={`w-4 h-4 rounded flex items-center justify-center border-2 flex-shrink-0 transition-colors ${
                         checked
                           ? 'bg-orange-500 border-orange-500'
@@ -263,7 +221,7 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
                           <div key={a.key} className="flex items-center gap-2">
                             <button
                               type="button"
-                              onClick={() => toggleAcao(r.key, a.key)}
+                              onClick={() => setPerms(p => toggleAcao(r.key, a.key, p))}
                               className={`w-4 h-4 rounded flex items-center justify-center border-2 flex-shrink-0 transition-colors ${
                                 acaoChecked
                                   ? 'bg-orange-500 border-orange-500'
