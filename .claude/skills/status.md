@@ -34,6 +34,14 @@ Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste ·
 12. Plano ❌  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ❌ · Formatação ❌ · Relatórios ❌ · Dashboards ❌ · Causa raiz ❌ · Notificações ❌
 + Ambiente **Sistema** (admin plataforma: empresas, planos/preços, templates, parceiros, integrações IA, onboarding) — revisar ao final/à parte.
 
+## ▶️ ESTADO / RETOMAR (2026-06-22)
+- **Tudo commitado e mergeado na `main`** (último merge #45; + commit vazio `1c5bdb3` para disparar deploy). Nenhum PR aberto. Working tree limpo (só `RELATORIO_SEGURANCA_2026-06-08.md` fora, intencional). Build de produção (`next build`) passa; **221 testes unit** + pentests verdes.
+- **PRÓXIMA TELA NA REVISÃO** (ordem do menu, pegar pendentes ❌): **Padrão → Variáveis**, depois Padrões → Acessos (Empresa/Perfis/Turnos) → Plano → Config (Não execução/Formatação/Relatórios/Dashboards/Causa raiz/Notificações). Tickets/Chamados e Workflows ficam por último (pendentes de teste/off). Ver checklist acima.
+- ⚠️ **Railway — trial expirou e pausou deploys (2026-06-22)**. Usuário fez **upgrade (Hobby)**; deploy reativado. Se algo não aparecer em produção, checar serviço **web** → Deployments (Redeploy do último). Não é problema de código.
+- **Regras transversais fechadas hoje** (já em `/biz`): (1) **toda tela = unidade ativa** (filtra por `unidadeAtiva.id`; admin troca de unidade); (2) **NÃO** colocar seletor de unidade próprio nas telas (o do header já vale — tentei `FiltroUnidade`, REVERTIDO); (3) dashboards/indicadores **só da unidade** (visão de empresa virá depois).
+- **Migrations aplicadas hoje**: `20260620120000` (admin empresa), `20260620140000` (catálogos escrita), `20260620160000` (documentos escrita), `20260620180000` (categoria ticket). **Nenhuma pendente.**
+- **Backlog novo**: **visão de EMPRESA (cross-unidade) em Indicadores** (consolidar todas as unidades) — combinado fazer depois.
+
 ## ✅ Admin da empresa (migration `20260620120000` aplicada 2026-06-20)
 - Admin da empresa = funções do admin de sistema na empresa inteira (todas as unidades), nunca outras empresas. Ver `/biz`/`/db`. ✅ Pentest de isolamento `pentest/admin-empresa-rls.mjs` 20/20.
 
