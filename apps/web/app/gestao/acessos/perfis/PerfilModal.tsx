@@ -1,16 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { X, Plus, Minus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { recursos, Recurso } from './permissoes'
 import { createClient } from '@/lib/supabase'
+import { useToast } from '@/components/ui/feedback'
 
 interface Perfil {
   id: string
   nome: string
-  publico: boolean
-  permissoes: string[] // 'recurso.acao' ou 'recurso' para acesso total
 }
 
 interface Props {
@@ -25,12 +24,38 @@ function permKey(recurso: string, acao?: string) {
 
 export function PerfilModal({ perfil, empresaId, onClose }: Props) {
   const isEdicao = !!perfil
+  const toast = useToast()
   const [nome, setNome] = useState(perfil?.nome ?? '')
-  const [publico, setPublico] = useState(perfil?.publico ?? false)
-  const [perms, setPerms] = useState<Set<string>>(new Set(perfil?.permissoes ?? []))
+  const [publico, setPublico] = useState(false)
+  const [perms, setPerms] = useState<Set<string>>(new Set())
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set())
+  const [carregando, setCarregando] = useState(isEdicao)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
+
+  // Em edição, carrega o estado REAL do perfil (público + permissões salvas).
+  // Sem isto o modal abriria zerado e o salvar apagaria as permissões existentes.
+  useEffect(() => {
+    if (!perfil) return
+    const supabase = createClient()
+    async function carregar() {
+      const [{ data: p }, { data: pp }] = await Promise.all([
+        supabase.from('perfis').select('publico').eq('id', perfil!.id).single(),
+        supabase.from('perfil_permissoes').select('permissoes(recurso, acao)').eq('perfil_id', perfil!.id),
+      ])
+      if (p) setPublico(p.publico ?? false)
+      if (pp) {
+        const set = new Set<string>()
+        pp.forEach((row: any) => {
+          const perm = row.permissoes
+          if (perm) set.add(`${perm.recurso}.${perm.acao}`)
+        })
+        setPerms(set)
+      }
+      setCarregando(false)
+    }
+    carregar()
+  }, [perfil])
 
   function toggleExpand(key: string) {
     setExpandidos(prev => {
@@ -82,29 +107,36 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
     setSalvando(true)
     const supabase = createClient()
 
-    async function salvarPermissoes(perfilId: string) {
-      const { data: permsDb } = await supabase.from('permissoes').select('id, recurso, acao')
-      if (!permsDb) return
-      // Substitui o conjunto inteiro: remove as atuais e insere as marcadas agora
-      await supabase.from('perfil_permissoes').delete().eq('perfil_id', perfilId)
+    // Substitui o conjunto inteiro de permissões. Retorna false se algo falhar
+    // (RLS pode falhar em silêncio) para não reportar sucesso indevido.
+    async function salvarPermissoes(perfilId: string): Promise<boolean> {
+      const { data: permsDb, error: errLista } = await supabase.from('permissoes').select('id, recurso, acao')
+      if (errLista || !permsDb) return false
+      const { error: errDel } = await supabase.from('perfil_permissoes').delete().eq('perfil_id', perfilId)
+      if (errDel) return false
       const inserts = permsDb
         .filter(p => perms.has(`${p.recurso}.${p.acao}`) || perms.has(p.recurso))
         .map(p => ({ perfil_id: perfilId, permissao_id: p.id }))
-      if (inserts.length > 0) await supabase.from('perfil_permissoes').insert(inserts)
+      if (inserts.length > 0) {
+        const { error: errIns } = await supabase.from('perfil_permissoes').insert(inserts)
+        if (errIns) return false
+      }
+      return true
     }
 
     if (isEdicao) {
       const { error } = await supabase.from('perfis').update({ nome, publico }).eq('id', perfil.id)
-      if (error) { setErro('Erro ao salvar perfil.'); setSalvando(false); return }
-      await salvarPermissoes(perfil.id)
+      if (error) { setErro('Não foi possível salvar o perfil.'); setSalvando(false); return }
+      if (!await salvarPermissoes(perfil.id)) { setErro('Não foi possível salvar as permissões do perfil.'); setSalvando(false); return }
     } else {
       const { data: novoPerfil, error } = await supabase
         .from('perfis').insert({ nome, publico, empresa_id: empresaId, is_system: false }).select('id').single()
-      if (error || !novoPerfil) { console.error('Erro ao criar perfil:', error); setErro(`Erro ao criar perfil${error ? `: ${error.message}` : ''}.`); setSalvando(false); return }
-      await salvarPermissoes(novoPerfil.id)
+      if (error || !novoPerfil) { setErro('Não foi possível criar o perfil.'); setSalvando(false); return }
+      if (!await salvarPermissoes(novoPerfil.id)) { setErro('O perfil foi criado, mas não foi possível salvar as permissões. Edite-o para tentar de novo.'); setSalvando(false); return }
     }
 
     setSalvando(false)
+    toast.success(isEdicao ? 'Perfil salvo.' : 'Perfil criado.')
     onClose()
   }
 
@@ -154,7 +186,10 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
 
           {/* Árvore de permissões */}
           <div className="flex-1 overflow-y-auto px-6 py-2">
-            {recursos.map(r => {
+            {carregando && (
+              <p className="text-sm text-gray-400 py-4 text-center">Carregando permissões...</p>
+            )}
+            {!carregando && recursos.map(r => {
               const checked = isRecursoChecked(r)
               const indeterminate = isRecursoIndeterminate(r)
               const expanded = expandidos.has(r.key)
@@ -242,7 +277,7 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
             <button type="button" onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">
               Cancelar
             </button>
-            <Button type="submit" disabled={salvando}>
+            <Button type="submit" disabled={salvando || carregando}>
               {salvando ? 'Salvando...' : isEdicao ? 'Salvar alterações' : 'Criar perfil'}
             </Button>
           </div>

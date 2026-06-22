@@ -8,12 +8,11 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_PERFIS } from '@/components/onboarding/configs'
+import { useConfirm, useToast } from '@/components/ui/feedback'
 
 interface Perfil {
   id: string
   nome: string
-  publico: boolean
-  permissoes: string[]
   totalUsuarios: number
   is_system: boolean
 }
@@ -39,6 +38,8 @@ function AvatarStack({ total }: { total: number }) {
 
 export default function PerfisPage() {
   const { empresaAtiva } = useSession()
+  const confirm = useConfirm()
+  const toast = useToast()
   const [perfis, setPerfis] = useState<Perfil[]>([])
   const [loading, setLoading] = useState(true)
   const [modalAberto, setModalAberto] = useState(false)
@@ -63,7 +64,7 @@ export default function PerfisPage() {
           .select('usuario_id', { count: 'exact', head: true })
           .eq('perfil_id', p.id)
           .eq('empresa_id', empresaAtiva.id)
-        return { ...p, publico: false, permissoes: [], totalUsuarios: count ?? 0 }
+        return { ...p, totalUsuarios: count ?? 0 }
       }))
       setPerfis(comContagens)
     }
@@ -71,6 +72,18 @@ export default function PerfisPage() {
   }
 
   useEffect(() => { carregar() }, [empresaAtiva?.id])
+
+  async function excluir(perfil: Perfil) {
+    if (perfil.totalUsuarios > 0) {
+      toast.error(`"${perfil.nome}" está atribuído a ${perfil.totalUsuarios} usuário(s). Reatribua-os antes de excluir.`)
+      return
+    }
+    if (!await confirm({ titulo: `Excluir o perfil "${perfil.nome}"?`, mensagem: 'Esta ação não pode ser desfeita.', confirmarLabel: 'Excluir', perigo: true })) return
+    const { error } = await createClient().from('perfis').delete().eq('id', perfil.id)
+    if (error) { toast.error('Não foi possível excluir o perfil.'); return }
+    toast.success('Perfil excluído.')
+    carregar()
+  }
 
   if (!empresaAtiva) return (
     <div className="py-16 text-center">
@@ -112,7 +125,8 @@ export default function PerfisPage() {
             <div className="flex items-center gap-3">
               <AvatarStack total={perfil.totalUsuarios} />
               {!perfil.is_system && (
-                <button className="text-gray-300 hover:text-red-400 transition-colors p-1 ml-1">
+                <button onClick={() => excluir(perfil)}
+                  className="text-gray-300 hover:text-red-400 transition-colors p-1 ml-1">
                   <Trash2 size={16} />
                 </button>
               )}
