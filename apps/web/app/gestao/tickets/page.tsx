@@ -8,7 +8,7 @@ import { useSession } from '@/contexts/SessionContext'
 import NovoTicketModal from '@/components/tickets/NovoTicketModal'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_TICKETS } from '@/components/onboarding/configs'
-import { ticketVisivel, slaStatus, STATUS_ABERTOS } from '@/lib/tickets'
+import { ticketVisivel, slaStatus, STATUS_ABERTOS, STATUS_NAO_ACEITO, STATUS_EM_TRATAMENTO } from '@/lib/tickets'
 import { ehAdminDaEmpresa } from '@/lib/admin'
 
 interface TicketRow {
@@ -64,7 +64,7 @@ export default function TicketsPage() {
   const [tickets, setTickets]     = useState<TicketRow[]>([])
   const [loading, setLoading]     = useState(true)
   const [busca,   setBusca]       = useState('')
-  const [filtroStatus, setFiltroStatus] = useState<'abertos' | 'fechados' | 'todos'>('abertos')
+  const [filtroStatus, setFiltroStatus] = useState<'aberto' | 'tratamento' | 'finalizados' | 'todos'>('aberto')
   const [novoOpen, setNovoOpen]   = useState(false)
   const [userId, setUserId]       = useState<string | null>(null)
   const [isAdmin, setIsAdmin]     = useState(false)
@@ -103,8 +103,11 @@ export default function TicketsPage() {
   const visCtx = { userId, isAdmin, meusSubgrupos }
   const filtrados = tickets.filter(t => {
     if (!ticketVisivel(t, visCtx)) return false
-    const matchStatus = filtroStatus === 'todos' ? true
-      : filtroStatus === 'abertos' ? ABERTOS.includes(t.status) : !ABERTOS.includes(t.status)
+    const matchStatus =
+      filtroStatus === 'todos'      ? true :
+      filtroStatus === 'aberto'     ? STATUS_NAO_ACEITO.includes(t.status as any) :
+      filtroStatus === 'tratamento' ? STATUS_EM_TRATAMENTO.includes(t.status as any) :
+      !ABERTOS.includes(t.status)   // finalizados
     const matchBusca = !busca || t.titulo.toLowerCase().includes(busca.toLowerCase())
       || String(t.numero).includes(busca)
     return matchStatus && matchBusca
@@ -112,9 +115,10 @@ export default function TicketsPage() {
 
   const visiveis = tickets.filter(t => ticketVisivel(t, visCtx))
   const contadores = {
-    abertos:  visiveis.filter(t => ABERTOS.includes(t.status)).length,
-    fechados: visiveis.filter(t => !ABERTOS.includes(t.status)).length,
-    criticos: visiveis.filter(t => t.prioridade === 'critica' && ABERTOS.includes(t.status)).length,
+    naoAceitos:   visiveis.filter(t => STATUS_NAO_ACEITO.includes(t.status as any)).length,
+    emTratamento: visiveis.filter(t => STATUS_EM_TRATAMENTO.includes(t.status as any)).length,
+    fechados:     visiveis.filter(t => !ABERTOS.includes(t.status)).length,
+    criticos:     visiveis.filter(t => t.prioridade === 'critica' && ABERTOS.includes(t.status)).length,
   }
 
   return (
@@ -133,14 +137,18 @@ export default function TicketsPage() {
       </div>
 
       {/* Cards de resumo */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-100 p-4">
-          <div className="text-2xl font-bold text-gray-800">{contadores.abertos}</div>
-          <div className="text-xs text-gray-500 mt-0.5">Em aberto</div>
+          <div className="text-2xl font-bold text-blue-700">{contadores.naoAceitos}</div>
+          <div className="text-xs text-gray-500 mt-0.5">Em aberto (a aceitar)</div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 p-4">
+          <div className="text-2xl font-bold text-purple-700">{contadores.emTratamento}</div>
+          <div className="text-xs text-gray-500 mt-0.5">Em tratamento</div>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4">
           <div className="text-2xl font-bold text-red-600">{contadores.criticos}</div>
-          <div className="text-xs text-gray-500 mt-0.5">Críticos em aberto</div>
+          <div className="text-xs text-gray-500 mt-0.5">Críticos em andamento</div>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4">
           <div className="text-2xl font-bold text-gray-800">{contadores.fechados}</div>
@@ -156,10 +164,15 @@ export default function TicketsPage() {
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
-          {(['abertos', 'fechados', 'todos'] as const).map(f => (
-            <button key={f} onClick={() => setFiltroStatus(f)}
-              className={`px-3 py-2 font-medium transition-colors ${filtroStatus === f ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
-              {f === 'abertos' ? 'Em aberto' : f === 'fechados' ? 'Finalizados' : 'Todos'}
+          {([
+            { v: 'aberto',      label: 'Em aberto' },
+            { v: 'tratamento',  label: 'Em tratamento' },
+            { v: 'finalizados', label: 'Finalizados' },
+            { v: 'todos',       label: 'Todos' },
+          ] as const).map(f => (
+            <button key={f.v} onClick={() => setFiltroStatus(f.v)}
+              className={`px-3 py-2 font-medium transition-colors ${filtroStatus === f.v ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              {f.label}
             </button>
           ))}
         </div>

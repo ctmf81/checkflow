@@ -25,6 +25,14 @@ export const STATUS_ABERTOS: TicketStatus[] = [
   'aberto', 'em_tratamento', 'aguardando_informacao',
 ]
 
+/** Não aceito ainda (ninguém assumiu) — "Em aberto" de verdade. */
+export const STATUS_NAO_ACEITO: TicketStatus[] = ['aberto']
+
+/** Já aceito e em andamento (alguém assumiu) — "Em tratamento". */
+export const STATUS_EM_TRATAMENTO: TicketStatus[] = [
+  'em_tratamento', 'aguardando_informacao', 'aguardando_validacao',
+]
+
 /** Status finalizados (encerram o ciclo de vida do ticket). */
 export const STATUS_FECHADOS: TicketStatus[] = [
   'corrigido', 'nao_corrigido', 'corrigido_parcialmente', 'cancelado', 'improcedente',
