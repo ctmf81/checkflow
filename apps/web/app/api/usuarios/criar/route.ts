@@ -28,6 +28,41 @@ export async function POST(req: NextRequest) {
 
     const supabaseAdmin = makeAdmin()
 
+    // ── Pessoa já cadastrada? (mesma pessoa pode estar em várias empresas) ──
+    // Se o CPF já existe, vincula o usuário existente a ESTA empresa em vez de
+    // recriar (CPF é único). Não mexe no auth, senha ou dados pessoais dele.
+    const { data: existente } = await supabaseAdmin
+      .from('usuarios').select('id').eq('cpf', cpfDigits).maybeSingle()
+
+    if (existente) {
+      const { data: jaVinculado } = await supabaseAdmin
+        .from('usuario_empresa').select('usuario_id')
+        .eq('usuario_id', existente.id).eq('empresa_id', empresaId).maybeSingle()
+      if (jaVinculado) {
+        return NextResponse.json({ message: 'Esta pessoa já está cadastrada nesta empresa.' }, { status: 409 })
+      }
+
+      const { error: ueErr } = await supabaseAdmin.from('usuario_empresa')
+        .insert({ usuario_id: existente.id, empresa_id: empresaId, perfil_id: perfilId })
+      if (ueErr) {
+        return NextResponse.json({ message: 'Não foi possível vincular a pessoa à empresa.' }, { status: 400 })
+      }
+
+      if (Array.isArray(unidades) && unidades.length > 0) {
+        const { error: uuErr } = await supabaseAdmin.from('usuario_unidade').insert(
+          unidades.map((uid: string) => ({ usuario_id: existente.id, unidade_id: uid }))
+        )
+        if (uuErr) {
+          // Rollback do vínculo de empresa para não deixar estado parcial
+          await supabaseAdmin.from('usuario_empresa').delete()
+            .eq('usuario_id', existente.id).eq('empresa_id', empresaId)
+          return NextResponse.json({ message: 'Não foi possível vincular a pessoa às unidades.' }, { status: 400 })
+        }
+      }
+
+      return NextResponse.json({ id: existente.id, vinculado: true }, { status: 200 })
+    }
+
     // E-mail é opcional. Sem e-mail real, gera um endereço técnico
     // (não-entregável) só para satisfazer o auth.users — login é por CPF.
     const emailFinal = (email ?? '').trim() || `${cpfDigits}@checkflow.local`

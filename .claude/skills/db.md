@@ -253,6 +253,10 @@ escala:         { "data_referencia": "YYYY-MM-DD", "hora_inicio": "HH:MM",
 ```
 
 `usuarios.turno_id` (nullable FK → `turnos`) — vínculo opcional 1 turno por usuário, editável em `UsuarioModal.tsx`.
+
+**Perfil por empresa / vínculo de pessoa existente** (migration 20260622140000):
+- `trg_validar_troca_perfil` agora roda em **INSERT or UPDATE** de `usuario_empresa` (era só UPDATE) — guard do perfil não-público também no 1º vínculo. Bypass quando `auth.uid()` null (service-role).
+- `buscar_pessoa_por_cpf(p_cpf)` → `(id, nome, telefone)` security definer, restrita a admin sistema/empresa. Usada pelo `UsuarioModal` p/ detectar CPF já cadastrado e oferecer vínculo a outra empresa (mesma pessoa, perfil próprio por empresa).
 Função `usuario_esta_no_turno(p_usuario_id, p_momento default now())` → boolean — calcula se o usuário está dentro do turno **agora**, suportando ambos os tipos (administrativo: olha dia da semana + janela; escala: calcula posição no ciclo trabalho/folga desde `data_referencia`). Sem turno = sempre `true` (não restringe).
 
 **Modo fora do turno** (migration `20260622120000`) — 3 funções derivadas (todas `sem turno/inativo` = não restringe):

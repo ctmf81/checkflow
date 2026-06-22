@@ -301,8 +301,13 @@ Atividade tipo `padrao`: validação **complexa** cujo valor de referência NÃO
 - `perfis.publico` (boolean): determina quem pode atribuir aquele perfil a um usuário
   - **Público** = pode ser atribuído por quem gerencia usuários do próprio grupo/setor (ex: substituição temporária de um líder de férias, sem precisar do admin da empresa)
   - **Não público** = só pode ser atribuído pelo Administrador da empresa
-- ✅ Reforçado em DB via trigger `trg_validar_troca_perfil` (migration 20260607100800) — bloqueia a troca para perfil não-público se quem altera não for Admin da empresa/sistema, mesmo via chamada direta à API
+- ✅ Reforçado em DB via trigger `trg_validar_troca_perfil` — bloqueia atribuir perfil não-público se quem faz não for Admin da empresa/sistema, mesmo via chamada direta à API. **Vale em INSERT e UPDATE** (migration 20260622140000 ampliou do UPDATE-only original 20260607100800). Bypass quando `auth.uid()` é null (service-role da API de criação é confiável).
 - ✅ Aplicado em `UsuarioModal.tsx`: verifica o `perfil_id` de quem está editando em `usuario_empresa` — se for "Admin da empresa" (`00000000-0000-0000-0000-000000000002`) ou "Admin de sistema" (`...001`), vê todos os perfis; caso contrário, só vê perfis `publico = true` (+ o perfil atual do usuário sendo editado, para não escondê-lo)
+
+## Usuário em múltiplas empresas (perfil por empresa)
+- A **mesma pessoa** (1 linha em `usuarios`, login por **CPF** único) pode pertencer a **várias empresas**, com **`perfil_id` próprio em cada** (`usuario_empresa`). Unidades também são por empresa (`usuario_unidade`).
+- **Vincular pessoa existente** (2026-06-22): em "Adicionar usuário" (`UsuarioModal`), ao sair do campo CPF (`onBlur`) chama a RPC `buscar_pessoa_por_cpf` (só admin sistema/empresa). Se o CPF já existe, entra em **modo vínculo**: nome/e-mail/telefone ficam read-only (dados pessoais não mudam), banner avisa, botão vira "Vincular à empresa".
+- `/api/usuarios/criar`: se o CPF já existe, **vincula** (insert `usuario_empresa` + `usuario_unidade`) em vez de recriar — **não** cria auth user, **não** envia OTP de primeiro acesso, **não** altera senha. Se já estiver nesta empresa → 409 "já está cadastrada nesta empresa". Antes (bug): o fluxo só sabia criar do zero e batia na unicidade do CPF.
 
 ## Tickets / Chamados
 

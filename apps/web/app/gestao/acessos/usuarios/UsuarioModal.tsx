@@ -59,6 +59,24 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
+  // Pessoa já cadastrada no sistema (mesmo CPF em outra empresa) → modo vínculo
+  const [pessoaExistente, setPessoaExistente] = useState<{ id: string; nome: string } | null>(null)
+
+  async function verificarCpf() {
+    if (isEdicao) return
+    const digits = cpf.replace(/\D/g, '')
+    if (digits.length !== 11) { setPessoaExistente(null); return }
+    const { data } = await createClient().rpc('buscar_pessoa_por_cpf', { p_cpf: digits })
+    const p = Array.isArray(data) ? data[0] : data
+    if (p?.id) {
+      setPessoaExistente({ id: p.id, nome: p.nome })
+      // Pré-preenche para passar nas validações (campos ficam read-only no modo vínculo)
+      if (p.nome) setNome(p.nome)
+      if (p.telefone) setTelefone(formatTelefone(p.telefone))
+    } else {
+      setPessoaExistente(null)
+    }
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -223,7 +241,8 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
             <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome completo"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" required />
+              disabled={!!pessoaExistente}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 disabled:opacity-60" required />
           </div>
 
           <div>
@@ -231,22 +250,35 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
               E-mail <span className="text-gray-400 font-normal">(opcional)</span>
             </label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@exemplo.com"
-              disabled={isEdicao}
+              disabled={isEdicao || !!pessoaExistente}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 disabled:opacity-60" />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
-            <input value={cpf} onChange={e => setCpf(formatCPF(e.target.value))} placeholder="000.000.000-00"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" required />
+            <input value={cpf}
+              onChange={e => { setCpf(formatCPF(e.target.value)); if (pessoaExistente) setPessoaExistente(null) }}
+              onBlur={verificarCpf}
+              disabled={isEdicao}
+              placeholder="000.000.000-00"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 disabled:opacity-60" required />
             <p className="text-xs text-gray-400 mt-1">Usado para fazer login no sistema.</p>
           </div>
+
+          {pessoaExistente && (
+            <div className="text-xs text-blue-700 bg-blue-50 border border-blue-100 px-3 py-2 rounded-lg">
+              <strong>{pessoaExistente.nome}</strong> já está cadastrado(a) no sistema. Ao salvar, a pessoa será
+              <strong> vinculada a esta empresa</strong> com o perfil e as unidades escolhidos — sem alterar os
+              dados pessoais nem a senha que já possui.
+            </div>
+          )}
 
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">Telefone (WhatsApp)</label>
               <input value={telefone} onChange={e => setTelefone(formatTelefone(e.target.value))} placeholder="(00) 9 0000-0000"
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" required />
+                disabled={!!pessoaExistente}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 disabled:opacity-60" required />
             </div>
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">Perfil</label>
@@ -302,7 +334,7 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
             )}
           </div>
 
-          {!isEdicao && (
+          {!isEdicao && !pessoaExistente && (
             <p className="text-xs text-gray-400 bg-gray-50 px-3 py-2 rounded-lg">
               Uma senha temporária será gerada e o usuário receberá instruções de acesso por WhatsApp{email && ' e e-mail'}.
             </p>
@@ -313,7 +345,7 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
           <div className="flex items-center justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">Cancelar</button>
             <Button type="submit" disabled={salvando}>
-              {salvando ? 'Salvando...' : isEdicao ? 'Salvar alterações' : 'Adicionar usuário'}
+              {salvando ? 'Salvando...' : isEdicao ? 'Salvar alterações' : pessoaExistente ? 'Vincular à empresa' : 'Adicionar usuário'}
             </Button>
           </div>
         </form>
