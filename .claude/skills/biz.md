@@ -80,6 +80,11 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - **Funil de Execuções** (período 1h/6h/12h/24h/15d/30d): tudo em **EXECUÇÕES concluídas** → Executados / Aprovados / Reprovados / **Em moderação** (execuções com ≥1 plano em moderação). Abaixo, **indicador de moderação por nível** (contagem de PLANOS): Aguardando N1 (em_moderacao_n1 + reaberto) / Aguardando N2 (em_moderacao_n2). **Últimas Execuções** (filtros Todos/Reprovados/Com PA, link PDF/planos) + Primeiros Passos.
 - **Bloco "Planos com SLA crítico" REMOVIDO da Home (2026-06-20)** — Home é só checklist; SLA segue arquivado na UI. O campo `plano_acao_sla_horas` (SLA por atividade no montador) permanece no banco; `sla_prazo` do plano continua sendo calculado na abertura (`abertura + horas`), apenas não é exibido.
 
+## Indicadores (`/gestao/indicadores`) — revisado 2026-06-22
+- **Visão de UNIDADE** (escopado por `unidadeAtiva.id`; antes agregava várias unidades). Só de **checklist** por enquanto (reincidência/desempenho). Período 24h/15d/30d.
+- Cards: **Top 5 checklists mais reprovados** e **Top 5 atividades com maior não conformidade** (por volume no período).
+- **REMOVIDO** o card "Taxa de aprovação por unidade" (cruzava unidades/empresas) — 2026-06-22. **Visão de EMPRESA (cross-unidade) virá depois**, à parte (consolidando todas as unidades da empresa).
+
 ## Operação — tela principal (`/operacao`)
 - Acesso restrito a usuários com **perfil de Operação** (ou perfil que permita a tela). Sem seletor de unidade na tela (unidade vem da sessão).
 - **Visibilidade**: o operador vê só os checklists publicados dos **subgrupos aos quais está associado** (`usuario_subgrupo`). Associação feita em **Gestão → Grupos** (UsuariosGrupoModal/AdicionarUsuarioModal nas telas de grupos/subgrupos).
