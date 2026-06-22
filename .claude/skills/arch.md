@@ -73,5 +73,11 @@ Current types: `sim_nao`, `numero`, `texto`, `multipla_escolha`, `catalogo`, `fo
 3. Never commit secrets or `.env` values
 4. RLS is mandatory on every user-data table
 
+## Autorização (modelo app-wide)
+- **A barreira de autorização é a RLS no Postgres**, não a UI. O Sidebar da Gestão é **estático** (mostra todos os itens) e as telas **não** escondem/desabilitam ações (Criar/Editar/Excluir) conforme as permissões do usuário. Quem não pode agir toma erro da RLS ao tentar.
+- Não existe hook client-side de permissão (`usePermissao`); a tabela `permissoes`/`perfil_permissoes` define os acessos mas o gating é no banco.
+- Consequência p/ revisão: "botão aparece pra todo mundo" **não é bug de tela** — é o padrão. Só vale corrigir com decisão app-wide (gating uniforme), nunca ad-hoc numa tela.
+- Exceção: lógica sensível tem trigger dedicado (ex: `validar_troca_perfil` em `usuario_empresa` — só admin atribui perfil não público; ⚠️ só em UPDATE, não em INSERT).
+
 ## Evolution Rule
 When the user says "update skills with what we did today", check which stack decisions changed and rewrite this file to reflect them. Keep bullets concise — no prose paragraphs.
