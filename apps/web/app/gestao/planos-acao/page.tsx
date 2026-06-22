@@ -40,7 +40,7 @@ const STATUS_CONFIG: Record<StatusPlano, { label: string; cor: string; Icon: any
   nao_corrigido:   { label: 'Não corrigido',cor: 'bg-red-100 text-red-700',       Icon: XCircle },
 }
 
-type Filtro = 'abertos' | 'corrigido' | 'nao_corrigido' | 'todos'
+type Filtro = 'abertos' | 'n1' | 'n2' | 'corrigido' | 'nao_corrigido' | 'todos'
 
 const FILTROS: { valor: Filtro; label: string }[] = [
   { valor: 'abertos',       label: 'Abertos' },
@@ -51,10 +51,14 @@ const FILTROS: { valor: Filtro; label: string }[] = [
 
 function statusDeFiltro(f: Filtro): StatusPlano[] {
   if (f === 'abertos')       return ['em_moderacao_n1', 'em_moderacao_n2']
+  if (f === 'n1')            return ['em_moderacao_n1']
+  if (f === 'n2')            return ['em_moderacao_n2']
   if (f === 'corrigido')     return ['corrigido']
   if (f === 'nao_corrigido') return ['nao_corrigido']
   return ['em_moderacao_n1', 'em_moderacao_n2', 'corrigido', 'nao_corrigido']
 }
+
+const FILTROS_VALIDOS: Filtro[] = ['abertos', 'n1', 'n2', 'corrigido', 'nao_corrigido', 'todos']
 
 function DataRelativa({ iso }: { iso: string }) {
   const diff = Date.now() - new Date(iso).getTime()
@@ -81,7 +85,10 @@ function PlanosAcaoContent() {
   const searchParams = useSearchParams()
   const { empresaAtiva, unidadeAtiva } = useSession()
   const execId = searchParams.get('exec')
-  const [filtro, setFiltro] = useState<Filtro>('abertos')
+  const filtroUrl = searchParams.get('filtro') as Filtro | null
+  const [filtro, setFiltro] = useState<Filtro>(
+    filtroUrl && FILTROS_VALIDOS.includes(filtroUrl) ? filtroUrl : 'abertos'
+  )
   const [planos, setPlanos] = useState<PlanoItem[]>([])
   const [loading, setLoading] = useState(true)
   const [nomeChecklist, setNomeChecklist] = useState<string | null>(null)

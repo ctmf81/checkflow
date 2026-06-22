@@ -311,7 +311,8 @@ export default function IndicadoresPage() {
         </button>
       </div>
 
-      {/* ── Top 5 Checklists ── */}
+      {/* ── Top 5 Checklists ── (oculto se vazio) */}
+      {(loadingChecklists || topChecklists.length > 0) && (
       <div className="bg-white border border-gray-200 rounded-2xl p-5">
         <div className="flex items-center gap-2 mb-5">
           <div className="w-8 h-8 bg-red-50 rounded-xl flex items-center justify-center">
@@ -325,11 +326,6 @@ export default function IndicadoresPage() {
 
         {loadingChecklists ? (
           <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
-        ) : topChecklists.length === 0 ? (
-          <div className="text-center py-8">
-            <Trophy size={28} className="text-gray-200 mx-auto mb-2" />
-            <p className="text-sm text-gray-400">Nenhuma reprovação no período. 🎉</p>
-          </div>
         ) : (
           <div className="space-y-3">
             {topChecklists.map((c, idx) => (
@@ -350,8 +346,10 @@ export default function IndicadoresPage() {
           </div>
         )}
       </div>
+      )}
 
-      {/* ── Top 5 Atividades ── */}
+      {/* ── Top 5 Atividades ── (oculto se vazio) */}
+      {(loadingAtividades || topAtividades.length > 0) && (
       <div className="bg-white border border-gray-200 rounded-2xl p-5">
         <div className="flex items-center gap-2 mb-5">
           <div className="w-8 h-8 bg-amber-50 rounded-xl flex items-center justify-center">
@@ -365,11 +363,6 @@ export default function IndicadoresPage() {
 
         {loadingAtividades ? (
           <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
-        ) : topAtividades.length === 0 ? (
-          <div className="text-center py-8">
-            <Trophy size={28} className="text-gray-200 mx-auto mb-2" />
-            <p className="text-sm text-gray-400">Nenhuma não conformidade no período. 🎉</p>
-          </div>
         ) : (
           <div className="space-y-3">
             {topAtividades.map((a, idx) => (
@@ -391,103 +384,125 @@ export default function IndicadoresPage() {
           </div>
         )}
       </div>
+      )}
 
-      {/* ── Tickets ── */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-8 h-8 bg-blue-50 rounded-xl flex items-center justify-center">
-            <Ticket size={15} className="text-blue-500" />
+      {/* ── Planos de Ação ── (acima de Tickets; oculto se vazio) */}
+      {(loadingPlanos || planos.emModeracao + planos.corrigidos + planos.naoCorrigidos > 0) && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 bg-orange-50 rounded-xl flex items-center justify-center">
+              <ClipboardList size={15} className="text-orange-500" />
+            </div>
+            <p className="text-sm font-semibold text-gray-800">Planos de ação no período</p>
           </div>
-          <p className="text-sm font-semibold text-gray-800">Tickets no período</p>
-        </div>
-        {loadingTickets ? (
-          <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
-        ) : (
-          <>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {loadingPlanos ? (
+            <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
               {[
-                { label: 'Em aberto', valor: tickets.naoAceitos, cor: 'text-blue-700' },
-                { label: 'Em tratamento', valor: tickets.emTratamento, cor: 'text-purple-700' },
-                { label: 'Críticos em andamento', valor: tickets.criticos, cor: 'text-red-600' },
-                { label: 'Finalizados', valor: tickets.finalizados, cor: 'text-gray-700' },
+                { label: 'Em moderação', valor: planos.emModeracao, cor: 'text-amber-700', filtro: 'abertos' },
+                { label: 'Aguardando N1', valor: planos.aguardN1, cor: 'text-amber-600', filtro: 'n1' },
+                { label: 'Aguardando N2', valor: planos.aguardN2, cor: 'text-orange-600', filtro: 'n2' },
+                { label: 'Corrigidos', valor: planos.corrigidos, cor: 'text-green-700', filtro: 'corrigido' },
+                { label: 'Não corrigidos', valor: planos.naoCorrigidos, cor: 'text-red-600', filtro: 'nao_corrigido' },
               ].map(c => (
-                <div key={c.label} className="bg-gray-50 rounded-xl p-3">
+                <button key={c.label} onClick={() => router.push(`/gestao/planos-acao?filtro=${c.filtro}`)}
+                  className="bg-gray-50 rounded-xl p-3 text-left hover:bg-gray-100 transition-colors">
                   <p className={`text-2xl font-bold ${c.cor}`}>{c.valor}</p>
                   <p className="text-xs text-gray-500 mt-0.5">{c.label}</p>
-                </div>
+                </button>
               ))}
             </div>
-            {tickets.topCategorias.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <p className="text-xs font-medium text-gray-500 mb-2">Top categorias</p>
-                <div className="space-y-2">
-                  {tickets.topCategorias.map(c => (
-                    <div key={c.nome} className="flex items-center gap-3">
-                      <span className="text-sm text-gray-700 flex-1 truncate">{c.nome}</span>
-                      <BarHorizontal valor={c.total} max={tickets.topCategorias[0].total} cor="bg-blue-400" />
-                      <span className="text-xs text-gray-500 flex-shrink-0 w-8 text-right">{c.total}</span>
-                    </div>
-                  ))}
+          )}
+        </div>
+      )}
+
+      {/* ── Tickets ── (oculto se vazio) */}
+      {(loadingTickets || tickets.naoAceitos + tickets.emTratamento + tickets.finalizados > 0) && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 bg-blue-50 rounded-xl flex items-center justify-center">
+              <Ticket size={15} className="text-blue-500" />
+            </div>
+            <p className="text-sm font-semibold text-gray-800">Tickets no período</p>
+          </div>
+          {loadingTickets ? (
+            <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: 'Em aberto', valor: tickets.naoAceitos, cor: 'text-blue-700', status: 'aberto' },
+                  { label: 'Em tratamento', valor: tickets.emTratamento, cor: 'text-purple-700', status: 'tratamento' },
+                  { label: 'Críticos em andamento', valor: tickets.criticos, cor: 'text-red-600', status: 'todos' },
+                  { label: 'Finalizados', valor: tickets.finalizados, cor: 'text-gray-700', status: 'finalizados' },
+                ].map(c => (
+                  <button key={c.label} onClick={() => router.push(`/gestao/tickets?status=${c.status}`)}
+                    className="bg-gray-50 rounded-xl p-3 text-left hover:bg-gray-100 transition-colors">
+                    <p className={`text-2xl font-bold ${c.cor}`}>{c.valor}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{c.label}</p>
+                  </button>
+                ))}
+              </div>
+              {tickets.topCategorias.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <p className="text-xs font-medium text-gray-500 mb-2">Top categorias</p>
+                  <div className="space-y-2">
+                    {tickets.topCategorias.map(c => (
+                      <div key={c.nome} className="flex items-center gap-3">
+                        <span className="text-sm text-gray-700 flex-1 truncate">{c.nome}</span>
+                        <BarHorizontal valor={c.total} max={tickets.topCategorias[0].total} cor="bg-blue-400" />
+                        <span className="text-xs text-gray-500 flex-shrink-0 w-8 text-right">{c.total}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* ── Planos de Ação ── */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-8 h-8 bg-orange-50 rounded-xl flex items-center justify-center">
-            <ClipboardList size={15} className="text-orange-500" />
-          </div>
-          <p className="text-sm font-semibold text-gray-800">Planos de ação no período</p>
+              )}
+            </>
+          )}
         </div>
-        {loadingPlanos ? (
-          <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
-        ) : (
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-            {[
-              { label: 'Em moderação', valor: planos.emModeracao, cor: 'text-amber-700' },
-              { label: 'Aguardando N1', valor: planos.aguardN1, cor: 'text-amber-600' },
-              { label: 'Aguardando N2', valor: planos.aguardN2, cor: 'text-orange-600' },
-              { label: 'Corrigidos', valor: planos.corrigidos, cor: 'text-green-700' },
-              { label: 'Não corrigidos', valor: planos.naoCorrigidos, cor: 'text-red-600' },
-            ].map(c => (
-              <div key={c.label} className="bg-gray-50 rounded-xl p-3">
-                <p className={`text-2xl font-bold ${c.cor}`}>{c.valor}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{c.label}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      )}
 
-      {/* ── Tarefas ── */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-8 h-8 bg-teal-50 rounded-xl flex items-center justify-center">
-            <ListChecks size={15} className="text-teal-500" />
+      {/* ── Tarefas ── (oculto se vazio) */}
+      {(loadingTarefas || tarefas.listasAtivas + tarefas.respostas > 0) && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 bg-teal-50 rounded-xl flex items-center justify-center">
+              <ListChecks size={15} className="text-teal-500" />
+            </div>
+            <p className="text-sm font-semibold text-gray-800">Tarefas no período</p>
           </div>
-          <p className="text-sm font-semibold text-gray-800">Tarefas no período</p>
+          {loadingTarefas ? (
+            <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
+          ) : (
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: 'Listas ativas', valor: tarefas.listasAtivas, cor: 'text-teal-700' },
+                { label: 'Respostas', valor: tarefas.respostas, cor: 'text-gray-700' },
+                { label: '% concluído', valor: `${tarefas.pctConcluido}%`, cor: 'text-green-700' },
+              ].map(c => (
+                <button key={c.label} onClick={() => router.push('/gestao/tarefas')}
+                  className="bg-gray-50 rounded-xl p-3 text-left hover:bg-gray-100 transition-colors">
+                  <p className={`text-2xl font-bold ${c.cor}`}>{c.valor}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{c.label}</p>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        {loadingTarefas ? (
-          <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
-        ) : (
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: 'Listas ativas', valor: tarefas.listasAtivas, cor: 'text-teal-700' },
-              { label: 'Respostas', valor: tarefas.respostas, cor: 'text-gray-700' },
-              { label: '% concluído', valor: `${tarefas.pctConcluido}%`, cor: 'text-green-700' },
-            ].map(c => (
-              <div key={c.label} className="bg-gray-50 rounded-xl p-3">
-                <p className={`text-2xl font-bold ${c.cor}`}>{c.valor}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{c.label}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      )}
+
+      {/* Sem nenhum dado no período (todos os grupos vazios) */}
+      {!loadingChecklists && !loadingAtividades && !loadingTickets && !loadingPlanos && !loadingTarefas
+        && topChecklists.length === 0 && topAtividades.length === 0
+        && tickets.naoAceitos + tickets.emTratamento + tickets.finalizados === 0
+        && planos.emModeracao + planos.corrigidos + planos.naoCorrigidos === 0
+        && tarefas.listasAtivas + tarefas.respostas === 0 && (
+        <div className="text-center py-12">
+          <Trophy size={32} className="text-gray-200 mx-auto mb-2" />
+          <p className="text-sm text-gray-400">Sem dados no período nesta unidade.</p>
+        </div>
+      )}
 
     </div>
   )
