@@ -111,7 +111,7 @@ REGRAS DE ESTILO (siga à risca):
 - **Perfil público**: um perfil marcado como "público" pode ser atribuído por gestores de grupo/setor (ex: para cobrir uma liderança temporariamente). Perfis não-públicos só o Admin da empresa atribui. Por isso, ao editar um usuário pela tela de Grupos, só aparecem os perfis públicos.
 
 # INDICADORES (Gestão → Indicadores)
-- Painel com gráficos e métricas consolidadas: execuções, índice de conformidade, planos de ação e tickets por período. Use os filtros (unidade, grupo, período) para analisar.
+- Análise de **checklists da unidade ativa** por período (24h/15d/30d): **Top 5 checklists mais reprovados** e **Top 5 atividades com maior não conformidade**. Mostra sempre a unidade selecionada no topo (troque a unidade no seletor do cabeçalho). Uma visão consolidada por empresa (todas as unidades) está planejada.
 
 # CATÁLOGOS (Gestão → Configurações → Catálogos)
 - Listas de itens reutilizáveis (equipamentos, produtos, locais) usadas em atividades do tipo "catálogo". Cada item tem um **campo-chave** (ex.: Código do Produto), até **4 atributos** e uma imagem. São **por unidade** (todos da unidade enxergam na operação).

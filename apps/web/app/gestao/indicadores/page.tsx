@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
+import { useSession } from '@/contexts/SessionContext'
 import {
   BarChart2, ArrowLeft, Loader2, RefreshCw,
-  TrendingDown, ClipboardList, Zap, Trophy,
+  TrendingDown, Zap, Trophy,
 } from 'lucide-react'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -29,14 +30,6 @@ interface TopAtividade {
   nao_conformes: number
   total_respostas: number
   taxa: number
-}
-
-interface TaxaUnidade {
-  unidade_id: string
-  unidade_nome: string
-  total: number
-  aprovados: number
-  taxa_aprovacao: number
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -76,49 +69,30 @@ function TaxaBadge({ taxa }: { taxa: number }) {
 
 export default function IndicadoresPage() {
   const router = useRouter()
+  const { unidadeAtiva } = useSession()
   const [periodo, setPeriodo] = useState<Periodo>('24h')
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [unidadeIds, setUnidadeIds] = useState<string[]>([])
-  const [pronto, setPronto] = useState(false)
+
+  // Indicadores são da UNIDADE ATIVA (visão de unidade; visão de empresa virá depois).
+  const unidadeId = unidadeAtiva?.id ?? null
 
   const [topChecklists, setTopChecklists] = useState<TopChecklist[]>([])
   const [topAtividades, setTopAtividades] = useState<TopAtividade[]>([])
-  const [taxaUnidades, setTaxaUnidades]   = useState<TaxaUnidade[]>([])
 
   const [loadingChecklists, setLoadingChecklists] = useState(true)
   const [loadingAtividades, setLoadingAtividades] = useState(true)
-  const [loadingUnidades,   setLoadingUnidades]   = useState(true)
-
-  // Escopo do usuário
-  useEffect(() => {
-    async function init() {
-      const sb = createClient()
-      const { data: { user } } = await sb.auth.getUser()
-      if (!user) return
-      const admin = user.user_metadata?.role === 'admin_sistema'
-      setIsAdmin(admin)
-      if (!admin) {
-        const { data: uu } = await sb.from('usuario_unidade').select('unidade_id').eq('usuario_id', user.id)
-        setUnidadeIds((uu ?? []).map((r: any) => r.unidade_id))
-      }
-      setPronto(true)
-    }
-    init()
-  }, [])
 
   // ── Top 5 checklists com maior reincidência de reprovação ─────────────────
   const carregarTopChecklists = useCallback(async () => {
-    if (!pronto) return
+    if (!unidadeId) return
     setLoadingChecklists(true)
     const sb   = createClient()
     const from = periodoParaISO(periodo)
 
-    let q = sb.from('checklist_execucoes')
+    const q = sb.from('checklist_execucoes')
       .select('checklist_id, resultado, checklists(nome)')
       .eq('status', 'concluido')
+      .eq('unidade_id', unidadeId)
       .gte('data_execucao', from)
-
-    if (!isAdmin && unidadeIds.length > 0) q = q.in('unidade_id', unidadeIds)
 
     const { data } = await q
     const rows = data ?? []
@@ -147,22 +121,21 @@ export default function IndicadoresPage() {
 
     setTopChecklists(lista)
     setLoadingChecklists(false)
-  }, [pronto, periodo, isAdmin, unidadeIds])
+  }, [unidadeId, periodo])
 
   // ── Top 5 atividades com maior reincidência de não conformidade ───────────
   const carregarTopAtividades = useCallback(async () => {
-    if (!pronto) return
+    if (!unidadeId) return
     setLoadingAtividades(true)
     const sb   = createClient()
     const from = periodoParaISO(periodo)
 
     // Pega execuções no período para filtrar respostas
-    let qExec = sb.from('checklist_execucoes')
+    const qExec = sb.from('checklist_execucoes')
       .select('id')
       .eq('status', 'concluido')
+      .eq('unidade_id', unidadeId)
       .gte('data_execucao', from)
-
-    if (!isAdmin && unidadeIds.length > 0) qExec = qExec.in('unidade_id', unidadeIds)
 
     const { data: execs } = await qExec
     const execIds = (execs ?? []).map((e: any) => e.id)
@@ -203,52 +176,14 @@ export default function IndicadoresPage() {
 
     setTopAtividades(lista)
     setLoadingAtividades(false)
-  }, [pronto, periodo, isAdmin, unidadeIds])
-
-  // ── Taxa de aprovação por unidade ─────────────────────────────────────────
-  const carregarTaxaUnidades = useCallback(async () => {
-    if (!pronto || !isAdmin) { setLoadingUnidades(false); return }
-    setLoadingUnidades(true)
-    const sb   = createClient()
-    const from = periodoParaISO(periodo)
-
-    const { data } = await sb.from('checklist_execucoes')
-      .select('unidade_id, resultado, unidades(nome)')
-      .eq('status', 'concluido')
-      .gte('data_execucao', from)
-
-    const mapa: Record<string, { nome: string; total: number; aprovados: number }> = {}
-    for (const r of (data ?? [])) {
-      const id   = r.unidade_id
-      const nome = (r.unidades as any)?.nome ?? '—'
-      if (!mapa[id]) mapa[id] = { nome, total: 0, aprovados: 0 }
-      mapa[id].total++
-      if (r.resultado === 'aprovado') mapa[id].aprovados++
-    }
-
-    const lista: TaxaUnidade[] = Object.entries(mapa)
-      .map(([id, v]) => ({
-        unidade_id:      id,
-        unidade_nome:    v.nome,
-        total:           v.total,
-        aprovados:       v.aprovados,
-        taxa_aprovacao:  v.total > 0 ? Math.round((v.aprovados / v.total) * 100) : 0,
-      }))
-      .sort((a, b) => a.taxa_aprovacao - b.taxa_aprovacao) // piores primeiro
-      .slice(0, 8)
-
-    setTaxaUnidades(lista)
-    setLoadingUnidades(false)
-  }, [pronto, periodo, isAdmin])
+  }, [unidadeId, periodo])
 
   useEffect(() => { carregarTopChecklists() }, [carregarTopChecklists])
   useEffect(() => { carregarTopAtividades() }, [carregarTopAtividades])
-  useEffect(() => { carregarTaxaUnidades() },  [carregarTaxaUnidades])
 
   function recarregarTudo() {
     carregarTopChecklists()
     carregarTopAtividades()
-    carregarTaxaUnidades()
   }
 
   // ─── Render ────────────────────────────────────────────────────────────────
@@ -270,7 +205,9 @@ export default function IndicadoresPage() {
           <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
             <BarChart2 size={20} className="text-orange-500" />Indicadores
           </h1>
-          <p className="text-sm text-gray-400 mt-0.5">Análise de reincidência e desempenho</p>
+          <p className="text-sm text-gray-400 mt-0.5">
+            Reincidência e desempenho{unidadeAtiva ? ` · ${unidadeAtiva.nome}` : ''}
+          </p>
         </div>
         {/* Período */}
         <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
@@ -369,42 +306,6 @@ export default function IndicadoresPage() {
           </div>
         )}
       </div>
-
-      {/* ── Taxa por unidade (só admin) ── */}
-      {isAdmin && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-5">
-          <div className="flex items-center gap-2 mb-5">
-            <div className="w-8 h-8 bg-blue-50 rounded-xl flex items-center justify-center">
-              <ClipboardList size={15} className="text-blue-500" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-gray-800">Taxa de aprovação por unidade</p>
-              <p className="text-xs text-gray-400">Piores unidades primeiro</p>
-            </div>
-          </div>
-
-          {loadingUnidades ? (
-            <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
-          ) : taxaUnidades.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-6">Sem dados no período.</p>
-          ) : (
-            <div className="space-y-3">
-              {taxaUnidades.map(u => (
-                <div key={u.unidade_id} className="flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">{u.unidade_nome}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <BarHorizontal valor={u.aprovados} max={u.total} cor="bg-blue-400" />
-                      <span className="text-xs text-gray-500 flex-shrink-0">{u.aprovados}/{u.total}</span>
-                    </div>
-                  </div>
-                  <TaxaBadge taxa={u.taxa_aprovacao} />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
     </div>
   )

@@ -29,7 +29,7 @@ Next logical step: [one-sentence inference, only if obvious]
 Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste · ❌=pendente
 1. Home `/gestao` ✅ (dashboard só de checklist; escopo unidade ativa; funil por execução + indicador moderação N1/N2; SLA removido)  2. Grupos ✅  3. Tickets→Chamados 🟡 · Categorias ✅ (padrão "Não informada"; obrigatória no ticket; gerir por permissão `ticket/categorias_gerir`+unidade) · Config.SLA ✅ (SLA de tickets mantido; indicadores separam "em aberto/não aceito" de "em tratamento")
 4. Planos de Ação ✅  5. Checklists ✅  6. Tarefas ✅  7. Workflows ⛔off  8. Agendamentos ✅
-9. Indicadores ❌  10. Padrão→Variáveis ❌ · Padrões ❌
+9. Indicadores ✅ (visão de unidade; só checklist; removido card "por unidade"; visão de empresa depois)  10. Padrão→Variáveis ❌ · Padrões ❌
 11. Acessos→Empresa ❌ · Perfis ❌ · Turnos ❌ · Usuários ✅
 12. Plano ❌  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ❌ · Formatação ❌ · Relatórios ❌ · Dashboards ❌ · Causa raiz ❌ · Notificações ❌
 + Ambiente **Sistema** (admin plataforma: empresas, planos/preços, templates, parceiros, integrações IA, onboarding) — revisar ao final/à parte.
