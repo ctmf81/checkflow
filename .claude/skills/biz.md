@@ -220,6 +220,18 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - **Integração via API**: aba "API" no modal — URL + headers(JSON); "Carregar campos" (`/catalogos/test-api`), mapeia campos→atributos, prévia, e "Sincronizar" (`/catalogos/{id}/sync`, upsert; aceita array ou `{data|items|results}`).
 - **Sync automático (cron)**: `POST /catalogos/sync-all` sincroniza todos os catálogos com API configurada — **protegido por `x-cron-secret`** (2026-06-20). ⚠️ Requer um **agendador (Railway cron)** chamando o endpoint com o header; confirmar nas configs de ops.
 
+## Padrão — validação combinatória (revisado 2026-06-22)
+Atividade tipo `padrao`: validação **complexa** cujo valor de referência NÃO é fixo — depende da **combinação de variáveis** escolhida na execução. Caso de uso: linha de produção com vários modelos ao mesmo tempo (ex.: peso do biscoito depende de recheio + textura + formato).
+
+**Modelagem (3 níveis):**
+1. **Variáveis** (`/gestao/padrao/variaveis` → `variaveis` + `variavel_valores`, **por unidade**): atributos com seus valores possíveis (ex.: Formato → quadrado/redondo). Soft-delete (`ativo=false`).
+2. **Padrão** (`/gestao/padrao/criar` → `padroes` + `padrao_variaveis` + `padrao_instancias` + `padrao_instancia_valores`, por unidade): nome + grupo/subgrupo opcional + quais variáveis o compõem + **instâncias**. Cada **instância** = uma combinação específica de valores (1 valor por variável) → **faixa esperada `valor_min`/`valor_max`** (valor único = min=max; pode ter só min OU só max). Validações na criação: combinação completa, faixa numérica, min≤max, combinações duplicadas bloqueadas. Edição **apaga e recria** variáveis+instâncias (não faz diff). Soft-delete.
+3. **Atividade** referencia o padrão por `config.padrao_id`.
+
+**Execução** (`CampoPadrao` em `operacao/[id]/page.tsx`): operador escolhe o valor de cada variável (selects) + digita o número medido → sistema acha a instância com a **combinação exata** e guarda `instancia_id`+`valor_min`+`valor_max` **junto da resposta** (resolve na hora; `calcularValidacao` compara sem reconsultar o banco). Combinação **sem instância** → aviso âmbar "sem valor de referência" e validação fica `null` (não dá pra aprovar/reprovar).
+
+⚠️ **Achados da revisão (a corrigir):** nos saves de `VariavelModal.tsx` e `criar/page.tsx`, as escritas em tabelas filhas (`variavel_valores`, `padrao_variaveis`, `padrao_instancias`, `padrao_instancia_valores`) **não checam `error`** → RLS pode falhar em silêncio e ainda mostrar sucesso. Mensagens de erro expõem `error.message` cru (inconsistente com o padrão genérico das outras telas).
+
 ## WhatsApp (Evolution API)
 - Integração via Evolution API **v2.3.7** (imagem `evoapicloud/evolution-api:v2.3.7` no Railway — atualizada em 2026-06-11; a org `atendai` no Docker Hub está desatualizada)
 - Instância única: `checkflow` (Baileys)
