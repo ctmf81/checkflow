@@ -9,7 +9,7 @@ description: Quality Assurance for CheckFlow — test strategy, suites por tela/
 
 | Camada | Ferramenta | Status |
 |--------|-----------|--------|
-| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **221 testes / 11 arquivos** (2026-06-22) |
+| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **281 testes / 16 arquivos** (2026-06-22) |
 | E2E / Funcional | Playwright | 🔴 não instalado |
 | Pen Test (security, RLS) | `pentest/run.mjs` (Node nativo) | ✅ 48/48 (2026-06-12) — seções 1-10, inclui OTP e Programa de Parceiros |
 | HTTP Security Probe | `pentest/http_probe.mjs` (Node nativo, sem creds) | ✅ 25/26 (2026-06-08, após fix CORS + headers) |
@@ -135,6 +135,9 @@ Espelho TS de 3 funções Postgres (migration 20260609000001): `calcularDeadline
 
 ### ✅ Unit — `calcularValidacao` tipo `padrao` (7 testes, em `validacao.unit.test.ts`)
 Cobre a validação por faixa [min, max] resolvida via combinação de variáveis (feature "Padrões e Variáveis"): dentro/fora da faixa, limites inclusivos, faixa só-min ou só-max, sem instância correspondente → null, valor não numérico → null, formato de resposta inesperado → null.
+
+### ✅ Unit — Validação de cadastro de Padrão — `tests/unit/lib/padrao.unit.test.ts` (15 testes)
+Criado `lib/padrao.ts` (`validarPadrao`, lógica pura **importada** por `app/gestao/padrao/criar/page.tsx` — fonte única, não espelho; extraída da validação inline do `salvar()`). Cobre: nome obrigatório, ao menos 1 variável, instâncias opcionais, combinação completa por instância (com índice 1-based no erro), combinações duplicadas bloqueadas, faixa [min,max] (só-min/só-max/min=max/decimais/negativos), exige ao menos um limite, não-numérico, min>max. **15/15 ✅ (2026-06-22).** Complementa os 7 testes do `calcularValidacao` tipo padrão (lado execução) em `validacao.unit.test.ts`.
 
 ### ✅ Unit — Listas de Tarefas — `tests/unit/lib/tarefas.unit.test.ts` (21 testes)
 Criado `lib/tarefas.ts` (lógica pura, **importada** por `app/operacao/AbaTarefas.tsx` — fonte única, não espelho). Cobre: `aberturaAberta` (sem limite, data futura/passada, qtd abaixo/igual ao máximo, "o que vier primeiro" nas duas combinações), `visivelPara` (interseção por subgrupo; sem subgrupo cai p/ grupo; sem atribuição = invisível), `listaDisponivel` (aberta E visível), `calcularEditavelAte` (null sem janela, soma de horas, atravessa o dia), `edicaoExpirada` (null nunca expira, futuro/passado). **21/21 ✅ (2026-06-18).** Rodar: `cd apps/web && npx vitest run tests/unit/lib/tarefas.unit.test.ts`.

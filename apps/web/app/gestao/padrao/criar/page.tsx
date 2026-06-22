@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
+import { validarPadrao } from '@/lib/padrao'
 
 interface VariavelOpt { id: string; nome: string; valores: { id: string; valor: string }[] }
 interface Instancia { id?: string; valores: Record<string, string>; valor_min: string; valor_max: string }
@@ -117,26 +118,9 @@ function CriarPadraoInner() {
   async function salvar() {
     setErro('')
     const nomeOk = nome.trim()
-    if (!nomeOk) { setErro('Informe o nome do padrão.'); return }
-    if (variaveisSelecionadas.length === 0) { setErro('Selecione ao menos uma variável que compõe este padrão.'); return }
 
-    // valida instâncias: combinação completa + faixa numérica válida
-    for (const [idx, inst] of instancias.entries()) {
-      const completo = variaveisSelecionadas.every(vid => inst.valores[vid])
-      if (!completo) { setErro(`Instância #${idx + 1}: escolha um valor para cada variável.`); return }
-      const minOk = inst.valor_min.trim() === '' || !isNaN(Number(inst.valor_min))
-      const maxOk = inst.valor_max.trim() === '' || !isNaN(Number(inst.valor_max))
-      if (!minOk || !maxOk) { setErro(`Instância #${idx + 1}: valores mínimo/máximo devem ser numéricos.`); return }
-      if (inst.valor_min.trim() === '' && inst.valor_max.trim() === '') {
-        setErro(`Instância #${idx + 1}: informe ao menos o mínimo ou o máximo.`); return
-      }
-      if (inst.valor_min.trim() !== '' && inst.valor_max.trim() !== '' && Number(inst.valor_min) > Number(inst.valor_max)) {
-        setErro(`Instância #${idx + 1}: o mínimo não pode ser maior que o máximo.`); return
-      }
-    }
-    // checa combinações duplicadas
-    const chaves = instancias.map(inst => variaveisSelecionadas.map(v => inst.valores[v]).join('|'))
-    if (new Set(chaves).size !== chaves.length) { setErro('Há instâncias com a mesma combinação de variáveis.'); return }
+    const validacao = validarPadrao(nomeOk, variaveisSelecionadas, instancias)
+    if (!validacao.ok) { setErro(validacao.erro); return }
 
     setSalvando(true)
     const supabase = createClient()
