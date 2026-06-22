@@ -17,21 +17,15 @@ Coluna **Auth**:
 
 ---
 
-## ⚠️ Lacunas de autenticação (corrigir)
+## ✅ Lacunas de autenticação — CORRIGIDAS (2026-06-22)
 
-O inventário revelou rotas que executam ação privilegiada com **service-role**
-**sem autenticar quem chama** — qualquer requisição (mesmo deslogada) que
-alcance a URL consegue executar:
-
-| Rota | Risco |
-|------|-------|
-| `POST /api/usuarios/inativar` | **IDOR**: inativa **qualquer** usuário por `usuarioId`, sem auth. |
-| `POST /api/usuarios/criar` | Cria/vincula usuário (precisa de `empresaId`/`perfilId` válidos) sem auth do chamador. |
-| `POST /api/usuarios/importar` | Importação em massa de usuários sem auth aparente (confirmar). |
-
-Fix sugerido: exigir `Authorization: Bearer` + validar que o chamador é admin
-de sistema/empresa (mesmo padrão de `impersonar`/`resetar-senha`), idealmente
-num helper compartilhado.
+O inventário revelou 3 rotas que executavam ação privilegiada com **service-role**
+**sem autenticar quem chama** (`criar`, `inativar`, `importar` — `inativar` era
+um IDOR: derrubava qualquer usuário por `usuarioId`). **Corrigido:** todas passam
+pelo helper `lib/apiAuth.ts` (`autorizarPermissao`) — exige `Authorization: Bearer`
++ admin de sistema OU permissão `usuarios.criar`/`editar` (via `usuario_tem_permissao`).
+Os callers (UsuarioModal, lista de usuários, ImportarUsuariosModal) passaram a
+enviar o token.
 
 > Obs.: várias rotas Fastify "internas" (`/whatsapp/enviar`, `/tickets/notificar`,
 > `/planos-acao/notificar`, `/tarefas/notificar`) também não têm auth — são
@@ -69,9 +63,9 @@ num helper compartilhado.
 
 | Método | Rota | Auth | Propósito | Body (principais) |
 |--------|------|------|-----------|-------------------|
-| POST | `/api/usuarios/criar` | ⚠️ service-role | Cria usuário OU vincula pessoa existente à empresa | `{ email?, nome, cpf, telefone, senhaTemp, empresaId, perfilId, unidades[] }` |
-| POST | `/api/usuarios/inativar` | ⚠️ service-role | Inativa usuário (`status='inativo'`) | `{ usuarioId }` |
-| POST | `/api/usuarios/importar` | ⚠️ service-role | Importação em massa de usuários | `{ ... }` |
+| POST | `/api/usuarios/criar` | bearer (`usuarios.criar`) | Cria usuário OU vincula pessoa existente à empresa | `{ email?, nome, cpf, telefone, senhaTemp, empresaId, perfilId, unidades[] }` |
+| POST | `/api/usuarios/inativar` | bearer (`usuarios.editar`) | Inativa usuário (`status='inativo'`) | `{ usuarioId }` |
+| POST | `/api/usuarios/importar` | bearer (`usuarios.criar`) | Importação em massa de usuários | `{ usuarios[], empresaId, fonte?, ... }` |
 | POST | `/api/usuarios/impersonar` | bearer (admin_sistema) | Gera magic link de login (logar como) | `{ email }` → `{ link }` |
 | POST | `/api/usuarios/resetar-senha` | bearer (admin sistema/gestor c/ permissão) | Envia código de redefinição por WhatsApp | `{ usuarioId }` |
 | POST | `/api/auth/solicitar-codigo` | pública (anti-enumeração) | Solicita OTP de recuperação | `{ identificador }` |

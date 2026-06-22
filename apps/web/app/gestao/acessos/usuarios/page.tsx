@@ -105,11 +105,17 @@ export default function UsuariosPage() {
 
   async function inativar(usuarioId: string) {
     if (!await confirm({ titulo: 'Inativar este usuário?', mensagem: 'Ele perde o acesso ao sistema imediatamente.', confirmarLabel: 'Inativar', perigo: true })) return
-    await fetch('/api/usuarios/inativar', {
+    const { data: { session } } = await createClient().auth.getSession()
+    const res = await fetch('/api/usuarios/inativar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
       body: JSON.stringify({ usuarioId }),
     })
+    if (!res.ok) {
+      const json = await res.json().catch(() => null)
+      toast.error(json?.error ?? 'Não foi possível inativar o usuário.')
+      return
+    }
     toast.success('Usuário inativado.')
     carregar()
   }
