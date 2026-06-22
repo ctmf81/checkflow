@@ -9,7 +9,7 @@ description: Quality Assurance for CheckFlow — test strategy, suites por tela/
 
 | Camada | Ferramenta | Status |
 |--------|-----------|--------|
-| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **218 testes / 11 arquivos** (2026-06-20) |
+| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **221 testes / 11 arquivos** (2026-06-22) |
 | E2E / Funcional | Playwright | 🔴 não instalado |
 | Pen Test (security, RLS) | `pentest/run.mjs` (Node nativo) | ✅ 48/48 (2026-06-12) — seções 1-10, inclui OTP e Programa de Parceiros |
 | HTTP Security Probe | `pentest/http_probe.mjs` (Node nativo, sem creds) | ✅ 25/26 (2026-06-08, após fix CORS + headers) |

@@ -17,9 +17,30 @@ import {
   slaStatus,
   STATUS_ABERTOS,
   STATUS_FECHADOS,
+  STATUS_NAO_ACEITO,
+  STATUS_EM_TRATAMENTO,
   type AcoesCtx,
   type TicketStatus,
 } from '../../../lib/tickets'
+
+describe('grupos de status — "Em aberto" (não aceito) vs "Em tratamento"', () => {
+  it('não aceito = só "aberto"', () => {
+    expect(STATUS_NAO_ACEITO).toEqual(['aberto'])
+  })
+  it('em tratamento = aceitos em andamento (não inclui "aberto" nem finalizados)', () => {
+    expect(STATUS_EM_TRATAMENTO).not.toContain('aberto')
+    for (const s of STATUS_EM_TRATAMENTO) {
+      expect(STATUS_FECHADOS).not.toContain(s)
+    }
+  })
+  it('aberto + em tratamento cobrem todos os status não finalizados ativos', () => {
+    // STATUS_ABERTOS (ativos no fluxo) = aberto + em_tratamento + aguardando_informacao
+    for (const s of STATUS_ABERTOS) {
+      const coberto = STATUS_NAO_ACEITO.includes(s) || STATUS_EM_TRATAMENTO.includes(s)
+      expect(coberto).toBe(true)
+    }
+  })
+})
 
 // ─── 1) Visibilidade na listagem ───────────────────────────────────────────────
 
