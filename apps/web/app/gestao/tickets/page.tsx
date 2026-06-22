@@ -100,6 +100,12 @@ export default function TicketsPage() {
 
   useEffect(() => { carregar() }, [unidadeAtiva])
 
+  // Pré-filtra ao chegar dos Indicadores (?status=aberto|tratamento|finalizados|todos)
+  useEffect(() => {
+    const s = new URLSearchParams(window.location.search).get('status')
+    if (s === 'aberto' || s === 'tratamento' || s === 'finalizados' || s === 'todos') setFiltroStatus(s)
+  }, [])
+
   const visCtx = { userId, isAdmin, meusSubgrupos }
   const filtrados = tickets.filter(t => {
     if (!ticketVisivel(t, visCtx)) return false
