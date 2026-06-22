@@ -241,7 +241,7 @@ Editado pelo admin em `/sistema/termos` (`TermosAdminPage`): salvar **insere uma
 ### Turnos (migration 20260607000002)
 | Table | Description |
 |-------|-------------|
-| `turnos` | `nome`, `tipo` (`administrativo`\|`escala`), `config` jsonb, `ativo` |
+| `turnos` | `nome`, `tipo` (`administrativo`\|`escala`), `config` jsonb, `ativo`, `modo_fora_turno` (`notificacao`\|`login`\|`aviso`, default `notificacao` — migration `20260622120000`) |
 
 **`config` shapes:**
 ```
@@ -253,7 +253,12 @@ escala:         { "data_referencia": "YYYY-MM-DD", "hora_inicio": "HH:MM",
 ```
 
 `usuarios.turno_id` (nullable FK → `turnos`) — vínculo opcional 1 turno por usuário, editável em `UsuarioModal.tsx`.
-Função `usuario_esta_no_turno(p_usuario_id, p_momento default now())` → boolean — calcula se o usuário está dentro do turno **agora**, suportando ambos os tipos (administrativo: olha dia da semana + janela; escala: calcula posição no ciclo trabalho/folga desde `data_referencia`). Sem turno = sempre `true` (não restringe). Usada em `/planos-acao/notificar` (API) para pular o envio de WhatsApp a quem está fora do turno — não afeta e-mail nem a capacidade de moderar pelo sistema.
+Função `usuario_esta_no_turno(p_usuario_id, p_momento default now())` → boolean — calcula se o usuário está dentro do turno **agora**, suportando ambos os tipos (administrativo: olha dia da semana + janela; escala: calcula posição no ciclo trabalho/folga desde `data_referencia`). Sem turno = sempre `true` (não restringe).
+
+**Modo fora do turno** (migration `20260622120000`) — 3 funções derivadas (todas `sem turno/inativo` = não restringe):
+- `usuario_recebe_notificacao(uid, momento)` → `false` só se turno ativo modo `notificacao` e fora do horário. Usada nas 3 rotas de notificação WhatsApp (`/planos-acao/notificar`, `/tarefas/notificar`, `/tickets/notificar`) — substituiu o uso direto de `usuario_esta_no_turno`.
+- `usuario_pode_acessar(uid, momento)` (security definer) → `false` só se turno ativo modo `login`, fora do horário, e **não** `is_admin_sistema()` nem `is_admin_empresa(empresa_id)`. Chamada no login (web) após autenticar; `false` → `signOut`.
+- `usuario_deve_avisar_turno(uid, momento)` → `true` se turno ativo modo `aviso` e fora. Consumida por `AvisoTurno.tsx` (banner nos layouts).
 
 ### Catálogos
 | Table | Description |

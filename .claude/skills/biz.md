@@ -283,10 +283,15 @@ Atividade tipo `padrao`: validação **complexa** cujo valor de referência NÃO
 - Cadastro em `/gestao/acessos/turnos`, dois tipos:
   - **Administrativo**: horário fixo configurável por dia da semana (ex: seg-sex 08-17h, sábado 08-11h — cada dia com sua própria janela)
   - **Escala**: ciclo rotativo trabalho/folga a partir de uma data de referência (ex: 12x36, 24x48 — calculado continuamente, sem precisar recadastrar)
+- **Escopo por empresa** (não unidade): turno tem `empresa_id`; reusado entre unidades e vinculado ao **usuário**. É exceção deliberada à regra "toda tela = unidade ativa" — vale para as telas de Acessos em geral (são empresa-level).
 - Vínculo opcional (1 turno por usuário) feito na edição do usuário (`UsuarioModal.tsx` em `/gestao/acessos/usuarios`)
-- Efeito **único**: usuário fora do horário do seu turno não recebe mensagens de moderação por **WhatsApp** (e-mail continua sendo enviado, e ele continua podendo acessar/moderar planos de ação normalmente a qualquer hora)
-- Usuário sem turno cadastrado nunca é restringido — recebe a qualquer hora
-- Aplica-se tanto a moderadores N1 quanto N2 (mesma regra de notificação por não conformidade)
+- **Modo fora do turno** (revisado 2026-06-22) — coluna `turnos.modo_fora_turno`, escolha única de 3 (default `notificacao`):
+  - `notificacao` (padrão, = comportamento histórico): fora do horário **não recebe WhatsApp** de moderação; acessa e usa normal. (e-mail sempre é enviado)
+  - `login`: fora do horário **não consegue logar** (checado no login após `signInWithPassword` via RPC `usuario_pode_acessar`; bloqueado → `signOut` + aviso). **Quem já está logado continua** — não derruba sessão. **Isentos: admin de sistema e admin da empresa.** Notificações seguem normais.
+  - `aviso`: fora do horário mostra **banner dispensável** ("Você está fora do seu horário de turno.", `components/layout/AvisoTurno.tsx` nos layouts gestão+operação, dispensa em sessionStorage); não bloqueia nada.
+  - Cada modo faz **exatamente uma** coisa (mutuamente exclusivos). Funções SQL: `usuario_recebe_notificacao`, `usuario_pode_acessar`, `usuario_deve_avisar_turno` (migration `20260622120000`).
+- Usuário sem turno (ou turno inativo) nunca é restringido
+- Notificação aplica-se tanto a moderadores N1 quanto N2
 
 ## Workflow + Checklist: regras de integridade
 - Não é possível inativar um checklist em uso por workflow `publicado` (trigger bloqueia com exceção)

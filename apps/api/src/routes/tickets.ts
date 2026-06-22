@@ -114,12 +114,12 @@ export async function ticketsRoutes(app: FastifyInstance) {
 
     if (!destinatarios.length) return reply.send({ wa_enviados: 0, email_enviados: 0, motivo: 'Sem destinatários' })
 
-    // 5. Turno (só para WA no evento 'aberto')
+    // 5. Turno (só para WA no evento 'aberto'): suprime só modo 'notificacao' fora do horário
     const foraDoTurno = new Set<string>()
     if (evento === 'aberto') {
       await Promise.all(destinatarios.map(async (u) => {
-        const { data: dentro } = await sb.rpc('usuario_esta_no_turno', { p_usuario_id: u.id })
-        if (dentro === false) foraDoTurno.add(u.id)
+        const { data: recebe } = await sb.rpc('usuario_recebe_notificacao', { p_usuario_id: u.id })
+        if (recebe === false) foraDoTurno.add(u.id)
       }))
     }
 

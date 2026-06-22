@@ -9,7 +9,7 @@ description: Quality Assurance for CheckFlow — test strategy, suites por tela/
 
 | Camada | Ferramenta | Status |
 |--------|-----------|--------|
-| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **281 testes / 16 arquivos** (2026-06-22) |
+| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **295 testes / 17 arquivos** (2026-06-22) |
 | E2E / Funcional | Playwright | 🔴 não instalado |
 | Pen Test (security, RLS) | `pentest/run.mjs` (Node nativo) | ✅ 48/48 (2026-06-12) — seções 1-10, inclui OTP e Programa de Parceiros |
 | HTTP Security Probe | `pentest/http_probe.mjs` (Node nativo, sem creds) | ✅ 25/26 (2026-06-08, após fix CORS + headers) |
@@ -135,6 +135,9 @@ Espelho TS de 3 funções Postgres (migration 20260609000001): `calcularDeadline
 
 ### ✅ Unit — `calcularValidacao` tipo `padrao` (7 testes, em `validacao.unit.test.ts`)
 Cobre a validação por faixa [min, max] resolvida via combinação de variáveis (feature "Padrões e Variáveis"): dentro/fora da faixa, limites inclusivos, faixa só-min ou só-max, sem instância correspondente → null, valor não numérico → null, formato de resposta inesperado → null.
+
+### ✅ Unit — Modos fora do turno — `tests/unit/lib/turnoModo.unit.test.ts` (14 testes)
+Espelhos TS (`recebeNotificacao`/`podeAcessar`/`deveAvisar` em `lib/turnos.ts`) das funções SQL `usuario_recebe_notificacao`/`usuario_pode_acessar`/`usuario_deve_avisar_turno` (migration 20260622120000). Cobre os 3 modos × dentro/fora × sem-turno/inativo × admin-isento (login). **Mantenha em sincronia** com as funções SQL. **14/14 ✅ (2026-06-22).** Complementa os 16 testes de `estaNoTurno` em `turnos.unit.test.ts`.
 
 ### ✅ Unit — Validação de cadastro de Padrão — `tests/unit/lib/padrao.unit.test.ts` (15 testes)
 Criado `lib/padrao.ts` (`validarPadrao`, lógica pura **importada** por `app/gestao/padrao/criar/page.tsx` — fonte única, não espelho; extraída da validação inline do `salvar()`). Cobre: nome obrigatório, ao menos 1 variável, instâncias opcionais, combinação completa por instância (com índice 1-based no erro), combinações duplicadas bloqueadas, faixa [min,max] (só-min/só-max/min=max/decimais/negativos), exige ao menos um limite, não-numérico, min>max. **15/15 ✅ (2026-06-22).** Complementa os 7 testes do `calcularValidacao` tipo padrão (lado execução) em `validacao.unit.test.ts`.

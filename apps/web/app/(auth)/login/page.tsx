@@ -63,6 +63,17 @@ function LoginForm() {
       }
 
       const user = data.user!
+
+      // Turno modo 'login': barra o acesso fora do horário (admins isentos,
+      // verificado no Postgres). Quem já está logado não é afetado.
+      const { data: podeAcessar } = await supabase.rpc('usuario_pode_acessar', { p_usuario_id: user.id })
+      if (podeAcessar === false) {
+        await supabase.auth.signOut()
+        setErro('Acesso permitido apenas dentro do seu turno de trabalho.')
+        setLoading(false)
+        return
+      }
+
       const isAdmin = user.user_metadata?.role === 'admin_sistema'
 
       // Busca última sessão

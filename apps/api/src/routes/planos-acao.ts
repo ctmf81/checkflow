@@ -147,13 +147,14 @@ export async function planosAcaoRoutes(app: FastifyInstance) {
       return reply.send({ enviados: 0, motivo: 'Nenhum destinatário encontrado' })
     }
 
-    // Turno: usuários com turno cadastrado só recebem WhatsApp se estiverem
-    // dentro do horário do turno agora. Quem não tem turno nunca é restringido.
-    // (Email e visibilidade do plano de ação NÃO são afetados pelo turno.)
+    // Turno: só suprime WhatsApp para quem tem turno modo 'notificacao' e está
+    // fora do horário agora. Modos 'login'/'aviso' não afetam envio; quem não
+    // tem turno nunca é restringido. (Email e visibilidade do plano de ação
+    // NÃO são afetados pelo turno.)
     const foraDoTurno = new Set<string>()
     await Promise.all(membros.map(async (m: any) => {
-      const { data: dentro } = await sb.rpc('usuario_esta_no_turno', { p_usuario_id: m.usuario_id })
-      if (dentro === false) foraDoTurno.add(m.usuario_id)
+      const { data: recebe } = await sb.rpc('usuario_recebe_notificacao', { p_usuario_id: m.usuario_id })
+      if (recebe === false) foraDoTurno.add(m.usuario_id)
     }))
 
     const baseUrl = process.env.APP_URL ?? 'https://web-production-36880.up.railway.app'

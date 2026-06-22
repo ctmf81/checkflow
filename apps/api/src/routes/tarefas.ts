@@ -66,12 +66,12 @@ export async function tarefasRoutes(app: FastifyInstance) {
       return reply.send({ enviados: 0, motivo: 'Nenhum destinatário' })
     }
 
-    // 4. Turno: quem tem turno só recebe se estiver dentro dele agora
+    // 4. Turno: só suprime envio para quem tem turno modo 'notificacao' e está fora agora
     const ids = Array.from(destinatarios.keys())
     const foraDoTurno = new Set<string>()
     await Promise.all(ids.map(async (uid) => {
-      const { data: dentro } = await sb.rpc('usuario_esta_no_turno', { p_usuario_id: uid })
-      if (dentro === false) foraDoTurno.add(uid)
+      const { data: recebe } = await sb.rpc('usuario_recebe_notificacao', { p_usuario_id: uid })
+      if (recebe === false) foraDoTurno.add(uid)
     }))
 
     const baseUrl = process.env.APP_URL ?? 'https://web-production-36880.up.railway.app'

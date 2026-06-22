@@ -10,15 +10,18 @@
 // ⚠️ IMPORTANTE: se a função SQL mudar, atualize este arquivo (e os
 // testes em tests/unit/lib/turnos.unit.test.ts) na mesma migration/PR.
 
+export type ModoForaTurno = 'notificacao' | 'login' | 'aviso'
 export interface DiaConfig { dia: number; inicio: string; fim: string } // dia: 0=domingo .. 6=sábado
 export interface TurnoAdministrativo {
   tipo: 'administrativo'
   ativo: boolean
+  modo_fora_turno?: ModoForaTurno
   config: { dias?: DiaConfig[] }
 }
 export interface TurnoEscala {
   tipo: 'escala'
   ativo: boolean
+  modo_fora_turno?: ModoForaTurno
   config: {
     data_referencia?: string   // 'YYYY-MM-DD'
     hora_inicio?: string       // 'HH:MM'
@@ -79,4 +82,37 @@ export function estaNoTurno(turno: Turno | null | undefined, momento: Date = new
   }
 
   return true
+}
+
+// Modo de comportamento fora do turno (default 'notificacao' quando ausente).
+function modo(turno: Turno): ModoForaTurno {
+  return turno.modo_fora_turno ?? 'notificacao'
+}
+
+/**
+ * Espelho de `usuario_recebe_notificacao()` (SQL). Só NÃO recebe quando há
+ * turno ativo no modo 'notificacao' e o usuário está fora dele agora.
+ */
+export function recebeNotificacao(turno: Turno | null | undefined, momento: Date = new Date()): boolean {
+  if (!turno || !turno.ativo) return true
+  return !(modo(turno) === 'notificacao' && !estaNoTurno(turno, momento))
+}
+
+/**
+ * Espelho de `usuario_pode_acessar()` (SQL). Só NÃO pode quando há turno ativo
+ * no modo 'login', fora do horário agora, e o usuário NÃO é admin (sistema ou
+ * empresa). Admins nunca são bloqueados.
+ */
+export function podeAcessar(turno: Turno | null | undefined, momento: Date = new Date(), isAdmin = false): boolean {
+  if (!turno || !turno.ativo || isAdmin) return true
+  return !(modo(turno) === 'login' && !estaNoTurno(turno, momento))
+}
+
+/**
+ * Espelho de `usuario_deve_avisar_turno()` (SQL). Mostra aviso quando há turno
+ * ativo no modo 'aviso' e o usuário está fora dele agora.
+ */
+export function deveAvisar(turno: Turno | null | undefined, momento: Date = new Date()): boolean {
+  if (!turno || !turno.ativo) return false
+  return modo(turno) === 'aviso' && !estaNoTurno(turno, momento)
 }
