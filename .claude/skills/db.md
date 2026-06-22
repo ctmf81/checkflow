@@ -91,6 +91,7 @@ Trigger `trg_validar_troca_perfil` (before update em `usuario_empresa`) chama `v
 ### Permissões — catálogo completo (migration 20260607100332)
 Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem registro em DB, logo marcar não tinha efeito):
 `grupos.adicionar_usuario/gerenciar_usuario`, `subgrupos.gerenciar_funcoes`, `workflows.*`, `turnos.*`, `catalogos.*`, `documentos.*`, `causa_raiz.*`, `nao_execucao.*`, `planos_acao.ver/moderar_n1/moderar_n2`. Concede automaticamente aos perfis `is_system = true`.
+⚠️ **Removidas depois** (migration 20260622160000): `planos_acao.*` (moderação é por Subgrupo→Função N1/N2, não por perfil) e `configuracoes.*` (sem enforcement) — saíram do construtor de perfis e foram deletadas de `permissoes` (cascata p/ `perfil_permissoes`).
 
 ### Tickets / Chamados (migration 20260609000001)
 | Table | Description |
