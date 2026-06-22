@@ -129,15 +129,6 @@ const recursosTodos: Recurso[] = [
     ],
   },
   {
-    key: 'planos_acao',
-    label: 'Planos de ação / Moderação',
-    acoes: [
-      { key: 'ver',         label: 'Visualizar planos de ação' },
-      { key: 'moderar_n1',  label: 'Moderar como N1' },
-      { key: 'moderar_n2',  label: 'Moderar como N2' },
-    ],
-  },
-  {
     key: 'padrao',
     label: 'Padrões e variáveis',
     acoes: [
@@ -178,14 +169,6 @@ const recursosTodos: Recurso[] = [
     acoes: [
       { key: 'ver',      label: 'Visualizar relatórios' },
       { key: 'exportar', label: 'Exportar relatórios' },
-    ],
-  },
-  {
-    key: 'configuracoes',
-    label: 'Configurações',
-    acoes: [
-      { key: 'ver',    label: 'Visualizar configurações' },
-      { key: 'editar', label: 'Editar configurações' },
     ],
   },
 ]
