@@ -6,9 +6,10 @@ import { createClient } from '@/lib/supabase'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { useSession } from '@/contexts/SessionContext'
+import { STATUS_NAO_ACEITO, STATUS_EM_TRATAMENTO, STATUS_FECHADOS } from '@/lib/tickets'
 import {
   BarChart2, ArrowLeft, Loader2, RefreshCw,
-  TrendingDown, Zap, Trophy,
+  TrendingDown, Zap, Trophy, Ticket, ClipboardList, ListChecks,
 } from 'lucide-react'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -80,6 +81,14 @@ export default function IndicadoresPage() {
 
   const [loadingChecklists, setLoadingChecklists] = useState(true)
   const [loadingAtividades, setLoadingAtividades] = useState(true)
+
+  // Tickets / Planos / Tarefas (resumo da unidade ativa no período)
+  const [tickets, setTickets] = useState({ naoAceitos: 0, emTratamento: 0, finalizados: 0, criticos: 0, topCategorias: [] as { nome: string; total: number }[] })
+  const [planos, setPlanos]   = useState({ emModeracao: 0, corrigidos: 0, naoCorrigidos: 0, aguardN1: 0, aguardN2: 0 })
+  const [tarefas, setTarefas] = useState({ listasAtivas: 0, respostas: 0, pctConcluido: 0 })
+  const [loadingTickets, setLoadingTickets] = useState(true)
+  const [loadingPlanos,  setLoadingPlanos]  = useState(true)
+  const [loadingTarefas, setLoadingTarefas] = useState(true)
 
   // ── Top 5 checklists com maior reincidência de reprovação ─────────────────
   const carregarTopChecklists = useCallback(async () => {
@@ -178,12 +187,88 @@ export default function IndicadoresPage() {
     setLoadingAtividades(false)
   }, [unidadeId, periodo])
 
+  // ── Tickets (resumo) ──────────────────────────────────────────────────────
+  const carregarTickets = useCallback(async () => {
+    if (!unidadeId) return
+    setLoadingTickets(true)
+    const sb = createClient()
+    const from = periodoParaISO(periodo)
+    const { data } = await sb.from('tickets')
+      .select('status, prioridade, ticket_categorias(nome)')
+      .eq('unidade_id', unidadeId).gte('criado_em', from)
+    const rows = (data ?? []) as any[]
+    const fechado = (s: string) => STATUS_FECHADOS.includes(s as any)
+    const catMap: Record<string, number> = {}
+    for (const r of rows) {
+      const nome = r.ticket_categorias?.nome
+      if (nome) catMap[nome] = (catMap[nome] ?? 0) + 1
+    }
+    setTickets({
+      naoAceitos:   rows.filter(r => STATUS_NAO_ACEITO.includes(r.status)).length,
+      emTratamento: rows.filter(r => STATUS_EM_TRATAMENTO.includes(r.status)).length,
+      finalizados:  rows.filter(r => fechado(r.status)).length,
+      criticos:     rows.filter(r => r.prioridade === 'critica' && !fechado(r.status)).length,
+      topCategorias: Object.entries(catMap).map(([nome, total]) => ({ nome, total }))
+        .sort((a, b) => b.total - a.total).slice(0, 5),
+    })
+    setLoadingTickets(false)
+  }, [unidadeId, periodo])
+
+  // ── Planos de ação (resumo) ───────────────────────────────────────────────
+  const carregarPlanos = useCallback(async () => {
+    if (!unidadeId) return
+    setLoadingPlanos(true)
+    const sb = createClient()
+    const from = periodoParaISO(periodo)
+    const { data } = await sb.from('planos_acao')
+      .select('status').eq('unidade_id', unidadeId).gte('created_at', from)
+    const rows = (data ?? []) as any[]
+    const c = (s: string) => rows.filter(r => r.status === s).length
+    setPlanos({
+      emModeracao:   c('em_moderacao_n1') + c('em_moderacao_n2'),
+      corrigidos:    c('corrigido'),
+      naoCorrigidos: c('nao_corrigido'),
+      aguardN1:      c('em_moderacao_n1'),
+      aguardN2:      c('em_moderacao_n2'),
+    })
+    setLoadingPlanos(false)
+  }, [unidadeId, periodo])
+
+  // ── Tarefas (resumo) ──────────────────────────────────────────────────────
+  const carregarTarefas = useCallback(async () => {
+    if (!unidadeId) return
+    setLoadingTarefas(true)
+    const sb = createClient()
+    const from = periodoParaISO(periodo)
+    const [{ count: listasAtivas }, { data: execs }] = await Promise.all([
+      sb.from('tarefa_listas').select('id', { count: 'exact', head: true })
+        .eq('unidade_id', unidadeId).eq('status', 'publicada'),
+      sb.from('tarefa_execucoes').select('id').eq('unidade_id', unidadeId).gte('aberta_em', from),
+    ])
+    const execIds = (execs ?? []).map((e: any) => e.id).slice(0, 500)
+    let pct = 0
+    if (execIds.length) {
+      const { data: resp } = await sb.from('tarefa_respostas').select('feito').in('execucao_id', execIds)
+      const total = (resp ?? []).length
+      const feitos = (resp ?? []).filter((r: any) => r.feito).length
+      pct = total > 0 ? Math.round((feitos / total) * 100) : 0
+    }
+    setTarefas({ listasAtivas: listasAtivas ?? 0, respostas: (execs ?? []).length, pctConcluido: pct })
+    setLoadingTarefas(false)
+  }, [unidadeId, periodo])
+
   useEffect(() => { carregarTopChecklists() }, [carregarTopChecklists])
   useEffect(() => { carregarTopAtividades() }, [carregarTopAtividades])
+  useEffect(() => { carregarTickets() }, [carregarTickets])
+  useEffect(() => { carregarPlanos() },  [carregarPlanos])
+  useEffect(() => { carregarTarefas() }, [carregarTarefas])
 
   function recarregarTudo() {
     carregarTopChecklists()
     carregarTopAtividades()
+    carregarTickets()
+    carregarPlanos()
+    carregarTarefas()
   }
 
   // ─── Render ────────────────────────────────────────────────────────────────
@@ -301,6 +386,103 @@ export default function IndicadoresPage() {
                   </div>
                 </div>
                 <TaxaBadge taxa={100 - a.taxa} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Tickets ── */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-8 h-8 bg-blue-50 rounded-xl flex items-center justify-center">
+            <Ticket size={15} className="text-blue-500" />
+          </div>
+          <p className="text-sm font-semibold text-gray-800">Tickets no período</p>
+        </div>
+        {loadingTickets ? (
+          <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: 'Em aberto', valor: tickets.naoAceitos, cor: 'text-blue-700' },
+                { label: 'Em tratamento', valor: tickets.emTratamento, cor: 'text-purple-700' },
+                { label: 'Críticos em andamento', valor: tickets.criticos, cor: 'text-red-600' },
+                { label: 'Finalizados', valor: tickets.finalizados, cor: 'text-gray-700' },
+              ].map(c => (
+                <div key={c.label} className="bg-gray-50 rounded-xl p-3">
+                  <p className={`text-2xl font-bold ${c.cor}`}>{c.valor}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{c.label}</p>
+                </div>
+              ))}
+            </div>
+            {tickets.topCategorias.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs font-medium text-gray-500 mb-2">Top categorias</p>
+                <div className="space-y-2">
+                  {tickets.topCategorias.map(c => (
+                    <div key={c.nome} className="flex items-center gap-3">
+                      <span className="text-sm text-gray-700 flex-1 truncate">{c.nome}</span>
+                      <BarHorizontal valor={c.total} max={tickets.topCategorias[0].total} cor="bg-blue-400" />
+                      <span className="text-xs text-gray-500 flex-shrink-0 w-8 text-right">{c.total}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ── Planos de Ação ── */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-8 h-8 bg-orange-50 rounded-xl flex items-center justify-center">
+            <ClipboardList size={15} className="text-orange-500" />
+          </div>
+          <p className="text-sm font-semibold text-gray-800">Planos de ação no período</p>
+        </div>
+        {loadingPlanos ? (
+          <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
+        ) : (
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+            {[
+              { label: 'Em moderação', valor: planos.emModeracao, cor: 'text-amber-700' },
+              { label: 'Aguardando N1', valor: planos.aguardN1, cor: 'text-amber-600' },
+              { label: 'Aguardando N2', valor: planos.aguardN2, cor: 'text-orange-600' },
+              { label: 'Corrigidos', valor: planos.corrigidos, cor: 'text-green-700' },
+              { label: 'Não corrigidos', valor: planos.naoCorrigidos, cor: 'text-red-600' },
+            ].map(c => (
+              <div key={c.label} className="bg-gray-50 rounded-xl p-3">
+                <p className={`text-2xl font-bold ${c.cor}`}>{c.valor}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{c.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Tarefas ── */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-8 h-8 bg-teal-50 rounded-xl flex items-center justify-center">
+            <ListChecks size={15} className="text-teal-500" />
+          </div>
+          <p className="text-sm font-semibold text-gray-800">Tarefas no período</p>
+        </div>
+        {loadingTarefas ? (
+          <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
+        ) : (
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Listas ativas', valor: tarefas.listasAtivas, cor: 'text-teal-700' },
+              { label: 'Respostas', valor: tarefas.respostas, cor: 'text-gray-700' },
+              { label: '% concluído', valor: `${tarefas.pctConcluido}%`, cor: 'text-green-700' },
+            ].map(c => (
+              <div key={c.label} className="bg-gray-50 rounded-xl p-3">
+                <p className={`text-2xl font-bold ${c.cor}`}>{c.valor}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{c.label}</p>
               </div>
             ))}
           </div>

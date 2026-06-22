@@ -81,9 +81,12 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - **Bloco "Planos com SLA crítico" REMOVIDO da Home (2026-06-20)** — Home é só checklist; SLA segue arquivado na UI. O campo `plano_acao_sla_horas` (SLA por atividade no montador) permanece no banco; `sla_prazo` do plano continua sendo calculado na abertura (`abertura + horas`), apenas não é exibido.
 
 ## Indicadores (`/gestao/indicadores`) — revisado 2026-06-22
-- **Visão de UNIDADE** (escopado por `unidadeAtiva.id`; antes agregava várias unidades). Só de **checklist** por enquanto (reincidência/desempenho). Período 24h/15d/30d.
-- Cards: **Top 5 checklists mais reprovados** e **Top 5 atividades com maior não conformidade** (por volume no período).
-- **REMOVIDO** o card "Taxa de aprovação por unidade" (cruzava unidades/empresas) — 2026-06-22. **Visão de EMPRESA (cross-unidade) virá depois**, à parte (consolidando todas as unidades da empresa).
+- **Visão de UNIDADE** (escopado por `unidadeAtiva.id`; antes agregava várias unidades). Período 24h/15d/30d. Tudo filtrado pelo período (criados no período).
+- **Checklists**: Top 5 mais reprovados · Top 5 atividades com maior não conformidade.
+- **Tickets**: contadores Em aberto / Em tratamento / Críticos em andamento / Finalizados + Top 5 categorias.
+- **Planos de ação**: Em moderação / Aguardando N1 / Aguardando N2 / Corrigidos / Não corrigidos.
+- **Tarefas**: Listas ativas / Respostas / % concluído.
+- **REMOVIDO** o card "Taxa de aprovação por unidade" (cruzava unidades/empresas) — 2026-06-22. **Visão de EMPRESA (cross-unidade) virá depois**, à parte.
 
 ## Operação — tela principal (`/operacao`)
 - Acesso restrito a usuários com **perfil de Operação** (ou perfil que permita a tela). Sem seletor de unidade na tela (unidade vem da sessão).
