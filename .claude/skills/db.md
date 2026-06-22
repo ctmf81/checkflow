@@ -239,6 +239,9 @@ Rota `/api/documentos/consultar` lê `ia_provedores` (ativo, por ordem) como fon
 `usuarios.termos_aceitos_em` (timestamptz) + `termos_versao_aceita` (text) — registra o aceite individual.
 Editado pelo admin em `/sistema/termos` (`TermosAdminPage`): salvar **insere uma nova versão** (não faz update), forçando reaceite de todos os usuários automaticamente — sem nova migration. RLS: leitura liberada a todos, escrita restrita a `is_admin_sistema()`.
 
+### ⚠️ Unidades — NUNCA hard delete
+Quase toda a árvore referencia `unidades(id)` com **`on delete cascade`** (grupos, usuario_unidade, checklists, catalogos, documentos, causa_raiz, nao_execucao, tickets, tarefas, padroes, variaveis). Um `delete` de unidade apaga os dados da unidade inteira. Algumas FKs (checklist_execucoes, workflows, planos_acao) são restrict → bloqueiam. **Regra: inativar (`status='inativo'`), nunca deletar** — aplicado em `acessos/empresa/page.tsx` (2026-06-22, era hard delete).
+
 ### Turnos (migration 20260607000002)
 | Table | Description |
 |-------|-------------|
