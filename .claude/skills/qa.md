@@ -109,7 +109,7 @@ node pentest/run.mjs
 
 ### ✅ HTTP Security Probe (`pentest/http_probe.mjs`)
 26 checagens black-box via HTTP contra produção (sem credenciais): headers de segurança, CORS, cookies, exposição de erro, TLS, XSS/SQLi heurístico, acesso anônimo à API. Categorias adaptadas do relatório "SENAI CONECTA".
-⚠️ Achou e corrigiu (2026-06-08): CORS da API refletia qualquer `Origin` (commit `733a0fd`) e Web sem HSTS/X-Frame-Options/nosniff (commit `3ce612d`). Resultado atual: 25/26 ✅ (1 warn residual aceito: banner `Server: railway-hikari`, infra Railway). Relatório completo: `RELATORIO_SEGURANCA_2026-06-08.md`.
+⚠️ Achou e corrigiu (2026-06-08): CORS da API refletia qualquer `Origin` (commit `733a0fd`) e Web sem HSTS/X-Frame-Options/nosniff (commit `3ce612d`). Resultado atual: 25/26 ✅ (1 warn residual aceito: banner `Server: railway-hikari`, infra Railway). Relatório completo: `docs/seguranca/RELATORIO_SEGURANCA_2026-06-08.md`.
 
 ### ✅ Unit — `operacao/[id]` — `tests/unit/operacao/validacao.unit.test.ts` (18 testes)
 `calcularValidacao` foi exportado de `operacao/[id]/page.tsx` (era módulo-privada) e testada diretamente — sim_nao, número (range/limites inclusivos/não-numérico), múltipla escolha (válida/inválida/opção deletada/seleção única vs array), tipos sem validação automática (texto/foto/catálogo → null).

@@ -92,7 +92,7 @@ node pentest/http_probe.mjs
 ```
 Cobre: headers de segurança (HSTS/X-Frame-Options/nosniff), CORS, cookies de sessão, exposição de erro/path interno, TLS básico, XSS refletido (heurística), SQLi (heurística), acesso anônimo a rotas da API. Categorias adaptadas do relatório de pentest "SENAI CONECTA" (app externo) ao stack do CheckFlow.
 
-Último resultado (2026-06-08, pós-correções): 25/26 pass — único warn residual é o banner `Server: railway-hikari` (infra Railway, aceito como risco residual). Relatório completo em `RELATORIO_SEGURANCA_2026-06-08.md`.
+Último resultado (2026-06-08, pós-correções): 25/26 pass — único warn residual é o banner `Server: railway-hikari` (infra Railway, aceito como risco residual). Relatório completo em `docs/seguranca/RELATORIO_SEGURANCA_2026-06-08.md`.
 
 ## Vulnerabilidades Corrigidas
 | Data | Issue | Migration |
