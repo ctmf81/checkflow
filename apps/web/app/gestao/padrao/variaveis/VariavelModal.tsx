@@ -45,29 +45,34 @@ export function VariavelModal({ variavel, onClose, onSalvo }: Props) {
 
     if (isEdicao) {
       const { error } = await supabase.from('variaveis').update({ nome: nomeOk }).eq('id', variavel.id)
-      if (error) { setErro(`Erro ao salvar: ${error.message}`); setSalvando(false); return }
+      if (error) { setErro('Não foi possível salvar a variável.'); setSalvando(false); return }
 
       // Sincroniza valores: remove os que não existem mais, atualiza existentes, insere novos
       const existentesPorValor = new Map(variavel.valores.map(v => [v.valor, v.id]))
       const novosValoresSet = new Set(valoresOk)
 
       const aRemover = variavel.valores.filter(v => !novosValoresSet.has(v.valor)).map(v => v.id)
-      if (aRemover.length > 0) await supabase.from('variavel_valores').delete().in('id', aRemover)
+      if (aRemover.length > 0) {
+        const { error: errDel } = await supabase.from('variavel_valores').delete().in('id', aRemover)
+        if (errDel) { setErro('Não foi possível salvar os valores da variável.'); setSalvando(false); return }
+      }
 
       const aInserir = valoresOk.filter(v => !existentesPorValor.has(v))
       if (aInserir.length > 0) {
-        await supabase.from('variavel_valores').insert(
+        const { error: errIns } = await supabase.from('variavel_valores').insert(
           aInserir.map((valor, idx) => ({ variavel_id: variavel.id, valor, ordem: idx }))
         )
+        if (errIns) { setErro('Não foi possível salvar os valores da variável.'); setSalvando(false); return }
       }
     } else {
       const { data: nova, error } = await supabase.from('variaveis')
         .insert({ nome: nomeOk, unidade_id: unidadeAtiva?.id ?? null }).select('id').single()
-      if (error || !nova) { setErro(`Erro ao criar: ${error?.message ?? ''}`); setSalvando(false); return }
+      if (error || !nova) { setErro('Não foi possível criar a variável.'); setSalvando(false); return }
 
-      await supabase.from('variavel_valores').insert(
+      const { error: errIns } = await supabase.from('variavel_valores').insert(
         valoresOk.map((valor, idx) => ({ variavel_id: nova.id, valor, ordem: idx }))
       )
+      if (errIns) { setErro('A variável foi criada, mas não foi possível salvar os valores. Edite-a para tentar de novo.'); setSalvando(false); return }
     }
 
     setSalvando(false)
