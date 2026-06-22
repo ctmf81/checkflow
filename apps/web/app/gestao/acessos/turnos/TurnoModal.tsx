@@ -9,12 +9,15 @@ import { useToast } from '@/components/ui/feedback'
 
 interface DiaConfig { dia: number; inicio: string; fim: string }
 
+type ModoForaTurno = 'notificacao' | 'login' | 'aviso'
+
 interface Turno {
   id: string
   nome: string
   tipo: 'administrativo' | 'escala'
   config: any
   ativo: boolean
+  modo_fora_turno?: ModoForaTurno
 }
 
 interface Props {
@@ -22,6 +25,12 @@ interface Props {
   onClose: () => void
   onSalvo?: () => void
 }
+
+const MODOS: { v: ModoForaTurno; label: string; desc: string }[] = [
+  { v: 'notificacao', label: 'Só bloquear notificação', desc: 'Fora do turno não recebe WhatsApp de moderação; acessa o sistema normal.' },
+  { v: 'login', label: 'Bloquear login', desc: 'Fora do turno não consegue entrar. Quem já está logado continua. (Admins isentos.)' },
+  { v: 'aviso', label: 'Só avisar', desc: 'Fora do turno mostra um aviso, mas não bloqueia nada.' },
+]
 
 const DIAS = [
   { v: 1, label: 'Segunda' },
@@ -45,6 +54,7 @@ export function TurnoModal({ turno, onClose, onSalvo }: Props) {
 
   const [nome, setNome] = useState(turno?.nome ?? '')
   const [tipo, setTipo] = useState<'administrativo' | 'escala'>(turno?.tipo ?? 'administrativo')
+  const [modoFora, setModoFora] = useState<ModoForaTurno>(turno?.modo_fora_turno ?? 'notificacao')
 
   // Administrativo: mapa dia -> { ativo, inicio, fim }
   const diasIniciais = diasDoConfig(turno?.config)
@@ -109,6 +119,7 @@ export function TurnoModal({ turno, onClose, onSalvo }: Props) {
       nome: nome.trim(),
       tipo,
       config,
+      modo_fora_turno: modoFora,
       atualizado_em: new Date().toISOString(),
     }
 
@@ -216,6 +227,24 @@ export function TurnoModal({ turno, onClose, onSalvo }: Props) {
               </p>
             </div>
           )}
+
+          <div className="space-y-2 pt-1">
+            <label className="block text-sm font-medium text-gray-700">Fora do turno</label>
+            {MODOS.map(m => (
+              <button type="button" key={m.v} onClick={() => setModoFora(m.v)}
+                className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${
+                  modoFora === m.v ? 'border-orange-300 bg-orange-50' : 'border-gray-200 hover:border-gray-300'
+                }`}>
+                <span className="flex items-center gap-2">
+                  <span className={`w-3.5 h-3.5 rounded-full border flex-shrink-0 ${
+                    modoFora === m.v ? 'border-orange-500 bg-orange-500 ring-2 ring-orange-200' : 'border-gray-300'
+                  }`} />
+                  <span className={`font-medium ${modoFora === m.v ? 'text-orange-700' : 'text-gray-700'}`}>{m.label}</span>
+                </span>
+                <span className="block text-xs text-gray-400 mt-0.5 ml-[22px]">{m.desc}</span>
+              </button>
+            ))}
+          </div>
 
           {erro && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{erro}</p>}
 

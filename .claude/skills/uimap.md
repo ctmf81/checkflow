@@ -45,6 +45,9 @@ Layout: `gestao/layout.tsx` — sidebar + SessionProvider
 | `/gestao/configuracoes/notificacoes` | `gestao/configuracoes/notificacoes/page.tsx` | Notification template management — accordion by type, toggle active/inactive per canal, body/subject editor, available variable chips |
 | `/gestao/workflows/[id]` | `gestao/workflows/[id]/page.tsx` | Workflow editor — PickerModal now has Grupo+Subgrupo selectors |
 | `/gestao/configuracoes/formatacao` | `gestao/configuracoes/formatacao/page.tsx` | Label config |
+| `/gestao/padrao/variaveis` | `gestao/padrao/variaveis/page.tsx` (+ `VariavelModal.tsx`) | Variáveis (atributos+valores) que compõem padrões — `variaveis`/`variavel_valores`, por unidade |
+| `/gestao/padrao/padroes` | `gestao/padrao/padroes/page.tsx` | Listagem de padrões (validação combinatória), contagem de instâncias |
+| `/gestao/padrao/criar` | `gestao/padrao/criar/page.tsx` | Criar/editar padrão: variáveis do padrão + instâncias (combinação→faixa min/max). `?id=` edita |
 
 ### Operação — Mobile execution (`operacao/`)
 Layout: `operacao/layout.tsx` — NO sidebar, OperacaoHeader with unit selector

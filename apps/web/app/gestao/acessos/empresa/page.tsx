@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Building2, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Building2, PowerOff } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { UnidadeModal } from './UnidadeModal'
@@ -69,17 +69,20 @@ export default function EmpresaPage() {
     const supabase = createClient()
     const { error } = await supabase.from('empresas').update({ nome, cnpj: cnpj || null, atualizado_em: new Date().toISOString() }).eq('id', empresa.id)
     setSalvando(false)
-    if (error) { toast.error(`Erro ao salvar: ${error.message}`); return }
+    if (error) { toast.error('Não foi possível salvar os dados da empresa.'); return }
     setEditando(false)
     toast.success('Dados da empresa salvos.')
     await carregar()
   }
 
-  async function deletarUnidade(id: string) {
-    if (!await confirm({ titulo: 'Remover esta unidade?', mensagem: 'Essa ação não pode ser desfeita.', confirmarLabel: 'Remover', perigo: true })) return
-    const { error } = await createClient().from('unidades').delete().eq('id', id)
-    if (error) { toast.error('Não foi possível remover a unidade.'); return }
-    toast.success('Unidade removida.')
+  async function inativarUnidade(id: string) {
+    // Soft-delete: NUNCA hard delete — `unidades` é cascade em quase toda a
+    // árvore (grupos, checklists, catálogos, tickets, tarefas...), então um
+    // delete apagaria os dados da unidade inteira. Inativar é reversível.
+    if (!await confirm({ titulo: 'Inativar esta unidade?', mensagem: 'A unidade deixa de aparecer para uso. Você pode reativá-la depois pela edição.', confirmarLabel: 'Inativar', perigo: true })) return
+    const { error } = await createClient().from('unidades').update({ status: 'inativo' }).eq('id', id)
+    if (error) { toast.error('Não foi possível inativar a unidade.'); return }
+    toast.success('Unidade inativada.')
     carregar()
   }
 
@@ -184,10 +187,12 @@ export default function EmpresaPage() {
                     className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors">
                     <Pencil size={14} />
                   </button>
-                  <button onClick={() => deletarUnidade(u.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors">
-                    <Trash2 size={14} />
-                  </button>
+                  {u.status === 'ativo' && (
+                    <button onClick={() => inativarUnidade(u.id)} title="Inativar unidade"
+                      className="p-1.5 text-gray-400 hover:text-red-500 transition-colors">
+                      <PowerOff size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
             ))

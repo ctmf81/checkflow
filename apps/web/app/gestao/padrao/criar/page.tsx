@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
+import { validarPadrao } from '@/lib/padrao'
 
 interface VariavelOpt { id: string; nome: string; valores: { id: string; valor: string }[] }
 interface Instancia { id?: string; valores: Record<string, string>; valor_min: string; valor_max: string }
@@ -117,26 +118,9 @@ function CriarPadraoInner() {
   async function salvar() {
     setErro('')
     const nomeOk = nome.trim()
-    if (!nomeOk) { setErro('Informe o nome do padrão.'); return }
-    if (variaveisSelecionadas.length === 0) { setErro('Selecione ao menos uma variável que compõe este padrão.'); return }
 
-    // valida instâncias: combinação completa + faixa numérica válida
-    for (const [idx, inst] of instancias.entries()) {
-      const completo = variaveisSelecionadas.every(vid => inst.valores[vid])
-      if (!completo) { setErro(`Instância #${idx + 1}: escolha um valor para cada variável.`); return }
-      const minOk = inst.valor_min.trim() === '' || !isNaN(Number(inst.valor_min))
-      const maxOk = inst.valor_max.trim() === '' || !isNaN(Number(inst.valor_max))
-      if (!minOk || !maxOk) { setErro(`Instância #${idx + 1}: valores mínimo/máximo devem ser numéricos.`); return }
-      if (inst.valor_min.trim() === '' && inst.valor_max.trim() === '') {
-        setErro(`Instância #${idx + 1}: informe ao menos o mínimo ou o máximo.`); return
-      }
-      if (inst.valor_min.trim() !== '' && inst.valor_max.trim() !== '' && Number(inst.valor_min) > Number(inst.valor_max)) {
-        setErro(`Instância #${idx + 1}: o mínimo não pode ser maior que o máximo.`); return
-      }
-    }
-    // checa combinações duplicadas
-    const chaves = instancias.map(inst => variaveisSelecionadas.map(v => inst.valores[v]).join('|'))
-    if (new Set(chaves).size !== chaves.length) { setErro('Há instâncias com a mesma combinação de variáveis.'); return }
+    const validacao = validarPadrao(nomeOk, variaveisSelecionadas, instancias)
+    if (!validacao.ok) { setErro(validacao.erro); return }
 
     setSalvando(true)
     const supabase = createClient()
@@ -148,35 +132,40 @@ function CriarPadraoInner() {
       unidade_id: unidadeAtiva?.id ?? null,
     }
 
+    function falhar(msg: string) { setErro(msg); setSalvando(false) }
+
     let id = padraoId
     if (isEdicao) {
       const { error } = await supabase.from('padroes').update(payload).eq('id', padraoId)
-      if (error) { setErro(`Erro ao salvar: ${error.message}`); setSalvando(false); return }
-      await supabase.from('padrao_variaveis').delete().eq('padrao_id', padraoId)
+      if (error) return falhar('Não foi possível salvar o padrão.')
+      const { error: errDelVar } = await supabase.from('padrao_variaveis').delete().eq('padrao_id', padraoId)
       // remove instâncias antigas e recria (mais simples e seguro que diff)
-      await supabase.from('padrao_instancias').delete().eq('padrao_id', padraoId)
+      const { error: errDelInst } = await supabase.from('padrao_instancias').delete().eq('padrao_id', padraoId)
+      if (errDelVar || errDelInst) return falhar('Não foi possível atualizar as variáveis/instâncias do padrão.')
     } else {
       const { data: novo, error } = await supabase.from('padroes').insert(payload).select('id').single()
-      if (error || !novo) { setErro(`Erro ao criar: ${error?.message ?? ''}`); setSalvando(false); return }
+      if (error || !novo) return falhar('Não foi possível criar o padrão.')
       id = novo.id
     }
 
-    await supabase.from('padrao_variaveis').insert(
+    const { error: errVar } = await supabase.from('padrao_variaveis').insert(
       variaveisSelecionadas.map((variavel_id, ordem) => ({ padrao_id: id, variavel_id, ordem }))
     )
+    if (errVar) return falhar('Não foi possível salvar as variáveis do padrão.')
 
-    for (const inst of instancias) {
+    for (const [idx, inst] of instancias.entries()) {
       const { data: novaInst, error } = await supabase.from('padrao_instancias').insert({
         padrao_id: id,
         valor_min: inst.valor_min.trim() === '' ? null : Number(inst.valor_min),
         valor_max: inst.valor_max.trim() === '' ? null : Number(inst.valor_max),
       }).select('id').single()
-      if (error || !novaInst) continue
-      await supabase.from('padrao_instancia_valores').insert(
+      if (error || !novaInst) return falhar(`Não foi possível salvar a instância #${idx + 1}.`)
+      const { error: errInstVal } = await supabase.from('padrao_instancia_valores').insert(
         variaveisSelecionadas.map(variavel_id => ({
           instancia_id: novaInst.id, variavel_id, valor_id: inst.valores[variavel_id],
         }))
       )
+      if (errInstVal) return falhar(`Não foi possível salvar os valores da instância #${idx + 1}.`)
     }
 
     setSalvando(false)

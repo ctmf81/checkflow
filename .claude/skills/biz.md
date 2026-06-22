@@ -220,6 +220,18 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - **Integração via API**: aba "API" no modal — URL + headers(JSON); "Carregar campos" (`/catalogos/test-api`), mapeia campos→atributos, prévia, e "Sincronizar" (`/catalogos/{id}/sync`, upsert; aceita array ou `{data|items|results}`).
 - **Sync automático (cron)**: `POST /catalogos/sync-all` sincroniza todos os catálogos com API configurada — **protegido por `x-cron-secret`** (2026-06-20). ⚠️ Requer um **agendador (Railway cron)** chamando o endpoint com o header; confirmar nas configs de ops.
 
+## Padrão — validação combinatória (revisado 2026-06-22)
+Atividade tipo `padrao`: validação **complexa** cujo valor de referência NÃO é fixo — depende da **combinação de variáveis** escolhida na execução. Caso de uso: linha de produção com vários modelos ao mesmo tempo (ex.: peso do biscoito depende de recheio + textura + formato).
+
+**Modelagem (3 níveis):**
+1. **Variáveis** (`/gestao/padrao/variaveis` → `variaveis` + `variavel_valores`, **por unidade**): atributos com seus valores possíveis (ex.: Formato → quadrado/redondo). Soft-delete (`ativo=false`).
+2. **Padrão** (`/gestao/padrao/criar` → `padroes` + `padrao_variaveis` + `padrao_instancias` + `padrao_instancia_valores`, por unidade): nome + grupo/subgrupo opcional + quais variáveis o compõem + **instâncias**. Cada **instância** = uma combinação específica de valores (1 valor por variável) → **faixa esperada `valor_min`/`valor_max`** (valor único = min=max; pode ter só min OU só max). Validações na criação: combinação completa, faixa numérica, min≤max, combinações duplicadas bloqueadas. Edição **apaga e recria** variáveis+instâncias (não faz diff). Soft-delete.
+3. **Atividade** referencia o padrão por `config.padrao_id`.
+
+**Execução** (`CampoPadrao` em `operacao/[id]/page.tsx`): operador escolhe o valor de cada variável (selects) + digita o número medido → sistema acha a instância com a **combinação exata** e guarda `instancia_id`+`valor_min`+`valor_max` **junto da resposta** (resolve na hora; `calcularValidacao` compara sem reconsultar o banco). Combinação **sem instância** → aviso âmbar "sem valor de referência" e validação fica `null` (não dá pra aprovar/reprovar).
+
+⚠️ **Achados da revisão (a corrigir):** nos saves de `VariavelModal.tsx` e `criar/page.tsx`, as escritas em tabelas filhas (`variavel_valores`, `padrao_variaveis`, `padrao_instancias`, `padrao_instancia_valores`) **não checam `error`** → RLS pode falhar em silêncio e ainda mostrar sucesso. Mensagens de erro expõem `error.message` cru (inconsistente com o padrão genérico das outras telas).
+
 ## WhatsApp (Evolution API)
 - Integração via Evolution API **v2.3.7** (imagem `evoapicloud/evolution-api:v2.3.7` no Railway — atualizada em 2026-06-11; a org `atendai` no Docker Hub está desatualizada)
 - Instância única: `checkflow` (Baileys)
@@ -271,10 +283,15 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - Cadastro em `/gestao/acessos/turnos`, dois tipos:
   - **Administrativo**: horário fixo configurável por dia da semana (ex: seg-sex 08-17h, sábado 08-11h — cada dia com sua própria janela)
   - **Escala**: ciclo rotativo trabalho/folga a partir de uma data de referência (ex: 12x36, 24x48 — calculado continuamente, sem precisar recadastrar)
+- **Escopo por empresa** (não unidade): turno tem `empresa_id`; reusado entre unidades e vinculado ao **usuário**. É exceção deliberada à regra "toda tela = unidade ativa" — vale para as telas de Acessos em geral (são empresa-level).
 - Vínculo opcional (1 turno por usuário) feito na edição do usuário (`UsuarioModal.tsx` em `/gestao/acessos/usuarios`)
-- Efeito **único**: usuário fora do horário do seu turno não recebe mensagens de moderação por **WhatsApp** (e-mail continua sendo enviado, e ele continua podendo acessar/moderar planos de ação normalmente a qualquer hora)
-- Usuário sem turno cadastrado nunca é restringido — recebe a qualquer hora
-- Aplica-se tanto a moderadores N1 quanto N2 (mesma regra de notificação por não conformidade)
+- **Modo fora do turno** (revisado 2026-06-22) — coluna `turnos.modo_fora_turno`, escolha única de 3 (default `notificacao`):
+  - `notificacao` (padrão, = comportamento histórico): fora do horário **não recebe WhatsApp** de moderação; acessa e usa normal. (e-mail sempre é enviado)
+  - `login`: fora do horário **não consegue logar** (checado no login após `signInWithPassword` via RPC `usuario_pode_acessar`; bloqueado → `signOut` + aviso). **Quem já está logado continua** — não derruba sessão. **Isentos: admin de sistema e admin da empresa.** Notificações seguem normais.
+  - `aviso`: fora do horário mostra **banner dispensável** ("Você está fora do seu horário de turno.", `components/layout/AvisoTurno.tsx` nos layouts gestão+operação, dispensa em sessionStorage); não bloqueia nada.
+  - Cada modo faz **exatamente uma** coisa (mutuamente exclusivos). Funções SQL: `usuario_recebe_notificacao`, `usuario_pode_acessar`, `usuario_deve_avisar_turno` (migration `20260622120000`).
+- Usuário sem turno (ou turno inativo) nunca é restringido
+- Notificação aplica-se tanto a moderadores N1 quanto N2
 
 ## Workflow + Checklist: regras de integridade
 - Não é possível inativar um checklist em uso por workflow `publicado` (trigger bloqueia com exceção)
@@ -284,8 +301,13 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - `perfis.publico` (boolean): determina quem pode atribuir aquele perfil a um usuário
   - **Público** = pode ser atribuído por quem gerencia usuários do próprio grupo/setor (ex: substituição temporária de um líder de férias, sem precisar do admin da empresa)
   - **Não público** = só pode ser atribuído pelo Administrador da empresa
-- ✅ Reforçado em DB via trigger `trg_validar_troca_perfil` (migration 20260607100800) — bloqueia a troca para perfil não-público se quem altera não for Admin da empresa/sistema, mesmo via chamada direta à API
+- ✅ Reforçado em DB via trigger `trg_validar_troca_perfil` — bloqueia atribuir perfil não-público se quem faz não for Admin da empresa/sistema, mesmo via chamada direta à API. **Vale em INSERT e UPDATE** (migration 20260622140000 ampliou do UPDATE-only original 20260607100800). Bypass quando `auth.uid()` é null (service-role da API de criação é confiável).
 - ✅ Aplicado em `UsuarioModal.tsx`: verifica o `perfil_id` de quem está editando em `usuario_empresa` — se for "Admin da empresa" (`00000000-0000-0000-0000-000000000002`) ou "Admin de sistema" (`...001`), vê todos os perfis; caso contrário, só vê perfis `publico = true` (+ o perfil atual do usuário sendo editado, para não escondê-lo)
+
+## Usuário em múltiplas empresas (perfil por empresa)
+- A **mesma pessoa** (1 linha em `usuarios`, login por **CPF** único) pode pertencer a **várias empresas**, com **`perfil_id` próprio em cada** (`usuario_empresa`). Unidades também são por empresa (`usuario_unidade`).
+- **Vincular pessoa existente** (2026-06-22): em "Adicionar usuário" (`UsuarioModal`), ao sair do campo CPF (`onBlur`) chama a RPC `buscar_pessoa_por_cpf` (só admin sistema/empresa). Se o CPF já existe, entra em **modo vínculo**: nome/e-mail/telefone ficam read-only (dados pessoais não mudam), banner avisa, botão vira "Vincular à empresa".
+- `/api/usuarios/criar`: se o CPF já existe, **vincula** (insert `usuario_empresa` + `usuario_unidade`) em vez de recriar — **não** cria auth user, **não** envia OTP de primeiro acesso, **não** altera senha. Se já estiver nesta empresa → 409 "já está cadastrada nesta empresa". Antes (bug): o fluxo só sabia criar do zero e batia na unicidade do CPF.
 
 ## Tickets / Chamados
 

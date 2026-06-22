@@ -1,10 +1,25 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CheckFlowLogo } from '@/components/auth/CheckFlowLogo'
 import { createClient } from '@/lib/supabase'
+import type { User, SupabaseClient } from '@supabase/supabase-js'
+
+// Destino pós-login a partir do último ambiente salvo + papel do usuário.
+// Usado tanto no submit do formulário quanto ao detectar uma sessão já ativa
+// (ex: magic link de impersonação, que estabelece a sessão pelo hash da URL).
+async function destinoPosLogin(supabase: SupabaseClient, user: User, redirect?: string | null): Promise<string> {
+  if (redirect && redirect.startsWith('/')) return redirect
+  const isAdmin = user.user_metadata?.role === 'admin_sistema'
+  const { data: sessao } = await supabase
+    .from('sessao_usuario').select('ultimo_ambiente').eq('usuario_id', user.id).single()
+  if (sessao?.ultimo_ambiente === 'sistema' && isAdmin) return '/sistema'
+  if (sessao?.ultimo_ambiente === 'operacao') return '/operacao'
+  if (sessao?.ultimo_ambiente === 'gestao') return '/gestao'
+  return isAdmin ? '/sistema' : '/gestao'
+}
 
 export default function LoginPage() {
   return (
@@ -21,6 +36,24 @@ function LoginForm() {
   const [senha, setSenha] = useState('')
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState('')
+
+  // Se já existe uma sessão ao abrir o /login (ex: magic link de impersonação,
+  // ou usuário já logado), encaminha para o ambiente certo em vez de mostrar
+  // o formulário. O client do Supabase processa o hash da URL (detectSessionInUrl).
+  useEffect(() => {
+    const supabase = createClient()
+    let ativo = true
+    async function checar(user: User | null | undefined) {
+      if (!ativo || !user) return
+      const destino = await destinoPosLogin(supabase, user, searchParams.get('redirect'))
+      router.replace(destino)
+    }
+    supabase.auth.getSession().then(({ data }) => checar(data.session?.user))
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN') checar(session?.user)
+    })
+    return () => { ativo = false; sub.subscription.unsubscribe() }
+  }, [])
 
   function formatCPF(value: string) {
     return value.replace(/\D/g, '').slice(0, 11)
@@ -63,33 +96,18 @@ function LoginForm() {
       }
 
       const user = data.user!
-      const isAdmin = user.user_metadata?.role === 'admin_sistema'
 
-      // Busca última sessão
-      const { data: sessao } = await supabase
-        .from('sessao_usuario')
-        .select('ultimo_ambiente')
-        .eq('usuario_id', user.id)
-        .single()
-
-      let destino = '/gestao'
-      if (sessao?.ultimo_ambiente === 'sistema' && isAdmin) {
-        destino = '/sistema'
-      } else if (sessao?.ultimo_ambiente === 'operacao') {
-        destino = '/operacao'
-      } else if (sessao?.ultimo_ambiente === 'gestao') {
-        destino = '/gestao'
-      } else {
-        // Primeira vez: admin vai para /sistema, outros para /gestao
-        destino = isAdmin ? '/sistema' : '/gestao'
+      // Turno modo 'login': barra o acesso fora do horário (admins isentos,
+      // verificado no Postgres). Quem já está logado não é afetado.
+      const { data: podeAcessar } = await supabase.rpc('usuario_pode_acessar', { p_usuario_id: user.id })
+      if (podeAcessar === false) {
+        await supabase.auth.signOut()
+        setErro('Acesso permitido apenas dentro do seu turno de trabalho.')
+        setLoading(false)
+        return
       }
 
-      // Se o usuário veio de um link direto (ex: notificação), volta para lá
-      const redirect = searchParams.get('redirect')
-      if (redirect && redirect.startsWith('/')) {
-        destino = redirect
-      }
-
+      const destino = await destinoPosLogin(supabase, user, searchParams.get('redirect'))
       router.push(destino)
       router.refresh()
     } catch (e: any) {

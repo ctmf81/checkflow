@@ -16,6 +16,7 @@ interface Turno {
   tipo: 'administrativo' | 'escala'
   config: any
   ativo: boolean
+  modo_fora_turno?: 'notificacao' | 'login' | 'aviso'
 }
 
 const DIA_LABEL: Record<number, string> = { 0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb' }
@@ -61,7 +62,7 @@ export default function TurnosPage() {
     setLoading(true)
     const { data } = await createClient()
       .from('turnos')
-      .select('id, nome, tipo, config, ativo')
+      .select('id, nome, tipo, config, ativo, modo_fora_turno')
       .eq('empresa_id', empresaAtiva.id)
       .eq('ativo', true)
       .order('nome')

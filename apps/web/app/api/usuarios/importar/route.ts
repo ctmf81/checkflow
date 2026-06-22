@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { criarCodigoOtp, enviarCodigoUsuario } from '@/lib/passwordReset'
+import { autorizarPermissao } from '@/lib/apiAuth'
 
 export async function POST(req: NextRequest) {
   try {
+    const authz = await autorizarPermissao(req, 'usuarios', 'criar')
+    if (!authz.ok) return NextResponse.json({ message: authz.message }, { status: authz.status })
+
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!url || !key) return NextResponse.json({ message: 'Configuração de servidor ausente.' }, { status: 500 })

@@ -91,6 +91,7 @@ Trigger `trg_validar_troca_perfil` (before update em `usuario_empresa`) chama `v
 ### Permissões — catálogo completo (migration 20260607100332)
 Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem registro em DB, logo marcar não tinha efeito):
 `grupos.adicionar_usuario/gerenciar_usuario`, `subgrupos.gerenciar_funcoes`, `workflows.*`, `turnos.*`, `catalogos.*`, `documentos.*`, `causa_raiz.*`, `nao_execucao.*`, `planos_acao.ver/moderar_n1/moderar_n2`. Concede automaticamente aos perfis `is_system = true`.
+⚠️ **Removidas depois** (migration 20260622160000): `planos_acao.*` (moderação é por Subgrupo→Função N1/N2, não por perfil) e `configuracoes.*` (sem enforcement) — saíram do construtor de perfis e foram deletadas de `permissoes` (cascata p/ `perfil_permissoes`).
 
 ### Tickets / Chamados (migration 20260609000001)
 | Table | Description |
@@ -238,10 +239,13 @@ Rota `/api/documentos/consultar` lê `ia_provedores` (ativo, por ordem) como fon
 `usuarios.termos_aceitos_em` (timestamptz) + `termos_versao_aceita` (text) — registra o aceite individual.
 Editado pelo admin em `/sistema/termos` (`TermosAdminPage`): salvar **insere uma nova versão** (não faz update), forçando reaceite de todos os usuários automaticamente — sem nova migration. RLS: leitura liberada a todos, escrita restrita a `is_admin_sistema()`.
 
+### ⚠️ Unidades — NUNCA hard delete
+Quase toda a árvore referencia `unidades(id)` com **`on delete cascade`** (grupos, usuario_unidade, checklists, catalogos, documentos, causa_raiz, nao_execucao, tickets, tarefas, padroes, variaveis). Um `delete` de unidade apaga os dados da unidade inteira. Algumas FKs (checklist_execucoes, workflows, planos_acao) são restrict → bloqueiam. **Regra: inativar (`status='inativo'`), nunca deletar** — aplicado em `acessos/empresa/page.tsx` (2026-06-22, era hard delete).
+
 ### Turnos (migration 20260607000002)
 | Table | Description |
 |-------|-------------|
-| `turnos` | `nome`, `tipo` (`administrativo`\|`escala`), `config` jsonb, `ativo` |
+| `turnos` | `nome`, `tipo` (`administrativo`\|`escala`), `config` jsonb, `ativo`, `modo_fora_turno` (`notificacao`\|`login`\|`aviso`, default `notificacao` — migration `20260622120000`) |
 
 **`config` shapes:**
 ```
@@ -253,7 +257,16 @@ escala:         { "data_referencia": "YYYY-MM-DD", "hora_inicio": "HH:MM",
 ```
 
 `usuarios.turno_id` (nullable FK → `turnos`) — vínculo opcional 1 turno por usuário, editável em `UsuarioModal.tsx`.
-Função `usuario_esta_no_turno(p_usuario_id, p_momento default now())` → boolean — calcula se o usuário está dentro do turno **agora**, suportando ambos os tipos (administrativo: olha dia da semana + janela; escala: calcula posição no ciclo trabalho/folga desde `data_referencia`). Sem turno = sempre `true` (não restringe). Usada em `/planos-acao/notificar` (API) para pular o envio de WhatsApp a quem está fora do turno — não afeta e-mail nem a capacidade de moderar pelo sistema.
+
+**Perfil por empresa / vínculo de pessoa existente** (migration 20260622140000):
+- `trg_validar_troca_perfil` agora roda em **INSERT or UPDATE** de `usuario_empresa` (era só UPDATE) — guard do perfil não-público também no 1º vínculo. Bypass quando `auth.uid()` null (service-role).
+- `buscar_pessoa_por_cpf(p_cpf)` → `(id, nome, telefone)` security definer, restrita a admin sistema/empresa. Usada pelo `UsuarioModal` p/ detectar CPF já cadastrado e oferecer vínculo a outra empresa (mesma pessoa, perfil próprio por empresa).
+Função `usuario_esta_no_turno(p_usuario_id, p_momento default now())` → boolean — calcula se o usuário está dentro do turno **agora**, suportando ambos os tipos (administrativo: olha dia da semana + janela; escala: calcula posição no ciclo trabalho/folga desde `data_referencia`). Sem turno = sempre `true` (não restringe).
+
+**Modo fora do turno** (migration `20260622120000`) — 3 funções derivadas (todas `sem turno/inativo` = não restringe):
+- `usuario_recebe_notificacao(uid, momento)` → `false` só se turno ativo modo `notificacao` e fora do horário. Usada nas 3 rotas de notificação WhatsApp (`/planos-acao/notificar`, `/tarefas/notificar`, `/tickets/notificar`) — substituiu o uso direto de `usuario_esta_no_turno`.
+- `usuario_pode_acessar(uid, momento)` (security definer) → `false` só se turno ativo modo `login`, fora do horário, e **não** `is_admin_sistema()` nem `is_admin_empresa(empresa_id)`. Chamada no login (web) após autenticar; `false` → `signOut`.
+- `usuario_deve_avisar_turno(uid, momento)` → `true` se turno ativo modo `aviso` e fora. Consumida por `AvisoTurno.tsx` (banner nos layouts).
 
 ### Catálogos
 | Table | Description |

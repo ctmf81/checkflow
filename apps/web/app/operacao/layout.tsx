@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { LayoutDashboard } from 'lucide-react'
 import { EscolherEmpresaModal } from '@/components/layout/EscolherEmpresaModal'
 import { TermosGate } from '@/components/layout/TermosGate'
+import { AvisoTurno } from '@/components/layout/AvisoTurno'
 
 function OperacaoHeader() {
   const { empresaAtiva } = useSession()
@@ -71,6 +72,7 @@ export default function OperacaoLayout({ children }: { children: React.ReactNode
         <TermosGate />
         <EscolherEmpresaModal />
         <OperacaoHeader />
+        <AvisoTurno />
         <main className="flex-1">
           {children}
         </main>

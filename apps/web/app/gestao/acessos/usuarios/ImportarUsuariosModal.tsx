@@ -156,9 +156,10 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
     if (!usuarios.length) return
     setImportando(true)
     try {
+      const { data: { session } } = await createClient().auth.getSession()
       const res = await fetch('/api/usuarios/importar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
         body: JSON.stringify({
           usuarios,
           empresaId,

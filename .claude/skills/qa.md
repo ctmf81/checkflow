@@ -9,7 +9,7 @@ description: Quality Assurance for CheckFlow — test strategy, suites por tela/
 
 | Camada | Ferramenta | Status |
 |--------|-----------|--------|
-| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **221 testes / 11 arquivos** (2026-06-22) |
+| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **311 testes / 18 arquivos** (2026-06-22) |
 | E2E / Funcional | Playwright | 🔴 não instalado |
 | Pen Test (security, RLS) | `pentest/run.mjs` (Node nativo) | ✅ 48/48 (2026-06-12) — seções 1-10, inclui OTP e Programa de Parceiros |
 | HTTP Security Probe | `pentest/http_probe.mjs` (Node nativo, sem creds) | ✅ 25/26 (2026-06-08, após fix CORS + headers) |
@@ -109,7 +109,7 @@ node pentest/run.mjs
 
 ### ✅ HTTP Security Probe (`pentest/http_probe.mjs`)
 26 checagens black-box via HTTP contra produção (sem credenciais): headers de segurança, CORS, cookies, exposição de erro, TLS, XSS/SQLi heurístico, acesso anônimo à API. Categorias adaptadas do relatório "SENAI CONECTA".
-⚠️ Achou e corrigiu (2026-06-08): CORS da API refletia qualquer `Origin` (commit `733a0fd`) e Web sem HSTS/X-Frame-Options/nosniff (commit `3ce612d`). Resultado atual: 25/26 ✅ (1 warn residual aceito: banner `Server: railway-hikari`, infra Railway). Relatório completo: `RELATORIO_SEGURANCA_2026-06-08.md`.
+⚠️ Achou e corrigiu (2026-06-08): CORS da API refletia qualquer `Origin` (commit `733a0fd`) e Web sem HSTS/X-Frame-Options/nosniff (commit `3ce612d`). Resultado atual: 25/26 ✅ (1 warn residual aceito: banner `Server: railway-hikari`, infra Railway). Relatório completo: `docs/seguranca/RELATORIO_SEGURANCA_2026-06-08.md`.
 
 ### ✅ Unit — `operacao/[id]` — `tests/unit/operacao/validacao.unit.test.ts` (18 testes)
 `calcularValidacao` foi exportado de `operacao/[id]/page.tsx` (era módulo-privada) e testada diretamente — sim_nao, número (range/limites inclusivos/não-numérico), múltipla escolha (válida/inválida/opção deletada/seleção única vs array), tipos sem validação automática (texto/foto/catálogo → null).
@@ -135,6 +135,15 @@ Espelho TS de 3 funções Postgres (migration 20260609000001): `calcularDeadline
 
 ### ✅ Unit — `calcularValidacao` tipo `padrao` (7 testes, em `validacao.unit.test.ts`)
 Cobre a validação por faixa [min, max] resolvida via combinação de variáveis (feature "Padrões e Variáveis"): dentro/fora da faixa, limites inclusivos, faixa só-min ou só-max, sem instância correspondente → null, valor não numérico → null, formato de resposta inesperado → null.
+
+### ✅ Unit — Árvore de permissões de Perfil — `tests/unit/lib/perfis.unit.test.ts` (16 testes)
+`lib/perfis.ts` (lógica pura **importada** por `PerfilModal.tsx` — extraída na revisão de Perfis). Cobre tri-state (`recursoChecked`/`recursoIndeterminate`), toggles (recurso inteiro marca/desmarca todas; recurso sem ações usa a própria chave; imutabilidade; preserva outros recursos), `permsFromRows` (linhas do banco → Set) e `permissaoIdsToInsert` (Set marcado → ids a gravar; match por recurso sem ação). **16/16 ✅ (2026-06-22).** Guarda a lógica que sustentava o bug de "editar perfil apagava permissões".
+
+### ✅ Unit — Modos fora do turno — `tests/unit/lib/turnoModo.unit.test.ts` (14 testes)
+Espelhos TS (`recebeNotificacao`/`podeAcessar`/`deveAvisar` em `lib/turnos.ts`) das funções SQL `usuario_recebe_notificacao`/`usuario_pode_acessar`/`usuario_deve_avisar_turno` (migration 20260622120000). Cobre os 3 modos × dentro/fora × sem-turno/inativo × admin-isento (login). **Mantenha em sincronia** com as funções SQL. **14/14 ✅ (2026-06-22).** Complementa os 16 testes de `estaNoTurno` em `turnos.unit.test.ts`.
+
+### ✅ Unit — Validação de cadastro de Padrão — `tests/unit/lib/padrao.unit.test.ts` (15 testes)
+Criado `lib/padrao.ts` (`validarPadrao`, lógica pura **importada** por `app/gestao/padrao/criar/page.tsx` — fonte única, não espelho; extraída da validação inline do `salvar()`). Cobre: nome obrigatório, ao menos 1 variável, instâncias opcionais, combinação completa por instância (com índice 1-based no erro), combinações duplicadas bloqueadas, faixa [min,max] (só-min/só-max/min=max/decimais/negativos), exige ao menos um limite, não-numérico, min>max. **15/15 ✅ (2026-06-22).** Complementa os 7 testes do `calcularValidacao` tipo padrão (lado execução) em `validacao.unit.test.ts`.
 
 ### ✅ Unit — Listas de Tarefas — `tests/unit/lib/tarefas.unit.test.ts` (21 testes)
 Criado `lib/tarefas.ts` (lógica pura, **importada** por `app/operacao/AbaTarefas.tsx` — fonte única, não espelho). Cobre: `aberturaAberta` (sem limite, data futura/passada, qtd abaixo/igual ao máximo, "o que vier primeiro" nas duas combinações), `visivelPara` (interseção por subgrupo; sem subgrupo cai p/ grupo; sem atribuição = invisível), `listaDisponivel` (aberta E visível), `calcularEditavelAte` (null sem janela, soma de horas, atravessa o dia), `edicaoExpirada` (null nunca expira, futuro/passado). **21/21 ✅ (2026-06-18).** Rodar: `cd apps/web && npx vitest run tests/unit/lib/tarefas.unit.test.ts`.

@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { autorizarPermissao } from '@/lib/apiAuth'
 
 export async function POST(req: NextRequest) {
   try {
+    const authz = await autorizarPermissao(req, 'usuarios', 'editar')
+    if (!authz.ok) return NextResponse.json({ error: authz.message }, { status: authz.status })
+
     const { usuarioId } = await req.json()
     if (!usuarioId) return NextResponse.json({ error: 'usuarioId obrigatório' }, { status: 400 })
 
