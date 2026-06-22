@@ -168,6 +168,13 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - **Visibilidade (2026-06-18)**: a listagem mostra só os tickets dos **subgrupos do usuário** (+ os que ele abriu); admin vê todos. Contadores idem.
 - **Assumir**: só quem é do **subgrupo de destino** (ou admin). Demais ações por papel: responsável trata; abridor responde/valida/reabre; comentar sempre; cancelar = abridor ou permissão `ticket.cancelar`; improcedente = responsável com `ticket.cancelar`.
 - **Decisão 2026-06-18: NÃO usar perfil em tickets** — o controle de acesso é por **subgrupo** (visibilidade por subgrupo + assumir só por membro) + papel (abridor/responsável). As permissões `ticket.*` do catálogo ficam sem enforcement (exceto `ticket.cancelar`, que já gateia improcedente/cancelar). Não enforçar `ticket.ver/criar/tratar`.
+- **Categoria é OBRIGATÓRIA** ao abrir ticket (validação no `NovoTicketModal`, 2026-06-20).
+
+## Tickets → Categorias — revisado 2026-06-20
+- Árvore de **2 níveis** (raiz → subcategoria) por unidade. Classifica os chamados.
+- **Categoria padrão** `e_generica` = **"Não informada"** (renomeada de "Sem categoria" em `20260620180000`) — criada sob demanda via `garantir_categoria_generica`; não editável/excluível (badge "padrão"). É o fallback obrigatório quando o abridor não escolhe outra.
+- **Quem gerencia**: perfil com a permissão **`ticket` / `categorias_gerir`** (criar/editar/excluir) — registrada no catálogo. RLS de escrita de `ticket_categorias` e `ticket_sla_config` = permissão **+ unidade** (escopo por unidade adicionado em `20260620180000`; antes não restringia unidade).
+- **Excluir**: soft-delete (`ativo=false`) **direto** — tickets antigos ficam com a categoria inativa (sem guard, decisão do usuário).
 
 ## Assistente de IA — sugestões por tela (2026-06-18)
 - O botão flutuante (`components/ajuda/AssistenteAjuda.tsx`) detecta a rota atual (`usePathname`) e mostra **perguntas sugeridas pertinentes àquela tela** (mapa `SUGESTOES_POR_TELA`, casa pelo prefixo mais específico; fallback `SUGESTOES_PADRAO`). Clicar no chip envia a pergunta. 100% frontend — **não muda a chamada à IA nem adiciona tokens** (tende a reduzir, por evitar tentativa-e-erro). Campo livre continua permitindo perguntar sobre qualquer parte do sistema.

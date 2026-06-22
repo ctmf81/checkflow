@@ -58,7 +58,7 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
           // garante categoria genérica via RPC
           supabase.rpc('garantir_categoria_generica', { p_unidade_id: unidadeAtiva.id })
             .then(({ data: id }) => {
-              setCategorias([{ id, nome: 'Sem categoria', pai_id: null, e_generica: true }])
+              setCategorias([{ id, nome: 'Não informada', pai_id: null, e_generica: true }])
               setCategoriaId(id)
             })
         } else {
@@ -80,6 +80,7 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!grupoId || !subgrupoId) { setErro(`${grupoLabel} e ${subgrupoLabel} são obrigatórios.`); return }
+    if (!categoriaId)            { setErro('Selecione uma categoria.'); return }
     if (!titulo.trim())          { setErro('Informe um título para o ticket.'); return }
     if (!descricao.trim())       { setErro('Descrição é obrigatória.'); return }
     setSalvando(true); setErro(null)
