@@ -7,20 +7,22 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
+import { useToast } from '@/components/ui/feedback'
 
 export default function FormatacaoPage() {
   const { unidadeAtiva, setUnidadeAtiva } = useSession()
+  const toast = useToast()
   const [grupoLabel, setGrupoLabel] = useState('')
   const [subgrupoLabel, setSubgrupoLabel] = useState('')
   const [salvando, setSalvando] = useState(false)
-  const [salvo, setSalvo] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!unidadeAtiva?.id) { setLoading(false); return }
     createClient()
       .from('unidades').select('grupo_label, subgrupo_label').eq('id', unidadeAtiva.id).single()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) { toast.error('Não foi possível carregar a formatação.'); setLoading(false); return }
         setGrupoLabel(data?.grupo_label || 'Grupo')
         setSubgrupoLabel(data?.subgrupo_label || 'Subgrupo')
         setLoading(false)
@@ -30,16 +32,20 @@ export default function FormatacaoPage() {
   async function salvar() {
     if (!unidadeAtiva?.id) return
     setSalvando(true)
-    await createClient().from('unidades').update({
-      grupo_label: grupoLabel || 'Grupo',
-      subgrupo_label: subgrupoLabel || 'Subgrupo',
+    const grupo = grupoLabel.trim() || 'Grupo'
+    const subgrupo = subgrupoLabel.trim() || 'Subgrupo'
+    const { error } = await createClient().from('unidades').update({
+      grupo_label: grupo,
+      subgrupo_label: subgrupo,
     }).eq('id', unidadeAtiva.id)
-
-    // Atualiza o contexto de sessão para refletir imediatamente
-    setUnidadeAtiva({ ...unidadeAtiva })
     setSalvando(false)
-    setSalvo(true)
-    setTimeout(() => setSalvo(false), 2000)
+    if (error) { toast.error('Não foi possível salvar a formatação.'); return }
+
+    setGrupoLabel(grupo)
+    setSubgrupoLabel(subgrupo)
+    // Atualiza o contexto (carregarLabels re-busca os rótulos do banco)
+    setUnidadeAtiva({ ...unidadeAtiva })
+    toast.success('Formatação salva.')
   }
 
   if (!unidadeAtiva) return (
@@ -108,7 +114,6 @@ export default function FormatacaoPage() {
         </div>
 
         <div className="flex items-center justify-end gap-3">
-          {salvo && <span className="text-xs text-green-600 font-medium">✓ Salvo com sucesso</span>}
           <Button onClick={salvar} disabled={salvando}>
             {salvando ? 'Salvando...' : 'Salvar formatação'}
           </Button>
