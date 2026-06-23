@@ -279,7 +279,7 @@ Função `usuario_esta_no_turno(p_usuario_id, p_momento default now())` → bool
 |-------|-------------|
 | `documentos` | Document library |
 | `nao_execucao_motivos` | Reasons for non-execution |
-| `causa_raiz` | **Banco** de causas raiz **pré-vinculadas a uma atividade de checklist** — `nome`, `observacoes`, `grupo_id`, `subgrupo_id`, `checklist_id`, `atividade_id` (FKs cascade, 20260622180000), `documento_id` (POP/IT de apoio), `unidade_id`, `status`. RLS: leitura por unidade, **escrita por permissão `causa_raiz`** + admins (20260622190000, era admin-only). |
+| `causa_raiz` | **Banco** de causas raiz **pré-vinculadas a uma atividade de checklist** — `nome`, `observacoes`, `grupo_id`, `subgrupo_id`, `checklist_id`, `atividade_id` (FKs cascade, 20260622180000), `documento_id` (POP/IT de apoio), `unidade_id`, `status`. RLS: leitura por unidade, **escrita por permissão `causa_raiz`** + admins (20260622190000, era admin-only). **Regra**: só vincula a atividade **com validação** (`sim_nao`/`numero`/`multipla_escolha`/`localizacao`/`padrao` — filtro no cadastro), pois causa raiz pressupõe campo reprovável. |
 | `causa_raiz_ocorrencias` | **Ocorrência real** de uma causa raiz na abertura de um plano de ação (≠ banco). `causa_raiz_id`, `atividade_id` (denormalizado p/ histórico por campo), `plano_acao_id`, `unidade_id`, `observacao` (própria da ocorrência), `criado_por`, `criado_em` (20260622200000). RLS: leitura/insert por membro da unidade; edição só admin. |
 
 ### Workflows (migration 20260606000006)
