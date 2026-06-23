@@ -181,7 +181,7 @@ export default function TicketDetalhe() {
       if (upErr || !atualizado || atualizado.length === 0) {
         setEnviando(false)
         setErro(upErr
-          ? `Erro ao atualizar o ticket: ${upErr.message}`
+          ? 'Não foi possível atualizar o ticket. Tente novamente.'
           : 'Você não tem permissão para executar esta ação neste ticket.')
         return
       }
@@ -194,7 +194,7 @@ export default function TicketDetalhe() {
 
     if (evErr) {
       setEnviando(false)
-      setErro(`Status atualizado, mas falhou ao registrar o evento: ${evErr.message}`)
+      setErro('O status foi atualizado, mas não foi possível registrar o evento.')
       carregar()
       return
     }
@@ -204,7 +204,8 @@ export default function TicketDetalhe() {
       for (const file of arquivos) {
         const ext  = file.name.split('.').pop()
         const path = `tickets/${id}/${Date.now()}.${ext}`
-        const { data: up } = await supabase.storage.from('execucoes').upload(path, file, { upsert: false })
+        const { data: up, error: upErr } = await supabase.storage.from('execucoes').upload(path, file, { upsert: false })
+        if (upErr) console.error('[CheckFlow] Falha ao subir evidência do ticket:', upErr.message)
         if (up) {
           registrarUsoArmazenamento(empresaAtiva?.id, 'ticket', file.size)
           const { data: pub } = supabase.storage.from('execucoes').getPublicUrl(path)
@@ -257,7 +258,7 @@ export default function TicketDetalhe() {
 
     if (upErr || !atualizado || atualizado.length === 0) {
       setTransferindo(false)
-      setErroTransfer(upErr ? `Erro ao transferir: ${upErr.message}` : 'Você não tem permissão para transferir este ticket.')
+      setErroTransfer(upErr ? 'Não foi possível transferir o ticket.' : 'Você não tem permissão para transferir este ticket.')
       return
     }
 
@@ -276,7 +277,7 @@ export default function TicketDetalhe() {
 
     if (evErr) {
       setTransferindo(false)
-      setErroTransfer(`Transferido, mas falhou ao registrar o evento: ${evErr.message}`)
+      setErroTransfer('O ticket foi transferido, mas não foi possível registrar o evento.')
       carregar()
       return
     }
