@@ -1,11 +1,13 @@
 import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
+import { exigirAutorizacao } from '../lib/apiAuth'
 
 export async function catalogoRoutes(app: FastifyInstance) {
 
   // POST /catalogos/test-api — testa a API e retorna os campos disponíveis
   app.post('/catalogos/test-api', async (req, reply) => {
+    if (!await exigirAutorizacao(req, reply)) return
     const { url, headers: extraHeaders } = req.body as { url: string; headers?: Record<string, string> }
 
     if (!url) return reply.status(400).send({ error: 'URL obrigatória.' })

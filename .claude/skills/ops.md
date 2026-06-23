@@ -30,7 +30,7 @@ When debugging an error in logs: surface only the **last 20 lines** unless the u
 | Evolution API (WhatsApp) | `evolution-api-production-d484.up.railway.app` — imagem `evoapicloud/evolution-api:v2.3.7` (org `atendai` desatualizada no Docker Hub; não fazer downgrade p/ 2.2.x — bug de QR) |
 
 ## Env Vars (nomes — nunca valores no chat)
-`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `CRON_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`, `EVOLUTION_API_KEY` (serviço API — obrigatória, sem fallback no código; URL/instância têm default), `EVOLUTION_API_URL`, `EVOLUTION_INSTANCE`
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `CRON_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`, `EVOLUTION_API_KEY` (serviço API — obrigatória, sem fallback no código; URL/instância têm default), `EVOLUTION_API_URL`, `EVOLUTION_INSTANCE`, **`INTERNAL_API_SECRET`** (⚠️ nos serviços **api E web**, MESMO valor — autentica as rotas internas Fastify servidor-a-servidor; sem ele o OTP de reset de senha quebra. 2026-06-23)
 
 ## Consulta Inteligente (IA) — failover multi-provedor
 Rota `/api/documentos/consultar` tenta provedores em ordem, usando só os que têm a env key (serviço **web**): `GEMINI_API_KEY` (Gemini, PDF+imagem) → `ANTHROPIC_API_KEY` (Claude, PDF+imagem) → `OPENAI_API_KEY` (GPT-4o, só imagem) → `GROQ_API_KEY` (Llama vision, só imagem). Se um dá 429/erro antes de emitir, cai para o próximo. Modelos override: `GEMINI_MODEL`, `ANTHROPIC_MODEL`, `OPENAI_MODEL`, `GROQ_MODEL`. Para **PDF**, só Gemini e Anthropic entram. Erro de quota do Gemini (`limit:0` free tier) → gerar key no Google AI Studio ou habilitar billing.

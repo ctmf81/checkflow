@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { X, Info, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { apiFetch } from '@/lib/apiClient'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { useToast } from '@/components/ui/feedback'
@@ -121,9 +122,8 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
       if (apiHeaders.trim()) {
         try { parsedHeaders = JSON.parse(apiHeaders) } catch { /* ignora */ }
       }
-      const res = await fetch(`${API_URL}/catalogos/test-api`, {
+      const res = await apiFetch('/catalogos/test-api', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: apiUrl.trim(), headers: parsedHeaders }),
       })
       const json = await res.json()
@@ -145,9 +145,8 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
     try {
       let parsedHeaders: Record<string, string> = {}
       if (apiHeaders.trim()) { try { parsedHeaders = JSON.parse(apiHeaders) } catch { /* */ } }
-      const res = await fetch(`${API_URL}/catalogos/test-api`, {
+      const res = await apiFetch('/catalogos/test-api', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: apiUrl.trim(), headers: parsedHeaders }),
       })
       const json = await res.json()

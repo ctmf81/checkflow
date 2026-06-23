@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
+import { exigirAutorizacao } from '../lib/apiAuth'
 import { enviarWhatsApp, enviarWhatsAppMidia } from '../lib/whatsapp'
 import { enviarEmail } from '../lib/email'
 import { emailTicketAberto, emailTicketMovimentado } from '../lib/email-templates'
@@ -41,6 +42,7 @@ function formatarNumero(tel: string): string {
 export async function ticketsRoutes(app: FastifyInstance) {
 
   app.post('/tickets/notificar', async (req, reply) => {
+    if (!await exigirAutorizacao(req, reply)) return
     const { ticket_id, evento, ator_id, texto } = req.body as {
       ticket_id: string
       evento: string

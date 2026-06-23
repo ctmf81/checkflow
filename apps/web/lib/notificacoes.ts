@@ -5,7 +5,7 @@
  * para nunca bloquear o fluxo principal da aplicação.
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
+import { apiFetch } from './apiClient'
 
 async function notificarPlanoAcao(payload: {
   plano_id: string
@@ -13,13 +13,8 @@ async function notificarPlanoAcao(payload: {
   observacao: string
   ator_nome: string
 }): Promise<void> {
-  if (!API_URL) return
   try {
-    await fetch(`${API_URL}/planos-acao/notificar`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
+    await apiFetch('/planos-acao/notificar', { method: 'POST', body: JSON.stringify(payload) })
   } catch {
     // Silencioso — Evolution pode estar offline
   }
@@ -77,10 +72,5 @@ export function notificarTicket(params: {
   ator_id: string
   texto: string
 }): void {
-  if (!API_URL) return
-  fetch(`${API_URL}/tickets/notificar`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  }).catch(() => {}) // silencioso
+  apiFetch('/tickets/notificar', { method: 'POST', body: JSON.stringify(params) }).catch(() => {}) // silencioso
 }

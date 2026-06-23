@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, Plus, Trash2, Save, Send, Loader2, Check, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { apiFetch } from '@/lib/apiClient'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { useToast, useConfirm } from '@/components/ui/feedback'
@@ -159,12 +160,8 @@ export default function MontadorTarefaPage({ params }: { params: Promise<{ id: s
 
     // Aviso por WhatsApp (opcional) — fire-and-forget, não bloqueia a publicação
     if (notificar) {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api-production-5bce.up.railway.app'
-      fetch(`${API_URL}/tarefas/notificar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lista_id: id }),
-      }).catch(() => { /* silencia: o aviso é best-effort */ })
+      apiFetch('/tarefas/notificar', { method: 'POST', body: JSON.stringify({ lista_id: id }) })
+        .catch(() => { /* silencia: o aviso é best-effort */ })
     }
   }
 

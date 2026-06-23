@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
+import { exigirAutorizacao } from '../lib/apiAuth'
 import { enviarWhatsApp } from '../lib/whatsapp'
 
 // ─── Rota ────────────────────────────────────────────────────────────────────
@@ -16,6 +17,7 @@ export async function tarefasRoutes(app: FastifyInstance) {
    * com `notificar_whatsapp = true`. Erros de canal são silenciados.
    */
   app.post('/tarefas/notificar', async (req, reply) => {
+    if (!await exigirAutorizacao(req, reply)) return
     const { lista_id } = (req.body ?? {}) as { lista_id?: string }
     if (!lista_id) return reply.status(400).send({ error: 'lista_id é obrigatório' })
 

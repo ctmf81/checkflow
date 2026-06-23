@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
+import { exigirAutorizacao } from '../lib/apiAuth'
 import { enviarWhatsApp, enviarWhatsAppMidia } from '../lib/whatsapp'
 import { enviarEmail } from '../lib/email'
 import { emailPlanoAberto, emailPlanoEnviadoN2 } from '../lib/email-templates'
@@ -85,6 +86,7 @@ export async function planosAcaoRoutes(app: FastifyInstance) {
    * Erros de canal são silenciados — nunca quebra o fluxo principal.
    */
   app.post('/planos-acao/notificar', async (req, reply) => {
+    if (!await exigirAutorizacao(req, reply)) return
     const { plano_id, evento, observacao, ator_nome } = req.body as {
       plano_id: string
       evento: 'aberto' | 'enviado_n2' | 'devolvido_n1'

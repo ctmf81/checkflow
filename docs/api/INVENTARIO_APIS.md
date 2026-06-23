@@ -27,11 +27,13 @@ pelo helper `lib/apiAuth.ts` (`autorizarPermissao`) — exige `Authorization: Be
 Os callers (UsuarioModal, lista de usuários, ImportarUsuariosModal) passaram a
 enviar o token.
 
-> Obs.: várias rotas Fastify "internas" (`/whatsapp/enviar`, `/tickets/notificar`,
-> `/planos-acao/notificar`, `/tarefas/notificar`) também não têm auth — são
-> chamadas servidor-a-servidor, mas chamadas diretas à URL as alcançam. A CORS
-> allowlist só barra navegador, não chamadas server-side. Avaliar um segredo
-> compartilhado entre web↔api.
+> ✅ **CORRIGIDO (2026-06-23)**: as rotas Fastify "internas" (`/whatsapp/*`,
+> `/tickets|planos-acao|tarefas/notificar`, `/catalogos/test-api`) agora exigem
+> credencial via `apps/api/src/lib/apiAuth.ts` (`exigirAutorizacao`):
+> **`Authorization: Bearer <jwt>`** (navegador, `lib/apiClient.ts → apiFetch`) **ou**
+> **`x-internal-secret`** (servidor-a-servidor, ex.: OTP de reset). ⚠️ Requer
+> `INTERNAL_API_SECRET` setado nos serviços **api e web** (mesmo valor). Crons
+> seguem com `x-cron-secret`.
 
 ---
 
