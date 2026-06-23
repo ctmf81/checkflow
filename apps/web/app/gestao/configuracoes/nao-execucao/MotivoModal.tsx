@@ -31,7 +31,9 @@ export function MotivoModal({ motivo, onClose, onSalvo }: Props) {
 
   const [descricao, setDescricao] = useState(motivo?.descricao ?? '')
   const [tipo, setTipo] = useState<'checklist' | 'atividade'>(motivo?.tipo ?? 'checklist')
-  const [grupoId, setGrupoId] = useState(motivo?.grupo_id ?? '')
+  // '' = nada escolhido (obriga seleção); 'todos' = aplica a todos (grupo_id null);
+  // uuid = grupo específico. Na edição, grupo_id null vira 'todos'.
+  const [grupoId, setGrupoId] = useState(motivo ? (motivo.grupo_id ?? 'todos') : '')
   const [subgrupoId, setSubgrupoId] = useState(motivo?.subgrupo_id ?? '')
   const [grupos, setGrupos] = useState<Grupo[]>([])
   const [subgrupos, setSubgrupos] = useState<Subgrupo[]>([])
@@ -45,9 +47,10 @@ export function MotivoModal({ motivo, onClose, onSalvo }: Props) {
       .then(({ data }) => { if (data) setGrupos(data) })
   }, [unidadeAtiva?.id])
 
+  // Carrega subgrupos do grupo escolhido. NÃO reseta subgrupoId aqui (rodaria no
+  // mount e apagaria a seleção na edição) — o reset é feito no onChange do grupo.
   useEffect(() => {
-    setSubgrupoId('')
-    if (!grupoId) { setSubgrupos([]); return }
+    if (!grupoId || grupoId === 'todos') { setSubgrupos([]); return }
     createClient().from('subgrupos').select('id, nome')
       .eq('grupo_id', grupoId).eq('status', 'ativo').order('nome')
       .then(({ data }) => { if (data) setSubgrupos(data) })
@@ -55,16 +58,20 @@ export function MotivoModal({ motivo, onClose, onSalvo }: Props) {
 
   async function salvar() {
     if (!descricao.trim()) { setErro('Informe a descrição.'); return }
+    if (!grupoId) { setErro(`Selecione o ${grupoLabel} (escolha "Todos" para aplicar a todos).`); return }
     setErro('')
     setSalvando(true)
     const supabase = createClient()
+
+    const grupo_id = grupoId === 'todos' ? null : grupoId
+    const subgrupo_id = grupoId === 'todos' ? null : (subgrupoId || null)
 
     if (isEdicao) {
       const { error } = await supabase.from('nao_execucao_motivos').update({
         descricao: descricao.trim(),
         tipo,
-        grupo_id: grupoId || null,
-        subgrupo_id: subgrupoId || null,
+        grupo_id,
+        subgrupo_id,
         atualizado_em: new Date().toISOString(),
       }).eq('id', motivo.id)
       if (error) { setErro('Erro ao salvar.'); setSalvando(false); return }
@@ -72,8 +79,8 @@ export function MotivoModal({ motivo, onClose, onSalvo }: Props) {
       const { error } = await supabase.from('nao_execucao_motivos').insert({
         descricao: descricao.trim(),
         tipo,
-        grupo_id: grupoId || null,
-        subgrupo_id: subgrupoId || null,
+        grupo_id,
+        subgrupo_id,
         unidade_id: unidadeAtiva?.id ?? null,
         status: 'ativo',
       })
@@ -136,17 +143,16 @@ export function MotivoModal({ motivo, onClose, onSalvo }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {grupoLabel} <span className="text-gray-400 font-normal">(opcional)</span>
-            </label>
-            <select value={grupoId} onChange={e => setGrupoId(e.target.value)}
+            <label className="block text-sm font-medium text-gray-700 mb-1">{grupoLabel}</label>
+            <select value={grupoId} onChange={e => { setGrupoId(e.target.value); setSubgrupoId('') }}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
-              <option value="">Todos</option>
+              <option value="">Selecione...</option>
+              <option value="todos">Todos</option>
               {grupos.map(g => <option key={g.id} value={g.id}>{g.display_name || g.nome}</option>)}
             </select>
           </div>
 
-          {grupoId && (
+          {grupoId && grupoId !== 'todos' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 {subgrupoLabel} <span className="text-gray-400 font-normal">(opcional)</span>
@@ -158,11 +164,6 @@ export function MotivoModal({ motivo, onClose, onSalvo }: Props) {
               </select>
             </div>
           )}
-
-          <div className="bg-blue-50 rounded-lg px-4 py-3">
-            <p className="text-xs text-blue-600 font-medium mb-0.5">Checklists</p>
-            <p className="text-xs text-blue-500">A vinculação com checklists estará disponível após a criação dos checklists.</p>
-          </div>
 
           {erro && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{erro}</p>}
 

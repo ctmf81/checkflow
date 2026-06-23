@@ -16,9 +16,13 @@ interface CausaRaiz {
   observacoes: string | null
   grupo_id: string | null
   subgrupo_id: string | null
+  checklist_id: string | null
+  atividade_id: string | null
   documento_id: string | null
   grupo_nome?: string
   subgrupo_nome?: string
+  checklist_nome?: string
+  atividade_nome?: string
   documento_nome?: string
   documento_tipo?: string
 }
@@ -40,18 +44,21 @@ export default function CausaRaizPage() {
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
     setLoading(true)
-    const { data } = await createClient()
+    const { data, error } = await createClient()
       .from('causa_raiz')
       .select(`
-        id, nome, observacoes, grupo_id, subgrupo_id, documento_id,
+        id, nome, observacoes, grupo_id, subgrupo_id, checklist_id, atividade_id, documento_id,
         grupo:grupo_id(nome, display_name),
         subgrupo:subgrupo_id(nome),
+        checklist:checklist_id(nome),
+        atividade:atividade_id(nome),
         documento:documento_id(nome, tipo)
       `)
       .eq('unidade_id', unidadeAtiva.id)
       .eq('status', 'ativo')
       .order('nome')
 
+    if (error) { toast.error('Não foi possível carregar as causas raiz.'); setLoading(false); return }
     if (data) {
       setCausas(data.map((c: any) => ({
         id: c.id,
@@ -59,9 +66,13 @@ export default function CausaRaizPage() {
         observacoes: c.observacoes,
         grupo_id: c.grupo_id,
         subgrupo_id: c.subgrupo_id,
+        checklist_id: c.checklist_id,
+        atividade_id: c.atividade_id,
         documento_id: c.documento_id,
         grupo_nome: c.grupo ? (c.grupo.display_name || c.grupo.nome) : null,
         subgrupo_nome: c.subgrupo?.nome ?? null,
+        checklist_nome: c.checklist?.nome ?? null,
+        atividade_nome: c.atividade?.nome ?? null,
         documento_nome: c.documento?.nome ?? null,
         documento_tipo: c.documento?.tipo ?? null,
       })))
@@ -132,6 +143,16 @@ export default function CausaRaizPage() {
                   {causa.subgrupo_nome && (
                     <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
                       {subgrupoLabel}: {causa.subgrupo_nome}
+                    </span>
+                  )}
+                  {causa.checklist_nome && (
+                    <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">
+                      Checklist: {causa.checklist_nome}
+                    </span>
+                  )}
+                  {causa.atividade_nome && (
+                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                      Campo: {causa.atividade_nome}
                     </span>
                   )}
                   {causa.documento_nome && (

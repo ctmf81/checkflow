@@ -998,10 +998,18 @@ interface DadosPlano {
   observacao: string
   fotos: { file: File; url: string }[]
   video: { file: File; url: string } | null
+  causaRaizId?: string | null
+  causaRaizObs?: string
 }
 
-function PlanoAcaoModal({ atividade, dadosIniciais, onClose, onConfirmar }: {
+interface CausaOpt { id: string; nome: string }
+interface OcorrenciaItem { id: string; observacao: string | null; criado_em: string; causa_nome: string; usuario_nome: string | null }
+
+function PlanoAcaoModal({ atividade, subgrupoId, checklistId, unidadeId, dadosIniciais, onClose, onConfirmar }: {
   atividade: Atividade
+  subgrupoId: string | null
+  checklistId: string
+  unidadeId: string
   dadosIniciais?: DadosPlano
   onClose: () => void
   onConfirmar: (dados: DadosPlano) => void
@@ -1011,6 +1019,62 @@ function PlanoAcaoModal({ atividade, dadosIniciais, onClose, onConfirmar }: {
   const [video, setVideo] = useState<{ file: File; url: string } | null>(dadosIniciais?.video ?? null)
   const fotoInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
+
+  // Causa raiz — só para quem resolve (N1/N2). Banco de causas (≠ ocorrências).
+  const [ehResolvedor, setEhResolvedor] = useState(false)
+  const [causas, setCausas] = useState<CausaOpt[]>([])
+  const [ocorrencias, setOcorrencias] = useState<OcorrenciaItem[]>([])
+  const [causaRaizId, setCausaRaizId] = useState(dadosIniciais?.causaRaizId ?? '')
+  const [causaRaizObs, setCausaRaizObs] = useState(dadosIniciais?.causaRaizObs ?? '')
+  const [adicionando, setAdicionando] = useState(false)
+  const [novaCausaNome, setNovaCausaNome] = useState('')
+  const [salvandoCausa, setSalvandoCausa] = useState(false)
+
+  async function carregarCausas() {
+    const { data } = await createClient().from('causa_raiz')
+      .select('id, nome').eq('atividade_id', atividade.id).eq('status', 'ativo').order('nome')
+    if (data) setCausas(data)
+  }
+
+  useEffect(() => {
+    if (!subgrupoId) return
+    const sb = createClient()
+    sb.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      sb.from('usuario_subgrupo').select('funcao')
+        .eq('usuario_id', user.id).eq('subgrupo_id', subgrupoId).maybeSingle()
+        .then(({ data }) => setEhResolvedor(data?.funcao === 'nivel_1' || data?.funcao === 'nivel_2'))
+    })
+    carregarCausas()
+    // Últimas ocorrências da atividade (histórico)
+    sb.from('causa_raiz_ocorrencias')
+      .select('id, observacao, criado_em, causa:causa_raiz_id(nome), usuario:criado_por(nome)')
+      .eq('atividade_id', atividade.id).order('criado_em', { ascending: false }).limit(5)
+      .then(({ data }) => {
+        if (data) setOcorrencias(data.map((o: any) => ({
+          id: o.id, observacao: o.observacao, criado_em: o.criado_em,
+          causa_nome: o.causa?.nome ?? '—', usuario_nome: o.usuario?.nome ?? null,
+        })))
+      })
+  }, [atividade.id, subgrupoId])
+
+  async function adicionarCausa() {
+    const nome = novaCausaNome.trim()
+    if (!nome) return
+    setSalvandoCausa(true)
+    const sb = createClient()
+    const { data: sg } = await sb.from('subgrupos').select('grupo_id').eq('id', subgrupoId!).maybeSingle()
+    const { data: nova, error } = await sb.from('causa_raiz').insert({
+      nome, unidade_id: unidadeId, subgrupo_id: subgrupoId, grupo_id: sg?.grupo_id ?? null,
+      checklist_id: checklistId, atividade_id: atividade.id, status: 'ativo',
+    }).select('id, nome').single()
+    setSalvandoCausa(false)
+    if (error || !nova) return
+    await carregarCausas()
+    setCausaRaizId(nova.id)
+    setNovaCausaNome('')
+    setAdicionando(false)
+  }
 
   async function adicionarFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -1053,6 +1117,56 @@ function PlanoAcaoModal({ atividade, dadosIniciais, onClose, onConfirmar }: {
               className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-red-200 resize-none"
             />
           </div>
+
+          {/* Causa raiz — só para quem resolve (N1/N2) */}
+          {ehResolvedor && (
+            <div className="border border-gray-100 rounded-xl p-3 bg-gray-50/50 space-y-2.5">
+              <label className="block text-sm font-medium text-gray-700">Causa raiz <span className="text-gray-400 font-normal">(opcional)</span></label>
+
+              {!adicionando ? (
+                <div className="flex gap-2">
+                  <select value={causaRaizId} onChange={e => setCausaRaizId(e.target.value)}
+                    className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-200">
+                    <option value="">Selecione a causa raiz…</option>
+                    {causas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                  </select>
+                  <button type="button" onClick={() => setAdicionando(true)}
+                    className="px-3 py-2 text-sm text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 whitespace-nowrap">+ Nova</button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input value={novaCausaNome} onChange={e => setNovaCausaNome(e.target.value)}
+                    placeholder="Nome da nova causa raiz" autoFocus
+                    className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-200" />
+                  <button type="button" onClick={adicionarCausa} disabled={salvandoCausa || !novaCausaNome.trim()}
+                    className="px-3 py-2 text-sm bg-orange-500 text-white rounded-lg disabled:opacity-40">{salvandoCausa ? '...' : 'Salvar'}</button>
+                  <button type="button" onClick={() => { setAdicionando(false); setNovaCausaNome('') }}
+                    className="px-2 py-2 text-sm text-gray-400">✕</button>
+                </div>
+              )}
+
+              {causaRaizId && (
+                <textarea value={causaRaizObs} onChange={e => setCausaRaizObs(e.target.value)} rows={2}
+                  placeholder="Observação da causa raiz (opcional)"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none" />
+              )}
+
+              {ocorrencias.length > 0 && (
+                <div className="pt-1">
+                  <p className="text-xs text-gray-400 mb-1">Últimas ocorrências deste campo:</p>
+                  <ul className="space-y-1">
+                    {ocorrencias.map(o => (
+                      <li key={o.id} className="text-xs text-gray-500">
+                        <span className="font-medium text-gray-700">{o.causa_nome}</span>
+                        {o.observacao && <span> — {o.observacao}</span>}
+                        <span className="text-gray-400"> ({new Date(o.criado_em).toLocaleDateString('pt-BR')}{o.usuario_nome ? `, ${o.usuario_nome}` : ''})</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Evidências */}
           <div>
@@ -1130,7 +1244,7 @@ function PlanoAcaoModal({ atividade, dadosIniciais, onClose, onConfirmar }: {
             Cancelar
           </button>
           <button
-            onClick={() => { if (observacao.trim()) onConfirmar({ observacao: observacao.trim(), fotos, video }) }}
+            onClick={() => { if (observacao.trim()) onConfirmar({ observacao: observacao.trim(), fotos, video, causaRaizId: causaRaizId || null, causaRaizObs: causaRaizObs.trim() }) }}
             disabled={!observacao.trim()}
             className="flex-1 py-3 bg-red-500 text-white text-sm font-bold rounded-xl hover:bg-red-600 disabled:opacity-40 transition-colors">
             Abrir plano
@@ -1827,6 +1941,19 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
         })
         if (movErr) console.error('[CheckFlow] Erro ao inserir movimentação:', movErr.message)
 
+        // Ocorrência de causa raiz (se escolhida por quem resolve)
+        if (plano.causaRaizId) {
+          const { error: ocErr } = await sb.from('causa_raiz_ocorrencias').insert({
+            causa_raiz_id: plano.causaRaizId,
+            atividade_id: atividadeId,
+            plano_acao_id: planoInserido.id,
+            unidade_id: unidadeAtiva.id,
+            observacao: plano.causaRaizObs || null,
+            criado_por: user.id,
+          })
+          if (ocErr) console.error('[CheckFlow] Erro ao registrar ocorrência de causa raiz:', ocErr.message)
+        }
+
         // Notifica N1/N2 (fire-and-forget)
         notificarPlanoAberto({
           plano_id: planoInserido.id,
@@ -1950,6 +2077,9 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     {modalPlanoAtividade && (
       <PlanoAcaoModal
         atividade={modalPlanoAtividade}
+        subgrupoId={checklist?.subgrupo_id ?? null}
+        checklistId={checklist?.id ?? ''}
+        unidadeId={unidadeAtiva?.id ?? ''}
         dadosIniciais={planosCapturados[modalPlanoAtividade.id]}
         onClose={() => setModalPlanoAtividade(null)}
         onConfirmar={dados => {
