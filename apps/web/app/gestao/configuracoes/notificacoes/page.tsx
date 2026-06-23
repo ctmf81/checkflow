@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
+import { useToast } from '@/components/ui/feedback'
+import { AlertCircle } from 'lucide-react'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -108,22 +110,23 @@ const TIPOS_ORDEM: Tipo[] = [
 export default function NotificacoesPage() {
   const { empresaAtiva } = useSession()
   const supabase = createClient()
+  const toast = useToast()
 
   const [templates, setTemplates] = useState<Record<string, Template>>({})
   const [loading,   setLoading]   = useState(true)
   const [salvando,  setSalvando]  = useState<string | null>(null)
-  const [ok,        setOk]        = useState<string | null>(null)
   const [abertos,   setAbertos]   = useState<Set<string>>(new Set())
 
   function chave(tipo: Tipo, canal: Canal) { return `${tipo}::${canal}` }
 
   async function carregar() {
-    if (!empresaAtiva) return
+    if (!empresaAtiva) { setLoading(false); return }
     setLoading(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('notificacao_templates')
       .select('id, tipo, canal, ativo, assunto, corpo')
       .eq('empresa_id', empresaAtiva.id)
+    if (error) { toast.error('Não foi possível carregar os templates.'); setLoading(false); return }
     const mapa: Record<string, Template> = {}
     ;(data ?? []).forEach((r: any) => { mapa[chave(r.tipo, r.canal)] = r })
     setTemplates(mapa)
@@ -155,16 +158,13 @@ export default function NotificacoesPage() {
       corpo:   t.corpo,
     }
 
-    if (t.id) {
-      await supabase.from('notificacao_templates').update(payload).eq('id', t.id)
-    } else {
-      await supabase.from('notificacao_templates')
-        .upsert(payload, { onConflict: 'empresa_id,tipo,canal' })
-    }
+    const { error } = t.id
+      ? await supabase.from('notificacao_templates').update(payload).eq('id', t.id)
+      : await supabase.from('notificacao_templates').upsert(payload, { onConflict: 'empresa_id,tipo,canal' })
 
     setSalvando(null)
-    setOk(k)
-    setTimeout(() => setOk(null), 2000)
+    if (error) { toast.error('Não foi possível salvar o template.'); return }
+    toast.success('Template salvo.')
     setTemplates(prev => ({ ...prev, [k]: { ...prev[k], _dirty: false } }))
   }
 
@@ -175,6 +175,13 @@ export default function NotificacoesPage() {
       return next
     })
   }
+
+  if (!empresaAtiva) return (
+    <div className="py-16 text-center">
+      <AlertCircle size={40} className="text-amber-300 mx-auto mb-3" />
+      <p className="text-sm text-gray-600 font-medium">Nenhuma empresa selecionada</p>
+    </div>
+  )
 
   if (loading) return <div className="py-16 text-center text-sm text-gray-400">Carregando…</div>
 
@@ -253,7 +260,6 @@ export default function NotificacoesPage() {
                     template={tmplWa}
                     temAssunto={false}
                     salvando={salvando === chave(tipo, 'whatsapp')}
-                    ok={ok === chave(tipo, 'whatsapp')}
                     onChange={(campo, val) => atualizar(tipo, 'whatsapp', campo as any, val)}
                     onSalvar={() => salvar(tipo, 'whatsapp')}
                   />
@@ -265,7 +271,6 @@ export default function NotificacoesPage() {
                     template={tmplEmail}
                     temAssunto
                     salvando={salvando === chave(tipo, 'email')}
-                    ok={ok === chave(tipo, 'email')}
                     onChange={(campo, val) => atualizar(tipo, 'email', campo as any, val)}
                     onSalvar={() => salvar(tipo, 'email')}
                   />
@@ -281,13 +286,12 @@ export default function NotificacoesPage() {
 
 // ─── Editor de canal ──────────────────────────────────────────────────────────
 
-function CanalEditor({ canal, tipo, template, temAssunto, salvando, ok, onChange, onSalvar }: {
+function CanalEditor({ canal, template, temAssunto, salvando, onChange, onSalvar }: {
   canal: Canal
   tipo: Tipo
   template: Template | undefined
   temAssunto: boolean
   salvando: boolean
-  ok: boolean
   onChange: (campo: string, val: any) => void
   onSalvar: () => void
 }) {
@@ -319,7 +323,7 @@ function CanalEditor({ canal, tipo, template, temAssunto, salvando, ok, onChange
             {salvando
               ? <Loader2 size={11} className="animate-spin" />
               : <Save size={11} />}
-            {ok ? 'Salvo!' : 'Salvar'}
+            Salvar
           </button>
         </div>
       </div>
