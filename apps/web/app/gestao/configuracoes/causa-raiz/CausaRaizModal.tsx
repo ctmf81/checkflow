@@ -18,6 +18,11 @@ interface CausaRaiz {
   documento_id: string | null
 }
 
+// Tipos de atividade que TÊM validação (podem ser reprovados → gerar plano de
+// ação). Espelha o flag `validacao` de TIPOS em components/checklists/AtividadeModal.tsx.
+// Uma causa raiz só pode se vincular a um campo com validação.
+const TIPOS_COM_VALIDACAO = ['sim_nao', 'numero', 'multipla_escolha', 'localizacao', 'padrao']
+
 interface Grupo    { id: string; nome: string; display_name: string | null }
 interface Subgrupo { id: string; nome: string }
 interface Checklist { id: string; nome: string }
@@ -84,11 +89,11 @@ export function CausaRaizModal({ causa, onClose, onSalvo }: Props) {
       .then(({ data }) => { if (data) setDocumentos(data) })
   }, [subgrupoId])
 
-  // Atividades (campos) do checklist
+  // Atividades (campos) do checklist — só os campos COM validação
   useEffect(() => {
     if (!checklistId) { setAtividades([]); return }
     createClient().from('checklist_atividades').select('id, nome, tipo')
-      .eq('checklist_id', checklistId).order('ordem')
+      .eq('checklist_id', checklistId).in('tipo', TIPOS_COM_VALIDACAO).order('ordem')
       .then(({ data }) => { if (data) setAtividades(data) })
   }, [checklistId])
 
@@ -192,6 +197,9 @@ export function CausaRaizModal({ causa, onClose, onSalvo }: Props) {
               <option value="">Escolha o campo</option>
               {atividades.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
             </select>
+            {checklistId && atividades.length === 0 && (
+              <p className="text-xs text-amber-600 mt-1">Este checklist não tem campos com validação (causa raiz só se aplica a campos que podem ser reprovados).</p>
+            )}
           </div>
 
           {/* Observações */}
