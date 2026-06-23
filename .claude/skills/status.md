@@ -29,15 +29,17 @@ Next logical step: [one-sentence inference, only if obvious]
 Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste · ❌=pendente
 1. Home `/gestao` ✅ (dashboard só de checklist; escopo unidade ativa; funil por execução + indicador moderação N1/N2; SLA removido)  2. Grupos ✅  3. Tickets→Chamados 🟡 · Categorias ✅ (padrão "Não informada"; obrigatória no ticket; gerir por permissão `ticket/categorias_gerir`+unidade) · Config.SLA ✅ (SLA de tickets mantido; indicadores separam "em aberto/não aceito" de "em tratamento")
 4. Planos de Ação ✅  5. Checklists ✅  6. Tarefas ✅  7. Workflows ⛔off  8. Agendamentos ✅
-9. Indicadores ✅ (visão de unidade; checklists+tickets+planos+tarefas; removido card "por unidade"; visão de empresa depois)  10. Padrão→Variáveis ❌ · Padrões ❌
-11. Acessos→Empresa ❌ · Perfis ❌ · Turnos ❌ · Usuários ✅
-12. Plano ❌  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ❌ · Formatação ❌ · Relatórios ❌ · Dashboards ❌ · Causa raiz ❌ · Notificações ❌
+9. Indicadores ✅  10. Padrão→Variáveis ✅ · Padrões ✅ · Criar ✅
+11. Acessos→Empresa ✅ · Perfis ✅ · Turnos ✅ · Usuários ✅
+12. Plano ❌ (analisada, NÃO corrigida — ver pendências)  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ✅ · Formatação ✅ · Causa raiz ✅ (feature completa) · Notificações ✅ · Relatórios ❌ · Dashboards ❌
 + Ambiente **Sistema** (admin plataforma: empresas, planos/preços, templates, parceiros, integrações IA, onboarding) — revisar ao final/à parte.
 
-## ▶️ ESTADO / RETOMAR (2026-06-22)
-- **Tudo commitado e mergeado na `main`** (último merge #45; + commit vazio `1c5bdb3` para disparar deploy). Nenhum PR aberto. Working tree limpo (só `RELATORIO_SEGURANCA_2026-06-08.md` fora, intencional). Build de produção (`next build`) passa; **221 testes unit** + pentests verdes.
-- **PRÓXIMA TELA NA REVISÃO** (ordem do menu, pegar pendentes ❌): **Padrão → Variáveis**, depois Padrões → Acessos (Empresa/Perfis/Turnos) → Plano → Config (Não execução/Formatação/Relatórios/Dashboards/Causa raiz/Notificações). Tickets/Chamados e Workflows ficam por último (pendentes de teste/off). Ver checklist acima.
-- ⚠️ **Railway — trial expirou e pausou deploys (2026-06-22)**. Usuário fez **upgrade (Hobby)**; deploy reativado. Se algo não aparecer em produção, checar serviço **web** → Deployments (Redeploy do último). Não é problema de código.
+## ▶️ ESTADO / RETOMAR (2026-06-23)
+- **Tudo commitado e mergeado na `main`** (PRs #47–#51). **Nenhum PR aberto**, working tree limpo. **311 testes unit** + pentests verdes (inclui `pentest/causa-raiz-rls.mjs` 7/7). Auto-deploy do Railway está ON.
+- **PRÓXIMA TELA NA REVISÃO**: **Plano** (`/gestao/plano`) — já analisada, **NÃO corrigida**. Bugs a tratar: trava em "Carregando…" sem empresa (`carregar()` sem `setLoading(false)`); `window.open(invoiceUrl)` pode ser barrado por popup-blocker; leituras sem tratar erro. Depois: **Tickets/Chamados** e **Workflows**.
+- 🔓 **Segurança em aberto**: rotas Fastify "internas" sem auth (`/whatsapp/enviar`, `/*/notificar`) — chamáveis direto na URL. Ver `docs/api/INVENTARIO_APIS.md`. Atacar com segredo compartilhado web↔api.
+- **Causa raiz** virou feature completa (banco→atividade validável, abertura na execução N1/N2, moderação na gestão + recorrência). Migrations `20260622180000/190000/200000/210000` **aplicadas**. Backlog: levar causa raiz pros indicadores.
+- ⚠️ **Railway pós-trial (Hobby)**: auto-deploy ON; se algo não subir, basta 1 Redeploy manual no dashboard.
 - **Regras transversais fechadas hoje** (já em `/biz`): (1) **toda tela = unidade ativa** (filtra por `unidadeAtiva.id`; admin troca de unidade); (2) **NÃO** colocar seletor de unidade próprio nas telas (o do header já vale — tentei `FiltroUnidade`, REVERTIDO); (3) dashboards/indicadores **só da unidade** (visão de empresa virá depois).
 - **Migrations aplicadas hoje**: `20260620120000` (admin empresa), `20260620140000` (catálogos escrita), `20260620160000` (documentos escrita), `20260620180000` (categoria ticket). **Nenhuma pendente.**
 - **Backlog novo**: **visão de EMPRESA (cross-unidade) em Indicadores** (consolidar todas as unidades) — combinado fazer depois.
