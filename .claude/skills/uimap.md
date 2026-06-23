@@ -125,9 +125,14 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 |------|---------|
 | `contexts/SessionContext.tsx` | Empresa, unidade, ambiente state + persistence to `sessao_usuario` |
 | `lib/supabase.ts` | Supabase client singleton |
+| `lib/apiClient.ts` | `apiFetch(path, init)` — chamadas do navegador à API Fastify com Bearer do usuário (rotas internas autenticadas) |
+| `lib/padrao.ts` · `lib/perfis.ts` · `lib/turnos.ts` · `lib/tarefas.ts` · `lib/tickets.ts` · `lib/visibilidade.ts` | Lógica pura (validação/permissões/visibilidade) — fonte única importada pelas telas + testes unit |
+| `components/layout/AvisoTurno.tsx` | Banner "fora do turno" (modo aviso) nos layouts gestão/operação |
+| `components/planos-acao/CausaRaizModeracao.tsx` | Bloco de causa raiz + recorrência na moderação do plano (`/gestao/planos-acao/[id]`) |
 
 ## API (`apps/api/src/`)
 ⚠️ Toda criação de client supabase-js na API precisa de `{ realtime: { transport: ws } }` (Node 20 no Railway não tem WebSocket nativo — sem isso crasha 500).
+`lib/apiAuth.ts` (`exigirAutorizacao`): guard das rotas internas — Bearer JWT (navegador) ou `x-internal-secret` (servidor).
 
 | File | Purpose |
 |------|---------|
