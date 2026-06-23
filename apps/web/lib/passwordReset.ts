@@ -139,7 +139,8 @@ export async function enviarCodigoUsuario(
 
   await fetch(`${API_URL}/whatsapp/enviar-codigo`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    // Servidor-a-servidor (pré-login, sem JWT): autentica via segredo interno.
+    headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.INTERNAL_API_SECRET ?? '' },
     body: JSON.stringify({
       numero: usuario.telefone ?? undefined,
       nome: usuario.nome,

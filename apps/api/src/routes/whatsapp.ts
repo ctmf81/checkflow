@@ -4,6 +4,7 @@ import ws from 'ws'
 import { enviarWhatsApp, statusInstancia } from '../lib/whatsapp'
 import { enviarEmail } from '../lib/email'
 import { buscarTemplate, renderizar } from '../lib/notificacao-templates'
+import { exigirAutorizacao } from '../lib/apiAuth'
 
 // URL e instância têm default de conveniência; a API key (secreta) vem só do ambiente.
 const EVO_URL = process.env.EVOLUTION_API_URL ?? 'https://evolution-api-production-d484.up.railway.app'
@@ -14,6 +15,7 @@ export async function whatsappRoutes(app: FastifyInstance) {
 
   // POST /whatsapp/status — verifica se está conectado (aceita config via body)
   app.post('/whatsapp/status', async (req, reply) => {
+    if (!await exigirAutorizacao(req, reply)) return
     const body = (req.body ?? {}) as any
     const url = body.evoUrl || EVO_URL
     const key = body.evoKey || EVO_KEY
@@ -34,6 +36,7 @@ export async function whatsappRoutes(app: FastifyInstance) {
 
   // GET /whatsapp/status — mantém compatibilidade
   app.get('/whatsapp/status', async (req, reply) => {
+    if (!await exigirAutorizacao(req, reply)) return
     const status = await statusInstancia()
     return reply.send(status)
   })
@@ -41,6 +44,7 @@ export async function whatsappRoutes(app: FastifyInstance) {
   // POST /whatsapp/desconectar — encerra a sessão atual (troca de número):
   // faz logout da instância sem deletá-la; a tela volta a oferecer o QR.
   app.post('/whatsapp/desconectar', async (req, reply) => {
+    if (!await exigirAutorizacao(req, reply)) return
     const body = (req.body ?? {}) as any
     const url = body.evoUrl || EVO_URL
     const key = body.evoKey || EVO_KEY
@@ -62,6 +66,7 @@ export async function whatsappRoutes(app: FastifyInstance) {
 
   // POST /whatsapp/conectar — cria a instância e retorna QR Code
   app.post('/whatsapp/conectar', async (req, reply) => {
+    if (!await exigirAutorizacao(req, reply)) return
     try {
       const body = (req.body ?? {}) as any
       const url = body.evoUrl || EVO_URL
@@ -166,6 +171,7 @@ export async function whatsappRoutes(app: FastifyInstance) {
 
   // POST /whatsapp/enviar — envia mensagem
   app.post('/whatsapp/enviar', async (req, reply) => {
+    if (!await exigirAutorizacao(req, reply)) return
     const { numero, mensagem } = req.body as { numero: string; mensagem: string }
     if (!numero || !mensagem) return reply.status(400).send({ error: 'numero e mensagem obrigatórios' })
     const result = await enviarWhatsApp({ numero, mensagem })
@@ -174,6 +180,7 @@ export async function whatsappRoutes(app: FastifyInstance) {
 
   // POST /whatsapp/recuperar-senha — envia link de recuperação via WhatsApp + Email
   app.post('/whatsapp/recuperar-senha', async (req, reply) => {
+    if (!await exigirAutorizacao(req, reply)) return
     const { numero, nome, link, email, empresa_id } = req.body as {
       numero?: string; nome: string; link: string; email?: string; empresa_id?: string
     }
@@ -256,6 +263,7 @@ export async function whatsappRoutes(app: FastifyInstance) {
 
   // POST /whatsapp/enviar-codigo — envia código numérico (OTP) via WhatsApp + Email
   app.post('/whatsapp/enviar-codigo', async (req, reply) => {
+    if (!await exigirAutorizacao(req, reply)) return
     const { numero, nome, codigo, email, empresa_id, contexto } = req.body as {
       numero?: string; nome: string; codigo: string; email?: string; empresa_id?: string
       contexto?: 'primeiro_acesso' | 'reset_admin' | 'self_service'

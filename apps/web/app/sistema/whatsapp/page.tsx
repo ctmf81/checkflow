@@ -6,6 +6,7 @@ import { RefreshCw, CheckCircle, XCircle, Smartphone, Settings, ChevronDown, Che
 import { Button } from '@/components/ui/Button'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
+import { apiFetch } from '@/lib/apiClient'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api-production-5bce.up.railway.app'
 const CONFIG_KEY = 'checkflow_evo_config'
@@ -55,9 +56,8 @@ export default function WhatsAppPage() {
 
   async function verificarStatus() {
     try {
-      const res = await fetch(`${API}/whatsapp/status`, {
+      const res = await apiFetch('/whatsapp/status', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ evoUrl: config.url, evoKey: config.apiKey, evoInstance: config.instancia }),
       })
       const json = await res.json()
@@ -72,9 +72,8 @@ export default function WhatsAppPage() {
     setDesconectando(true)
     setErro(null)
     try {
-      const res = await fetch(`${API}/whatsapp/desconectar`, {
+      const res = await apiFetch('/whatsapp/desconectar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ evoUrl: config.url, evoKey: config.apiKey, evoInstance: config.instancia }),
       })
       const json = await res.json()
@@ -97,9 +96,8 @@ export default function WhatsAppPage() {
     setErro(null)
     setDebug(null)
     try {
-      const res = await fetch(`${API}/whatsapp/conectar`, {
+      const res = await apiFetch('/whatsapp/conectar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ evoUrl: config.url, evoKey: config.apiKey, evoInstance: config.instancia }),
       })
       const json = await res.json()

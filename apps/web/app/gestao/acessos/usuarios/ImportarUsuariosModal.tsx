@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { X, Upload, Download, RefreshCw, Check, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { apiFetch } from '@/lib/apiClient'
 import { createClient } from '@/lib/supabase'
 
 interface UsuarioImport {
@@ -113,9 +114,8 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
     try {
       let headers: Record<string, string> = {}
       if (apiHeaders.trim()) { try { headers = JSON.parse(apiHeaders) } catch { /* */ } }
-      const res = await fetch(`${API_URL}/catalogos/test-api`, {
+      const res = await apiFetch('/catalogos/test-api', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: apiUrl.trim(), headers }),
       })
       const json = await res.json()
@@ -132,9 +132,8 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
     try {
       let headers: Record<string, string> = {}
       if (apiHeaders.trim()) { try { headers = JSON.parse(apiHeaders) } catch { /* */ } }
-      const res = await fetch(`${API_URL}/catalogos/test-api`, {
+      const res = await apiFetch('/catalogos/test-api', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: apiUrl.trim(), headers }),
       })
       const json = await res.json()
