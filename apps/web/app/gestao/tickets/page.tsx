@@ -7,9 +7,10 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import NovoTicketModal from '@/components/tickets/NovoTicketModal'
 import { Onboarding } from '@/components/onboarding/Onboarding'
-import { ONBOARDING_TICKETS } from '@/components/onboarding/configs'
+import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { ticketVisivel, slaStatus, STATUS_ABERTOS, STATUS_NAO_ACEITO, STATUS_EM_TRATAMENTO } from '@/lib/tickets'
 import { ehAdminDaEmpresa } from '@/lib/admin'
+import { useToast } from '@/components/ui/feedback'
 
 interface TicketRow {
   id: string
@@ -34,7 +35,6 @@ const STATUS_CONFIG: Record<string, { label: string; cor: string; icon: any }> =
   aberto:                 { label: 'Aberto',               cor: 'bg-blue-100 text-blue-700',   icon: Ticket },
   em_tratamento:          { label: 'Em tratamento',        cor: 'bg-purple-100 text-purple-700', icon: RotateCcw },
   aguardando_informacao:  { label: 'Aguard. informação',   cor: 'bg-yellow-100 text-yellow-700', icon: Clock },
-  aguardando_validacao:   { label: 'Aguard. validação',    cor: 'bg-orange-100 text-orange-700', icon: AlertCircle },
   corrigido:              { label: 'Corrigido',            cor: 'bg-green-100 text-green-700',   icon: CheckCircle2 },
   nao_corrigido:          { label: 'Não corrigido',        cor: 'bg-red-100 text-red-700',       icon: XCircle },
   corrigido_parcialmente: { label: 'Corrigido parcial',    cor: 'bg-teal-100 text-teal-700',     icon: CheckCircle2 },
@@ -58,8 +58,9 @@ const SLA_DOT: Record<string, string> = {
 const ABERTOS = STATUS_ABERTOS as readonly string[]
 
 export default function TicketsPage() {
-  const { unidadeAtiva, empresaAtiva, grupoLabel, subgrupoLabel } = useSession()
+  const { unidadeAtiva, empresaAtiva } = useSession()
   const supabase = createClient()
+  const toast = useToast()
 
   const [tickets, setTickets]     = useState<TicketRow[]>([])
   const [loading, setLoading]     = useState(true)
@@ -71,7 +72,7 @@ export default function TicketsPage() {
   const [meusSubgrupos, setMeusSubgrupos] = useState<Set<string>>(new Set())
 
   async function carregar() {
-    if (!unidadeAtiva) return
+    if (!unidadeAtiva) { setLoading(false); return }
     setLoading(true)
     // Visibilidade: usuário vê os tickets dos seus subgrupos (+ os que abriu); admin vê todos
     const { data: { user } } = await supabase.auth.getUser()
@@ -82,7 +83,7 @@ export default function TicketsPage() {
       const { data: us } = await supabase.from('usuario_subgrupo').select('subgrupo_id').eq('usuario_id', user.id)
       setMeusSubgrupos(new Set((us ?? []).map((r: any) => r.subgrupo_id)))
     }
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('tickets')
       .select(`
         id, numero, titulo, prioridade, status, criado_em, subgrupo_id, aberto_por_id,
@@ -94,6 +95,7 @@ export default function TicketsPage() {
       `)
       .eq('unidade_id', unidadeAtiva.id)
       .order('criado_em', { ascending: false })
+    if (error) toast.error('Não foi possível carregar os tickets.')
     setTickets((data as any) ?? [])
     setLoading(false)
   }
@@ -127,9 +129,18 @@ export default function TicketsPage() {
     criticos:     visiveis.filter(t => t.prioridade === 'critica' && ABERTOS.includes(t.status)).length,
   }
 
+  if (!unidadeAtiva) return (
+    <div className="py-16 text-center">
+      <AlertCircle size={40} className="text-amber-300 mx-auto mb-3" />
+      <p className="text-sm text-gray-600 font-medium">Nenhuma unidade selecionada</p>
+    </div>
+  )
+
+  const cfg = getOnboardingConfig('tickets')!
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <Onboarding pageId="tickets" titulo="Tickets / Chamados" cards={ONBOARDING_TICKETS} />
+      <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
