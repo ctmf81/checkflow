@@ -68,6 +68,7 @@ export default function PlanoPage() {
   const [cobrancas, setCobrancas] = useState<Cobranca[]>([])
   const [billingType, setBillingType] = useState<BillingType>('PIX')
   const [acaoEmProgresso, setAcaoEmProgresso] = useState<string | null>(null)
+  const [faturaUrl, setFaturaUrl] = useState<string | null>(null)
 
   async function token(): Promise<string | null> {
     const { data: { session } } = await createClient().auth.getSession()
@@ -85,20 +86,21 @@ export default function PlanoPage() {
   }
 
   async function carregar() {
-    if (!empresaAtiva?.id) return
+    if (!empresaAtiva?.id) { setLoading(false); return }
     setLoading(true)
     const ok = await verificarPermissao()
     setAutorizado(ok)
     if (!ok) { setLoading(false); return }
 
     const sb = createClient()
-    const [{ data: st }, { data: assin }, { data: ps }, { data: pks }, { data: cbs }] = await Promise.all([
+    const [{ data: st, error: stErr }, { data: assin }, { data: ps }, { data: pks }, { data: cbs }] = await Promise.all([
       sb.rpc('billing_status', { p_empresa_id: empresaAtiva.id }),
       sb.from('empresa_assinaturas').select('plano_id, status').eq('empresa_id', empresaAtiva.id).maybeSingle(),
       sb.from('planos').select('id, nome, descricao, tipo, valor, ciclo, limite_execucoes_mes, limite_armazenamento_bytes, limite_tokens_ia_mes').eq('ativo', true).eq('tipo', 'pago').order('ordem'),
       sb.from('pacotes_adicionais').select('id, nome, descricao, tipo, quantidade, valor').eq('ativo', true).order('ordem'),
       sb.from('empresa_cobrancas').select('id, tipo, descricao, valor, status, vencimento, invoice_url, criado_em').eq('empresa_id', empresaAtiva.id).order('criado_em', { ascending: false }).limit(10),
     ])
+    if (stErr) toast.error('Não foi possível carregar os dados do plano.')
     setStatus((st as Status) ?? null)
     setAssinaturaAtual((assin as any) ?? null)
     setPlanos((ps ?? []) as Plano[])
@@ -135,7 +137,7 @@ export default function PlanoPage() {
       if (json?.agendado) {
         toast.success(`Troca agendada para ${dataBR(json.efetivaEm)}. O plano novo passa a valer no fim do período atual.`)
       } else {
-        if (json?.invoiceUrl) window.open(json.invoiceUrl, '_blank', 'noopener')
+        if (json?.invoiceUrl) { setFaturaUrl(json.invoiceUrl); window.open(json.invoiceUrl, '_blank', 'noopener') }
         toast.success('Assinatura criada. Abra a fatura para concluir o pagamento.')
       }
       carregar()
@@ -170,6 +172,13 @@ export default function PlanoPage() {
 
   const cfg = getOnboardingConfig('gestao-plano')
 
+  if (!empresaAtiva) return (
+    <div className="py-16 text-center">
+      <ShieldAlert size={40} className="text-gray-300 mx-auto mb-3" />
+      <p className="text-sm text-gray-600 font-medium">Nenhuma empresa selecionada</p>
+    </div>
+  )
+
   if (loading) return <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
 
   if (autorizado === false) {
@@ -191,6 +200,14 @@ export default function PlanoPage() {
         <h1 className="text-xl font-bold text-gray-800">Plano & Assinatura</h1>
         <p className="text-sm text-gray-500 mt-0.5">Acompanhe seu uso, troque de plano e compre pacotes adicionais.</p>
       </div>
+
+      {/* Fatura gerada — fallback caso o popup tenha sido bloqueado */}
+      {faturaUrl && (
+        <div className="mb-5 flex items-center gap-2 text-sm bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-4 py-2.5">
+          <span className="flex-1">Fatura gerada. Se a aba não abriu, <a href={faturaUrl} target="_blank" rel="noreferrer" className="font-semibold underline">abra a fatura aqui</a>.</span>
+          <button onClick={() => setFaturaUrl(null)} className="text-blue-400 hover:text-blue-700">✕</button>
+        </div>
+      )}
 
       {/* Plano atual + uso */}
       {status ? (
