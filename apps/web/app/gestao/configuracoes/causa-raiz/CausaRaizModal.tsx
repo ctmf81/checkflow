@@ -52,14 +52,10 @@ export function CausaRaizModal({ causa, onClose, onSalvo }: Props) {
       .then(({ data }) => { if (data) setGrupos(data) })
   }, [unidadeAtiva?.id])
 
-  // Carrega subgrupos e documentos ao mudar grupo
+  // Carrega subgrupos e documentos do grupo. NÃO reseta as seleções aqui (rodaria
+  // no mount e apagaria subgrupo/documento na edição) — o reset é feito nos onChange.
   useEffect(() => {
-    setSubgrupoId('')
-    setDocumentoId('')
-    setSubgrupos([])
-    setDocumentos([])
-    if (!grupoId) return
-
+    if (!grupoId) { setSubgrupos([]); setDocumentos([]); return }
     const supabase = createClient()
     supabase.from('subgrupos').select('id, nome')
       .eq('grupo_id', grupoId).eq('status', 'ativo').order('nome')
@@ -72,9 +68,8 @@ export function CausaRaizModal({ causa, onClose, onSalvo }: Props) {
       .then(({ data }) => { if (data) setDocumentos(data) })
   }, [grupoId])
 
-  // Refina documentos ao mudar subgrupo
+  // Refina documentos pelo subgrupo (sem resetar a seleção no mount).
   useEffect(() => {
-    setDocumentoId('')
     if (!grupoId) return
     const supabase = createClient()
     let q = supabase.from('documentos').select('id, nome, tipo')
@@ -129,7 +124,7 @@ export function CausaRaizModal({ causa, onClose, onSalvo }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{grupoLabel.replace(/s$/, '')}</label>
-              <select value={grupoId} onChange={e => setGrupoId(e.target.value)}
+              <select value={grupoId} onChange={e => { setGrupoId(e.target.value); setSubgrupoId(''); setDocumentoId('') }}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
                 <option value="">Escolha o {grupoLabel.toLowerCase().replace(/s$/, '')}</option>
                 {grupos.map(g => <option key={g.id} value={g.id}>{g.display_name || g.nome}</option>)}
@@ -137,31 +132,13 @@ export function CausaRaizModal({ causa, onClose, onSalvo }: Props) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{subgrupoLabel.replace(/s$/, '')}</label>
-              <select value={subgrupoId} onChange={e => setSubgrupoId(e.target.value)}
+              <select value={subgrupoId} onChange={e => { setSubgrupoId(e.target.value); setDocumentoId('') }}
                 disabled={!grupoId}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 disabled:opacity-50">
                 <option value="">Escolha a {subgrupoLabel.toLowerCase().replace(/s$/, '')}</option>
                 {subgrupos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
               </select>
             </div>
-          </div>
-
-          {/* Checklist — placeholder */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Checklist</label>
-            <select disabled className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed">
-              <option>Escolha o checklist</option>
-            </select>
-            <p className="text-xs text-gray-400 mt-1">Disponível após a criação dos checklists.</p>
-          </div>
-
-          {/* Campo do Checklist — placeholder */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Campo do Checklist</label>
-            <select disabled className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed">
-              <option>Escolha o campo</option>
-            </select>
-            <p className="text-xs text-gray-400 mt-1">Disponível após a criação dos checklists.</p>
           </div>
 
           {/* Nome */}

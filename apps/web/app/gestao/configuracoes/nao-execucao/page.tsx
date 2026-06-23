@@ -33,7 +33,7 @@ export default function NaoExecucaoPage() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
     setLoading(true)
     const supabase = createClient()
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('nao_execucao_motivos')
       .select(`
         id, descricao, tipo, grupo_id, subgrupo_id,
@@ -44,6 +44,7 @@ export default function NaoExecucaoPage() {
       .eq('status', 'ativo')
       .order('descricao')
 
+    if (error) { toast.error('Não foi possível carregar os motivos.'); setLoading(false); return }
     if (data) {
       setMotivos(data.map((m: any) => ({
         id: m.id,

@@ -40,7 +40,7 @@ export default function CausaRaizPage() {
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
     setLoading(true)
-    const { data } = await createClient()
+    const { data, error } = await createClient()
       .from('causa_raiz')
       .select(`
         id, nome, observacoes, grupo_id, subgrupo_id, documento_id,
@@ -52,6 +52,7 @@ export default function CausaRaizPage() {
       .eq('status', 'ativo')
       .order('nome')
 
+    if (error) { toast.error('Não foi possível carregar as causas raiz.'); setLoading(false); return }
     if (data) {
       setCausas(data.map((c: any) => ({
         id: c.id,

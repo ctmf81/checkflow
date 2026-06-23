@@ -165,11 +165,6 @@ export function MotivoModal({ motivo, onClose, onSalvo }: Props) {
             </div>
           )}
 
-          <div className="bg-blue-50 rounded-lg px-4 py-3">
-            <p className="text-xs text-blue-600 font-medium mb-0.5">Checklists</p>
-            <p className="text-xs text-blue-500">A vinculação com checklists estará disponível após a criação dos checklists.</p>
-          </div>
-
           {erro && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{erro}</p>}
 
           <div className="flex justify-end gap-3 pt-2">
