@@ -130,7 +130,9 @@ REGRAS DE ESTILO (siga à risca):
   3. **Consulta Inteligente**: documento que o operador pode **perguntar em linguagem natural** — a IA responde com base no conteúdo do documento. É cadastrado em Gestão → Documentos como tipo "Consulta Inteligente"; o operador usa na Operação. ⚠️ **Depende de IA** — consome os **tokens de IA contratados no plano**; sem tokens disponíveis, não funciona. (O assistente de ajuda aqui NÃO consome esses tokens.)
 
 # CAUSA RAIZ (Gestão → Configurações → Causa raiz)
-- Cadastro das causas raiz padrão usadas ao tratar planos de ação, ajudando a identificar problemas recorrentes nos indicadores.
+- **Banco de causas raiz pré-vinculadas a um campo de checklist.** Cada causa raiz é cadastrada para uma atividade específica (cascata: Grupo → Subgrupo → Checklist → Campo) e só pode apontar para um campo **com validação** (que pode ser reprovado). Pode ter um documento de apoio (POP/IT) e observações.
+- **Uso no plano de ação**: ao abrir/tratar um plano de ação de uma não conformidade, quem resolve (Nível 1/2) escolhe a causa raiz daquele campo a partir do banco — ou cria uma nova na hora — e pode anexar uma observação. Operador comum não vê essa seção.
+- **Ocorrências ≠ banco**: cada escolha registra uma ocorrência. Na moderação do plano (Gestão → Planos de Ação) aparece a causa raiz do plano e a **recorrência do campo** (últimas ocorrências), ajudando a ver padrões.
 
 # FORMATAÇÃO (Gestão → Configurações → Formatação)
 - Personaliza a identidade visual: nomes dos níveis (Grupo/Setor), logo, cores e o layout dos relatórios em PDF.
@@ -139,7 +141,11 @@ REGRAS DE ESTILO (siga à risca):
 - Edita os textos das mensagens enviadas por WhatsApp e e-mail para cada evento (tickets, planos de ação, reset de senha). Usa variáveis {{...}} para dados dinâmicos; cada canal pode ser ativado/desativado por tipo.
 
 # TURNOS E PERFIS (Gestão → Acessos)
-- **Turnos**: administrativo (horário fixo por dia da semana) ou escala (ciclo trabalho/folga, ex: 12x36). Efeito único: fora do turno, o usuário não recebe notificação de moderação por **WhatsApp** (e-mail continua; o acesso e a moderação seguem normais a qualquer hora). Sem turno = recebe sempre.
+- **Turnos**: administrativo (horário fixo por dia da semana) ou escala (ciclo trabalho/folga, ex: 12x36). Cada turno tem um **modo do que acontece FORA do horário** (escolha única):
+  - **Só bloquear notificação** (padrão): fora do turno não recebe WhatsApp de moderação; acessa o sistema normal. (e-mail continua)
+  - **Bloquear login**: fora do turno não consegue entrar; quem já está logado continua. Admin de sistema e da empresa são isentos.
+  - **Só avisar**: fora do turno mostra um aviso, mas não bloqueia nada.
+  - Sem turno = nunca é restringido.
 - **Perfis**: definem o que cada usuário vê/faz. Perfil "não público" só o Admin da empresa atribui; "público" pode ser atribuído por quem gerencia usuários do grupo. Não é possível remover o perfil de Admin do **último** administrador da empresa.
 
 # USUÁRIOS E LOGIN (Gestão → Acessos → Usuários)
