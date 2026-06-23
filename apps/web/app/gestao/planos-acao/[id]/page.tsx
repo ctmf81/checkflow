@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { notificarPlanoEnviadoN2, notificarPlanoDevolvidoN1 } from '@/lib/notificacoes'
 import { registrarUsoArmazenamento } from '@/lib/uso'
+import { CausaRaizModeracao } from '@/components/planos-acao/CausaRaizModeracao'
 import {
   ArrowLeft, Clock, CheckCircle2, XCircle, AlertTriangle,
   ClipboardList, ChevronRight, ImagePlus, Video, X, Loader2,
@@ -26,6 +27,8 @@ interface Plano {
   sla_prazo: string | null
   created_at: string
   subgrupo_id: string
+  unidade_id: string
+  atividade_id: string
   checklist_execucao_id: string
   subgrupos: { nome: string } | null
   checklist_atividades: { nome: string } | null
@@ -220,7 +223,7 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
 
     const { data: p } = await sb.from('planos_acao').select(`
       id, status, identificador, observacao_abertura, sla_prazo, created_at,
-      subgrupo_id, checklist_execucao_id,
+      subgrupo_id, unidade_id, atividade_id, checklist_execucao_id,
       subgrupos(nome),
       checklist_atividades(nome),
       checklist_execucoes(id, pdf_url, checklists(nome)),
@@ -453,6 +456,17 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
         <p className="flex items-center gap-2 text-xs text-gray-400 mb-5 w-fit">
           <FileText size={13} />PDF da execução ainda não disponível
         </p>
+      )}
+
+      {/* Causa raiz (banco + ocorrências do plano + recorrência) */}
+      {plano.atividade_id && (
+        <CausaRaizModeracao
+          planoId={plano.id}
+          atividadeId={plano.atividade_id}
+          subgrupoId={plano.subgrupo_id}
+          unidadeId={plano.unidade_id}
+          podeEditar={isAdmin || funcaoUsuario === 'nivel_1' || funcaoUsuario === 'nivel_2'}
+        />
       )}
 
       {/* Timeline de movimentações */}
