@@ -35,3 +35,16 @@ create policy "causa_raiz_escrita" on causa_raiz for all
       and (usuario_tem_permissao('causa_raiz', 'criar') or usuario_tem_permissao('causa_raiz', 'editar'))
     )
   );
+
+-- Inserção também por N1/N2 do subgrupo: na abertura do plano de ação, quem
+-- resolve (nivel_1/nivel_2) pode adicionar uma causa raiz nova para o campo,
+-- mesmo sem a permissão de gestão `causa_raiz`. (Política aditiva — OR.)
+drop policy if exists "causa_raiz_insert_resolvedor" on causa_raiz;
+create policy "causa_raiz_insert_resolvedor" on causa_raiz for insert
+  with check (
+    unidade_id in (select unidade_id from usuario_unidade where usuario_id = auth.uid())
+    and subgrupo_id in (
+      select subgrupo_id from usuario_subgrupo
+      where usuario_id = auth.uid() and funcao in ('nivel_1', 'nivel_2')
+    )
+  );
