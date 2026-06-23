@@ -279,7 +279,7 @@ Função `usuario_esta_no_turno(p_usuario_id, p_momento default now())` → bool
 |-------|-------------|
 | `documentos` | Document library |
 | `nao_execucao_motivos` | Reasons for non-execution |
-| `causa_raiz` | Root cause categories |
+| `causa_raiz` | Causas raiz **pré-vinculadas a uma atividade de checklist** — `nome`, `observacoes`, `grupo_id`, `subgrupo_id`, `checklist_id`, `atividade_id` (FKs cascade, migration 20260622180000), `documento_id` (POP/IT de apoio), `unidade_id`, `status`. ⚠️ Write policy ainda é **admin-only** (`is_admin_sistema()`) — gestor com permissão `causa_raiz` NÃO escreve (avaliar policy por permissão, como catálogos/documentos). Ainda **não consumida na moderação** do plano de ação. |
 
 ### Workflows (migration 20260606000006)
 | Table | Description |
