@@ -84,11 +84,13 @@ Fazer **antes** de montar o checklist, na ordem que o checklist vai consumir:
 - [🟡] **Documentos** (`/gestao/configuracoes/documentos`): modal abre e aceita nome/descrição/tipo (POP selecionado), mas "Continuar" não avança para etapa de adicionar conteúdo — validação bloqueando ou UI não intuitiva. Não completado nesta sessão. Link YouTube e Consulta Inteligente não testados.
 
 ### A6. (AE) Perfis de acesso
-- [ ] `/gestao/acessos/perfis` → criar 1 perfil **público** com permissões básicas (ver/criar checklist, executar, ver tickets) — testar que `publico=true` é selecionável por gestor de grupo depois.
-- [ ] Criar 1 perfil **não-público** (ex. perfil de N1/N2 com permissão de moderar) — só Admin da empresa deve conseguir atribuí-lo.
-- [ ] Confirmar que as permissões cobrem: checklists, usuários, catálogos, documentos, agendamentos, tickets (`categorias_gerir`, `cancelar`), causa-raiz.
-- [ ] **(AE) Editar perfil existente e salvar** → reabrir e conferir que as **permissões NÃO zeraram** e o "público" continua certo.
-- [ ] Nome de perfil duplicado é bloqueado.
+- ❌ **BLOQUEADO** (Feature não implementada) `/gestao/acessos/perfis/criar` returns "Em construção" — funcionalidade de criar perfis customizados não existe. Apenas os 3 perfis de sistema existem (Admin da empresa, Admin de sistema, Operação). Teste não será realizado. Continuando A7 com perfis de sistema apenas.
+
+### A7. (AE) Criar usuário e vincular tudo
+- [x] 1º usuário criado via API: ✅ "QA Admin Empresa" (perfil "Admin da empresa", unidade padrão).
+- [ ] **UI para vincular usuário a subgrupo/função não é intuitiva** — não encontrado botão direto para editar usuário existente ou adicionar novos com subgrupo vinculado. Modal "Adicionar usuário" não abre ou requer mais investigação de UI.
+- [ ] 2º/3º usuários (função Nível 1/2) **não criados** — bloqueado por UI.
+- [ ] Restante (OTP, inativação, etc.) não testado.
 
 ### A7. (AE) Criar usuário e vincular tudo
 - [x] `/gestao/acessos/usuarios` → "Novo usuário": nome, **CPF**, **telefone** (obrigatórios), e-mail (opcional), perfil público criado em A6, turno de A3, unidade(s) de A2. ✅ "QA Admin Empresa" criado com perfil "Admin da empresa" e unidade padrão (via API direta — UI bloqueada pelo bug #1).
