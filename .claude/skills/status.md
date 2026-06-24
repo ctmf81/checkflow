@@ -34,9 +34,8 @@ Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste ·
 12. Plano ❌ (analisada, NÃO corrigida — ver pendências)  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ✅ · Formatação ✅ · Causa raiz ✅ (feature completa) · Notificações ✅ · Relatórios ❌ · Dashboards ❌
 + Ambiente **Sistema** (admin plataforma: empresas, planos/preços, templates, parceiros, integrações IA, onboarding) — revisar ao final/à parte.
 
-## ▶️ ESTADO / RETOMAR (2026-06-24)
+## ▶️ ESTADO / RETOMAR (2026-06-23)
 - **Tudo commitado e mergeado na `main`** (PRs #47–#51). **Nenhum PR aberto**, working tree limpo. **311 testes unit** + pentests verdes (inclui `pentest/causa-raiz-rls.mjs` 7/7). Auto-deploy do Railway está ON.
-- **✅ SMOKE TESTS MANUAIS COMPLETOS (2026-06-24)**: 10 testes, **9 PASSOU ✅ | 1 EM CONSTRUÇÃO ⏳** (Config). Sistema validado end-to-end: checklist execution (ciclo completo), autenticação (reset senha, logar-como), permissões (editar sem zerar), notificações, empresa (inativar unidade), turnos (modo login), causa raiz (form funciona), billing (sem empresa ativa), tickets (listagem/filtros). **Sistema pronto para produção.**
 - **PRÓXIMA TELA NA REVISÃO**: **Plano** (`/gestao/plano`) — já analisada, **NÃO corrigida**. Bugs a tratar: trava em "Carregando…" sem empresa (`carregar()` sem `setLoading(false)`); `window.open(invoiceUrl)` pode ser barrado por popup-blocker; leituras sem tratar erro. Depois: **Tickets/Chamados** e **Workflows**.
 - 🔓 **Segurança em aberto**: rotas Fastify "internas" sem auth (`/whatsapp/enviar`, `/*/notificar`) — chamáveis direto na URL. Ver `docs/api/INVENTARIO_APIS.md`. Atacar com segredo compartilhado web↔api.
 - **Causa raiz** virou feature completa (banco→atividade validável, abertura na execução N1/N2, moderação na gestão + recorrência). Migrations `20260622180000/190000/200000/210000` **aplicadas**. Backlog: levar causa raiz pros indicadores.

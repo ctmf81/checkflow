@@ -148,21 +148,6 @@ Espelhos TS (`recebeNotificacao`/`podeAcessar`/`deveAvisar` em `lib/turnos.ts`) 
 ### ✅ Unit — Validação de cadastro de Padrão — `tests/unit/lib/padrao.unit.test.ts` (15 testes)
 Criado `lib/padrao.ts` (`validarPadrao`, lógica pura **importada** por `app/gestao/padrao/criar/page.tsx` — fonte única, não espelho; extraída da validação inline do `salvar()`). Cobre: nome obrigatório, ao menos 1 variável, instâncias opcionais, combinação completa por instância (com índice 1-based no erro), combinações duplicadas bloqueadas, faixa [min,max] (só-min/só-max/min=max/decimais/negativos), exige ao menos um limite, não-numérico, min>max. **15/15 ✅ (2026-06-22).** Complementa os 7 testes do `calcularValidacao` tipo padrão (lado execução) em `validacao.unit.test.ts`.
 
-### ✅ Smoke Tests Manuais — Validação de Produção (2026-06-24)
-10 testes funcionais de UI/navegação + data flow:
-1. **Execução de checklist** — criar → responder → aprovar/reprovar → finalizar (ciclo completo, PDF disponível)
-2. **Reset de senha** — CPF formatado, código validado, navegação
-3. **Perfis - editar** — permissões NÃO são zeradas ao editar
-4. **Usuários - logar-como** — logout/login funciona
-5. **Empresa - inativar unidade** — status muda, notificação sucesso
-6. **Turnos - modo login** — "Bloquear login" selecionável e funciona
-7. **Causa raiz** — form funciona, validação de campos
-8. **Config** — página "Em construção" (não bloqueia)
-9. **Plano & Assinatura** — funciona sem empresa ativa
-10. **Tickets/Chamados** — listagem, filtros, busca
-
-**RESULTADO: 9 PASSOU ✅ | 1 EM CONSTRUÇÃO ⏳**. Detalhes em [[smoke-tests-2026-06-24]].
-
 ### ✅ Unit — Listas de Tarefas — `tests/unit/lib/tarefas.unit.test.ts` (21 testes)
 Criado `lib/tarefas.ts` (lógica pura, **importada** por `app/operacao/AbaTarefas.tsx` — fonte única, não espelho). Cobre: `aberturaAberta` (sem limite, data futura/passada, qtd abaixo/igual ao máximo, "o que vier primeiro" nas duas combinações), `visivelPara` (interseção por subgrupo; sem subgrupo cai p/ grupo; sem atribuição = invisível), `listaDisponivel` (aberta E visível), `calcularEditavelAte` (null sem janela, soma de horas, atravessa o dia), `edicaoExpirada` (null nunca expira, futuro/passado). **21/21 ✅ (2026-06-18).** Rodar: `cd apps/web && npx vitest run tests/unit/lib/tarefas.unit.test.ts`.
 
