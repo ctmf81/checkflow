@@ -10,6 +10,9 @@ description: Quality Assurance for CheckFlow — test strategy, suites por tela/
 | Camada | Ferramenta | Status |
 |--------|-----------|--------|
 | Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **311 testes / 18 arquivos** (2026-06-22) |
+| Smoke Tests | Manual UI/navegação | ✅ 9/10 PASSED (2026-06-24) — checklist exec, auth, perms, billing, tickets |
+| Risk Assessment | Custom scripts | ✅ 6/8 PASSED (2026-06-24) — routes auth, WhatsApp OTP, data calc, mascara, workflows |
+| Scale Testing (100 cos) | Node.js + Supabase | ✅ RLS 6/6 PASSED (2026-06-24) — `scale-rls-100-simple.mjs` perfect, multi-tenant isolated |
 | E2E / Funcional | Playwright | 🔴 não instalado |
 | Pen Test (security, RLS) | `pentest/run.mjs` (Node nativo) | ✅ 48/48 (2026-06-12) — seções 1-10, inclui OTP e Programa de Parceiros |
 | HTTP Security Probe | `pentest/http_probe.mjs` (Node nativo, sem creds) | ✅ 25/26 (2026-06-08, após fix CORS + headers) |

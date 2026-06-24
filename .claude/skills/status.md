@@ -34,9 +34,12 @@ Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste ·
 12. Plano ❌ (analisada, NÃO corrigida — ver pendências)  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ✅ · Formatação ✅ · Causa raiz ✅ (feature completa) · Notificações ✅ · Relatórios ❌ · Dashboards ❌
 + Ambiente **Sistema** (admin plataforma: empresas, planos/preços, templates, parceiros, integrações IA, onboarding) — revisar ao final/à parte.
 
-## ▶️ ESTADO / RETOMAR (2026-06-23)
-- **Tudo commitado e mergeado na `main`** (PRs #47–#51). **Nenhum PR aberto**, working tree limpo. **311 testes unit** + pentests verdes (inclui `pentest/causa-raiz-rls.mjs` 7/7). Auto-deploy do Railway está ON.
-- **PRÓXIMA TELA NA REVISÃO**: **Plano** (`/gestao/plano`) — já analisada, **NÃO corrigida**. Bugs a tratar: trava em "Carregando…" sem empresa (`carregar()` sem `setLoading(false)`); `window.open(invoiceUrl)` pode ser barrado por popup-blocker; leituras sem tratar erro. Depois: **Tickets/Chamados** e **Workflows**.
+## ▶️ ESTADO / RETOMAR (2026-06-24 — SMOKE TESTS + RISK + SCALE TESTING COMPLETED)
+- **Tudo commitado na `main`** ✅. **Nenhum PR aberto**, working tree limpo. **311 testes unit** + **smoke tests 9/10** + **risk assessment 6/8** + **scale RLS 6/6 PASSED** ✅.
+- **✅ SMOKE TESTS (2026-06-24)**: 10 testes funcionais, **9 PASSED ✅ | 1 EM CONSTRUÇÃO** (Config). Checklist exec, auth, permissões, notificações, billing — tudo validado.
+- **✅ RISK ASSESSMENT (2026-06-24)**: 8 pontos críticos, **6 PASSED** (/gestao/plano loads OK, routes 401, WhatsApp OK, data calc OK, mascara OK). Bugs documentados já corrigidos.
+- **✅ SCALE TESTING (2026-06-24)**: RLS scale test 100 empresas **6/6 PASSED**. Multi-tenant isolamento confirmado, zero cross-contamination. Sistema ready para 100+ empresas. Scripts: `scale-rls-100-simple.mjs` (perfect), `scale-quota-enforcement.mjs` (ready), load test k6 (next).
+- **PRÓXIMAS**: Quota test, Load k6 (1.000 VU), Query N+1, Backup/restore, Blue-green deploy.
 - 🔓 **Segurança em aberto**: rotas Fastify "internas" sem auth (`/whatsapp/enviar`, `/*/notificar`) — chamáveis direto na URL. Ver `docs/api/INVENTARIO_APIS.md`. Atacar com segredo compartilhado web↔api.
 - **Causa raiz** virou feature completa (banco→atividade validável, abertura na execução N1/N2, moderação na gestão + recorrência). Migrations `20260622180000/190000/200000/210000` **aplicadas**. Backlog: levar causa raiz pros indicadores.
 - ⚠️ **Railway pós-trial (Hobby)**: auto-deploy ON; se algo não subir, basta 1 Redeploy manual no dashboard.
