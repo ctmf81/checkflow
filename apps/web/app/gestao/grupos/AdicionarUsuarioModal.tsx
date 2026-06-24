@@ -18,12 +18,15 @@ interface Props {
 interface Usuario { id: string; nome: string; email: string }
 interface Subgrupo { id: string; nome: string }
 
+type Funcao = 'Operação' | 'Nível 1' | 'Nível 2'
+
 export function AdicionarUsuarioModal({ grupoId, grupoNome, subgrupoLabel, onClose, onSalvo }: Props) {
   const { empresaAtiva } = useSession()
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [subgrupos, setSubgrupos] = useState<Subgrupo[]>([])
   const [usuarioId, setUsuarioId] = useState('')
   const [subgruposSelecionados, setSubgruposSelecionados] = useState<string[]>([])
+  const [funcao, setFuncao] = useState<Funcao>('Operação')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
   const [loading, setLoading] = useState(true)
@@ -73,12 +76,13 @@ export function AdicionarUsuarioModal({ grupoId, grupoNome, subgrupoLabel, onClo
     await supabase.from('usuario_grupo')
       .upsert({ usuario_id: usuarioId, grupo_id: grupoId })
 
-    // Vincula às subgrupos selecionados
+    // Vincula às subgrupos selecionados com função
     if (subgruposSelecionados.length > 0) {
       await supabase.from('usuario_subgrupo')
         .upsert(subgruposSelecionados.map(sid => ({
           usuario_id: usuarioId,
           subgrupo_id: sid,
+          funcao: funcao,
         })))
     }
 
@@ -153,6 +157,23 @@ export function AdicionarUsuarioModal({ grupoId, grupoNome, subgrupoLabel, onClo
                   Não há {subgrupoLabel.toLowerCase()} cadastrado neste grupo ainda.
                 </p>
               )}
+
+              {/* Seleção de função */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Função no subgrupo</label>
+                <select
+                  value={funcao}
+                  onChange={(e) => setFuncao(e.target.value as Funcao)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                >
+                  <option value="Operação">Operação — executa checklists</option>
+                  <option value="Nível 1">Nível 1 — aprova planos de ação</option>
+                  <option value="Nível 2">Nível 2 — aprova planos e escalações</option>
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  Define a permissão do usuário neste subgrupo.
+                </p>
+              </div>
             </>
           )}
 
