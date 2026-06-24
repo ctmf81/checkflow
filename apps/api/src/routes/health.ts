@@ -1,7 +1,98 @@
-import { FastifyInstance } from 'fastify'
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
+import { supabase } from '../lib/supabase'
+
+interface HealthStatus {
+  status: 'healthy' | 'degraded' | 'unhealthy'
+  timestamp: string
+  checks: {
+    database: { status: boolean; latency_ms: number; error?: string }
+    rls: { status: boolean; latency_ms: number; error?: string }
+    storage: { status: boolean; quota_used_gb: number; quota_limit_gb: number; error?: string }
+  }
+  uptime_seconds: number
+}
+
+const startTime = Date.now()
 
 export async function healthRoutes(app: FastifyInstance) {
-  app.get('/health', async () => {
-    return { status: 'ok', timestamp: new Date().toISOString() }
+  app.get<{ Reply: HealthStatus }>('/health', async (request: FastifyRequest, reply: FastifyReply) => {
+    const health: HealthStatus = {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      checks: {
+        database: { status: false, latency_ms: 0 },
+        rls: { status: false, latency_ms: 0 },
+        storage: { status: false, quota_used_gb: 0, quota_limit_gb: 100 }
+      },
+      uptime_seconds: Math.floor((Date.now() - startTime) / 1000)
+    }
+
+    try {
+      // Database connectivity check
+      const dbStart = Date.now()
+      const { error: dbError } = await supabase.from('empresas').select('id').limit(1)
+      const dbLatency = Date.now() - dbStart
+      health.checks.database = { status: !dbError, latency_ms: dbLatency, error: dbError?.message }
+      if (dbLatency > 2000) health.status = 'degraded'
+      if (dbError) health.status = 'degraded'
+    } catch (err) {
+      health.checks.database.error = String(err)
+      health.status = 'degraded'
+    }
+
+    try {
+      // RLS validation — try to query with row-level security
+      const rlsStart = Date.now()
+      // Select from a table that has RLS enabled
+      const { data, error: rlsError } = await supabase
+        .from('usuario_subgrupo')
+        .select('id')
+        .limit(1)
+      const rlsLatency = Date.now() - rlsStart
+      health.checks.rls = {
+        status: !rlsError && Array.isArray(data),
+        latency_ms: rlsLatency,
+        error: rlsError?.message
+      }
+      if (rlsError) health.status = 'degraded'
+    } catch (err) {
+      health.checks.rls.error = String(err)
+      health.status = 'degraded'
+    }
+
+    try {
+      // Storage quota check via Supabase API
+      const storageStart = Date.now()
+      const { data, error: storageError } = await supabase.storage.listBuckets()
+      const storageLatency = Date.now() - storageStart
+
+      if (!storageError && data) {
+        const execucoesBucket = data.find(b => b.name === 'execucoes')
+        if (execucoesBucket) {
+          // Estimate quota from bucket size (Railway env or hardcoded 100 GB default)
+          const quotaLimit = parseInt(process.env.STORAGE_QUOTA_GB || '100', 10)
+          // NOTE: Supabase doesn't expose current usage via JS SDK, would need REST API
+          // For now, set 0 and mark as OK if buckets are accessible
+          health.checks.storage = {
+            status: true,
+            quota_used_gb: 0,
+            quota_limit_gb: quotaLimit,
+            error: undefined
+          }
+        }
+      }
+      if (storageError) {
+        health.checks.storage.status = false
+        health.checks.storage.error = storageError.message
+        health.status = 'degraded'
+      }
+    } catch (err) {
+      health.checks.storage.error = String(err)
+      health.status = 'degraded'
+    }
+
+    const statusCode = health.status === 'healthy' ? 200 : health.status === 'degraded' ? 503 : 500
+    return reply.status(statusCode).send(health)
   })
 }
+
