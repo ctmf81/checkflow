@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { useSidebarOptional } from './SidebarContext'
 import { DownloadAppModal } from './DownloadAppModal'
+import { ShareAppModal } from './ShareAppModal'
 
 export function Header() {
   const router = useRouter()
@@ -19,6 +20,7 @@ export function Header() {
   const [dropUnidade, setDropUnidade] = useState(false)
   const [dropUsuario, setDropUsuario] = useState(false)
   const [downloadModalOpen, setDownloadModalOpen] = useState(false)
+  const [shareModalOpen, setShareModalOpen] = useState(false)
   const refUnidade = useRef<HTMLDivElement>(null)
   const refUsuario = useRef<HTMLDivElement>(null)
 
@@ -190,7 +192,20 @@ export function Header() {
       )}
 
       {/* Modal de Download */}
-      <DownloadAppModal isOpen={downloadModalOpen} onClose={() => setDownloadModalOpen(false)} />
+      <DownloadAppModal
+        isOpen={downloadModalOpen}
+        onClose={() => setDownloadModalOpen(false)}
+        onShare={() => {
+          setDownloadModalOpen(false)
+          setShareModalOpen(true)
+        }}
+      />
+
+      {/* Modal de Compartilhamento */}
+      <ShareAppModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+      />
     </header>
   )
 }
