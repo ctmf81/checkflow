@@ -13,6 +13,7 @@ import { limpezaRoutes } from './routes/limpeza'
 import { billingRoutes } from './routes/billing'
 import { tarefasRoutes } from './routes/tarefas'
 import { alertsRoutes } from './routes/alerts'
+import { downloadRoutes } from './routes/download'
 // import { sincronizacaoRoutes } from './routes/sincronizacao'
 
 const app = Fastify({ logger: true })
@@ -53,6 +54,7 @@ app.register(limpezaRoutes)
 app.register(billingRoutes)
 app.register(tarefasRoutes)
 app.register(alertsRoutes)
+app.register(downloadRoutes)
 // app.register(sincronizacaoRoutes) // TODO: Fix TypeScript errors
 
 const port = Number(process.env.PORT) || 3001
