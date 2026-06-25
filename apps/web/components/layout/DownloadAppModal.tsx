@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import { X, Download, Smartphone } from 'lucide-react'
+import { X, Smartphone } from 'lucide-react'
 
 interface DownloadAppModalProps {
   isOpen: boolean
@@ -12,7 +12,7 @@ interface DownloadAppModalProps {
 export function DownloadAppModal({ isOpen, onClose }: DownloadAppModalProps) {
   const [copied, setCopied] = useState(false)
 
-  const expoUrl = 'exp://checkflowmobile.expo.dev'
+  const expoUrl = 'exp://checkgo.expo.dev'
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(expoUrl)
@@ -29,7 +29,7 @@ export function DownloadAppModal({ isOpen, onClose }: DownloadAppModalProps) {
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
             <Smartphone className="w-6 h-6 text-orange-500" />
-            <h2 className="text-xl font-bold text-gray-900">Baixar App Mobile</h2>
+            <h2 className="text-xl font-bold text-gray-900">Check Go
           </div>
           <button
             onClick={onClose}
@@ -60,25 +60,19 @@ export function DownloadAppModal({ isOpen, onClose }: DownloadAppModalProps) {
                 <span className="flex-shrink-0 w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold">
                   1
                 </span>
-                <span>Instale o app <strong>Expo Go</strong> na App Store ou Google Play</span>
+                <span>Instale <strong>Expo Go</strong> no seu celular (App Store ou Google Play)</span>
               </li>
               <li className="flex gap-3">
                 <span className="flex-shrink-0 w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold">
                   2
                 </span>
-                <span>Abra o app e clique em "Escanear QR Code"</span>
+                <span>Abra Expo Go e escaneie o QR code acima</span>
               </li>
               <li className="flex gap-3">
                 <span className="flex-shrink-0 w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold">
                   3
                 </span>
-                <span>Aponte a câmera para o código acima</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold">
-                  4
-                </span>
-                <span>CheckFlow abre no seu celular!</span>
+                <span>Check Go abre automaticamente!</span>
               </li>
             </ol>
           </div>
@@ -109,7 +103,7 @@ export function DownloadAppModal({ isOpen, onClose }: DownloadAppModalProps) {
           {/* Note */}
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-xs text-blue-900">
-              💡 <strong>Dica:</strong> Você pode usar o app mesmo sem internet. Preparar checklists offline, executar no campo, e sincronizar depois quando conectar!
+              💡 <strong>Dica:</strong> Check Go funciona offline! Prepare checklists, execute no campo, e sincronize quando conectar à internet.
             </p>
           </div>
         </div>
@@ -122,15 +116,6 @@ export function DownloadAppModal({ isOpen, onClose }: DownloadAppModalProps) {
           >
             Fechar
           </button>
-          <a
-            href="https://expo.dev/download"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors"
-          >
-            <Download size={16} />
-            Expo Go
-          </a>
         </div>
       </div>
     </div>

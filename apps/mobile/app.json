@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "CheckFlow",
-    "slug": "checkflow-mobile",
+    "name": "Check Go",
+    "slug": "checkgo-mobile",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
