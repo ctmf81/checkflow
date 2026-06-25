@@ -9,24 +9,37 @@
 
 Usuários logados na plataforma web podem **baixar o app mobile diretamente** clicando em um botão na aplicação.
 
+## 📍 Onde Encontrar
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  CheckFlow  [Logo]           Unidade ▼    [Baixar App] 👤   │  ← Header
+└─────────────────────────────────────────────────────────────┘
+                                              ▲
+                                        AQUI! (laranja)
+```
+
+**Local exato:** Header (barra superior) → lado direito, antes do ícone de usuário
+
 ### Local do Botão
 Na interface web:
-1. Clique no ícone/nome do **usuário** (canto superior direito)
-2. Dropdown abre
-3. Aparece botão **"Baixar App Mobile"** (com ícone de smartphone)
+- **Visível direto na Header (barra superior)**
+- Botão laranja com ícone de smartphone
+- Texto: **"Baixar App"**
+- Localizado à direita, antes do dropdown do usuário
+
+**Não precisa clicar em nenhum dropdown** — está sempre visível na Header.
 
 ---
 
 ## 📋 Fluxo Completo
 
 ```
-Usuário na web
+Usuário na web (Gestão ou Operação)
     ↓
-Clica dropdown do usuário (canto superior direito)
+Vê botão "Baixar App" na Header (laranja, topo direito)
     ↓
-Vê opção "Baixar App Mobile"
-    ↓
-Clica
+Clica botão
     ↓
 Modal abre com:
   - QR Code grande e legível
@@ -132,10 +145,9 @@ npm install qrcode.react
 
 1. **Dev mode:** `npm run dev` em `apps/web`
 2. Acesse `http://localhost:3000/gestao` (ou operacao)
-3. Clique no usuário (canto superior direito)
-4. Veja dropdown com "Baixar App Mobile"
-5. Clique nele
-6. Modal abre
+3. Procure na **Header (barra superior)** pelo botão **"Baixar App"** (laranja)
+4. Clique nele
+5. Modal abre
 7. Feche com X ou botão "Fechar"
 
 **Esperado:**
