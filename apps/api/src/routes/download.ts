@@ -11,7 +11,8 @@ export async function downloadRoutes(app: FastifyInstance) {
         return reply.status(404).send({ error: 'APK not found' })
       }
 
-      reply.download(appPath, 'CheckGo.apk')
+      const stream = fs.createReadStream(appPath)
+      reply.type('application/vnd.android.package-archive').send(stream)
     } catch (error) {
       reply.status(500).send({ error: 'Download failed' })
     }
