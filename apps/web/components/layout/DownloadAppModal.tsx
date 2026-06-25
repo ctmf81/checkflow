@@ -28,7 +28,7 @@ export function DownloadAppModal({ isOpen, onClose }: DownloadAppModalProps) {
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
             <Smartphone className="w-6 h-6 text-orange-500" />
-            <h2 className="text-xl font-bold text-gray-900">Check Go
+            <h2 className="text-xl font-bold text-gray-900">Check Go</h2>
           </div>
           <button
             onClick={onClose}
