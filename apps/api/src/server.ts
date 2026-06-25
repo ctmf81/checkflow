@@ -13,6 +13,7 @@ import { limpezaRoutes } from './routes/limpeza'
 import { billingRoutes } from './routes/billing'
 import { tarefasRoutes } from './routes/tarefas'
 import { alertsRoutes } from './routes/alerts'
+import { sincronizacaoRoutes } from './routes/sincronizacao'
 
 const app = Fastify({ logger: true })
 
@@ -52,6 +53,7 @@ app.register(limpezaRoutes)
 app.register(billingRoutes)
 app.register(tarefasRoutes)
 app.register(alertsRoutes)
+app.register(sincronizacaoRoutes)
 
 const port = Number(process.env.PORT) || 3001
 
