@@ -1,0 +1,47 @@
+name: Build Check Go APK
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/mobile/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Install dependencies
+        working-directory: ./apps/mobile
+        run: npm install
+
+      - name: Build APK
+        working-directory: ./apps/mobile/android
+        run: ./gradlew assembleRelease
+
+      - name: Copy APK to web public
+        run: cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk apps/web/public/checkgo.apk
+
+      - name: Commit and push APK
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add apps/web/public/checkgo.apk
+          git commit -m "build: update Check Go APK" --allow-empty
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
