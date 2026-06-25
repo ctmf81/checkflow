@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import QRCode from 'qrcode.react'
+import { QRCodeSVG } from 'qrcode.react'
 import { X, Download, Smartphone } from 'lucide-react'
 
 interface DownloadAppModalProps {
@@ -48,7 +48,7 @@ export function DownloadAppModal({ isOpen, onClose }: DownloadAppModalProps) {
               Escaneie este código com a câmera do seu celular ou use o Expo Go
             </p>
             <div className="bg-white p-4 rounded-lg border-2 border-gray-200">
-              <QRCode value={expoUrl} size={256} level="H" includeMargin={true} />
+              <QRCodeSVG value={expoUrl} size={256} level="H" includeMargin={true} />
             </div>
           </div>
 

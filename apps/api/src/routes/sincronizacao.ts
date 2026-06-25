@@ -7,8 +7,7 @@ import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!,
-  { realtime: { transport: 'ws' } }
+  process.env.SUPABASE_SERVICE_KEY!
 )
 
 interface SincronizacaoPayload {
@@ -47,11 +46,9 @@ interface SincronizacaoResponse {
 export async function sincronizacaoRoutes(app: FastifyInstance) {
   app.post<{ Body: SincronizacaoPayload }>(
     '/api/checklist/sincronizar',
-    { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
-        const usuario = (request as any).user
-        const payload = request.body
+        const payload = request.body as SincronizacaoPayload
 
         const resposta: SincronizacaoResponse = {
           sucesso: true,
