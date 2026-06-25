@@ -111,6 +111,20 @@ export function Header() {
 
       {!isSistema && <div className="w-px h-6 bg-gray-200" />}
 
+      {/* Botão Baixar App (visível direto na Header) */}
+      {!isSistema && (
+        <button
+          onClick={() => setDownloadModalOpen(true)}
+          className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-orange-100 text-orange-700 rounded-full hover:bg-orange-200 transition-colors"
+          title="Baixar app mobile para executar checklists offline"
+        >
+          <Smartphone size={14} />
+          Baixar App
+        </button>
+      )}
+
+      {!isSistema && <div className="w-px h-6 bg-gray-200" />}
+
       {/* Seletor de usuário — no /sistema mostra só nome + logout sem dropdown */}
       <div ref={refUsuario} className="relative">
         <button
