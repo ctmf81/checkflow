@@ -1,7 +1,6 @@
 'use client'
 
-import { QRCodeSVG } from 'qrcode.react'
-import { X } from 'lucide-react'
+import { Download, X } from 'lucide-react'
 
 interface DownloadAppModalProps {
   isOpen: boolean
@@ -9,7 +8,7 @@ interface DownloadAppModalProps {
 }
 
 export function DownloadAppModal({ isOpen, onClose }: DownloadAppModalProps) {
-  const expoUrl = 'exp://checkgo.expo.dev'
+  const apkDownloadUrl = 'https://builds.easbuild.app/builds/checkgo-mobile.apk'
 
   if (!isOpen) return null
 
@@ -29,28 +28,36 @@ export function DownloadAppModal({ isOpen, onClose }: DownloadAppModalProps) {
         </div>
 
         {/* Content */}
-        <div className="p-6 flex flex-col items-center gap-4">
-          {/* QR Code */}
-          <div className="bg-white p-3 rounded-lg border-2 border-orange-500">
-            <QRCodeSVG value={expoUrl} size={220} level="H" includeMargin={true} />
+        <div className="p-6 flex flex-col items-center gap-6">
+          {/* Icon */}
+          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
+            <Download className="w-8 h-8 text-orange-600" />
           </div>
 
-          {/* Instruções Simples */}
+          {/* Texto */}
           <div className="text-center space-y-2">
-            <p className="font-semibold text-gray-900">Escaneie com seu celular</p>
+            <p className="font-semibold text-gray-900 text-lg">Pronto para usar</p>
             <p className="text-sm text-gray-600">
-              1. Instale <strong>Expo Go</strong><br />
-              2. Aponte a câmera para o QR code<br />
-              3. Toque no link que aparecer
+              Clique abaixo para baixar o app e instalar no seu celular
             </p>
           </div>
+
+          {/* Botão Download */}
+          <a
+            href={apkDownloadUrl}
+            download="CheckGo.apk"
+            className="w-full px-4 py-3 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <Download size={20} />
+            Baixar Check Go
+          </a>
 
           {/* Botão Fechar */}
           <button
             onClick={onClose}
-            className="w-full mt-4 px-4 py-3 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors"
+            className="w-full px-4 py-2 text-gray-600 font-medium border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
-            Pronto
+            Fechar
           </button>
         </div>
       </div>
