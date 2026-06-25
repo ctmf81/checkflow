@@ -11,7 +11,6 @@ interface DownloadAppModalProps {
 
 export function DownloadAppModal({ isOpen, onClose }: DownloadAppModalProps) {
   const [copied, setCopied] = useState(false)
-
   const expoUrl = 'exp://checkgo.expo.dev'
 
   const copyToClipboard = () => {
