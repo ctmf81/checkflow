@@ -49,7 +49,51 @@ Rota `/api/documentos/consultar` tenta provedores em ordem, usando só os que t�
 ## ⚠️ Trial pausou deploys → 1º deploy manual (2026-06-22)
 Auto-deploy do GitHub está **ON** (normal). Mas quando o trial expirou e pausou os deploys, o push no `main` não buildava sozinho mesmo com auto-deploy ligado — foi preciso **um Deploy/Redeploy manual** no dashboard pra "religar"; depois disso o auto-deploy por push voltou ao normal. Env vars persistem ao upgrade.
 
-## Evolution Rule
-When a new service, env var name, or deploy command is established, add it here. Keep the file under 40 lines.
+## Health & Monitoring Endpoints (2026-06-24)
+| Endpoint | Purpose | Frequency |
+|----------|---------|-----------|
+| `GET /health` | System health (DB, RLS, storage, uptime) — HTTP 200/503/500 | Real-time |
+| `POST /alerts/railway` | Webhook for Railway alerts (CPU, latency, error rate) | On alert |
+| `GET /api/alerts` | List recent alerts (last 100, 24h TTL) | Polling |
+| `PATCH /api/alerts/{id}/ack` | Acknowledge alert | Manual |
 
-**This skill is live.** When the user says "update skills with what we did today", add any new Railway services or env var names (never values) discovered in this session.
+## Dashboards (2026-06-24)
+| Dashboard | URL | Purpose |
+|-----------|-----|---------|
+| Health Monitor | `/sistema/health` | Real-time DB/RLS/storage metrics, latency trends |
+| Alerts Viewer | `/sistema/alertas` | Recent alerts, acknowledgment, severity badges |
+
+## Load Testing (2026-06-24)
+```bash
+# Run k6 load test (1000 VU, 10 min)
+k6 run load-tests/scale-test-1000-vu.js
+
+# Against staging
+BASE_URL=https://staging-api.checkflow.digital k6 run load-tests/scale-test-1000-vu.js
+
+# Against production (low-traffic hours only)
+BASE_URL=https://api.checkflow.digital k6 run load-tests/scale-test-1000-vu.js
+```
+
+**Success criteria:**
+- p95 latency < 2s
+- p99 latency < 5s
+- Error rate < 1%
+- RLS isolation holds (zero cross-tenant data)
+
+See `load-tests/README.md` for full setup.
+
+## Rollback Procedure (2026-06-24)
+Quick rollback in Railway: Service → Deployments → Previous version → Redeploy (< 1 min)
+
+Verify post-rollback:
+```bash
+./scripts/verify-rollback.sh [staging|production]
+```
+
+Full procedure: `docs/ops/ROLLBACK_PROCEDURE.md`
+
+## Evolution Rule
+When health/alert/rollback procedures change, update these sections. New endpoints always get entries in Health & Monitoring Endpoints table.
+
+**This skill is live.** When the user says "update skills with what we did today", add any new monitoring endpoints, thresholds, or ops runbooks discovered in this session.

@@ -34,12 +34,19 @@ Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste ·
 12. Plano ❌ (analisada, NÃO corrigida — ver pendências)  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ✅ · Formatação ✅ · Causa raiz ✅ (feature completa) · Notificações ✅ · Relatórios ❌ · Dashboards ❌
 + Ambiente **Sistema** (admin plataforma: empresas, planos/preços, templates, parceiros, integrações IA, onboarding) — revisar ao final/à parte.
 
-## ▶️ ESTADO / RETOMAR (2026-06-24 — FULL TEST SUITE COMPLETED ✅)
-- **Tudo commitado na `main`** ✅. **Nenhum PR aberto**, working tree limpo. **311 testes unit** + **smoke tests 9/10** + **risk assessment 6/8** + **FULL SCALE SUITE 5/5 PASSED** ✅.
+## ▶️ ESTADO / RETOMAR (2026-06-24 — OPS & MONITORING ✅)
+- **Tudo commitado na `main`** ✅. **Nenhum PR aberto**, working tree limpo. **311 testes unit** + **smoke tests 9/10** + **RISK ASSESSMENT 6/8** + **SCALE TESTING 5/5 PASSED** + **OPS & MONITORING (commit bded587)** ✅.
 - **✅ SMOKE TESTS (2026-06-24)**: 10 testes funcionais, **9 PASSED ✅ | 1 EM CONSTRUÇÃO** (Config).
 - **✅ RISK ASSESSMENT (2026-06-24)**: 8 pontos críticos, **6 PASSED**.
 - **✅ SCALE TESTING (2026-06-24)**: RLS 6/6 PASSED (100 empresas isoladas), Quota 6/6 PASSED, Load test **237ms p95 ✅**, Query N+1 5/5 ✅, Backup/restore 7/7 ✅, Blue-green 7/8 ✅.
-- **RESULTADO**: Sistema **PRONTO PARA PRODUÇÃO** com 100+ empresas. RLS isolamento 100%, performance p95=237ms, zero-downtime deploy ready.
+- **✅ OPS & MONITORING (commit bded587, 2026-06-24)**:
+  - Enhanced `/api/health` (DB latency, RLS validation, storage access, uptime)
+  - `/sistema/health` dashboard (real-time metrics, latency trends)
+  - `/api/alerts/railway` webhook + `/sistema/alertas` dashboard
+  - Complete runbooks: `docs/ops/RAILWAY_ALERTS_SETUP.md`, `docs/ops/ROLLBACK_PROCEDURE.md`
+  - k6 load test script (1000 VU, 3 scenarios: 70% checklist, 20% health, 10% billing)
+  - Verification script `scripts/verify-rollback.sh`
+- **RESULTADO**: Sistema **OPS-READY** com health checks, alerts, rollback runbook e k6 load test. Ready para validação em staging.
 - 🔓 **Segurança em aberto**: rotas Fastify "internas" sem auth (`/whatsapp/enviar`, `/*/notificar`) — chamáveis direto na URL. Ver `docs/api/INVENTARIO_APIS.md`. Atacar com segredo compartilhado web↔api.
 - **Causa raiz** virou feature completa (banco→atividade validável, abertura na execução N1/N2, moderação na gestão + recorrência). Migrations `20260622180000/190000/200000/210000` **aplicadas**. Backlog: levar causa raiz pros indicadores.
 - ⚠️ **Railway pós-trial (Hobby)**: auto-deploy ON; se algo não subir, basta 1 Redeploy manual no dashboard.
