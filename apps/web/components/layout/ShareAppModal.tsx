@@ -22,7 +22,7 @@ export function ShareAppModal({ isOpen, onClose }: ShareAppModalProps) {
   const [copiado, setCopiado] = useState(false)
 
   const appUrl = 'https://app.checkflow.digital/api/download-app'
-  const linkWhatsApp = `Baixe o Check Go: ${appUrl}`
+  const linkWhatsApp = appUrl
 
   useEffect(() => {
     if (isOpen) {
