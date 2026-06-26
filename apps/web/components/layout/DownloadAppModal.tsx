@@ -1,6 +1,6 @@
 'use client'
 
-import { X, Share2, Download, CheckCircle2, Plus, Share } from 'lucide-react'
+import { X, Download, CheckCircle2, Plus, Share } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import {
   canPromptInstall,
@@ -13,10 +13,9 @@ import {
 interface DownloadAppModalProps {
   isOpen: boolean
   onClose: () => void
-  onShare?: () => void
 }
 
-export function DownloadAppModal({ isOpen, onClose, onShare }: DownloadAppModalProps) {
+export function DownloadAppModal({ isOpen, onClose }: DownloadAppModalProps) {
   const [canInstall, setCanInstall] = useState(false)
   const [installed, setInstalled] = useState(false)
   const [ios, setIos] = useState(false)
@@ -112,15 +111,6 @@ export function DownloadAppModal({ isOpen, onClose, onShare }: DownloadAppModalP
 
           {/* Ações */}
           <div className="space-y-2 border-t pt-5">
-            {onShare && (
-              <button
-                onClick={onShare}
-                className="w-full px-4 py-3 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
-              >
-                <Share2 size={18} />
-                Compartilhar com Equipe
-              </button>
-            )}
             <button
               onClick={onClose}
               className="w-full px-4 py-3 text-gray-900 font-medium border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
