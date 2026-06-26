@@ -5,8 +5,8 @@
 // módulos que abrem o mesmo banco.
 
 const DB_NAME = 'checkflow'
-const DB_VERSION = 2
-const STORES = ['execucao_drafts', 'checklist_defs'] as const
+const DB_VERSION = 3
+const STORES = ['execucao_drafts', 'checklist_defs', 'pending_submissions'] as const
 
 export type StoreName = (typeof STORES)[number]
 
@@ -51,6 +51,22 @@ export async function idbGet<T>(store: StoreName, key: string): Promise<T | null
     return result
   } catch {
     return null
+  }
+}
+
+export async function idbGetAll<T>(store: StoreName): Promise<T[]> {
+  try {
+    const db = await openDb()
+    const result = await new Promise<T[]>((resolve, reject) => {
+      const tx = db.transaction(store, 'readonly')
+      const req = tx.objectStore(store).getAll()
+      req.onsuccess = () => resolve((req.result as T[]) ?? [])
+      req.onerror = () => reject(req.error)
+    })
+    db.close()
+    return result
+  } catch {
+    return []
   }
 }
 

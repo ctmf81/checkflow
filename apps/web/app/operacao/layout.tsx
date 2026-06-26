@@ -10,6 +10,7 @@ import { TermosGate } from '@/components/layout/TermosGate'
 import { AvisoTurno } from '@/components/layout/AvisoTurno'
 import { DownloadAppModal } from '@/components/layout/DownloadAppModal'
 import { isStandalone } from '@/lib/pwaInstall'
+import { PendingSync } from '@/components/pwa/PendingSync'
 
 function OperacaoHeader() {
   const { empresaAtiva } = useSession()
@@ -94,6 +95,7 @@ export default function OperacaoLayout({ children }: { children: React.ReactNode
         <TermosGate />
         <EscolherEmpresaModal />
         <OperacaoHeader />
+        <PendingSync />
         <AvisoTurno />
         <main className="flex-1">
           {children}

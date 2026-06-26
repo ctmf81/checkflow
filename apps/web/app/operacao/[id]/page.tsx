@@ -9,6 +9,7 @@ import { useSession } from '@/contexts/SessionContext'
 import { useOnlineStatus } from '@/lib/useOnlineStatus'
 import { salvarDraftLocal, carregarDraftLocal, removerDraftLocal } from '@/lib/offlineDraft'
 import { chaveChecklist, salvarChecklistCache, carregarChecklistCache } from '@/lib/checklistCache'
+import { enfileirarSubmissao } from '@/lib/syncQueue'
 import {
   ChevronDown, ChevronUp, CheckCircle2, XCircle,
   Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine,
@@ -1392,6 +1393,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   const [salvando, setSalvando] = useState(false)
   const [erroFinalizar, setErroFinalizar] = useState<string | null>(null)
   const [concluido, setConcluido] = useState(false)
+  const [enfileiradoOffline, setEnfileiradoOffline] = useState(false)
   const [resultadoFinal, setResultadoFinal] = useState<'aprovado' | 'reprovado' | null>(null)
   const [pdfStatus, setPdfStatus] = useState<'idle' | 'gerando' | 'pronto' | 'erro'>('idle')
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
@@ -1738,8 +1740,10 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     if (!unidadeAtiva || !checklist) return
     setErroFinalizar(null)
 
-    // Bloqueio por limite do plano (só para execução nova — agendada já foi contada)
-    if (!execAgendadaId && empresaAtiva?.id) {
+    // Bloqueio por limite do plano (só para execução nova — agendada já foi
+    // contada). Pula offline: a checagem de billing exige rede; a fila reenvia
+    // depois e o admin acerta cobrança se necessário.
+    if (navigator.onLine && !execAgendadaId && empresaAtiva?.id) {
       const { data: pode } = await createClient().rpc('billing_pode_executar', { p_empresa_id: empresaAtiva.id })
       if (pode === false) {
         setErroFinalizar('Limite de execuções do plano atingido neste período. Contate o administrador para fazer upgrade ou comprar um pacote adicional.')
@@ -1790,8 +1794,8 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       }
     }
 
-    // Bloqueio por capacidade de armazenamento do plano
-    if (empresaAtiva?.id) {
+    // Bloqueio por capacidade de armazenamento do plano (online apenas)
+    if (navigator.onLine && empresaAtiva?.id) {
       let bytesUpload = 0
       for (const a of visiveis) {
         const r = respostas[a.id]
@@ -1808,6 +1812,53 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
           return
         }
       }
+    }
+
+    // ── Caminho OFFLINE: sem rede, enfileira a execução para envio automático
+    // quando a conexão voltar. Planos de ação e workflow exigem conexão.
+    if (!navigator.onLine) {
+      if (Object.keys(planosCapturados).length > 0 || wfItemId || execAgendadaId) {
+        setErroFinalizar('Sem conexão. Esta execução (plano de ação, workflow ou execução agendada) precisa de internet para finalizar. Use "Continuar depois" e finalize quando a conexão voltar.')
+        return
+      }
+      setSalvando(true)
+      const { data: { session } } = await createClient().auth.getSession()
+      if (!session) { setSalvando(false); setErroFinalizar('Sessão expirada. Faça login novamente.'); return }
+
+      const agora = new Date()
+      const expiracao = new Date(Date.UTC(agora.getFullYear(), agora.getMonth() + (checklist.tempo_guarda_meses ?? 12), agora.getDate()))
+      const dataExpiracao = `${expiracao.getUTCFullYear()}-${String(expiracao.getUTCMonth() + 1).padStart(2, '0')}-${String(expiracao.getUTCDate()).padStart(2, '0')}`
+      const naoConformesOff = visiveis.filter(a => calcularValidacao({ ...a, resposta: respostas[a.id] }) === false)
+      const resultadoOff: 'aprovado' | 'reprovado' = naoConformesOff.length > 0 ? 'reprovado' : 'aprovado'
+      const execId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+
+      const respostasPend = visiveis.map(a => {
+        const r: any = respostas[a.id] ?? null
+        const conforme = calcularValidacao({ ...a, resposta: r })
+        let arquivo: any = null
+        let valor: any = null
+        if ((a.tipo === 'foto' || a.tipo === 'video') && r?.file instanceof File) {
+          const ext = r.file.name.split('.').pop() ?? (a.tipo === 'foto' ? 'jpg' : 'mp4')
+          arquivo = { blob: r.file, nome: r.nome ?? null, ext, origem: r.origem, dataArquivo: r.dataArquivo }
+        } else {
+          valor = r !== null ? JSON.parse(JSON.stringify(r)) : null
+        }
+        return { atividade_id: a.id, tipo: a.tipo, conforme, valor, arquivo, obrigatoria: !!a.obrigatoria }
+      })
+
+      await enfileirarSubmissao({
+        localId: execId, execId, checklistId: checklist.id, unidadeId: unidadeAtiva.id,
+        empresaId: empresaAtiva?.id ?? null, userId: session.user.id,
+        agoraISO: agora.toISOString(), dataExpiracao, resultado: resultadoOff,
+        respostas: respostasPend, createdAt: Date.now(),
+      })
+
+      setSalvando(false)
+      limparDraftLocal()
+      setEnfileiradoOffline(true)
+      return
     }
 
     setSalvando(true)
@@ -2085,6 +2136,25 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
         <AlertCircle size={40} className="text-red-300 mx-auto mb-3" />
         <p className="text-sm text-red-600 font-medium">Erro ao carregar checklist</p>
         <p className="text-xs text-gray-400 mt-1">{erroCarregar}</p>
+      </div>
+    </div>
+  )
+
+  // Execução finalizada SEM conexão: guardada no aparelho, será enviada depois.
+  if (enfileiradoOffline) return (
+    <div className="flex items-center justify-center min-h-[80vh] px-6">
+      <div className="text-center max-w-sm">
+        <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4">
+          <WifiOff size={30} className="text-amber-500" />
+        </div>
+        <p className="text-lg font-semibold text-gray-800">Execução salva no aparelho</p>
+        <p className="text-sm text-gray-500 mt-2">
+          Você está sem conexão. Esta execução será enviada automaticamente assim que a internet voltar — pode fechar o app com segurança.
+        </p>
+        <button onClick={() => router.push('/operacao')}
+          className="mt-6 w-full px-4 py-2.5 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600 transition-colors">
+          Voltar
+        </button>
       </div>
     </div>
   )
