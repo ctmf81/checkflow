@@ -15,7 +15,7 @@
       "**/*"
     ],
     "ios": {
-      "supportsTabletMode": true,
+      "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Acesso à câmera para capturar fotos e vídeos",
         "NSLocationWhenInUseUsageDescription": "Acesso à localização para registrar ponto de coleta"
