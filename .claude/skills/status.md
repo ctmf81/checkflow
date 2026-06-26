@@ -34,6 +34,16 @@ Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste ·
 12. Plano ❌ (analisada, NÃO corrigida — ver pendências)  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ✅ · Formatação ✅ · Causa raiz ✅ (feature completa) · Notificações ✅ · Relatórios ❌ · Dashboards ❌
 + Ambiente **Sistema** (admin plataforma: empresas, planos/preços, templates, parceiros, integrações IA, onboarding) — revisar ao final/à parte.
 
+## 🚀 SESSÃO 2026-06-26 — PIVÔ PWA + EXECUÇÃO OFFLINE
+- **Abandonado o app nativo (Expo/EAS/APK)** — builds falhavam e era "mais um serviço". App web virou **PWA instalável** ("Adicionar à tela inicial", sem store). `apps/mobile` arquivado.
+- **PWA + offline da operação entregue ponta a ponta** (commits `fbcf937`→`5fbe8cf`): instalar → abrir lista offline → abrir checklist a frio offline → finalizar offline → sincronizar ao reconectar. **Offline é só `/operacao`** (service worker escopado). Detalhes em `/arch` (seção "PWA & Offline").
+- **Submissão offline v1**: só execução SIMPLES. Plano de ação, workflow e execução agendada exigem conexão.
+- ⚠️ **MIGRATION PENDENTE DE APLICAR**: `20260626000000_checklist_permite_offline.sql` (`checklists.permite_offline`). Supabase não linkado/sem senha local → usuário aplica no SQL Editor: `alter table checklists add column if not exists permite_offline boolean not null default false;`. Código é deploy-safe sem ela (flag só fica sem efeito). Ver `/db`.
+- ⚠️ **PENDENTE TESTE REAL no celular** (Galaxy A26): instalar, marcar checklist como offline, modo avião, abrir/finalizar com foto, reconectar e ver sincronizar.
+- **Responsividade mobile**: corrigidos grids de KPI (gestão/indicadores/tickets), badge de execuções em 1 linha, header mobile (unidade trunca, perfil oculto, "App"), modais de instalação sem overflow.
+- **Pendências novas registradas** (memória): [[pendencia-precadastro-qrcode]] (pré-cadastro por QR + moderação), [[pendencia-google-drive-pdfs]].
+- Config Supabase Auth (Sessions): time-box e inactivity = 0/never (ideal p/ offline) — **nada a fazer**.
+
 ## ▶️ ESTADO / RETOMAR (2026-06-25 — PRODUCTION LIVE ✅)
 - **Tudo commitado na `main`** ✅. **Nenhum PR aberto**, working tree limpo. **311 testes unit** + **smoke tests 10/10 PASSED** ✅ + **RISK ASSESSMENT 6/8** + **SCALE TESTING 5/5 PASSED** + **OPS & MONITORING** ✅ + **DEPLOYED TO PRODUCTION** 🚀.
 - **✅ SMOKE TESTS (2026-06-24)**: 10 testes funcionais, **9 PASSED ✅ | 1 EM CONSTRUÇÃO** (Config).

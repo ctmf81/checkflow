@@ -15,7 +15,8 @@ description: Pre-launch checklist for CheckFlow — use before onboarding any pa
 | # | Item | Status | Ação |
 |---|------|--------|------|
 | 1.1 | Chaves de IA (Gemini/Anthropic/OpenAI/Groq/custom) | 🟢 | Gerenciadas em `/sistema/integracoes-ia` (tabela `ia_provedores`, migrations aplicadas) — env vars são só fallback |
-| 1.2 | Migrations pendentes do Supabase | 🟢 | Todas aplicadas até 2026-06-13 (ver `/status`) |
+| 1.2 | Migrations pendentes do Supabase | 🟡 | ⏳ **1 pendente**: `20260626000000_checklist_permite_offline.sql` (PWA offline). Aplicar no SQL Editor (ver `/db`). Código deploy-safe sem ela. Demais aplicadas |
+| 1.5 | PWA / execução offline (operação) | 🟡 | Entregue 2026-06-26 (ver `/arch`). **PENDENTE teste real em celular** antes de prometer offline a cliente; submissão offline só p/ checklist simples |
 | 1.3 | `SUPABASE_SECRET_KEY` configurada no Railway | 🟢 | Já configurado |
 | 1.4 | Domínio customizado | 🟡 | Opcional no início |
 

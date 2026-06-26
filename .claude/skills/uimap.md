@@ -54,8 +54,9 @@ Layout: `operacao/layout.tsx` — NO sidebar, OperacaoHeader with unit selector
 
 | Route | File | Purpose |
 |-------|------|---------|
-| `/operacao` | `operacao/page.tsx` | Checklist listing grouped by grupo/subgrupo. Seções no topo: 🔴 "Não finalizados" (em_andamento do operador → Continuar / Não executar c/ motivo), 🟡 Agendados pendentes, 🟣 Workflows. FAB "Abrir Ticket" (sobe acima do onboarding no desktop) |
-| `/operacao/[id]` | `operacao/[id]/page.tsx` | Tela de execução. Carrega só após `unidadeAtiva` (evita race). `?exec=` retoma execução existente e **restaura respostas**. Modo `permite_continuar_depois`: botão "Continuar depois" (salva parcial) ou, se false, sem atalhos de sair |
+| `/operacao` | `operacao/page.tsx` | Checklist listing grouped by grupo/subgrupo. Seções no topo: 🔴 "Não finalizados", 🟡 Agendados, 🟣 Workflows. **OFFLINE**: monta a lista do cache (`offlineList.ts`) só com checklists `permite_offline`; online cacheia esses + pré-baixa definições. `agruparChecklists()` reusado online/offline |
+| `/operacao/[id]` | `operacao/[id]/page.tsx` | Tela de execução. `?exec=` retoma execução. Modo `permite_continuar_depois`. **OFFLINE**: render do cache (`checklistCache`), autosave de respostas (`offlineDraft`), banner "sem conexão", `finalizar()` enfileira (`syncQueue`) quando offline (só execução simples; plano/workflow/agendada exigem rede) |
+| layout operação | `operacao/layout.tsx` | `OperacaoHeader` (botão **Instalar** PWA + Gestão) + `PendingSync` (processa fila offline) |
 
 ### Sistema — Super-admin (`sistema/`)
 Layout: `sistema/layout.tsx`
@@ -120,10 +121,26 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 |------|---------|
 | `ParceiroModal.tsx` | Busca parceiro existente por e-mail ou cadastra novo (`ParceiroSelecionado` com flag `novo`) — usado na aba "Parceiro" de `/sistema/empresas/[id]` |
 
+## PWA & Offline (`components/pwa/`, `lib/`, `public/`) — só operação
+| File | Purpose |
+|------|---------|
+| `app/manifest.ts` | Web app manifest (PWA instalável, `start_url: /operacao`) |
+| `public/sw.js` | Service worker — offline **só `/operacao`**; nunca cacheia Supabase/`/api/` |
+| `components/pwa/PwaRegister.tsx` | Registra o SW (root layout, off em dev) + capta `beforeinstallprompt` |
+| `components/pwa/PendingSync.tsx` | Processa a fila offline + indicador "N aguardando envio" (operação layout) |
+| `lib/pwaInstall.ts` | Gerencia prompt nativo de instalação + detecção standalone/iOS |
+| `lib/useOnlineStatus.ts` | Hook de status de conexão (online/offline) |
+| `lib/idb.ts` | Acesso central ao IndexedDB (DB `checkflow` v3: `execucao_drafts`, `checklist_defs`, `pending_submissions`) |
+| `lib/offlineDraft.ts` | Rascunho local de respostas (autosave, sem File) |
+| `lib/checklistCache.ts` · `lib/checklistFetch.ts` | Snapshot da definição p/ render offline + busca/pré-cache |
+| `lib/syncQueue.ts` | Fila de submissões offline (reenvio idempotente: header upsert + respostas delete/insert) |
+| `lib/offlineList.ts` | Cache (localStorage) da lista de checklists offline por unidade |
+| `components/layout/DownloadAppModal.tsx` | Modal de **instalação do PWA** (Android nativo / instruções iOS). Usado só na operação |
+
 ## Context & Lib
 | File | Purpose |
 |------|---------|
-| `contexts/SessionContext.tsx` | Empresa, unidade, ambiente state + persistence to `sessao_usuario` |
+| `contexts/SessionContext.tsx` | Empresa, unidade, ambiente state + persistence. **Offline-tolerante**: `getSession()` (sem rede) + reidrata do cache `checkflow:session-ctx` quando `getUser()` falha |
 | `lib/supabase.ts` | Supabase client singleton |
 | `lib/apiClient.ts` | `apiFetch(path, init)` — chamadas do navegador à API Fastify com Bearer do usuário (rotas internas autenticadas) |
 | `lib/padrao.ts` · `lib/perfis.ts` · `lib/turnos.ts` · `lib/tarefas.ts` · `lib/tickets.ts` · `lib/visibilidade.ts` | Lógica pura (validação/permissões/visibilidade) — fonte única importada pelas telas + testes unit |

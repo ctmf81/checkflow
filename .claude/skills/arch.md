@@ -7,11 +7,22 @@ description: Apply and evolve the project's architecture rules (stack, conventio
 
 ## Current Stack
 - **Frontend:** Next.js 16 App Router + React + TypeScript + Tailwind CSS
+- **Mobile:** **PWA** (o próprio `apps/web` é instalável) — abandonou-se o app nativo React Native/Expo/EAS (ver `apps/mobile`, **ARQUIVADO**). Distribuição = "Adicionar à tela inicial", sem app store, sem APK.
 - **Backend/DB:** Supabase (Postgres + Auth + Storage + RLS)
 - **Hosting:** Railway (both `apps/web` and `apps/api`)
 - **API:** Fastify (`apps/api/src/`) — handles WhatsApp/Evolution API proxy
 - **Package manager:** npm (monorepo — root + apps/web + apps/api)
 - **External:** Evolution API v2.2.3 (WhatsApp), Nominatim (reverse geocoding)
+
+## PWA & Offline — EXCLUSIVO da área de operação
+Pivô 2026-06-26: app web virou PWA instalável; execução de checklist funciona offline. **Offline é só `/operacao`** — gestão/sistema são sempre online.
+- **Manifest:** `app/manifest.ts` (convenção App Router, `start_url: /operacao`, standalone, theme laranja). Ícones em `public/icon-*.png`.
+- **Service worker:** `public/sw.js`, registrado por `components/pwa/PwaRegister.tsx` (no root layout; **desabilitado em dev**). Navegação offline (network-first + fallback) **só para `/operacao`**; nunca cacheia Supabase/`/api/`. Headers do sw.js em `next.config.ts` (no-cache).
+- **Instalação:** `lib/pwaInstall.ts` (evento `beforeinstallprompt`, detecção standalone/iOS). Botão "Instalar" só no header da operação (`operacao/layout.tsx`); o `DownloadAppModal` virou modal de instalação PWA. (Removidos da gestão: botão instalar + opção "compartilhar".)
+- **Camada offline (IndexedDB, `lib/idb.ts` — DB `checkflow` v3):** stores `execucao_drafts` (`offlineDraft.ts` — autosave de respostas), `checklist_defs` (`checklistCache.ts` — definição p/ render offline; `checklistFetch.ts` pré-baixa), `pending_submissions` (`syncQueue.ts` — fila de envio offline). Lista de checklists offline por unidade em localStorage (`offlineList.ts`).
+- **Sessão offline:** `SessionContext` usa `getSession()` (localStorage, sem rede) e reidrata empresa/unidade do cache `checkflow:session-ctx` quando `getUser()` falha offline. Login é **online-única** (senha exige servidor); operador loga no depósito e a sessão dura (Supabase time-box/inactivity = 0/never).
+- **Submissão offline (v1):** só execuções SIMPLES. **Exigem conexão** (bloqueia offline): plano de ação, workflow, execução agendada (`?exec=`). Billing pulado offline; `execId` gerado no cliente (idempotência). Sync em `components/pwa/PendingSync.tsx` (operação layout).
+- **Flag por checklist:** `checklists.permite_offline` (opt-in) controla o que aparece na lista offline. Toggle no `ChecklistMontador`. ⚠️ migration `20260626000000` **pendente de aplicar** no Supabase.
 
 ## Monorepo Layout
 ```

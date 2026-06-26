@@ -33,6 +33,14 @@ CheckFlow is a checklist management SaaS with two distinct areas:
 - **Gestão** (`/gestao`) — admin backoffice: create checklists, configure activities, manage users/units
 - **Operação** (`/operacao`) — mobile-first execution interface: operators fill checklists on device
 
+## Execução offline (PWA) — 2026-06-26
+O app é um **PWA instalável** e **offline vale SÓ para a operação** (gestão/sistema sempre online). Detalhes técnicos em `/arch`.
+- **Login é online-única**: não existe login offline (senha exige servidor). O operador loga uma vez **com internet** (depósito/escritório) e a sessão fica no aparelho; em campo o app o reconhece sem rede. A sessão dura (Supabase time-box/inactivity = never).
+- **Flag por checklist** (`permite_offline`, opt-in, toggle no montador): só os marcados aparecem na lista offline e têm a definição pré-baixada. Decisão: opt-in conservador — o gestor escolhe quais checklists são seguros p/ campo sem sinal.
+- **O que funciona offline**: abrir a lista (só os offline), abrir o checklist a frio, preencher (incl. foto), **finalizar** → fica numa fila local → sincroniza sozinho ao reconectar. Respostas em andamento têm autosave local (não se perdem em queda/refresh).
+- **O que EXIGE conexão** (bloqueia offline, orienta "Continuar depois"): execução com **plano de ação**, **workflow**, ou **execução agendada**. São multi-tabela/sensíveis. Billing também não é checado offline (a inspeção de campo já foi feita; admin acerta cobrança depois).
+- **Instalação**: botão "Instalar" só na operação. Removidos da gestão o botão instalar e a opção "compartilhar app".
+
 ## Tenant / Access Hierarchy
 ```
 Empresa → Unidade → Usuário
