@@ -324,7 +324,19 @@ export default function GestaoHomePage() {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">{e.checklist_nome}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{dataRelativa(e.data_execucao)}</p>
+                    <div className="flex items-center gap-2 mt-0.5 min-w-0">
+                      <p className="text-xs text-gray-400 flex-shrink-0">{dataRelativa(e.data_execucao)}</p>
+                      {e.resultado === 'reprovado' && (
+                        <span className={`min-w-0 truncate text-xs px-1.5 py-0 rounded-full font-medium border ${
+                          pa?.cor === 'green'  ? 'bg-green-50 text-green-600 border-green-200' :
+                          pa?.cor === 'amber'  ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                          pa?.cor === 'red'    ? 'bg-red-50 text-red-600 border-red-200' :
+                          'bg-red-50 text-red-500 border-red-200'
+                        }`}>
+                          {pa ? `Reprovado · ${pa.label}` : 'Reprovado'}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Ações */}
@@ -351,20 +363,6 @@ export default function GestaoHomePage() {
                     </button>
                   </div>
                 </div>
-
-                {/* Badge de status — linha própria, largura total do card */}
-                {e.resultado === 'reprovado' && (
-                  <div className="mt-1.5 ml-11">
-                    <span className={`inline-block whitespace-nowrap text-xs px-1.5 py-0.5 rounded-full font-medium border ${
-                      pa?.cor === 'green'  ? 'bg-green-50 text-green-600 border-green-200' :
-                      pa?.cor === 'amber'  ? 'bg-amber-50 text-amber-600 border-amber-200' :
-                      pa?.cor === 'red'    ? 'bg-red-50 text-red-600 border-red-200' :
-                      'bg-red-50 text-red-500 border-red-200'
-                    }`}>
-                      {pa ? `Reprovado · ${pa.label}` : 'Reprovado'}
-                    </span>
-                  </div>
-                )}
               </div>
             )})}
           </div>
