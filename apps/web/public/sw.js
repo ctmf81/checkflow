@@ -56,8 +56,10 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Navegação / HTML: network-first com fallback para cache
+  // Navegação / HTML: offline é EXCLUSIVO da área de operação. Gestão, sistema,
+  // login etc. passam direto pela rede — sem cache e sem fallback offline.
   if (request.mode === 'navigate') {
+    if (!url.pathname.startsWith('/operacao')) return // rede normal, sem offline
     event.respondWith(
       fetch(request)
         .then((res) => {
