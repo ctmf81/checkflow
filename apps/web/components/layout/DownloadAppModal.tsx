@@ -24,13 +24,13 @@ export function DownloadAppModal({ isOpen, onClose, onShare }: DownloadAppModalP
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto overflow-x-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 sticky top-0 bg-white">
           <h2 className="text-xl font-bold text-gray-900">Check Go</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 hover:text-gray-600 flex-shrink-0"
             aria-label="Fechar"
           >
             <X size={24} />
@@ -38,7 +38,7 @@ export function DownloadAppModal({ isOpen, onClose, onShare }: DownloadAppModalP
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-6">
           {/* Step 1: Install Expo Go */}
           <div className="space-y-3">
             <div className="flex items-center gap-3">
@@ -47,10 +47,10 @@ export function DownloadAppModal({ isOpen, onClose, onShare }: DownloadAppModalP
               </div>
               <h3 className="font-semibold text-gray-900">Instale o Expo Go</h3>
             </div>
-            <p className="text-sm text-gray-600 ml-11 mb-3">
+            <p className="text-sm text-gray-600 ml-0 sm:ml-11 mb-3">
               O Expo Go é o aplicativo que permite rodar Check Go no seu celular.
             </p>
-            <div className="ml-11 space-y-2">
+            <div className="ml-0 sm:ml-11 space-y-2">
               <a
                 href="https://apps.apple.com/app/expo-go/id982107779"
                 target="_blank"
@@ -80,10 +80,10 @@ export function DownloadAppModal({ isOpen, onClose, onShare }: DownloadAppModalP
               </div>
               <h3 className="font-semibold text-gray-900">Escaneie este código</h3>
             </div>
-            <p className="text-sm text-gray-600 ml-11">
+            <p className="text-sm text-gray-600 ml-0 sm:ml-11">
               Abra o Expo Go e escaneie o código abaixo com a câmera do seu celular.
             </p>
-            <div className="ml-11 flex justify-center">
+            <div className="ml-0 sm:ml-11 flex justify-center">
               <div className="bg-white p-4 rounded-lg border-2 border-orange-500 shadow-sm">
                 <QRCodeSVG value={expoUrl} size={200} level="H" includeMargin={true} />
               </div>
@@ -98,19 +98,19 @@ export function DownloadAppModal({ isOpen, onClose, onShare }: DownloadAppModalP
               </div>
               <h3 className="font-semibold text-gray-900">Ou copie o link</h3>
             </div>
-            <p className="text-sm text-gray-600 ml-11">
+            <p className="text-sm text-gray-600 ml-0 sm:ml-11">
               Se preferir, copie e compartilhe este link:
             </p>
-            <div className="ml-11 flex gap-2">
+            <div className="ml-0 sm:ml-11 flex gap-2 min-w-0">
               <input
                 type="text"
                 value={expoUrl}
                 readOnly
-                className="flex-1 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded font-mono text-gray-700"
+                className="flex-1 min-w-0 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded font-mono text-gray-700"
               />
               <button
                 onClick={copyToClipboard}
-                className={`px-4 py-2 rounded font-medium text-sm transition-colors ${
+                className={`flex-shrink-0 px-4 py-2 rounded font-medium text-sm transition-colors ${
                   copied
                     ? 'bg-green-500 text-white'
                     : 'bg-orange-500 text-white hover:bg-orange-600'

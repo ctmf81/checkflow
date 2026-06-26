@@ -86,33 +86,33 @@ export function ShareAppModal({ isOpen, onClose }: ShareAppModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto overflow-x-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 sticky top-0 bg-white">
           <h2 className="text-xl font-bold text-gray-900">Compartilhar Check Go</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 hover:text-gray-600 flex-shrink-0"
           >
             <X size={24} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-6">
           {/* Link para copiar */}
           <div className="space-y-2">
             <p className="text-sm font-semibold text-gray-700">Link do App:</p>
-            <div className="flex gap-2">
+            <div className="flex gap-2 min-w-0">
               <input
                 type="text"
                 value={linkWhatsApp}
                 readOnly
-                className="flex-1 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded font-mono"
+                className="flex-1 min-w-0 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded font-mono"
               />
               <button
                 onClick={copiarLink}
-                className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                className={`flex-shrink-0 px-3 py-2 rounded text-sm font-medium transition-colors ${
                   copiado
                     ? 'bg-green-500 text-white'
                     : 'bg-gray-300 text-gray-900 hover:bg-gray-400'

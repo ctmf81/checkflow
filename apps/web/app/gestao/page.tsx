@@ -323,10 +323,10 @@ export default function GestaoHomePage() {
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-800 truncate">{e.checklist_nome}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 mt-0.5">
                     <p className="text-xs text-gray-400">{dataRelativa(e.data_execucao)}</p>
                     {e.resultado === 'reprovado' && (
-                      <span className={`text-xs px-1.5 py-0 rounded-full font-medium border ${
+                      <span className={`self-start text-xs px-1.5 py-0 rounded-full font-medium border ${
                         pa?.cor === 'green'  ? 'bg-green-50 text-green-600 border-green-200' :
                         pa?.cor === 'amber'  ? 'bg-amber-50 text-amber-600 border-amber-200' :
                         pa?.cor === 'red'    ? 'bg-red-50 text-red-600 border-red-200' :
