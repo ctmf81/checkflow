@@ -1,8 +1,14 @@
 'use client'
 
-import { QRCodeSVG } from 'qrcode.react'
-import { X, Share2, Download } from 'lucide-react'
-import { useState } from 'react'
+import { X, Share2, Download, CheckCircle2, Plus, Share } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import {
+  canPromptInstall,
+  promptInstall,
+  subscribePwaInstall,
+  isStandalone,
+  isIOS,
+} from '@/lib/pwaInstall'
 
 interface DownloadAppModalProps {
   isOpen: boolean
@@ -11,125 +17,110 @@ interface DownloadAppModalProps {
 }
 
 export function DownloadAppModal({ isOpen, onClose, onShare }: DownloadAppModalProps) {
-  const [copied, setCopied] = useState(false)
-  const expoUrl = 'exp://checkgo.expo.dev'
+  const [canInstall, setCanInstall] = useState(false)
+  const [installed, setInstalled] = useState(false)
+  const [ios, setIos] = useState(false)
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(expoUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+  useEffect(() => {
+    const sync = () => {
+      setCanInstall(canPromptInstall())
+      setInstalled(isStandalone())
+    }
+    sync()
+    setIos(isIOS())
+    return subscribePwaInstall(sync)
+  }, [])
 
   if (!isOpen) return null
+
+  const handleInstall = async () => {
+    const ok = await promptInstall()
+    if (ok) onClose()
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 sticky top-0 bg-white">
-          <h2 className="text-xl font-bold text-gray-900">Check Go</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 flex-shrink-0"
-            aria-label="Fechar"
-          >
+          <h2 className="text-xl font-bold text-gray-900">Instalar o CheckFlow</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 flex-shrink-0" aria-label="Fechar">
             <X size={24} />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-4 sm:p-6 space-y-6">
-          {/* Step 1: Install Expo Go */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="flex-shrink-0 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold">
-                1
+        <div className="p-4 sm:p-6 space-y-5">
+          {installed ? (
+            <div className="flex items-start gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
+              <CheckCircle2 size={20} className="text-green-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-green-900">App já instalado</p>
+                <p className="text-sm text-green-700 mt-0.5">
+                  Você já está usando o CheckFlow como aplicativo. Pode fechar esta janela.
+                </p>
               </div>
-              <h3 className="font-semibold text-gray-900">Instale o Expo Go</h3>
             </div>
-            <p className="text-sm text-gray-600 ml-0 sm:ml-11 mb-3">
-              O Expo Go é o aplicativo que permite rodar Check Go no seu celular.
-            </p>
-            <div className="ml-0 sm:ml-11 space-y-2">
-              <a
-                href="https://apps.apple.com/app/expo-go/id982107779"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
-              >
-                <Download size={16} />
-                App Store (iOS)
-              </a>
-              <a
-                href="https://play.google.com/store/apps/details?id=host.exp.exponent"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
-              >
-                <Download size={16} />
-                Google Play (Android)
-              </a>
-            </div>
-          </div>
+          ) : (
+            <>
+              <p className="text-sm text-gray-600">
+                Instale o CheckFlow na tela inicial do seu celular para abrir com 1 toque,
+                em tela cheia e funcionando mesmo sem internet.
+              </p>
 
-          {/* Step 2: QR Code */}
-          <div className="space-y-3 border-t pt-6">
-            <div className="flex items-center gap-3">
-              <div className="flex-shrink-0 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold">
-                2
-              </div>
-              <h3 className="font-semibold text-gray-900">Escaneie este código</h3>
-            </div>
-            <p className="text-sm text-gray-600 ml-0 sm:ml-11">
-              Abra o Expo Go e escaneie o código abaixo com a câmera do seu celular.
-            </p>
-            <div className="ml-0 sm:ml-11 flex justify-center">
-              <div className="bg-white p-4 rounded-lg border-2 border-orange-500 shadow-sm">
-                <QRCodeSVG value={expoUrl} size={200} level="H" includeMargin={true} />
-              </div>
-            </div>
-          </div>
+              {/* Android / Chrome — instalação direta */}
+              {canInstall && (
+                <button
+                  onClick={handleInstall}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors"
+                >
+                  <Download size={18} />
+                  Instalar agora
+                </button>
+              )}
 
-          {/* Step 3: Copy Link */}
-          <div className="space-y-3 border-t pt-6">
-            <div className="flex items-center gap-3">
-              <div className="flex-shrink-0 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold">
-                3
-              </div>
-              <h3 className="font-semibold text-gray-900">Ou copie o link</h3>
-            </div>
-            <p className="text-sm text-gray-600 ml-0 sm:ml-11">
-              Se preferir, copie e compartilhe este link:
-            </p>
-            <div className="ml-0 sm:ml-11 flex gap-2 min-w-0">
-              <input
-                type="text"
-                value={expoUrl}
-                readOnly
-                className="flex-1 min-w-0 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded font-mono text-gray-700"
-              />
+              {/* iOS — instruções manuais (Safari não suporta prompt automático) */}
+              {ios && (
+                <div className="space-y-3 border border-gray-200 rounded-xl p-4">
+                  <p className="text-sm font-semibold text-gray-800">No iPhone/iPad (Safari):</p>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <span className="flex-shrink-0 w-6 h-6 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                    Toque em <Share size={15} className="inline text-blue-500" /> (Compartilhar)
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <span className="flex-shrink-0 w-6 h-6 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                    Escolha <Plus size={15} className="inline" /> "Adicionar à Tela de Início"
+                  </div>
+                </div>
+              )}
+
+              {/* Android sem prompt automático (ou outros navegadores) */}
+              {!canInstall && !ios && (
+                <div className="space-y-3 border border-gray-200 rounded-xl p-4">
+                  <p className="text-sm font-semibold text-gray-800">No Android (Chrome):</p>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <span className="flex-shrink-0 w-6 h-6 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                    Abra o menu <span className="font-mono">⋮</span> do navegador
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <span className="flex-shrink-0 w-6 h-6 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                    Toque em "Instalar app" ou "Adicionar à tela inicial"
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Ações */}
+          <div className="space-y-2 border-t pt-5">
+            {onShare && (
               <button
-                onClick={copyToClipboard}
-                className={`flex-shrink-0 px-4 py-2 rounded font-medium text-sm transition-colors ${
-                  copied
-                    ? 'bg-green-500 text-white'
-                    : 'bg-orange-500 text-white hover:bg-orange-600'
-                }`}
+                onClick={onShare}
+                className="w-full px-4 py-3 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
               >
-                {copied ? '✓ Copiado' : 'Copiar'}
+                <Share2 size={18} />
+                Compartilhar com Equipe
               </button>
-            </div>
-          </div>
-
-          {/* Buttons */}
-          <div className="space-y-2 border-t pt-6">
-            <button
-              onClick={onShare}
-              className="w-full px-4 py-3 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
-            >
-              <Share2 size={18} />
-              Compartilhar com Equipe
-            </button>
+            )}
             <button
               onClick={onClose}
               className="w-full px-4 py-3 text-gray-900 font-medium border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"

@@ -21,7 +21,10 @@ export function ShareAppModal({ isOpen, onClose }: ShareAppModalProps) {
   const [carregando, setCarregando] = useState(true)
   const [copiado, setCopiado] = useState(false)
 
-  const appUrl = 'https://app.checkflow.digital/api/download-app'
+  // Link do PWA: abre o app no navegador, onde o usuário pode instalar na
+  // tela inicial. Usa a origem atual em runtime (com fallback para produção).
+  const appUrl =
+    typeof window !== 'undefined' ? window.location.origin : 'https://app.checkflow.digital'
   const linkWhatsApp = appUrl
 
   useEffect(() => {
@@ -69,7 +72,7 @@ export function ShareAppModal({ isOpen, onClose }: ShareAppModalProps) {
       if (usuario.celular) {
         const numero = usuario.celular.replace(/\D/g, '')
         const url = `https://wa.me/55${numero}?text=${encodeURIComponent(
-          `Olá ${usuario.nome}!\n\nBaixe o Check Go:\n${appUrl}`
+          `Olá ${usuario.nome}!\n\nAcesse o CheckFlow e instale na tela inicial do seu celular:\n${appUrl}`
         )}`
         window.open(url, '_blank')
       }
@@ -89,7 +92,7 @@ export function ShareAppModal({ isOpen, onClose }: ShareAppModalProps) {
       <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 sticky top-0 bg-white">
-          <h2 className="text-xl font-bold text-gray-900">Compartilhar Check Go</h2>
+          <h2 className="text-xl font-bold text-gray-900">Compartilhar CheckFlow</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 flex-shrink-0"
