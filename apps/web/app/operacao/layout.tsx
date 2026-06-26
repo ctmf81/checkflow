@@ -4,12 +4,11 @@ import { SessionProvider, useSession } from '@/contexts/SessionContext'
 import { createClient } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { LayoutDashboard, Download } from 'lucide-react'
+import { LayoutDashboard } from 'lucide-react'
 import { EscolherEmpresaModal } from '@/components/layout/EscolherEmpresaModal'
 import { TermosGate } from '@/components/layout/TermosGate'
 import { AvisoTurno } from '@/components/layout/AvisoTurno'
-import { DownloadAppModal } from '@/components/layout/DownloadAppModal'
-import { isStandalone } from '@/lib/pwaInstall'
+import { InstallAppButton } from '@/components/pwa/InstallAppButton'
 import { PendingSync } from '@/components/pwa/PendingSync'
 
 function OperacaoHeader() {
@@ -17,12 +16,8 @@ function OperacaoHeader() {
   const router = useRouter()
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [temGestao, setTemGestao] = useState(false)
-  const [installOpen, setInstallOpen] = useState(false)
-  const [podeInstalar, setPodeInstalar] = useState(false)
 
   useEffect(() => {
-    setPodeInstalar(!isStandalone()) // esconde o botão se já estiver instalado
-
     const supabase = createClient()
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) router.replace('/login')
@@ -61,15 +56,8 @@ function OperacaoHeader() {
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Instalar app (PWA) — só aparece se ainda não estiver instalado */}
-          {podeInstalar && (
-            <button
-              onClick={() => setInstallOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-orange-600 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg transition-colors">
-              <Download size={14} />
-              Instalar
-            </button>
-          )}
+          {/* Instalar app (PWA) */}
+          <InstallAppButton />
 
           {/* Botão voltar para gestão */}
           {temGestao && (
@@ -82,8 +70,6 @@ function OperacaoHeader() {
           )}
         </div>
       </div>
-
-      <DownloadAppModal isOpen={installOpen} onClose={() => setInstallOpen(false)} />
     </header>
   )
 }

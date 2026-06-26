@@ -6,6 +6,7 @@ import { ChevronDown, LogOut, UserCircle, Building2, LayoutDashboard, Settings, 
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { useSidebarOptional } from './SidebarContext'
+import { InstallAppButton } from '@/components/pwa/InstallAppButton'
 
 export function Header() {
   const router = useRouter()
@@ -106,6 +107,11 @@ export function Header() {
           </div>
         )}
       </div>}
+
+      {!isSistema && <div className="w-px h-6 bg-gray-200" />}
+
+      {/* Instalar app (PWA) — fora do painel de sistema */}
+      {!isSistema && <InstallAppButton />}
 
       {!isSistema && <div className="w-px h-6 bg-gray-200" />}
 
