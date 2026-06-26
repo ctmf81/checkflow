@@ -6,11 +6,13 @@ import { createClient } from '@/lib/supabase'
 import { notificarPlanoAberto } from '@/lib/notificacoes'
 import { registrarUsoArmazenamento } from '@/lib/uso'
 import { useSession } from '@/contexts/SessionContext'
+import { useOnlineStatus } from '@/lib/useOnlineStatus'
+import { salvarDraftLocal, carregarDraftLocal, removerDraftLocal } from '@/lib/offlineDraft'
 import {
   ChevronDown, ChevronUp, CheckCircle2, XCircle,
   Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine,
   CalendarDays, MapPin, AlertCircle, Send, Clock, Locate, Search,
-  QrCode, X, ImagePlus, Video, AlertTriangle, GitBranch, ClipboardList, Loader2, Ticket, FileText
+  QrCode, X, ImagePlus, Video, AlertTriangle, GitBranch, ClipboardList, Loader2, Ticket, FileText, WifiOff
 } from 'lucide-react'
 import NovoTicketModal from '@/components/tickets/NovoTicketModal'
 
@@ -1409,6 +1411,8 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   const [obsNaoExec, setObsNaoExec] = useState('')
   const [enviandoNaoExec, setEnviandoNaoExec] = useState(false)
 
+  const online = useOnlineStatus()
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     setWfItemId(params.get('wf_item'))
@@ -1418,6 +1422,32 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   // Aguarda a unidade ativa carregar (SessionContext é assíncrono) antes de
   // buscar — senão a query roda com unidade vazia e falha com "não encontrado".
   useEffect(() => { if (unidadeAtiva?.id) carregar() }, [id, unidadeAtiva?.id])
+
+  // Chave do rascunho local (IndexedDB): identifica esta execução por
+  // checklist + execução reaberta (?exec=) + unidade. Lê o ?exec direto da URL
+  // para não depender da ordem de hidratação dos estados.
+  function draftKeyAtual(): string | null {
+    if (typeof window === 'undefined' || !unidadeAtiva?.id) return null
+    const execParam = new URLSearchParams(window.location.search).get('exec') ?? 'novo'
+    return `exec:${id}:${execParam}:${unidadeAtiva.id}`
+  }
+  function limparDraftLocal() {
+    const key = draftKeyAtual()
+    if (key) removerDraftLocal(key)
+  }
+
+  // Salva o progresso (respostas não-arquivo) localmente, com debounce, para
+  // sobreviver a queda de conexão / recarga. Não substitui o salvamento no
+  // servidor — é um espelho local de segurança.
+  useEffect(() => {
+    if (loading || concluido) return
+    if (Object.keys(respostas).length === 0) return
+    const key = draftKeyAtual()
+    if (!key) return
+    const t = setTimeout(() => { salvarDraftLocal(key, respostas) }, 800)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [respostas, loading, concluido, unidadeAtiva?.id])
 
   async function carregar() {
     setLoading(true); setErroCarregar(null)
@@ -1508,6 +1538,17 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       setMotivosAtividade(todos.filter(m => m.tipo === 'atividade'))
     }
 
+    // Rascunho local (IndexedDB): restaura respostas em andamento que ainda
+    // não chegaram ao servidor (ex: conexão caiu antes de salvar). O local é
+    // o mais recente, então sobrepõe o que veio do servidor.
+    const draftKey = draftKeyAtual()
+    if (draftKey) {
+      const local = await carregarDraftLocal(draftKey)
+      if (local?.respostas && Object.keys(local.respostas).length > 0) {
+        setRespostas(prev => ({ ...prev, ...local.respostas }))
+      }
+    }
+
     setLoading(false)
   }
 
@@ -1591,6 +1632,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     setEnviandoNaoExec(false)
     if (error) { setErroFinalizar('Erro ao registrar não execução. Tente novamente.'); return }
     setNaoExecModal(false)
+    limparDraftLocal() // checklist marcado como não executado — descarta o rascunho local
     router.push('/operacao')
   }
 
@@ -1657,6 +1699,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     if (linhas.length > 0) await sb.from('checklist_execucao_respostas').insert(linhas)
 
     setSalvando(false)
+    limparDraftLocal() // progresso salvo no servidor — descarta o rascunho local
     router.push('/operacao')
   }
 
@@ -1977,6 +2020,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     setPdfStatus('idle')
     setPdfUrl(null)
     setConcluido(true)
+    limparDraftLocal() // execução finalizada — descarta o rascunho local
   }
 
   // Geração do PDF sob demanda (não é mais automática)
@@ -2142,6 +2186,14 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
         </div>
       </div>
 
+      {!online && (
+        <div className="px-4 sm:px-6 py-2.5 bg-amber-50 border-b border-amber-100 flex items-center gap-2">
+          <WifiOff size={13} className="text-amber-500 flex-shrink-0" />
+          <p className="text-xs text-amber-700 font-medium">
+            Sem conexão — suas respostas estão sendo salvas neste aparelho. Finalize quando a internet voltar.
+          </p>
+        </div>
+      )}
       {wfItemId && (
         <div className="px-4 sm:px-6 py-2.5 bg-violet-50 border-b border-violet-100 flex items-center gap-2">
           <GitBranch size={13} className="text-violet-500 flex-shrink-0" />
