@@ -3,6 +3,11 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 
+// Espelho local do contexto resolvido (empresa/unidade/labels), para que o
+// operador em campo (offline) continue funcionando sem precisar revalidar a
+// sessão no servidor. Base da execução offline (Fase 2).
+const SESSION_CACHE_KEY = 'checkflow:session-ctx'
+
 type Ambiente = 'gestao' | 'operacao' | 'sistema'
 
 interface Unidade { id: string; nome: string }
@@ -52,9 +57,47 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const supabase = createClient()
 
+    // Reidrata o contexto (empresa/unidade/labels) a partir do último estado
+    // salvo online. Usado quando estamos offline e getUser() não pode validar.
+    function rehydrateFromCache(userId: string) {
+      try {
+        const raw = localStorage.getItem(SESSION_CACHE_KEY)
+        if (!raw) return
+        const c = JSON.parse(raw)
+        if (c.userId !== userId) return
+        if (c.ambiente) setAmbienteState(c.ambiente)
+        if (Array.isArray(c.empresas)) setEmpresas(c.empresas)
+        if (Array.isArray(c.unidades)) setUnidades(c.unidades)
+        if (c.empresaAtiva) setEmpresaAtivaState(c.empresaAtiva)
+        if (c.unidadeAtiva) setUnidadeAtivaState(c.unidadeAtiva)
+        setModoEmpresa(!!c.modoEmpresa)
+        if (c.grupoLabel) setGrupoLabel(c.grupoLabel)
+        if (c.subgrupoLabel) setSubgrupoLabel(c.subgrupoLabel)
+      } catch { /* cache corrompido: ignora */ }
+    }
+
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      // Sessão armazenada localmente (localStorage, sem rede). Sem ela não há
+      // login — nem online nem offline.
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      // getUser() valida o token no servidor (precisa de rede). Offline, ela
+      // falha — então caímos no contexto cacheado da última vez online, e o
+      // operador continua com empresa/unidade definidas em vez de ser jogado
+      // para a tela de login.
+      let user
+      try {
+        const res = await supabase.auth.getUser()
+        if (res.error) throw res.error
+        user = res.data.user
+      } catch {
+        user = null
+      }
+      if (!user) {
+        rehydrateFromCache(session.user.id)
+        return
+      }
 
       const isAdmin = user.user_metadata?.role === 'admin_sistema'
 
@@ -138,6 +181,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
     init()
   }, [])
+
+  // Espelha o contexto resolvido no localStorage para reidratação offline.
+  // Dispara sempre que empresa/unidade/labels mudam (já online).
+  useEffect(() => {
+    if (!empresaAtiva || !unidadeAtiva) return
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return
+      try {
+        localStorage.setItem(SESSION_CACHE_KEY, JSON.stringify({
+          userId: session.user.id, ambiente, empresaAtiva, unidadeAtiva,
+          unidades, empresas, modoEmpresa, grupoLabel, subgrupoLabel,
+        }))
+      } catch { /* cota/modo privado: ignora */ }
+    })
+  }, [ambiente, empresaAtiva, unidadeAtiva, unidades, empresas, modoEmpresa, grupoLabel, subgrupoLabel])
 
   async function carregarUnidades(empresaId: string, userId: string, isAdmin: boolean): Promise<Unidade[]> {
     const supabase = createClient()

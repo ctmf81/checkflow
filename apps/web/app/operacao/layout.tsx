@@ -4,18 +4,24 @@ import { SessionProvider, useSession } from '@/contexts/SessionContext'
 import { createClient } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { LayoutDashboard } from 'lucide-react'
+import { LayoutDashboard, Download } from 'lucide-react'
 import { EscolherEmpresaModal } from '@/components/layout/EscolherEmpresaModal'
 import { TermosGate } from '@/components/layout/TermosGate'
 import { AvisoTurno } from '@/components/layout/AvisoTurno'
+import { DownloadAppModal } from '@/components/layout/DownloadAppModal'
+import { isStandalone } from '@/lib/pwaInstall'
 
 function OperacaoHeader() {
   const { empresaAtiva } = useSession()
   const router = useRouter()
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [temGestao, setTemGestao] = useState(false)
+  const [installOpen, setInstallOpen] = useState(false)
+  const [podeInstalar, setPodeInstalar] = useState(false)
 
   useEffect(() => {
+    setPodeInstalar(!isStandalone()) // esconde o botão se já estiver instalado
+
     const supabase = createClient()
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) router.replace('/login')
@@ -25,9 +31,11 @@ function OperacaoHeader() {
       const role = data?.user?.user_metadata?.role
       setTemGestao(role === 'admin_sistema' || role === 'usuario')
     })
-    // Redireciona se a sessão expirar/cair durante o uso (não só no mount)
+    // Redireciona se a sessão for encerrada — mas só quando ONLINE. Offline, um
+    // refresh de token que falha por falta de rede não deve expulsar o operador
+    // de campo para o login (a sessão continua válida no aparelho).
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT' || !session) router.replace('/login')
+      if ((event === 'SIGNED_OUT' || !session) && navigator.onLine) router.replace('/login')
     })
     return () => sub.subscription.unsubscribe()
   }, [])
@@ -42,7 +50,7 @@ function OperacaoHeader() {
     <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
       <div className="flex items-center justify-between px-4 sm:px-6 h-14">
         {/* Logo / nome */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {logoUrl
             // eslint-disable-next-line @next/next/no-img-element
             ? <img src={logoUrl} alt="Logo" className="h-7 max-w-[120px] object-contain" />
@@ -51,16 +59,30 @@ function OperacaoHeader() {
           }
         </div>
 
-        {/* Botão voltar para gestão */}
-        {temGestao && (
-          <button
-            onClick={() => router.push('/gestao')}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-orange-500 hover:bg-orange-50 border border-gray-200 hover:border-orange-200 rounded-lg transition-colors">
-            <LayoutDashboard size={14} />
-            Gestão
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Instalar app (PWA) — só aparece se ainda não estiver instalado */}
+          {podeInstalar && (
+            <button
+              onClick={() => setInstallOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-orange-600 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg transition-colors">
+              <Download size={14} />
+              Instalar
+            </button>
+          )}
+
+          {/* Botão voltar para gestão */}
+          {temGestao && (
+            <button
+              onClick={() => router.push('/gestao')}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-orange-500 hover:bg-orange-50 border border-gray-200 hover:border-orange-200 rounded-lg transition-colors">
+              <LayoutDashboard size={14} />
+              Gestão
+            </button>
+          )}
+        </div>
       </div>
+
+      <DownloadAppModal isOpen={installOpen} onClose={() => setInstallOpen(false)} />
     </header>
   )
 }
