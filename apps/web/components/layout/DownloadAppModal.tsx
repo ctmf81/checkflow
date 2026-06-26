@@ -1,7 +1,7 @@
 'use client'
 
 import { QRCodeSVG } from 'qrcode.react'
-import { X, Share2, Download } from 'lucide-react'
+import { X, Share2 } from 'lucide-react'
 import { useState } from 'react'
 
 interface DownloadAppModalProps {
@@ -12,10 +12,10 @@ interface DownloadAppModalProps {
 
 export function DownloadAppModal({ isOpen, onClose, onShare }: DownloadAppModalProps) {
   const [copied, setCopied] = useState(false)
-  const downloadUrl = 'https://app.checkflow.digital/api/download-app'
+  const expoUrl = 'exp://checkgo.expo.dev'
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(downloadUrl)
+    navigator.clipboard.writeText(expoUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -41,25 +41,26 @@ export function DownloadAppModal({ isOpen, onClose, onShare }: DownloadAppModalP
         <div className="p-6 flex flex-col items-center gap-4">
           {/* QR Code */}
           <div className="bg-white p-3 rounded-lg border-2 border-orange-500">
-            <QRCodeSVG value={downloadUrl} size={200} level="H" includeMargin={true} />
+            <QRCodeSVG value={expoUrl} size={200} level="H" includeMargin={true} />
           </div>
 
           {/* Instruções */}
           <div className="text-center space-y-2">
-            <p className="font-semibold text-gray-900">Baixe direto no seu celular</p>
+            <p className="font-semibold text-gray-900">Escaneie com seu celular</p>
             <p className="text-xs text-gray-600">
-              Escaneie o QR ou clique no link abaixo para<br />
-              <strong>baixar e instalar Check Go</strong>
+              1. Instale <strong>Expo Go</strong><br />
+              2. Aponte a câmera para o QR code<br />
+              3. Check Go abre automaticamente
             </p>
           </div>
 
           {/* Link Copiável */}
           <div className="w-full space-y-2">
-            <p className="text-xs font-semibold text-gray-600">Link de download:</p>
+            <p className="text-xs font-semibold text-gray-600">Ou copie o link:</p>
             <div className="flex gap-2">
               <input
                 type="text"
-                value={downloadUrl}
+                value={expoUrl}
                 readOnly
                 className="flex-1 px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded font-mono text-gray-700"
               />
@@ -78,13 +79,6 @@ export function DownloadAppModal({ isOpen, onClose, onShare }: DownloadAppModalP
 
           {/* Botões */}
           <div className="w-full space-y-2 pt-2">
-            <a
-              href={downloadUrl}
-              className="w-full px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center gap-2"
-            >
-              <Download size={16} />
-              Baixar Check Go
-            </a>
             <button
               onClick={onShare}
               className="w-full px-4 py-2 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
