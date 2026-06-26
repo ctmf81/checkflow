@@ -84,17 +84,17 @@ export function Header() {
       <div className="flex-1" />
 
       {/* Seletor de unidade — oculto no painel de sistema */}
-      {!isSistema && <div ref={refUnidade} className="relative">
+      {!isSistema && <div ref={refUnidade} className="relative shrink-0">
         <button
           onClick={() => setDropUnidade(!dropUnidade)}
-          className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900"
+          className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900 max-w-[90px] sm:max-w-none"
         >
-          <span className="font-medium">{unidadeAtiva?.nome ?? 'Unidade'}</span>
-          <ChevronDown size={14} className="text-orange-500" />
+          <span className="font-medium truncate">{unidadeAtiva?.nome ?? 'Unidade'}</span>
+          <ChevronDown size={14} className="text-orange-500 shrink-0" />
         </button>
 
         {dropUnidade && (
-          <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+          <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 max-h-80 overflow-y-auto">
             <p className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">Unidades</p>
             {unidades.length === 0 ? (
               <p className="px-4 py-3 text-sm text-gray-400">Nenhuma unidade</p>
@@ -117,24 +117,24 @@ export function Header() {
       {!isSistema && (
         <button
           onClick={() => setDownloadModalOpen(true)}
-          className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-orange-100 text-orange-700 rounded-full hover:bg-orange-200 transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-orange-100 text-orange-700 rounded-full hover:bg-orange-200 transition-colors shrink-0"
           title="Baixar app mobile para executar checklists offline"
         >
           <Smartphone size={14} />
-          Baixar App
+          <span className="hidden sm:inline">Baixar </span>App
         </button>
       )}
 
       {!isSistema && <div className="w-px h-6 bg-gray-200" />}
 
       {/* Seletor de usuário — no /sistema mostra só nome + logout sem dropdown */}
-      <div ref={refUsuario} className="relative">
+      <div ref={refUsuario} className="relative shrink-0">
         <button
           onClick={() => !isSistema && setDropUsuario(!dropUsuario)}
           className="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900"
         >
-          <UserCircle size={28} className="text-orange-400" />
-          <div className="text-left">
+          <UserCircle size={28} className="text-orange-400 hidden sm:block" />
+          <div className="text-left hidden sm:block">
             <p className="font-medium leading-tight">{nome || '...'}</p>
             <p className="text-xs text-gray-500 leading-tight">{isAdmin ? 'Admin de sistema' : 'Usuário'}</p>
           </div>

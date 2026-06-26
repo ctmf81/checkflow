@@ -223,6 +223,8 @@ export default function GestaoHomePage() {
             {PERIODOS.map(p => (
               <button key={p.valor} onClick={() => setPeriodo(p.valor)}
                 className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors ${
+                  ['6h', '15d', '30d'].includes(p.valor) ? 'hidden sm:inline-flex' : ''
+                } ${
                   periodo === p.valor ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                 }`}>
                 {p.label}
@@ -276,22 +278,14 @@ export default function GestaoHomePage() {
       {/* ── Últimas execuções ── */}
       <div className="bg-white border border-gray-200 rounded-2xl p-5">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-sm font-semibold text-gray-700">Últimas Execuções</p>
+          <p className="text-sm font-semibold text-gray-700">Execuções</p>
           {/* Filtro */}
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-            {([
-              { valor: 'todos',      label: 'Todos' },
-              { valor: 'reprovado',  label: 'Reprovados' },
-              { valor: 'pa_aberto', label: 'Com PA' },
-            ] as const).map(f => (
-              <button key={f.valor} onClick={() => setFiltroExec(f.valor)}
-                className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors ${
-                  filtroExec === f.valor ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                }`}>
-                {f.label}
-              </button>
-            ))}
-          </div>
+          <select value={filtroExec} onChange={e => setFiltroExec(e.target.value as typeof filtroExec)}
+            className="text-xs font-medium text-gray-600 bg-gray-100 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-200">
+            <option value="todos">Todos</option>
+            <option value="reprovado">Reprovados</option>
+            <option value="pa_aberto">Com PA</option>
+          </select>
         </div>
 
         {loadingExec ? (
