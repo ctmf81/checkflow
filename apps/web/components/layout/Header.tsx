@@ -2,11 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { ChevronDown, LogOut, UserCircle, Building2, LayoutDashboard, Settings, Menu, Smartphone } from 'lucide-react'
+import { ChevronDown, LogOut, UserCircle, Building2, LayoutDashboard, Settings, Menu } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { useSidebarOptional } from './SidebarContext'
-import { DownloadAppModal } from './DownloadAppModal'
 
 export function Header() {
   const router = useRouter()
@@ -18,7 +17,6 @@ export function Header() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [dropUnidade, setDropUnidade] = useState(false)
   const [dropUsuario, setDropUsuario] = useState(false)
-  const [downloadModalOpen, setDownloadModalOpen] = useState(false)
   const refUnidade = useRef<HTMLDivElement>(null)
   const refUsuario = useRef<HTMLDivElement>(null)
 
@@ -111,20 +109,6 @@ export function Header() {
 
       {!isSistema && <div className="w-px h-6 bg-gray-200" />}
 
-      {/* Botão Baixar App (visível direto na Header) */}
-      {!isSistema && (
-        <button
-          onClick={() => setDownloadModalOpen(true)}
-          className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-orange-100 text-orange-700 rounded-full hover:bg-orange-200 transition-colors shrink-0"
-          title="Baixar app mobile para executar checklists offline"
-        >
-          <Smartphone size={14} />
-          <span className="hidden sm:inline">Baixar </span>App
-        </button>
-      )}
-
-      {!isSistema && <div className="w-px h-6 bg-gray-200" />}
-
       {/* Seletor de usuário — no /sistema mostra só nome + logout sem dropdown */}
       <div ref={refUsuario} className="relative shrink-0">
         <button
@@ -163,14 +147,6 @@ export function Header() {
               </button>
             )}
 
-            <div className="border-t border-gray-100 my-1"></div>
-
-            <button onClick={() => { setDownloadModalOpen(true); setDropUsuario(false) }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors">
-              <Smartphone size={16} className="text-orange-400" />
-              Baixar App Mobile
-            </button>
-
             <div className="border-t border-gray-100 mt-1">
               <button onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors">
@@ -189,11 +165,6 @@ export function Header() {
         </button>
       )}
 
-      {/* Modal de instalação do app (PWA) */}
-      <DownloadAppModal
-        isOpen={downloadModalOpen}
-        onClose={() => setDownloadModalOpen(false)}
-      />
     </header>
   )
 }
