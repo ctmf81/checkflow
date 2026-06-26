@@ -91,6 +91,8 @@ export default function ChecklistMontador({ checklistId, modoTemplate = false, b
   const [tempoGuarda, setTempoGuarda] = useState(1)
   // Modo de execução: true = pausável ("Continuar depois"); false = de uma vez
   const [permiteContinuar, setPermiteContinuar] = useState(true)
+  // Execução offline (PWA): se true, pode ser respondido sem internet
+  const [permiteOffline, setPermiteOffline] = useState(false)
   const [status, setStatus] = useState<'rascunho' | 'publicado'>('rascunho')
   // Subgrupo a pré-selecionar ao criar pela área (vem de ?subgrupo= na URL),
   // aplicado depois que a lista de subgrupos do grupo carrega
@@ -187,6 +189,7 @@ export default function ChecklistMontador({ checklistId, modoTemplate = false, b
     setSegmentos(cl.template_segmentos ?? [])
     setTempoGuarda(cl.tempo_guarda_meses ?? 1)
     setPermiteContinuar(cl.permite_continuar_depois ?? true)
+    setPermiteOffline(cl.permite_offline ?? false)
     setStatus(cl.status)
 
     // Deriva grupoId do subgrupo salvo
@@ -261,6 +264,12 @@ export default function ChecklistMontador({ checklistId, modoTemplate = false, b
         setId(data.id)
         router.replace(`${baseRoute}/${data.id}/montar`)
       }
+    }
+
+    // permite_offline gravado à parte (best-effort): se a migration ainda não
+    // foi aplicada, o erro é ignorado e o save principal não quebra.
+    if (checkId) {
+      await supabase.from('checklists').update({ permite_offline: permiteOffline }).eq('id', checkId)
     }
 
     // Salva motivos selecionados
@@ -505,6 +514,30 @@ export default function ChecklistMontador({ checklistId, modoTemplate = false, b
               }`}>
               ▶️ Executar de uma vez
               <span className="block text-[11px] font-normal opacity-70">Sem atalhos para sair — conclui em uma sessão</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Execução offline (PWA) */}
+        <div className="border-t border-gray-100 pt-3">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Execução offline</label>
+          <p className="text-xs text-gray-400 mb-2">
+            Permite responder este checklist sem internet pelo app instalado. Use em checklists simples (sem plano de ação obrigatório, sem workflow) que precisam ser feitos em campo sem sinal.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => !bloqueado && setPermiteOffline(true)}
+              className={`px-3 py-2 rounded-lg text-xs font-medium border text-left transition-colors ${
+                permiteOffline ? 'bg-orange-50 border-orange-300 text-orange-700' : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
+              }`}>
+              📶 Disponível offline
+              <span className="block text-[11px] font-normal opacity-70">Aparece na operação mesmo sem internet</span>
+            </button>
+            <button type="button" onClick={() => !bloqueado && setPermiteOffline(false)}
+              className={`px-3 py-2 rounded-lg text-xs font-medium border text-left transition-colors ${
+                !permiteOffline ? 'bg-orange-50 border-orange-300 text-orange-700' : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
+              }`}>
+              🌐 Só com internet
+              <span className="block text-[11px] font-normal opacity-70">Exige conexão para executar (padrão)</span>
             </button>
           </div>
         </div>
