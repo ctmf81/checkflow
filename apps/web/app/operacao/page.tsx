@@ -20,6 +20,9 @@ import { visivelPorSubgrupo, checklistVisivelOperador, documentoVisivelOperador 
 import { ehAdminDaEmpresa } from '@/lib/admin'
 import { listaDisponivel } from '@/lib/tarefas'
 import { videoEmbedUrl } from '@/lib/videoEmbed'
+import { carregarListaOffline, salvarListaOffline } from '@/lib/offlineList'
+import { buscarDefinicaoChecklist } from '@/lib/checklistFetch'
+import { salvarChecklistCache, chaveChecklist } from '@/lib/checklistCache'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -109,6 +112,23 @@ function dataRelativa(iso: string) {
   const h = Math.floor(m / 60)
   if (h < 24) return `${h}h atrás`
   return `${Math.floor(h / 24)}d atrás`
+}
+
+// Agrupa uma lista plana de checklists em grupos/subgrupos (e os sem grupo).
+// Reutilizado pelo carregamento online e pela lista offline (do cache).
+function agruparChecklists(visiveis: Checklist[]): { grupos: GrupoAgrupado[]; semGrupo: Checklist[] } {
+  const gruposMap = new Map<string, GrupoAgrupado>()
+  const semGrupoList: Checklist[] = []
+  for (const cl of visiveis) {
+    if (!cl.grupo_id) { semGrupoList.push(cl); continue }
+    if (!gruposMap.has(cl.grupo_id)) gruposMap.set(cl.grupo_id, { id: cl.grupo_id, nome: cl.grupo_nome!, subgrupos: [] })
+    const grupo = gruposMap.get(cl.grupo_id)!
+    const subId = cl.subgrupo_id ?? '__sem__'
+    let sub = grupo.subgrupos.find(s => s.id === subId)
+    if (!sub) { sub = { id: cl.subgrupo_id, nome: cl.subgrupo_nome, checklists: [] }; grupo.subgrupos.push(sub) }
+    sub.checklists.push(cl)
+  }
+  return { grupos: Array.from(gruposMap.values()), semGrupo: semGrupoList }
 }
 
 // ─── ABA: Checklists (conteúdo original) ────────────────────────────────────
@@ -1173,6 +1193,22 @@ export default function OperacaoPage() {
 
   async function carregarChecklists() {
     setLoading(true)
+
+    // OFFLINE: monta a lista a partir do cache local — só os checklists marcados
+    // como "disponível offline". Seções que dependem de rede (workflows,
+    // agendadas, não finalizadas) ficam vazias.
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const offline = carregarListaOffline<Checklist>(unidadeAtiva!.id)
+      const { grupos: gOff, semGrupo: sgOff } = agruparChecklists(offline)
+      setGrupos(gOff)
+      setSemGrupo(sgOff)
+      setItensWorkflow([])
+      setAgendadas([])
+      setNaoFinalizadas([])
+      setLoading(false)
+      return
+    }
+
     const sb = createClient()
 
     // Visibilidade por subgrupo: o operador vê só os checklists dos subgrupos
@@ -1248,19 +1284,24 @@ export default function OperacaoPage() {
       const visiveis = comContagem.filter(cl =>
         checklistVisivelOperador(cl, { isAdmin, meusSubgrupos }, checklistsEmWorkflow))
 
-      const gruposMap = new Map<string, GrupoAgrupado>()
-      const semGrupoList: Checklist[] = []
-      for (const cl of visiveis) {
-        if (!cl.grupo_id) { semGrupoList.push(cl); continue }
-        if (!gruposMap.has(cl.grupo_id)) gruposMap.set(cl.grupo_id, { id: cl.grupo_id, nome: cl.grupo_nome!, subgrupos: [] })
-        const grupo = gruposMap.get(cl.grupo_id)!
-        const subId = cl.subgrupo_id ?? '__sem__'
-        let sub = grupo.subgrupos.find(s => s.id === subId)
-        if (!sub) { sub = { id: cl.subgrupo_id, nome: cl.subgrupo_nome, checklists: [] }; grupo.subgrupos.push(sub) }
-        sub.checklists.push(cl)
-      }
-      setGrupos(Array.from(gruposMap.values()))
-      setSemGrupo(semGrupoList)
+      const { grupos: gruposArr, semGrupo: semGrupoArr } = agruparChecklists(visiveis)
+      setGrupos(gruposArr)
+      setSemGrupo(semGrupoArr)
+
+      // Prepara o uso offline: cacheia a lista dos checklists marcados como
+      // "disponível offline" e pré-baixa suas definições em background. Best-effort
+      // — se a coluna permite_offline ainda não existir, segue sem cachear.
+      try {
+        const { data: offFlags } = await sb.from('checklists').select('id, permite_offline').in('id', ids)
+        const offIds = new Set((offFlags ?? []).filter((r: any) => r.permite_offline).map((r: any) => r.id))
+        const offlineVisiveis = visiveis.filter(c => offIds.has(c.id))
+        salvarListaOffline(unidadeAtiva!.id, offlineVisiveis)
+        for (const c of offlineVisiveis) {
+          buscarDefinicaoChecklist(sb, c.id, unidadeAtiva!.id)
+            .then(snap => { if (snap) salvarChecklistCache(chaveChecklist(c.id, unidadeAtiva!.id), snap) })
+            .catch(() => {})
+        }
+      } catch { /* coluna ainda não migrada: ignora */ }
     }
 
     // (itens de workflow liberados já carregados acima, antes da listagem)
