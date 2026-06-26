@@ -303,64 +303,68 @@ export default function GestaoHomePage() {
               const pa = e.resultado === 'reprovado' ? resumoPlanos(e.planos) : null
               return (
               <div key={e.id}
-                className="flex items-center gap-3 border border-gray-100 rounded-xl px-3 py-2.5 hover:bg-gray-50 transition-colors">
-                {/* Ícone resultado */}
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                  e.resultado === 'aprovado' || pa?.cor === 'green' ? 'bg-green-50' :
-                  pa?.cor === 'amber' ? 'bg-amber-50' :
-                  e.resultado === 'reprovado' ? 'bg-red-50' : 'bg-gray-50'
-                }`}>
-                  {e.resultado === 'aprovado' || pa?.cor === 'green'
-                    ? <CheckCircle2 size={15} className="text-green-500" />
-                    : pa?.cor === 'amber'
-                      ? <Clock size={15} className="text-amber-500" />
-                      : e.resultado === 'reprovado'
-                        ? <XCircle size={15} className="text-red-500" />
-                        : <ClipboardList size={15} className="text-gray-400" />
-                  }
-                </div>
+                className="border border-gray-100 rounded-xl px-3 py-2.5 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center gap-3">
+                  {/* Ícone resultado */}
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    e.resultado === 'aprovado' || pa?.cor === 'green' ? 'bg-green-50' :
+                    pa?.cor === 'amber' ? 'bg-amber-50' :
+                    e.resultado === 'reprovado' ? 'bg-red-50' : 'bg-gray-50'
+                  }`}>
+                    {e.resultado === 'aprovado' || pa?.cor === 'green'
+                      ? <CheckCircle2 size={15} className="text-green-500" />
+                      : pa?.cor === 'amber'
+                        ? <Clock size={15} className="text-amber-500" />
+                        : e.resultado === 'reprovado'
+                          ? <XCircle size={15} className="text-red-500" />
+                          : <ClipboardList size={15} className="text-gray-400" />
+                    }
+                  </div>
 
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate">{e.checklist_nome}</p>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 mt-0.5">
-                    <p className="text-xs text-gray-400">{dataRelativa(e.data_execucao)}</p>
-                    {e.resultado === 'reprovado' && (
-                      <span className={`self-start text-xs px-1.5 py-0 rounded-full font-medium border ${
-                        pa?.cor === 'green'  ? 'bg-green-50 text-green-600 border-green-200' :
-                        pa?.cor === 'amber'  ? 'bg-amber-50 text-amber-600 border-amber-200' :
-                        pa?.cor === 'red'    ? 'bg-red-50 text-red-600 border-red-200' :
-                        'bg-red-50 text-red-500 border-red-200'
-                      }`}>
-                        {pa ? `Reprovado · ${pa.label}` : 'Reprovado'}
-                      </span>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">{e.checklist_nome}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{dataRelativa(e.data_execucao)}</p>
+                  </div>
+
+                  {/* Ações */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {e.pdf_url && (
+                      <a href={e.pdf_url} target="_blank" rel="noopener noreferrer"
+                        title="Baixar PDF"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors">
+                        <FileText size={14} />
+                      </a>
                     )}
+                    {e.planos_abertos > 0 && (
+                      <button
+                        onClick={() => router.push(`/gestao/planos-acao?exec=${e.id}`)}
+                        title="Ver planos de ação"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-colors">
+                        <TrendingDown size={14} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => router.push(`/gestao/planos-acao`)}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors">
+                      <ChevronRight size={14} />
+                    </button>
                   </div>
                 </div>
 
-                {/* Ações */}
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {e.pdf_url && (
-                    <a href={e.pdf_url} target="_blank" rel="noopener noreferrer"
-                      title="Baixar PDF"
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors">
-                      <FileText size={14} />
-                    </a>
-                  )}
-                  {e.planos_abertos > 0 && (
-                    <button
-                      onClick={() => router.push(`/gestao/planos-acao?exec=${e.id}`)}
-                      title="Ver planos de ação"
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-colors">
-                      <TrendingDown size={14} />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => router.push(`/gestao/planos-acao`)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors">
-                    <ChevronRight size={14} />
-                  </button>
-                </div>
+                {/* Badge de status — linha própria, largura total do card */}
+                {e.resultado === 'reprovado' && (
+                  <div className="mt-1.5 ml-11">
+                    <span className={`inline-block whitespace-nowrap text-xs px-1.5 py-0.5 rounded-full font-medium border ${
+                      pa?.cor === 'green'  ? 'bg-green-50 text-green-600 border-green-200' :
+                      pa?.cor === 'amber'  ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                      pa?.cor === 'red'    ? 'bg-red-50 text-red-600 border-red-200' :
+                      'bg-red-50 text-red-500 border-red-200'
+                    }`}>
+                      {pa ? `Reprovado · ${pa.label}` : 'Reprovado'}
+                    </span>
+                  </div>
+                )}
               </div>
             )})}
           </div>
