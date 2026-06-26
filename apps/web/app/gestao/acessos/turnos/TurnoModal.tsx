@@ -198,7 +198,7 @@ export function TurnoModal({ turno, onClose, onSalvo }: Props) {
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Data de referência</label>
                   <input type="date" value={dataReferencia} onChange={e => setDataReferencia(e.target.value)}
@@ -210,7 +210,7 @@ export function TurnoModal({ turno, onClose, onSalvo }: Props) {
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Horas de trabalho</label>
                   <input type="number" min={1} value={horasTrabalho} onChange={e => setHorasTrabalho(e.target.value)}

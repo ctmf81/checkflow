@@ -217,7 +217,7 @@ export default function MontadorTarefaPage({ params }: { params: Promise<{ id: s
         </div>
 
         {/* Encerramento */}
-        <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-gray-100 pt-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Aberta até (data limite)</label>
             <input type="datetime-local" value={dataLimite} onChange={e => setDataLimite(e.target.value)} disabled={bloqueado}

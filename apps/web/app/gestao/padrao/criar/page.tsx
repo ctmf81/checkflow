@@ -201,7 +201,7 @@ function CriarPadraoInner() {
           <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={2}
             className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-200" />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Grupo</label>
             <select value={grupoId} onChange={e => { setGrupoId(e.target.value); setSubgrupoId('') }}
@@ -260,7 +260,7 @@ function CriarPadraoInner() {
               {instancias.map((inst, idx) => (
                 <div key={idx} className="border border-gray-100 rounded-xl p-3.5">
                   <div className="flex items-start gap-3">
-                    <div className="flex-1 grid grid-cols-2 gap-2.5">
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       {variaveisAtivas.map(v => (
                         <div key={v.id}>
                           <label className="block text-xs text-gray-500 mb-1">{v.nome}</label>

@@ -249,8 +249,8 @@ export function ImportarUsuariosModal({ empresaId, onClose, onImportado }: Props
 
               {aba === 'api' && (
                 <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="col-span-1 sm:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">URL do endpoint</label>
                       <input value={apiUrl} onChange={e => setApiUrl(e.target.value)}
                         placeholder="https://api.empresa.com/usuarios"

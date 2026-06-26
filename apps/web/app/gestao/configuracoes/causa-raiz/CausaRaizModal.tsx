@@ -153,7 +153,7 @@ export function CausaRaizModal({ causa, onClose, onSalvo }: Props) {
           </div>
 
           {/* Setor + Área */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{grupoLabel.replace(/s$/, '')} <span className="text-red-400">*</span></label>
               <select value={grupoId}

@@ -398,7 +398,7 @@ export default function IndicadoresPage() {
           {loadingPlanos ? (
             <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
               {[
                 { label: 'Em moderação', valor: planos.emModeracao, cor: 'text-amber-700', filtro: 'abertos' },
                 { label: 'Aguardando N1', valor: planos.aguardN1, cor: 'text-amber-600', filtro: 'n1' },
@@ -408,8 +408,8 @@ export default function IndicadoresPage() {
               ].map(c => (
                 <button key={c.label} onClick={() => router.push(`/gestao/planos-acao?filtro=${c.filtro}`)}
                   className="bg-gray-50 rounded-xl p-3 text-left hover:bg-gray-100 transition-colors">
-                  <p className={`text-2xl font-bold ${c.cor}`}>{c.valor}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{c.label}</p>
+                  <p className={`text-lg sm:text-2xl font-bold ${c.cor}`}>{c.valor}</p>
+                  <p className="text-xs text-gray-500 mt-0.5 truncate">{c.label}</p>
                 </button>
               ))}
             </div>
@@ -430,7 +430,7 @@ export default function IndicadoresPage() {
             <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
           ) : (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                 {[
                   { label: 'Em aberto', valor: tickets.naoAceitos, cor: 'text-blue-700', status: 'aberto' },
                   { label: 'Em tratamento', valor: tickets.emTratamento, cor: 'text-purple-700', status: 'tratamento' },
@@ -439,8 +439,8 @@ export default function IndicadoresPage() {
                 ].map(c => (
                   <button key={c.label} onClick={() => router.push(`/gestao/tickets?status=${c.status}`)}
                     className="bg-gray-50 rounded-xl p-3 text-left hover:bg-gray-100 transition-colors">
-                    <p className={`text-2xl font-bold ${c.cor}`}>{c.valor}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{c.label}</p>
+                    <p className={`text-lg sm:text-2xl font-bold ${c.cor}`}>{c.valor}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 truncate">{c.label}</p>
                   </button>
                 ))}
               </div>
@@ -475,7 +475,7 @@ export default function IndicadoresPage() {
           {loadingTarefas ? (
             <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
           ) : (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
               {[
                 { label: 'Listas ativas', valor: tarefas.listasAtivas, cor: 'text-teal-700' },
                 { label: 'Respostas', valor: tarefas.respostas, cor: 'text-gray-700' },
@@ -483,8 +483,8 @@ export default function IndicadoresPage() {
               ].map(c => (
                 <button key={c.label} onClick={() => router.push('/gestao/tarefas')}
                   className="bg-gray-50 rounded-xl p-3 text-left hover:bg-gray-100 transition-colors">
-                  <p className={`text-2xl font-bold ${c.cor}`}>{c.valor}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{c.label}</p>
+                  <p className={`text-lg sm:text-2xl font-bold ${c.cor}`}>{c.valor}</p>
+                  <p className="text-xs text-gray-500 mt-0.5 truncate">{c.label}</p>
                 </button>
               ))}
             </div>

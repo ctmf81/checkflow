@@ -223,7 +223,7 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
             <p className="text-xs text-orange-500 font-medium mt-1">Ex.: Código do Produto</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[0, 1, 2, 3].map(i => (
               <div key={i}>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nome do atributo {i + 1}</label>

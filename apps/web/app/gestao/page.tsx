@@ -236,7 +236,7 @@ export default function GestaoHomePage() {
             <Loader2 size={20} className="animate-spin text-gray-300" />
           </div>
         ) : (
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             {[
               { label: 'Executados',   valor: funil.executados,   cor: 'text-gray-700',   barCor: 'bg-gray-400',   icon: <ClipboardList size={14} /> },
               { label: 'Aprovados',    valor: funil.aprovados,    cor: 'text-green-700',  barCor: 'bg-green-500',  icon: <CheckCircle2  size={14} /> },
@@ -244,10 +244,10 @@ export default function GestaoHomePage() {
               { label: 'Em moderação', valor: funil.em_moderacao, cor: 'text-amber-700',  barCor: 'bg-amber-500',  icon: <Clock         size={14} /> },
             ].map(item => (
               <div key={item.label} className="bg-gray-50 rounded-xl p-3">
-                <div className={`flex items-center gap-1.5 text-xs font-medium mb-1 ${item.cor}`}>
-                  {item.icon}{item.label}
+                <div className={`flex items-center gap-1.5 text-xs font-medium mb-1 truncate ${item.cor}`}>
+                  {item.icon}<span className="truncate">{item.label}</span>
                 </div>
-                <p className={`text-2xl font-bold ${item.cor}`}>{item.valor}</p>
+                <p className={`text-lg sm:text-2xl font-bold ${item.cor}`}>{item.valor}</p>
                 <FunilBar valor={item.valor} total={funil.executados} cor={item.barCor} />
                 <p className="text-xs text-gray-400 mt-1">
                   {funil.executados > 0 ? Math.round((item.valor / funil.executados) * 100) : 0}%

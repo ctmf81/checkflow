@@ -125,36 +125,38 @@ export default function SlaConfigPage() {
         <div className="px-4 py-3 border-b border-gray-50 bg-gray-50/60">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Padrão da unidade</span>
         </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-50">
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400">Prioridade</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400">Aceite (min)</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400">Resolução (min)</th>
-              <th className="px-4 py-2.5 text-xs font-medium text-gray-400">Equiv.</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {rows.filter(r => r.categoria_id === null).map((r, i) => (
-              <tr key={r.prioridade} className="hover:bg-gray-50/50">
-                <td className="px-4 py-2.5 font-medium text-gray-700">{PRIORIDADE_LABEL[r.prioridade]}</td>
-                <td className="px-4 py-2.5">
-                  <input type="number" min={5} step={5} value={r.tempo_aceite_min}
-                    onChange={e => atualizar(i, 'tempo_aceite_min', Number(e.target.value))}
-                    className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </td>
-                <td className="px-4 py-2.5">
-                  <input type="number" min={5} step={5} value={r.tempo_resolucao_min}
-                    onChange={e => atualizar(i, 'tempo_resolucao_min', Number(e.target.value))}
-                    className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </td>
-                <td className="px-4 py-2.5 text-xs text-gray-400">
-                  aceite {minParaHhmm(r.tempo_aceite_min)} / resolução {minParaHhmm(r.tempo_resolucao_min)}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[480px]">
+            <thead>
+              <tr className="border-b border-gray-50">
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400">Prioridade</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400">Aceite (min)</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400">Resolução (min)</th>
+                <th className="px-4 py-2.5 text-xs font-medium text-gray-400">Equiv.</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {rows.filter(r => r.categoria_id === null).map((r, i) => (
+                <tr key={r.prioridade} className="hover:bg-gray-50/50">
+                  <td className="px-4 py-2.5 font-medium text-gray-700">{PRIORIDADE_LABEL[r.prioridade]}</td>
+                  <td className="px-4 py-2.5">
+                    <input type="number" min={5} step={5} value={r.tempo_aceite_min}
+                      onChange={e => atualizar(i, 'tempo_aceite_min', Number(e.target.value))}
+                      className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <input type="number" min={5} step={5} value={r.tempo_resolucao_min}
+                      onChange={e => atualizar(i, 'tempo_resolucao_min', Number(e.target.value))}
+                      className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-gray-400 whitespace-nowrap">
+                    aceite {minParaHhmm(r.tempo_aceite_min)} / resolução {minParaHhmm(r.tempo_resolucao_min)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* SLA por categoria */}
@@ -163,44 +165,46 @@ export default function SlaConfigPage() {
           <div className="px-4 py-3 border-b border-gray-50 bg-gray-50/60">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Por categoria (sobrepõe o padrão)</span>
           </div>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-50">
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400">Categoria</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400">Prioridade</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400">Aceite (min)</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400">Resolução (min)</th>
-                <th className="px-4 py-2.5" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {rows.map((r, i) => {
-                if (!r.categoria_id) return null
-                const cat = cats.find(c => c.id === r.categoria_id)
-                return (
-                  <tr key={`${r.categoria_id}-${r.prioridade}`} className="hover:bg-gray-50/50">
-                    <td className="px-4 py-2.5 text-gray-700">{cat?.nome ?? '—'}</td>
-                    <td className="px-4 py-2.5 text-gray-600">{PRIORIDADE_LABEL[r.prioridade]}</td>
-                    <td className="px-4 py-2.5">
-                      <input type="number" min={5} step={5} value={r.tempo_aceite_min}
-                        onChange={e => atualizar(i, 'tempo_aceite_min', Number(e.target.value))}
-                        className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <input type="number" min={5} step={5} value={r.tempo_resolucao_min}
-                        onChange={e => atualizar(i, 'tempo_resolucao_min', Number(e.target.value))}
-                        className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <button onClick={() => removerLinha(i)} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
-                        <Trash2 size={13} />
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[560px]">
+              <thead>
+                <tr className="border-b border-gray-50">
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400">Categoria</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400">Prioridade</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400">Aceite (min)</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400">Resolução (min)</th>
+                  <th className="px-4 py-2.5" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {rows.map((r, i) => {
+                  if (!r.categoria_id) return null
+                  const cat = cats.find(c => c.id === r.categoria_id)
+                  return (
+                    <tr key={`${r.categoria_id}-${r.prioridade}`} className="hover:bg-gray-50/50">
+                      <td className="px-4 py-2.5 text-gray-700">{cat?.nome ?? '—'}</td>
+                      <td className="px-4 py-2.5 text-gray-600">{PRIORIDADE_LABEL[r.prioridade]}</td>
+                      <td className="px-4 py-2.5">
+                        <input type="number" min={5} step={5} value={r.tempo_aceite_min}
+                          onChange={e => atualizar(i, 'tempo_aceite_min', Number(e.target.value))}
+                          className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <input type="number" min={5} step={5} value={r.tempo_resolucao_min}
+                          onChange={e => atualizar(i, 'tempo_resolucao_min', Number(e.target.value))}
+                          className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <button onClick={() => removerLinha(i)} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

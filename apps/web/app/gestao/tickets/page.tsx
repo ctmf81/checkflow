@@ -156,20 +156,20 @@ export default function TicketsPage() {
       {/* Cards de resumo */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-100 p-4">
-          <div className="text-2xl font-bold text-blue-700">{contadores.naoAceitos}</div>
-          <div className="text-xs text-gray-500 mt-0.5">Em aberto (a aceitar)</div>
+          <div className="text-lg sm:text-2xl font-bold text-blue-700">{contadores.naoAceitos}</div>
+          <div className="text-xs text-gray-500 mt-0.5 truncate">Em aberto (a aceitar)</div>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4">
-          <div className="text-2xl font-bold text-purple-700">{contadores.emTratamento}</div>
-          <div className="text-xs text-gray-500 mt-0.5">Em tratamento</div>
+          <div className="text-lg sm:text-2xl font-bold text-purple-700">{contadores.emTratamento}</div>
+          <div className="text-xs text-gray-500 mt-0.5 truncate">Em tratamento</div>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4">
-          <div className="text-2xl font-bold text-red-600">{contadores.criticos}</div>
-          <div className="text-xs text-gray-500 mt-0.5">Críticos em andamento</div>
+          <div className="text-lg sm:text-2xl font-bold text-red-600">{contadores.criticos}</div>
+          <div className="text-xs text-gray-500 mt-0.5 truncate">Críticos em andamento</div>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4">
-          <div className="text-2xl font-bold text-gray-800">{contadores.fechados}</div>
-          <div className="text-xs text-gray-500 mt-0.5">Finalizados</div>
+          <div className="text-lg sm:text-2xl font-bold text-gray-800">{contadores.fechados}</div>
+          <div className="text-xs text-gray-500 mt-0.5 truncate">Finalizados</div>
         </div>
       </div>
 
