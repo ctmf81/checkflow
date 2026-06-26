@@ -8,6 +8,7 @@ import { registrarUsoArmazenamento } from '@/lib/uso'
 import { useSession } from '@/contexts/SessionContext'
 import { useOnlineStatus } from '@/lib/useOnlineStatus'
 import { salvarDraftLocal, carregarDraftLocal, removerDraftLocal } from '@/lib/offlineDraft'
+import { chaveChecklist, salvarChecklistCache, carregarChecklistCache } from '@/lib/checklistCache'
 import {
   ChevronDown, ChevronUp, CheckCircle2, XCircle,
   Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine,
@@ -1449,48 +1450,19 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [respostas, loading, concluido, unidadeAtiva?.id])
 
-  async function carregar() {
-    setLoading(true); setErroCarregar(null)
-    const sb = createClient()
-
-    const { data: cl, error: clErr } = await sb.from('checklists')
-      .select('id, nome, descricao, tempo_guarda_meses, subgrupo_id, permite_continuar_depois')
-      .eq('id', id)
-      .eq('unidade_id', unidadeAtiva!.id)
-      .single()
-    if (clErr || !cl) { setErroCarregar(`Checklist não encontrado ou sem permissão de acesso`); setLoading(false); return }
+  // Constrói o formulário (árvore de atividades + seções + motivos) a partir
+  // dos dados crus. Usado tanto pelo carregamento online quanto pelo cache offline.
+  function montarFormulario(
+    cl: any,
+    secoesData: any[] | null,
+    atvsData: any[],
+    opcoesMap: Record<string, OpcaoMC[]>,
+    motivosTodos: Motivo[],
+  ) {
     setChecklist(cl)
 
-    const { data: secoesData } = await sb.from('checklist_secoes')
-      .select('id, nome, ordem').eq('checklist_id', id).order('ordem')
-
-    const { data: atvsData, error: atvErr } = await sb.from('checklist_atividades')
-      .select('id, nome, tipo, obrigatoria, critica, gera_plano_acao, plano_acao_sla_horas, config, ordem, atividade_pai_id, valor_gatilho, secao_id')
-      .eq('checklist_id', id).order('ordem')
-
-    if (atvErr) { setErroCarregar(`Erro: ${atvErr.message}`); setLoading(false); return }
-    if (!atvsData || atvsData.length === 0) { setErroCarregar(`Checklist sem atividades`); setLoading(false); return }
-
-    // Busca opções de múltipla escolha de todas as atividades de uma vez
-    const idsMC = atvsData.filter((a: any) => a.tipo === 'multipla_escolha').map((a: any) => a.id)
-    let opcoesMap: Record<string, OpcaoMC[]> = {}
-    if (idsMC.length > 0) {
-      const { data: opcs } = await sb.from('checklist_atividade_opcoes')
-        .select('id, atividade_id, label, valor, ordem, e_valido')
-        .in('atividade_id', idsMC).order('ordem')
-      if (opcs) {
-        for (const op of opcs) {
-          if (!opcoesMap[op.atividade_id]) opcoesMap[op.atividade_id] = []
-          opcoesMap[op.atividade_id].push(op)
-        }
-      }
-    }
-
-    // Monta árvore
     const atvMap = new Map<string, Atividade>()
-    atvsData.forEach((a: any) => atvMap.set(a.id, {
-      ...a, dependentes: [], opcoesMC: opcoesMap[a.id] ?? []
-    }))
+    atvsData.forEach((a: any) => atvMap.set(a.id, { ...a, dependentes: [], opcoesMC: opcoesMap[a.id] ?? [] }))
     const raizes: Atividade[] = []
     atvsData.forEach((a: any) => {
       if (a.atividade_pai_id && atvMap.has(a.atividade_pai_id)) {
@@ -1511,6 +1483,88 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     setSecoes(secoesComAtv)
     if (secoesComAtv.length > 0) setSecaoAberta(secoesComAtv[0].id)
 
+    setMotivosChecklist(motivosTodos.filter(m => m.tipo === 'checklist'))
+    setMotivosAtividade(motivosTodos.filter(m => m.tipo === 'atividade'))
+  }
+
+  // Restaura o rascunho local de respostas em andamento (IndexedDB). O local é
+  // o mais recente (autosave), então sobrepõe o que veio do servidor.
+  async function restaurarRascunhoLocal() {
+    const draftKey = draftKeyAtual()
+    if (!draftKey) return
+    const local = await carregarDraftLocal(draftKey)
+    if (local?.respostas && Object.keys(local.respostas).length > 0) {
+      setRespostas(prev => ({ ...prev, ...local.respostas }))
+    }
+  }
+
+  async function carregar() {
+    setLoading(true); setErroCarregar(null)
+    const sb = createClient()
+    const cacheKey = chaveChecklist(id, unidadeAtiva!.id)
+
+    const { data: cl, error: clErr } = await sb.from('checklists')
+      .select('id, nome, descricao, tempo_guarda_meses, subgrupo_id, permite_continuar_depois')
+      .eq('id', id)
+      .eq('unidade_id', unidadeAtiva!.id)
+      .single()
+
+    // Sem rede (ou sem acesso): tenta a definição cacheada para renderizar o
+    // formulário mesmo offline.
+    if (clErr || !cl) {
+      const snap = await carregarChecklistCache(cacheKey)
+      if (snap) {
+        montarFormulario(
+          snap.cl, snap.secoesData as any[], snap.atvsData as any[],
+          snap.opcoesMap as any, snap.motivos as any,
+        )
+        await restaurarRascunhoLocal()
+        setLoading(false)
+        return
+      }
+      setErroCarregar(`Checklist não encontrado ou sem permissão de acesso`); setLoading(false); return
+    }
+
+    const { data: secoesData } = await sb.from('checklist_secoes')
+      .select('id, nome, ordem').eq('checklist_id', id).order('ordem')
+
+    const { data: atvsData, error: atvErr } = await sb.from('checklist_atividades')
+      .select('id, nome, tipo, obrigatoria, critica, gera_plano_acao, plano_acao_sla_horas, config, ordem, atividade_pai_id, valor_gatilho, secao_id')
+      .eq('checklist_id', id).order('ordem')
+
+    if (atvErr) { setErroCarregar(`Erro: ${atvErr.message}`); setLoading(false); return }
+    if (!atvsData || atvsData.length === 0) { setErroCarregar(`Checklist sem atividades`); setLoading(false); return }
+
+    // Busca opções de múltipla escolha de todas as atividades de uma vez
+    const idsMC = atvsData.filter((a: any) => a.tipo === 'multipla_escolha').map((a: any) => a.id)
+    const opcoesMap: Record<string, OpcaoMC[]> = {}
+    if (idsMC.length > 0) {
+      const { data: opcs } = await sb.from('checklist_atividade_opcoes')
+        .select('id, atividade_id, label, valor, ordem, e_valido')
+        .in('atividade_id', idsMC).order('ordem')
+      if (opcs) {
+        for (const op of opcs) {
+          if (!opcoesMap[op.atividade_id]) opcoesMap[op.atividade_id] = []
+          opcoesMap[op.atividade_id].push(op)
+        }
+      }
+    }
+
+    // Carrega motivos de não execução associados a este checklist
+    const { data: motivosVinculo } = await sb
+      .from('checklist_nao_execucao_motivos')
+      .select('motivo:motivo_id(id, descricao, tipo)')
+      .eq('checklist_id', id)
+    const motivosTodos: Motivo[] = (motivosVinculo ?? [])
+      .map((m: any) => Array.isArray(m.motivo) ? m.motivo[0] : m.motivo)
+      .filter(Boolean)
+
+    // Monta o formulário e guarda a definição em cache (uso offline futuro).
+    montarFormulario(cl, secoesData, atvsData, opcoesMap, motivosTodos)
+    salvarChecklistCache(cacheKey, {
+      cl, secoesData: secoesData ?? [], atvsData, opcoesMap, motivos: motivosTodos, cachedAt: Date.now(),
+    } as any)
+
     // Retomada: se reabrindo uma execução existente (?exec=), restaura as
     // respostas já salvas (fotos/vídeos voltam como {url} — a UI faz preview).
     const execParam = new URLSearchParams(window.location.search).get('exec')
@@ -1525,30 +1579,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       }
     }
 
-    // Carrega motivos de não execução associados a este checklist
-    const { data: motivosVinculo } = await sb
-      .from('checklist_nao_execucao_motivos')
-      .select('motivo:motivo_id(id, descricao, tipo)')
-      .eq('checklist_id', id)
-    if (motivosVinculo) {
-      const todos: Motivo[] = motivosVinculo
-        .map((m: any) => Array.isArray(m.motivo) ? m.motivo[0] : m.motivo)
-        .filter(Boolean)
-      setMotivosChecklist(todos.filter(m => m.tipo === 'checklist'))
-      setMotivosAtividade(todos.filter(m => m.tipo === 'atividade'))
-    }
-
-    // Rascunho local (IndexedDB): restaura respostas em andamento que ainda
-    // não chegaram ao servidor (ex: conexão caiu antes de salvar). O local é
-    // o mais recente, então sobrepõe o que veio do servidor.
-    const draftKey = draftKeyAtual()
-    if (draftKey) {
-      const local = await carregarDraftLocal(draftKey)
-      if (local?.respostas && Object.keys(local.respostas).length > 0) {
-        setRespostas(prev => ({ ...prev, ...local.respostas }))
-      }
-    }
-
+    await restaurarRascunhoLocal()
     setLoading(false)
   }
 
