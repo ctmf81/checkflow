@@ -132,6 +132,34 @@ function agruparChecklists(visiveis: Checklist[]): { grupos: GrupoAgrupado[]; se
   return { grupos: Array.from(gruposMap.values()), semGrupo: semGrupoList }
 }
 
+// Pré-carrega rotas de execução num iframe oculto enquanto ONLINE. Uma
+// navegação real faz o service worker cachear o HTML + TODOS os chunks JS da
+// página — o que permite a página abrir offline depois (prefetch sozinho não
+// basta para rotas dinâmicas do App Router). Sequencial e em background.
+let preloadOfflineRodando = false
+async function preCarregarRotasOffline(urls: string[]) {
+  if (preloadOfflineRodando || typeof document === 'undefined' || urls.length === 0) return
+  preloadOfflineRodando = true
+  try {
+    for (const url of urls) {
+      await new Promise<void>(resolve => {
+        const iframe = document.createElement('iframe')
+        iframe.setAttribute('aria-hidden', 'true')
+        iframe.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;border:0;opacity:0'
+        let done = false
+        const cleanup = () => { if (done) return; done = true; try { iframe.remove() } catch { /* noop */ } resolve() }
+        iframe.onload = () => setTimeout(cleanup, 2000) // tempo p/ os chunks carregarem
+        iframe.onerror = () => cleanup()
+        setTimeout(cleanup, 15000) // timeout de segurança
+        iframe.src = url
+        document.body.appendChild(iframe)
+      })
+    }
+  } finally {
+    preloadOfflineRodando = false
+  }
+}
+
 // ─── ABA: Checklists (conteúdo original) ────────────────────────────────────
 
 function AbaChecklists({ grupos, semGrupo, itensWorkflow, agendadas, naoFinalizadas, onNaoExecutado, busca, setBusca }: {
@@ -1326,19 +1354,11 @@ export default function OperacaoPage() {
               }
             })
             .catch(() => {})
-          // Pré-carrega a ROTA de execução p/ abrir offline:
-          //  - prefetch → baixa os chunks JS (o service worker os cacheia)
-          //  - fetch + Cache API → guarda o HTML no MESMO cache do SW (checkflow-v1),
-          //    para o fallback de navegação offline servir essa página.
-          try {
-            router.prefetch(`/operacao/${c.id}`)
-            if (typeof caches !== 'undefined') {
-              fetch(`/operacao/${c.id}`)
-                .then(res => { if (res.ok) caches.open('checkflow-v1').then(cache => cache.put(`/operacao/${c.id}`, res.clone())) })
-                .catch(() => {})
-            }
-          } catch { /* ignora */ }
         }
+        // Pré-carrega as ROTAS de execução num iframe oculto (navegação real →
+        // o service worker cacheia HTML + todos os chunks JS). É o que faz a
+        // página abrir offline de verdade (prefetch sozinho não basta no App Router).
+        preCarregarRotasOffline(offlineVisiveis.map(c => `/operacao/${c.id}`))
       } catch { /* coluna ainda não migrada: ignora */ }
     }
 
