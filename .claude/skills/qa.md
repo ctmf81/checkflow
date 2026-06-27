@@ -9,7 +9,7 @@ description: Quality Assurance for CheckFlow — test strategy, suites por tela/
 
 | Camada | Ferramenta | Status |
 |--------|-----------|--------|
-| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **311 testes / 18 arquivos** (2026-06-22) |
+| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **383 testes / 27 arquivos** (2026-06-27) |
 | Smoke Tests | Manual UI/navegação | ✅ 9/10 PASSED (2026-06-24) — checklist exec, auth, perms, billing, tickets |
 | Risk Assessment | Custom scripts | ✅ 6/8 PASSED (2026-06-24) — routes auth, WhatsApp OTP, data calc, mascara |
 | Quota Enforcement | Node.js + Supabase | ✅ 6/6 PASSED (2026-06-24) — billing enforcement, assinatura, reset |
@@ -205,8 +205,22 @@ Criado `lib/visibilidade.ts` (lógica pura, **importada** por `operacao/page.tsx
 | Primeiro acesso (CPF + código de boas-vindas → definir senha) | `primeiro-acesso.spec.ts` | 🔴 Alta |
 | Reset de senha disparado por gestor em `/gestao/acessos/usuarios` (permissão + envio) | `reset-admin.spec.ts` | 🟡 Média |
 
-### ✅ Unit — Login por código (OTP) — `tests/unit/lib/passwordReset.unit.test.ts` (21 testes)
-Testa diretamente `lib/passwordReset.ts` (importado, não espelhado) via mock de `SupabaseClient` (chain/thenable que consome respostas em fila por ordem de `.from()`). Cobre: `hashValor` (determinístico, nunca expõe valor original), `criarCodigoOtp` (código de 6 dígitos, grava hash+tipo+expiração ~15min), `contarSolicitacoesRecentes` (anti-abuso), `validarCodigoOtp` (sem token / expirado / máx. tentativas / código errado incrementa `tentativas` / código certo marca `usado=true` e cria `sessao_senha`), `validarSessaoSenha` (sem token / expirado / hash incorreto / sucesso marca usado, uso único), `enviarCodigoUsuario` (payload para `/whatsapp/enviar-codigo`, omite e-mail `@checkflow.local`, omite campos ausentes, não lança em falha de rede).
+### ✅ Unit — Login por código (OTP) — `tests/unit/lib/passwordReset.unit.test.ts` (25 testes)
+Testa diretamente `lib/passwordReset.ts` (importado, não espelhado) via mock de `SupabaseClient` (chain/thenable que consome respostas em fila por ordem de `.from()`). Cobre: `hashValor` (determinístico, nunca expõe valor original), `criarCodigoOtp` (código de 6 dígitos, grava hash+tipo+expiração ~15min), `contarSolicitacoesRecentes` (anti-abuso), `validarCodigoOtp` (sem token / expirado / máx. tentativas / código errado incrementa `tentativas` / código certo marca `usado=true` e cria `sessao_senha`), `validarSessaoSenha` (sem token / expirado / hash incorreto / sucesso marca usado, uso único), `enviarCodigoUsuario` (payload para `/whatsapp/enviar-codigo`, omite e-mail `@checkflow.local`, omite campos ausentes). ⚠️ **Atualizado 2026-06-27:** `enviarCodigoUsuario` deixou de ser "dispara e esquece" e agora **confirma a entrega** retornando `{ enviado, erro }` (trabalho de confiabilidade do WhatsApp). Cobertos os ramos: WhatsApp `ok`, fallback de e-mail `ok`, HTTP `!= ok` (erro com status), WhatsApp não confirma (repassa `erro` do payload), falha de rede (não lança).
+
+### ✅ Unit — Camada offline / PWA — `tests/unit/lib/{idb,offlineDraft,offlineList,checklistCache,checklistFetch,catalogoCache,syncQueue,pwaInstall,useOnlineStatus}.unit.test.ts` (68 testes, 9 arquivos)
+Cobre os 9 módulos da Fase 2 do pivot PWA (carregamento + submissão offline). **Sem novas deps** — mocka a camada `./idb`/Supabase; testa `idb.ts` no próprio cenário "indisponível" do jsdom; renderiza o hook com `act`/`createRoot` nativos do React 19.
+- **`idb.ts`** (5) — contrato de **degradação silenciosa**: sem IndexedDB, leitura→`null`/`[]`, escrita→no-op, nunca lança.
+- **`offlineDraft.ts`** (10) — regra crítica: rascunho **nunca persiste `File`** nem `{file: File}`; mantém `{file: <não-File>}`; clone estrutural; carimba `updatedAt`.
+- **`offlineList.ts`** (8) — cache da lista em localStorage: round-trip, isolamento por unidade, JSON corrompido/cota → `[]` sem lançar.
+- **`checklistCache.ts`** (6) — chave `checklist:id:unidade`, clone ao gravar, delegação de leitura.
+- **`checklistFetch.ts`** (6) — `buscarDefinicaoChecklist`: agrupa opções por atividade, achata motivos (objeto **ou** array do embed), guards de `null`/sem-atividades.
+- **`catalogoCache.ts`** (10) — `buscarCatalogo` (shape + nulls) e a regra de **remover `imagem_url`** antes de cachear, sem mutar o original.
+- **`syncQueue.ts`** (7) — fila offline: enfileirar (`tentativas=0`), contar, **guard offline** (não toca a rede), sincroniza e remove da fila, **idempotência** (não reinsere respostas existentes), retry incrementa `tentativas`. ⚠️ Caminho com upload de fotos/planos **não** coberto (mock de `storage`+planos frágil — segue como teste manual no A26).
+- **`pwaInstall.ts`** (12) — captura do `beforeinstallprompt`, prompt aceito/recusado/indisponível, pub/sub, limpeza no `appinstalled`, `isStandalone`/`isIOS` (singleton recarregado por teste com `vi.resetModules`).
+- **`useOnlineStatus.ts`** (4) — estado inicial = `navigator.onLine` + reação aos eventos online/offline.
+
+⚠️ **Componentes** `PwaRegister.tsx`/`PendingSync.tsx`/`DownloadAppModal.tsx` **não** têm teste (exigiriam `@testing-library/react`, não instalado) — a lógica por trás deles está coberta nas libs acima.
 
 ---
 
