@@ -545,22 +545,25 @@ function AbaHistorico({ unidadeId }: { unidadeId: string }) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-800 truncate">{exec.checklist_nome}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{dataRelativa(exec.data_execucao)}</p>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {exec.resultado === 'reprovado' && (
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
-                    pa?.cor === 'green'  ? 'bg-green-50 text-green-600 border-green-200' :
-                    pa?.cor === 'amber'  ? 'bg-amber-50 text-amber-600 border-amber-200' :
-                    pa?.cor === 'red'    ? 'bg-red-50 text-red-600 border-red-200' :
-                    'bg-red-50 text-red-500 border-red-200'
-                  }`}>
-                    {pa ? `Reprovado · ${pa.label}` : 'Reprovado'}
+                {/* Data + badges quebram abaixo do nome (não espremem o título no mobile) */}
+                <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                  <span className="text-xs text-gray-400">{dataRelativa(exec.data_execucao)}</span>
+                  {exec.resultado === 'reprovado' && (
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                      pa?.cor === 'green'  ? 'bg-green-50 text-green-600 border-green-200' :
+                      pa?.cor === 'amber'  ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                      pa?.cor === 'red'    ? 'bg-red-50 text-red-600 border-red-200' :
+                      'bg-red-50 text-red-500 border-red-200'
+                    }`}>
+                      {pa ? `Reprovado · ${pa.label}` : 'Reprovado'}
+                    </span>
+                  )}
+                  <span className={`flex items-center gap-1 text-xs border font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${st.cor}`}>
+                    {st.icon}{st.label}
                   </span>
-                )}
-                <span className={`flex items-center gap-1 text-xs border font-medium px-2 py-0.5 rounded-full ${st.cor}`}>
-                  {st.icon}{st.label}
-                </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 {exec.pdf_url ? (
                   <a href={exec.pdf_url} target="_blank" rel="noopener noreferrer"
                     onClick={e => e.stopPropagation()}
