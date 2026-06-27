@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     // Se o CPF já existe, vincula o usuário existente a ESTA empresa em vez de
     // recriar (CPF é único). Não mexe no auth, senha ou dados pessoais dele.
     const { data: existente } = await supabaseAdmin
-      .from('usuarios').select('id').eq('cpf', cpfDigits).maybeSingle()
+      .from('usuarios').select('id, nome, email, telefone, primeiro_acesso').eq('cpf', cpfDigits).maybeSingle()
 
     if (existente) {
       const { data: jaVinculado } = await supabaseAdmin
@@ -64,7 +64,21 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      return NextResponse.json({ id: existente.id, vinculado: true }, { status: 200 })
+      // Se a pessoa existe mas NUNCA concluiu o primeiro acesso (não definiu
+      // senha), reenvia o código — senão ela fica vinculada mas sem como entrar.
+      let codigoReenviado = false
+      if (existente.primeiro_acesso) {
+        const codigo = await criarCodigoOtp(supabaseAdmin, existente.id, 'primeiro_acesso')
+        await enviarCodigoUsuario(
+          supabaseAdmin,
+          { id: existente.id, nome: existente.nome, email: existente.email, telefone: existente.telefone },
+          codigo,
+          'primeiro_acesso'
+        )
+        codigoReenviado = true
+      }
+
+      return NextResponse.json({ id: existente.id, vinculado: true, codigoReenviado }, { status: 200 })
     }
 
     // E-mail é opcional. Sem e-mail real, gera um endereço técnico

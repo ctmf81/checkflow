@@ -81,7 +81,11 @@ export function ModeracaoPreCadastroModal({ empresaId, onClose, onChange }: {
         moderado_por: user?.id ?? null, moderado_em: new Date().toISOString(),
       }).eq('id', pc.id)
 
-      toast.success(json.vinculado ? 'Pessoa vinculada à empresa.' : 'Usuário aprovado — código de acesso enviado.')
+      toast.success(
+        !json.vinculado ? 'Usuário aprovado — código de acesso enviado por WhatsApp.'
+        : json.codigoReenviado ? 'Pessoa vinculada — código de acesso reenviado por WhatsApp.'
+        : 'Pessoa vinculada à empresa (ela já tinha acesso, sem novo código).'
+      )
       setAprovarAlvo(null)
       onChange()
       carregar()
