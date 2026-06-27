@@ -38,7 +38,7 @@ Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste ·
 - **Abandonado o app nativo (Expo/EAS/APK)** — builds falhavam e era "mais um serviço". App web virou **PWA instalável** ("Adicionar à tela inicial", sem store). `apps/mobile` arquivado.
 - **PWA + offline da operação entregue ponta a ponta** (commits `fbcf937`→`5fbe8cf`): instalar → abrir lista offline → abrir checklist a frio offline → finalizar offline → sincronizar ao reconectar. **Offline é só `/operacao`** (service worker escopado). Detalhes em `/arch` (seção "PWA & Offline").
 - **Submissão offline v1**: só execução SIMPLES. Plano de ação, workflow e execução agendada exigem conexão.
-- ⚠️ **MIGRATION PENDENTE DE APLICAR**: `20260626000000_checklist_permite_offline.sql` (`checklists.permite_offline`). Supabase não linkado/sem senha local → usuário aplica no SQL Editor: `alter table checklists add column if not exists permite_offline boolean not null default false;`. Código é deploy-safe sem ela (flag só fica sem efeito). Ver `/db`.
+- ✅ **MIGRATION APLICADA (2026-06-26)**: `20260626000000_checklist_permite_offline.sql` (`checklists.permite_offline`) — aplicada manualmente no SQL Editor pelo usuário. Ver `/db`.
 - ⚠️ **PENDENTE TESTE REAL no celular** (Galaxy A26): instalar, marcar checklist como offline, modo avião, abrir/finalizar com foto, reconectar e ver sincronizar.
 - **Responsividade mobile**: corrigidos grids de KPI (gestão/indicadores/tickets), badge de execuções em 1 linha, header mobile (unidade trunca, perfil oculto, "App"), modais de instalação sem overflow.
 - **Pendências novas registradas** (memória): [[pendencia-precadastro-qrcode]] (pré-cadastro por QR + moderação), [[pendencia-google-drive-pdfs]].

@@ -48,7 +48,7 @@ Generate timestamp: `(Get-Date -Format "yyyyMMddHHmmss")` (PowerShell)
 ### Checklists
 | Table | Description | Migration |
 |-------|-------------|-----------|
-| `checklists` | Headers: `nome`, `status`, `versao_atual`, `tempo_guarda_meses`, `subgrupo_id`, `permite_continuar_depois`, `permite_offline` | 20260603000017, 20260606000002, 20260613004044, **20260626000000 (⏳ aplicar)** |
+| `checklists` | Headers: `nome`, `status`, `versao_atual`, `tempo_guarda_meses`, `subgrupo_id`, `permite_continuar_depois`, `permite_offline` | 20260603000017, 20260606000002, 20260613004044, 20260626000000 (✅ aplicada) |
 | `checklist_versoes` | Immutable snapshots (`snapshot jsonb`) | 20260603000017 |
 | `checklist_secoes` | Sections within a checklist | 20260603000017 |
 | `checklist_atividades` | Activities — see tipo constraint below | 20260603000017 |
@@ -206,10 +206,9 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 
 Rota `/api/documentos/consultar` lê `ia_provedores` (ativo, por ordem) como fonte primária das chaves, com env var de fallback. Gerenciado em `/sistema/integracoes-ia`.
 
-### Checklist offline — PWA (migration `20260626000000_checklist_permite_offline.sql`, ⏳ PENDENTE DE APLICAR)
-- `checklists.permite_offline boolean not null default false` — opt-in: marca se o checklist pode ser executado sem internet pelo PWA (aparece na lista offline da operação + definição pré-cacheada).
-- ⚠️ **Projeto Supabase NÃO linkado localmente + sem senha do DB** → não aplicada via CLI. Aplicar no SQL Editor: `alter table checklists add column if not exists permite_offline boolean not null default false;`
-- Código é **deploy-safe** sem ela: leitura na operação é best-effort (try/catch); escrita na gestão é à parte (`ChecklistMontador.salvar` grava o flag num update separado). Sem a coluna, o flag só não tem efeito.
+### Checklist offline — PWA (migration `20260626000000_checklist_permite_offline.sql`, ✅ aplicada 2026-06-26)
+- `checklists.permite_offline boolean not null default false` — opt-in: marca se o checklist pode ser executado sem internet pelo PWA (aparece na lista offline da operação + definição pré-cacheada). Aplicada manualmente no SQL Editor (projeto Supabase não linkado localmente).
+- Código é **deploy-safe**: leitura na operação é best-effort (try/catch); escrita na gestão é à parte (`ChecklistMontador.salvar` grava o flag num update separado).
 
 ## Onboarding
 
