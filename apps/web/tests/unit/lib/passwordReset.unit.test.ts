@@ -377,11 +377,54 @@ describe('enviarCodigoUsuario()', () => {
     expect(body.email).toBeUndefined()
   })
 
-  it('não lança erro quando o fetch falha (rede indisponível)', async () => {
+  // ── Contrato de retorno { enviado, erro } ──────────────────────────────────
+  // enviarCodigoUsuario deixou de ser "dispara e esquece": agora confirma a
+  // entrega (trabalho de confiabilidade do WhatsApp, 2026-06-27) e devolve o
+  // status para a UI exibir erro acionável. Estes ramos antes não eram cobertos.
+
+  it('retorna { enviado: true } quando o WhatsApp confirma a entrega', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ whatsapp: { ok: true } }) }) as any
+    const { sb } = createMockSupabase([{ data: { empresa_id: 'empresa-1' } }])
+    const usuario = { id: 'user-1', nome: 'João', telefone: '11999999999', email: 'joao@empresa.com' }
+
+    await expect(enviarCodigoUsuario(sb, usuario, '123456', 'self_service')).resolves.toEqual({ enviado: true })
+  })
+
+  it('retorna { enviado: true } quando entrega pelo fallback de e-mail (email.ok)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ email: { ok: true } }) }) as any
+    const { sb } = createMockSupabase([{ data: { empresa_id: 'empresa-1' } }])
+    const usuario = { id: 'user-1', nome: 'João', telefone: '11999999999', email: 'joao@empresa.com' }
+
+    await expect(enviarCodigoUsuario(sb, usuario, '123456', 'self_service')).resolves.toEqual({ enviado: true })
+  })
+
+  it('retorna { enviado: false } com erro de HTTP quando o servidor responde != ok', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503, json: async () => ({}) }) as any
+    const { sb } = createMockSupabase([{ data: { empresa_id: 'empresa-1' } }])
+    const usuario = { id: 'user-1', nome: 'João', telefone: '11999999999', email: 'joao@empresa.com' }
+
+    const r = await enviarCodigoUsuario(sb, usuario, '123456', 'self_service')
+    expect(r.enviado).toBe(false)
+    expect(r.erro).toMatch(/HTTP 503/)
+  })
+
+  it('retorna { enviado: false } repassando o erro do payload quando o WhatsApp não confirma', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true, json: async () => ({ whatsapp: { ok: false, erro: 'número inválido' } }),
+    }) as any
+    const { sb } = createMockSupabase([{ data: { empresa_id: 'empresa-1' } }])
+    const usuario = { id: 'user-1', nome: 'João', telefone: '11999999999', email: 'joao@empresa.com' }
+
+    await expect(enviarCodigoUsuario(sb, usuario, '123456', 'self_service'))
+      .resolves.toEqual({ enviado: false, erro: 'número inválido' })
+  })
+
+  it('não lança e retorna { enviado: false, erro } quando o fetch falha (rede indisponível)', async () => {
     global.fetch = vi.fn().mockRejectedValue(new Error('network down')) as any
     const { sb } = createMockSupabase([{ data: { empresa_id: 'empresa-1' } }])
     const usuario = { id: 'user-4', nome: 'Teste', telefone: '11977777777', email: 'teste@empresa.com' }
 
-    await expect(enviarCodigoUsuario(sb, usuario, '222222', 'self_service')).resolves.toBeUndefined()
+    await expect(enviarCodigoUsuario(sb, usuario, '222222', 'self_service'))
+      .resolves.toEqual({ enviado: false, erro: 'network down' })
   })
 })
