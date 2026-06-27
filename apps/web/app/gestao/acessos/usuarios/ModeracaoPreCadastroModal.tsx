@@ -81,11 +81,16 @@ export function ModeracaoPreCadastroModal({ empresaId, onClose, onChange }: {
         moderado_por: user?.id ?? null, moderado_em: new Date().toISOString(),
       }).eq('id', pc.id)
 
-      toast.success(
-        !json.vinculado ? 'Usuário aprovado — código de acesso enviado por WhatsApp.'
-        : json.codigoReenviado ? 'Pessoa vinculada — código de acesso reenviado por WhatsApp.'
-        : 'Pessoa vinculada à empresa (ela já tinha acesso, sem novo código).'
-      )
+      if (!json.vinculado) {
+        if (json.codigoEnviado) toast.success('Usuário aprovado — código de acesso enviado por WhatsApp.')
+        else toast.error(`Usuário criado, mas o código NÃO saiu pelo WhatsApp. ${json.envioErro ?? ''} Reenvie em Usuários (botão Resetar senha) ou verifique a conexão do WhatsApp em Sistema.`)
+      } else if (json.codigoReenviado) {
+        toast.success('Pessoa vinculada — código de acesso reenviado por WhatsApp.')
+      } else if (json.envioErro) {
+        toast.error(`Pessoa vinculada, mas o reenvio do código falhou. ${json.envioErro}`)
+      } else {
+        toast.success('Pessoa vinculada à empresa (ela já tinha acesso, sem novo código).')
+      }
       setAprovarAlvo(null)
       onChange()
       carregar()

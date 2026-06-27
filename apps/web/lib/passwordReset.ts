@@ -127,7 +127,7 @@ export async function enviarCodigoUsuario(
   usuario: { id: string; nome: string; telefone: string | null; email: string | null },
   codigo: string,
   contexto: 'primeiro_acesso' | 'reset_admin' | 'self_service'
-): Promise<void> {
+): Promise<{ enviado: boolean; erro?: string }> {
   const { data: vinculo } = await sb
     .from('usuario_empresa')
     .select('empresa_id')
@@ -137,17 +137,25 @@ export async function enviarCodigoUsuario(
 
   const emailReal = usuario.email && !usuario.email.endsWith('@checkflow.local') ? usuario.email : undefined
 
-  await fetch(`${API_URL}/whatsapp/enviar-codigo`, {
-    method: 'POST',
-    // Servidor-a-servidor (pré-login, sem JWT): autentica via segredo interno.
-    headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.INTERNAL_API_SECRET ?? '' },
-    body: JSON.stringify({
-      numero: usuario.telefone ?? undefined,
-      nome: usuario.nome,
-      codigo,
-      email: emailReal,
-      empresa_id: (vinculo as any)?.empresa_id ?? undefined,
-      contexto,
-    }),
-  }).catch(() => null)
+  try {
+    const res = await fetch(`${API_URL}/whatsapp/enviar-codigo`, {
+      method: 'POST',
+      // Servidor-a-servidor (pré-login, sem JWT): autentica via segredo interno.
+      headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.INTERNAL_API_SECRET ?? '' },
+      body: JSON.stringify({
+        numero: usuario.telefone ?? undefined,
+        nome: usuario.nome,
+        codigo,
+        email: emailReal,
+        empresa_id: (vinculo as any)?.empresa_id ?? undefined,
+        contexto,
+      }),
+    })
+    if (!res.ok) return { enviado: false, erro: `Falha no envio (HTTP ${res.status}). Verifique a conexão do WhatsApp.` }
+    const json: any = await res.json().catch(() => ({}))
+    const ok = json?.whatsapp?.ok === true || json?.email?.ok === true
+    return ok ? { enviado: true } : { enviado: false, erro: json?.whatsapp?.erro ?? 'WhatsApp não confirmou a entrega.' }
+  } catch (e: any) {
+    return { enviado: false, erro: e?.message ?? 'Falha de rede ao enviar o código.' }
+  }
 }

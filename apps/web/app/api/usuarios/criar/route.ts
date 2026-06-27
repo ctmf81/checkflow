@@ -67,18 +67,20 @@ export async function POST(req: NextRequest) {
       // Se a pessoa existe mas NUNCA concluiu o primeiro acesso (não definiu
       // senha), reenvia o código — senão ela fica vinculada mas sem como entrar.
       let codigoReenviado = false
+      let envioErro: string | undefined
       if (existente.primeiro_acesso) {
         const codigo = await criarCodigoOtp(supabaseAdmin, existente.id, 'primeiro_acesso')
-        await enviarCodigoUsuario(
+        const envio = await enviarCodigoUsuario(
           supabaseAdmin,
           { id: existente.id, nome: existente.nome, email: existente.email, telefone: existente.telefone },
           codigo,
           'primeiro_acesso'
         )
-        codigoReenviado = true
+        codigoReenviado = envio.enviado
+        envioErro = envio.erro
       }
 
-      return NextResponse.json({ id: existente.id, vinculado: true, codigoReenviado }, { status: 200 })
+      return NextResponse.json({ id: existente.id, vinculado: true, codigoReenviado, envioErro }, { status: 200 })
     }
 
     // E-mail é opcional. Sem e-mail real, gera um endereço técnico
@@ -144,14 +146,17 @@ export async function POST(req: NextRequest) {
 
     // Dispara código de primeiro acesso por WhatsApp (e e-mail, se houver)
     const codigo = await criarCodigoOtp(supabaseAdmin, authData.user.id, 'primeiro_acesso')
-    await enviarCodigoUsuario(
+    const envio = await enviarCodigoUsuario(
       supabaseAdmin,
       { id: authData.user.id, nome, email: emailFinal, telefone: telDigits },
       codigo,
       'primeiro_acesso'
     )
 
-    return NextResponse.json({ id: authData.user.id }, { status: 201 })
+    return NextResponse.json(
+      { id: authData.user.id, codigoEnviado: envio.enviado, envioErro: envio.erro },
+      { status: 201 }
+    )
   } catch (e: any) {
     return NextResponse.json({ message: e.message ?? 'Erro interno.' }, { status: 500 })
   }
