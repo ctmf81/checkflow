@@ -43,10 +43,11 @@ export async function healthRoutes(app: FastifyInstance) {
     try {
       // RLS validation — try to query with row-level security
       const rlsStart = Date.now()
-      // Select from a table that has RLS enabled
+      // Select from a table that has RLS enabled (usuario_subgrupo tem chave
+      // composta usuario_id+subgrupo_id — não existe coluna "id").
       const { data, error: rlsError } = await supabase
         .from('usuario_subgrupo')
-        .select('id')
+        .select('usuario_id')
         .limit(1)
       const rlsLatency = Date.now() - rlsStart
       health.checks.rls = {
