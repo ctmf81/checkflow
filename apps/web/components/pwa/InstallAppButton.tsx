@@ -1,14 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Download } from 'lucide-react'
 import { DownloadAppModal } from '@/components/layout/DownloadAppModal'
+import { isStandalone } from '@/lib/pwaInstall'
 
 // Botão "Instalar" do PWA — abre o modal de instalação. Compartilhado entre os
-// headers da operação e da gestão. Sempre visível; o próprio modal informa
-// "App já instalado" quando rodando em modo standalone.
+// headers da operação e da gestão. Aparece SÓ no navegador (web); fica oculto
+// quando já está rodando como app instalado (standalone).
 export function InstallAppButton({ className }: { className?: string }) {
   const [open, setOpen] = useState(false)
+  const [mostrar, setMostrar] = useState(false)
+
+  useEffect(() => {
+    const check = () => setMostrar(!isStandalone())
+    check()
+    const mq = window.matchMedia('(display-mode: standalone)')
+    mq.addEventListener?.('change', check)
+    return () => mq.removeEventListener?.('change', check)
+  }, [])
+
+  if (!mostrar) return null
 
   return (
     <>

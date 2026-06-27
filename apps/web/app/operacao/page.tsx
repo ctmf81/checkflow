@@ -143,6 +143,17 @@ function AbaChecklists({ grupos, semGrupo, itensWorkflow, agendadas, naoFinaliza
 }) {
   const router = useRouter()
 
+  // Abre a execução. Offline, a navegação client-side do Next falha (busca RSC
+  // do servidor) — então força uma navegação completa, que o service worker
+  // serve do cache. Online mantém o SPA (rápido).
+  function abrirChecklist(id: string) {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      window.location.href = `/operacao/${id}`
+    } else {
+      router.push(`/operacao/${id}`)
+    }
+  }
+
   // Não-execução com motivo (operador comum não pode descartar livremente)
   const [naoExecAlvo, setNaoExecAlvo] = useState<ExecucaoNaoFinalizada | null>(null)
   const [motivosNaoExec, setMotivosNaoExec] = useState<{ id: string; descricao: string }[]>([])
@@ -358,7 +369,7 @@ function AbaChecklists({ grupos, semGrupo, itensWorkflow, agendadas, naoFinaliza
               {sub.nome && <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">{sub.nome}</p>}
               <div className="space-y-2">
                 {sub.checklists.map(cl => (
-                  <ChecklistCard key={cl.id} checklist={cl} onClick={() => router.push(`/operacao/${cl.id}`)} />
+                  <ChecklistCard key={cl.id} checklist={cl} onClick={() => abrirChecklist(cl.id)} />
                 ))}
               </div>
             </div>
@@ -376,7 +387,7 @@ function AbaChecklists({ grupos, semGrupo, itensWorkflow, agendadas, naoFinaliza
           )}
           <div className="space-y-2">
             {semGrupoFiltrado.map(cl => (
-              <ChecklistCard key={cl.id} checklist={cl} onClick={() => router.push(`/operacao/${cl.id}`)} />
+              <ChecklistCard key={cl.id} checklist={cl} onClick={() => abrirChecklist(cl.id)} />
             ))}
           </div>
         </section>
@@ -1300,6 +1311,18 @@ export default function OperacaoPage() {
           buscarDefinicaoChecklist(sb, c.id, unidadeAtiva!.id)
             .then(snap => { if (snap) salvarChecklistCache(chaveChecklist(c.id, unidadeAtiva!.id), snap) })
             .catch(() => {})
+          // Pré-carrega a ROTA de execução p/ abrir offline:
+          //  - prefetch → baixa os chunks JS (o service worker os cacheia)
+          //  - fetch + Cache API → guarda o HTML no MESMO cache do SW (checkflow-v1),
+          //    para o fallback de navegação offline servir essa página.
+          try {
+            router.prefetch(`/operacao/${c.id}`)
+            if (typeof caches !== 'undefined') {
+              fetch(`/operacao/${c.id}`)
+                .then(res => { if (res.ok) caches.open('checkflow-v1').then(cache => cache.put(`/operacao/${c.id}`, res.clone())) })
+                .catch(() => {})
+            }
+          } catch { /* ignora */ }
         }
       } catch { /* coluna ainda não migrada: ignora */ }
     }
