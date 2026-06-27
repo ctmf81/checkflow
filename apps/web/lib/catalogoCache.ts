@@ -25,7 +25,14 @@ export async function buscarCatalogo(sb: SupabaseClient, catId: string): Promise
 }
 
 export async function salvarCatalogoCache(catId: string, snap: CatalogoSnapshot): Promise<void> {
-  await idbPut(STORE, catId, JSON.parse(JSON.stringify(snap)))
+  // A imagem não vai pro cache: offline ela não carregaria (URL do storage) e
+  // só pesaria o cache. Online a imagem segue normal (vem do fetch fresco).
+  const valoresSemImagem = snap.valores.map(v => {
+    const copia = { ...v }
+    delete copia.imagem_url
+    return copia
+  })
+  await idbPut(STORE, catId, JSON.parse(JSON.stringify({ catalogo: snap.catalogo, valores: valoresSemImagem })))
 }
 
 export async function carregarCatalogoCache(catId: string): Promise<CatalogoSnapshot | null> {
