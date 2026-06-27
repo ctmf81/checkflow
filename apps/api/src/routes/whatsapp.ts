@@ -5,6 +5,24 @@ import { enviarWhatsApp, statusInstancia } from '../lib/whatsapp'
 import { enviarEmail } from '../lib/email'
 import { buscarTemplate, renderizar } from '../lib/notificacao-templates'
 import { exigirAutorizacao } from '../lib/apiAuth'
+import { adicionarAlerta } from './alerts'
+
+// Último estado conhecido do WhatsApp (em memória) — usado pelo healthcheck
+// para só alertar na MUDANÇA de estado (evita spam a cada checagem).
+let ultimoWhatsappOk: boolean | null = null
+
+// Avisa o admin por e-mail (canal independente do WhatsApp — funciona mesmo
+// com o WhatsApp fora). Destinatário em ALERT_EMAIL; sem ele, não envia.
+async function notificarAlertaEmail(assunto: string, texto: string): Promise<void> {
+  const para = process.env.ALERT_EMAIL
+  if (!para) return
+  const html = `<div style="font-family:Arial,sans-serif;padding:24px;max-width:520px;margin:auto">
+    <h2 style="color:#f97316;margin:0 0 12px">CheckFlow — Monitoramento</h2>
+    <p style="font-size:14px;color:#374151;line-height:1.6">${texto}</p>
+    <p style="color:#9ca3af;font-size:12px;margin-top:24px">Alerta automático do healthcheck do WhatsApp.</p>
+  </div>`
+  await enviarEmail({ para, assunto, html }).catch(() => null)
+}
 
 // URL e instância têm default de conveniência; a API key (secreta) vem só do ambiente.
 const EVO_URL = process.env.EVOLUTION_API_URL ?? 'https://evolution-api-production-d484.up.railway.app'
@@ -39,6 +57,41 @@ export async function whatsappRoutes(app: FastifyInstance) {
     if (!await exigirAutorizacao(req, reply)) return
     const status = await statusInstancia()
     return reply.send(status)
+  })
+
+  // POST /cron/whatsapp/health — healthcheck do WhatsApp (chamado pelo cron-job.org
+  // a cada ~15min, header x-cron-secret). Na MUDANÇA de estado, cria alerta no
+  // painel + avisa o admin por e-mail. Detecta desconexão (estado != open);
+  // não detecta "sessão zumbi" (open mas sem entregar) — limitação do Baileys.
+  app.post('/cron/whatsapp/health', async (req, reply) => {
+    const secret = process.env.CRON_SECRET
+    if (!secret) return reply.status(500).send({ error: 'CRON_SECRET não configurado' })
+    if (req.headers['x-cron-secret'] !== secret) return reply.status(401).send({ error: 'não autorizado' })
+
+    const status = await statusInstancia()
+    const ok = status.conectado
+    const mudou = ultimoWhatsappOk !== null && ultimoWhatsappOk !== ok
+    const caiuPrimeiraVez = ultimoWhatsappOk === null && !ok
+
+    if (!ok && (mudou || caiuPrimeiraVez)) {
+      adicionarAlerta({
+        id: `whatsapp-down-${Date.now()}`, alert_type: 'whatsapp', severity: 'critical', service: 'evolution',
+        message: `WhatsApp desconectado (estado: ${status.estado ?? 'desconhecido'}). Reconecte o QR em Sistema → WhatsApp.`,
+      })
+      await notificarAlertaEmail(
+        '🔴 WhatsApp do CheckFlow caiu',
+        `O WhatsApp (Evolution) está <b>desconectado</b> (estado: ${status.estado ?? '—'}). Enquanto isso, códigos de acesso/reset NÃO chegam por WhatsApp. Reconecte escaneando o QR em <b>Sistema → WhatsApp</b>.`
+      )
+    } else if (ok && mudou) {
+      adicionarAlerta({
+        id: `whatsapp-up-${Date.now()}`, alert_type: 'whatsapp', severity: 'warning', service: 'evolution',
+        message: 'WhatsApp reconectado e operacional.',
+      })
+      await notificarAlertaEmail('🟢 WhatsApp do CheckFlow voltou', 'O WhatsApp (Evolution) reconectou e está operacional novamente.')
+    }
+
+    ultimoWhatsappOk = ok
+    return reply.send({ conectado: ok, estado: status.estado, alertou: !ok && (mudou || caiuPrimeiraVez) })
   })
 
   // POST /whatsapp/desconectar — encerra a sessão atual (troca de número):

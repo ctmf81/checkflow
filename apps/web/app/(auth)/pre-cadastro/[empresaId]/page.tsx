@@ -120,7 +120,7 @@ export default function PreCadastroPage({ params }: { params: Promise<{ empresaI
             className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">E-mail <span className="text-gray-400 font-normal">(opcional)</span></label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">E-mail <span className="text-gray-400 font-normal">(recomendado — recebe o código também por aqui)</span></label>
           <input value={email} onChange={e => setEmail(e.target.value)} placeholder="voce@exemplo.com" type="email"
             className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
         </div>

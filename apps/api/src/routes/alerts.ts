@@ -26,6 +26,17 @@ interface AlertNotification {
 // In-memory store for recent alerts (in production, use database)
 const recentAlerts: Map<string, AlertNotification> = new Map()
 
+// Registra um alerta no painel (/sistema/alertas). Usado por healthchecks
+// internos (ex: monitor do WhatsApp).
+export function adicionarAlerta(n: {
+  id: string; alert_type: string; severity: 'warning' | 'critical'; message: string; service: string
+}): void {
+  recentAlerts.set(n.id, {
+    id: n.id, alert_type: n.alert_type, severity: n.severity, message: n.message,
+    value: 0, threshold: 0, service: n.service, created_at: new Date().toISOString(), acked: false,
+  })
+}
+
 export async function alertsRoutes(app: FastifyInstance) {
   // Receive webhook from Railway
   app.post<{ Body: RailwayAlert }>('/alerts/railway', async (request: FastifyRequest, reply: FastifyReply) => {
