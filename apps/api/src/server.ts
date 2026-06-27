@@ -30,7 +30,8 @@ app.register(helmet)
 // refletindo qualquer Origin (incluindo domínios arbitrários/maliciosos).
 // Restrito às origens conhecidas do CheckFlow + dev local.
 const allowedOrigins = [
-  'https://web-production-36880.up.railway.app',
+  'https://app.checkflow.digital',                 // domínio de produção (PWA)
+  'https://web-production-36880.up.railway.app',   // URL interna do Railway
   'http://localhost:3000',
   ...(process.env.CORS_EXTRA_ORIGINS?.split(',').map(s => s.trim()).filter(Boolean) ?? []),
 ]
