@@ -5,8 +5,8 @@
 // módulos que abrem o mesmo banco.
 
 const DB_NAME = 'checkflow'
-const DB_VERSION = 3
-const STORES = ['execucao_drafts', 'checklist_defs', 'pending_submissions'] as const
+const DB_VERSION = 4
+const STORES = ['execucao_drafts', 'checklist_defs', 'pending_submissions', 'catalogo_cache'] as const
 
 export type StoreName = (typeof STORES)[number]
 

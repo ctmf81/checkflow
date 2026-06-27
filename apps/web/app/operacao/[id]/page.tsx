@@ -9,6 +9,7 @@ import { useSession } from '@/contexts/SessionContext'
 import { useOnlineStatus } from '@/lib/useOnlineStatus'
 import { salvarDraftLocal, carregarDraftLocal, removerDraftLocal } from '@/lib/offlineDraft'
 import { chaveChecklist, salvarChecklistCache, carregarChecklistCache } from '@/lib/checklistCache'
+import { buscarCatalogo, salvarCatalogoCache, carregarCatalogoCache } from '@/lib/catalogoCache'
 import { enfileirarSubmissao } from '@/lib/syncQueue'
 import {
   ChevronDown, ChevronUp, CheckCircle2, XCircle,
@@ -390,14 +391,26 @@ function CampoCatalogo({ atividade, onChange }: { atividade: Atividade; onChange
     const catId = atividade.config?.catalogo_id
     if (!catId) { setCarregando(false); return }
     const sb = createClient()
-    Promise.all([
-      sb.from('catalogos').select('id, nome, campo_chave, atributo_1, atributo_2, atributo_3, atributo_4').eq('id', catId).single(),
-      sb.from('catalogo_valores').select('id, valor_chave, atributo_1, atributo_2, atributo_3, atributo_4, imagem_url').eq('catalogo_id', catId).order('valor_chave'),
-    ]).then(([{ data: cat }, { data: vals }]) => {
-      setCatalogo(cat)
-      setItens(vals ?? [])
+
+    // Tenta online; ao obter, cacheia p/ uso offline. Se falhar (sem rede),
+    // cai no cache local.
+    const usarCache = () => carregarCatalogoCache(catId).then(snap => {
+      if (snap) { setCatalogo(snap.catalogo); setItens(snap.valores) }
       setCarregando(false)
     })
+
+    buscarCatalogo(sb, catId)
+      .then(snap => {
+        if (snap) {
+          setCatalogo(snap.catalogo)
+          setItens(snap.valores)
+          setCarregando(false)
+          salvarCatalogoCache(catId, snap)
+        } else {
+          usarCache()
+        }
+      })
+      .catch(() => { usarCache() })
   }, [atividade.id])
 
   if (!atividade.config?.catalogo_id) return (
@@ -1814,11 +1827,12 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       }
     }
 
-    // ── Caminho OFFLINE: sem rede, enfileira a execução para envio automático
-    // quando a conexão voltar. Planos de ação e workflow exigem conexão.
+    // ── Caminho OFFLINE: sem rede, enfileira a execução (incl. planos de ação)
+    // para envio automático quando a conexão voltar. Workflow e execução
+    // agendada ainda exigem conexão (entram por outro fluxo).
     if (!navigator.onLine) {
-      if (Object.keys(planosCapturados).length > 0 || wfItemId || execAgendadaId) {
-        setErroFinalizar('Sem conexão. Esta execução (plano de ação, workflow ou execução agendada) precisa de internet para finalizar. Use "Continuar depois" e finalize quando a conexão voltar.')
+      if (wfItemId || execAgendadaId) {
+        setErroFinalizar('Sem conexão. Esta execução (workflow ou execução agendada) precisa de internet para finalizar. Use "Continuar depois" e finalize quando a conexão voltar.')
         return
       }
       setSalvando(true)
@@ -1848,11 +1862,22 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
         return { atividade_id: a.id, tipo: a.tipo, conforme, valor, arquivo, obrigatoria: !!a.obrigatoria }
       })
 
+      // Planos de ação capturados → blobs (foto/vídeo) p/ envio na sincronização
+      const planosPend = Object.entries(planosCapturados).map(([atividadeId, plano]) => ({
+        atividadeId,
+        observacao: plano.observacao,
+        slaHoras: visiveis.find(a => a.id === atividadeId)?.plano_acao_sla_horas ?? null,
+        causaRaizId: plano.causaRaizId ?? null,
+        causaRaizObs: plano.causaRaizObs ?? null,
+        fotos: plano.fotos.map(f => ({ blob: f.file, ext: f.file.name.split('.').pop() ?? 'jpg' })),
+        video: plano.video ? { blob: plano.video.file, ext: plano.video.file.name.split('.').pop() ?? 'mp4' } : null,
+      }))
+
       await enfileirarSubmissao({
-        localId: execId, execId, checklistId: checklist.id, unidadeId: unidadeAtiva.id,
-        empresaId: empresaAtiva?.id ?? null, userId: session.user.id,
+        localId: execId, execId, checklistId: checklist.id, checklistSubgrupoId: checklist.subgrupo_id ?? null,
+        unidadeId: unidadeAtiva.id, empresaId: empresaAtiva?.id ?? null, userId: session.user.id,
         agoraISO: agora.toISOString(), dataExpiracao, resultado: resultadoOff,
-        respostas: respostasPend, createdAt: Date.now(),
+        respostas: respostasPend, planos: planosPend, createdAt: Date.now(),
       })
 
       setSalvando(false)

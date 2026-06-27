@@ -23,6 +23,7 @@ import { videoEmbedUrl } from '@/lib/videoEmbed'
 import { carregarListaOffline, salvarListaOffline } from '@/lib/offlineList'
 import { buscarDefinicaoChecklist } from '@/lib/checklistFetch'
 import { salvarChecklistCache, chaveChecklist } from '@/lib/checklistCache'
+import { buscarCatalogo, salvarCatalogoCache } from '@/lib/catalogoCache'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -1309,7 +1310,21 @@ export default function OperacaoPage() {
         salvarListaOffline(unidadeAtiva!.id, offlineVisiveis)
         for (const c of offlineVisiveis) {
           buscarDefinicaoChecklist(sb, c.id, unidadeAtiva!.id)
-            .then(snap => { if (snap) salvarChecklistCache(chaveChecklist(c.id, unidadeAtiva!.id), snap) })
+            .then(snap => {
+              if (!snap) return
+              salvarChecklistCache(chaveChecklist(c.id, unidadeAtiva!.id), snap)
+              // Pré-cacheia os catálogos das atividades tipo "catalogo"
+              const catIds = [...new Set(
+                (snap.atvsData as any[])
+                  .filter(a => a.tipo === 'catalogo' && a.config?.catalogo_id)
+                  .map(a => a.config.catalogo_id as string)
+              )]
+              for (const catId of catIds) {
+                buscarCatalogo(sb, catId)
+                  .then(cs => { if (cs) salvarCatalogoCache(catId, cs) })
+                  .catch(() => {})
+              }
+            })
             .catch(() => {})
           // Pré-carrega a ROTA de execução p/ abrir offline:
           //  - prefetch → baixa os chunks JS (o service worker os cacheia)
