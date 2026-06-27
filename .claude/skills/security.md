@@ -116,6 +116,14 @@ Cobre: headers de segurança (HSTS/X-Frame-Options/nosniff), CORS, cookies de se
 
 | 2026-06-23 | Rotas Fastify "internas" sem auth — chamáveis direto na URL (CORS só barra navegador): `/whatsapp/*`, `/tickets\|planos-acao\|tarefas/notificar`, `/catalogos/test-api`. Risco: envio de WhatsApp arbitrário, SSRF (`test-api`), spam de notificação | `apps/api/src/lib/apiAuth.ts` (`exigirAutorizacao`): exige Bearer JWT (navegador, via `apps/web/lib/apiClient.ts`) ou `x-internal-secret` (servidor). Requer env `INTERNAL_API_SECRET` em api+web |
 
+| 2026-06-27 | **CORS bloqueava o domínio de produção**: `apps/api/src/server.ts` só tinha `web-production-36880.up.railway.app` + localhost na allowlist; o app roda em `app.checkflow.digital` → navegador dava "Failed to fetch" em toda chamada direta à API (WhatsApp QR, billing, impersonar). OTP/notificações não afetados (servidor-a-servidor, sem Origin) | `server.ts` — adicionado `https://app.checkflow.digital` à `allowedOrigins` (commit 9d1f8d9). `CORS_EXTRA_ORIGINS` (env) segue como extensão |
+
+### Pré-cadastro por QR — RLS (2026-06-27)
+`pre_cadastros` (migration `20260627000000`): INSERT **anônimo** só com `status='pendente'` (sem leitura/edição p/ anon — anti-enumeração); SELECT/UPDATE só admin sistema/empresa. RPC `empresa_publica` (security definer, anon) expõe só nome+logo de empresa ativa. **Spam:** a moderação é a barreira (anônimo cria pendente, mas só vira usuário se o admin aprovar). Pendência futura: rate-limit no INSERT anônimo. Ver `/db`.
+
+### OTP — visibilidade de falha de envio (2026-06-27)
+`enviarCodigoUsuario` (lib/passwordReset.ts) agora **retorna `{enviado, erro}`** (antes `.catch` silencioso → UI dizia "enviado" falso). `/api/usuarios/criar` propaga `codigoEnviado`/`envioErro`; a moderação avisa quando o código NÃO saiu. E-mail é **fallback paralelo** (enviado = whatsapp.ok OU email.ok). Healthcheck do WhatsApp em `/ops`.
+
 ⚠️ **Padrão para Route Handlers Next.js (`apps/web/app/api`) que usam service-role**: SEMPRE autenticar o chamador com `autorizarPermissao(req, recurso, acao)` de `lib/apiAuth.ts` no topo. **Rotas Fastify "internas"** (apps/api): proteger com `exigirAutorizacao(req, reply)` de `apps/api/src/lib/apiAuth.ts`. Service-role bypassa RLS — sem essa checagem a rota fica aberta. Exceções: rotas de auth pré-login (`solicitar/verificar-codigo`, `definir-senha`) que têm seu próprio anti-abuso.
 
 ## RPCs Sensíveis (Security Definer)

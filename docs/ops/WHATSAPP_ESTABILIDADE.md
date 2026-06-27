@@ -29,9 +29,12 @@ A causa mais comum do "zumbi após restart" é a sessão não persistir. Ativar 
 1. No projeto Railway: **Add Service → Database → Redis**.
 2. No serviço **Evolution API**, adicionar variáveis de ambiente:
    - `CACHE_REDIS_ENABLED=true`
-   - `CACHE_REDIS_URI=${{Redis.REDIS_URL}}` (referência à URL do Redis)
+   - `CACHE_REDIS_URI` = a URL do Redis (use a interna do Railway: `${{Redis.REDIS_PRIVATE_URL}}` ou `${{Redis.REDIS_URL}}` — `redis.railway.internal:6379`)
    - `CACHE_REDIS_PREFIX_KEY=checkflow`
+   - **`CACHE_REDIS_SAVE_INSTANCES=true`** ← essencial: é o que **persiste a sessão** no Redis (sem ela, Redis é só cache e a sessão ainda se perde no restart)
+   - (opcional) `CACHE_LOCAL_ENABLED=false` — usa só o Redis, evita conflito de cache
 3. **Redeploy** da Evolution e **reconecte o QR** uma vez (Sistema → WhatsApp).
+4. Validar: na tela do Redis (Database → Data), devem aparecer **chaves com prefixo `checkflow`** após reconectar.
 
 Também: manter o container **sempre ligado** (sem sleep) e a **imagem da Evolution atualizada**.
 

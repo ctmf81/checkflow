@@ -37,9 +37,15 @@ CheckFlow is a checklist management SaaS with two distinct areas:
 O app é um **PWA instalável** e **offline vale SÓ para a operação** (gestão/sistema sempre online). Detalhes técnicos em `/arch`.
 - **Login é online-única**: não existe login offline (senha exige servidor). O operador loga uma vez **com internet** (depósito/escritório) e a sessão fica no aparelho; em campo o app o reconhece sem rede. A sessão dura (Supabase time-box/inactivity = never).
 - **Flag por checklist** (`permite_offline`, opt-in, toggle no montador): só os marcados aparecem na lista offline e têm a definição pré-baixada. Decisão: opt-in conservador — o gestor escolhe quais checklists são seguros p/ campo sem sinal.
-- **O que funciona offline**: abrir a lista (só os offline), abrir o checklist a frio, preencher (incl. foto), **finalizar** → fica numa fila local → sincroniza sozinho ao reconectar. Respostas em andamento têm autosave local (não se perdem em queda/refresh).
-- **O que EXIGE conexão** (bloqueia offline, orienta "Continuar depois"): execução com **plano de ação**, **workflow**, ou **execução agendada**. São multi-tabela/sensíveis. Billing também não é checado offline (a inspeção de campo já foi feita; admin acerta cobrança depois).
-- **Instalação**: botão "Instalar" só na operação. Removidos da gestão o botão instalar e a opção "compartilhar app".
+- **O que funciona offline**: abrir a lista (só os offline), abrir o checklist a frio, preencher (incl. **foto**, **catálogo** — valores cacheados, sem imagem), reprovar + abrir **plano de ação**, **finalizar** → fila local → sincroniza sozinho ao reconectar (plano replayado junto). Respostas em andamento têm autosave local (não se perdem em queda/refresh).
+- **O que EXIGE conexão** (bloqueia offline, orienta "Continuar depois"): **workflow** e **execução agendada** (`?exec=`). Billing não é checado offline (a inspeção de campo já foi feita; admin acerta cobrança depois).
+- **Instalação**: botão "Instalar" na operação e na gestão (só aparece no navegador; some no app instalado). Removida a opção "compartilhar app".
+
+## Pré-cadastro de usuários por QR (2026-06-27)
+Onboarding self-service com moderação. Detalhes técnicos em `/db` (RLS) e `/uimap`.
+- Página pública (`/pre-cadastro/[empresaId]`, acessada por **QR** gerado na tela de Usuários) → a pessoa preenche nome/CPF/telefone (e-mail/setor opcionais) → vira **pendente**.
+- O **admin da empresa** modera na tela de Usuários (aba "Pré-cadastros" com contador): **Aprovar** (escolhe perfil + unidades) → reusa `/api/usuarios/criar` (cria o usuário **e dispara o código de 1º acesso** WhatsApp/e-mail); **Rejeitar** marca rejeitado.
+- E-mail é **recomendado** no form (canal de backup do código). CPF já existente → **vincula** à empresa (e reenvia o código se a pessoa nunca concluiu o 1º acesso). Spam é contido pela moderação (anônimo só cria pendente).
 
 ## Tenant / Access Hierarchy
 ```

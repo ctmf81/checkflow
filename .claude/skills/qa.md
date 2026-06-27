@@ -45,6 +45,9 @@ npx playwright install chromium
 
 ---
 
+## Teste manual (tela a tela)
+`docs/qa/CENARIOS_DE_TESTE_MANUAL.md` (2026-06-27) — guia de cenários **caminho feliz + exceções** por tela, em checklist: auth (incl. pré-cadastro QR), operação (incl. PWA/offline: catálogo, plano de ação, sincronização), gestão (todas), sistema, e transversais (RLS multi-tenant, responsividade, billing). Use para regressão manual antes de releases.
+
 ## Convenções
 
 - Testes ficam em `apps/web/tests/`

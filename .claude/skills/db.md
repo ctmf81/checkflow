@@ -210,6 +210,12 @@ Rota `/api/documentos/consultar` lê `ia_provedores` (ativo, por ordem) como fon
 - `checklists.permite_offline boolean not null default false` — opt-in: marca se o checklist pode ser executado sem internet pelo PWA (aparece na lista offline da operação + definição pré-cacheada). Aplicada manualmente no SQL Editor (projeto Supabase não linkado localmente).
 - Código é **deploy-safe**: leitura na operação é best-effort (try/catch); escrita na gestão é à parte (`ChecklistMontador.salvar` grava o flag num update separado).
 
+### Pré-cadastro por QR (migration `20260627000000_pre_cadastros.sql`, ✅ aplicada 2026-06-27)
+- `pre_cadastros`: nome, cpf, telefone, email, observacao, status (`pendente`/`aprovado`/`rejeitado`), empresa_id, usuario_id (preenchido na aprovação), moderado_por/em.
+- **RLS:** INSERT `to anon, authenticated with check (status='pendente')` (página pública insere; sem leitura/edição p/ anon — anti-enumeração); SELECT/UPDATE só `is_admin_sistema() or is_admin_empresa(empresa_id)`. Grants explícitos (`insert to anon, authenticated`; `select, update to authenticated`).
+- **RPC `empresa_publica(p_id)`** (security definer, grant anon): retorna `nome, logo_url` de empresa ativa — p/ a página pública mostrar a marca sem expor a tabela `empresas`.
+- Aprovação reusa `/api/usuarios/criar` (cria usuário + dispara código de 1º acesso). Ver [[pendencia-precadastro-qrcode]].
+
 ## Onboarding
 
 | Table | Notes |

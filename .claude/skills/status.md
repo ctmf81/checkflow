@@ -34,6 +34,13 @@ Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste ·
 12. Plano ❌ (analisada, NÃO corrigida — ver pendências)  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ✅ · Formatação ✅ · Causa raiz ✅ (feature completa) · Notificações ✅ · Relatórios ❌ · Dashboards ❌
 + Ambiente **Sistema** (admin plataforma: empresas, planos/preços, templates, parceiros, integrações IA, onboarding) — revisar ao final/à parte.
 
+## 🗓️ SESSÃO 2026-06-27 — pré-cadastro QR, offline completo, confiabilidade WhatsApp
+- **Offline completo** (continuação do PWA): catálogo offline (`catalogoCache`, IndexedDB v4, sem imagem), **plano de ação na fila offline** (replay idempotente), abertura da rota offline via **iframe preload** (prefetch não bastava no App Router), `InstallAppButton` compartilhado (operação+gestão, só no navegador). Responsividade da aba Histórico corrigida.
+- **Pré-cadastro por QR** (feature nova, commits bf16b0f/1d420e3): migration `20260627000000_pre_cadastros.sql` **✅ aplicada**; página pública `/pre-cadastro/[empresaId]`, QR + moderação na tela de Usuários, aprovação reusa `/api/usuarios/criar`. Ver `/biz`, `/db`, [[pendencia-precadastro-qrcode]].
+- **Confiabilidade do WhatsApp** (preocupação do usuário com "sessão zumbi"): healthcheck `POST /cron/whatsapp/health` (alerta+e-mail `ALERT_EMAIL` na mudança de estado), envio de OTP agora **retorna se realmente enviou** (falha visível, não mais "enviado" falso), fallback por e-mail, runbook `docs/ops/WHATSAPP_ESTABILIDADE.md` (Redis na Evolution: `CACHE_REDIS_ENABLED`+`CACHE_REDIS_SAVE_INSTANCES`). **Pendências do usuário (Railway):** criar o cron-job, setar `ALERT_EMAIL`, `CACHE_REDIS_SAVE_INSTANCES=true` + reconectar QR.
+- **2 bugs de produção corrigidos:** CORS faltava `app.checkflow.digital` (causava "Failed to fetch" em WhatsApp/billing/impersonar — commit 9d1f8d9); `/health` reportava `degraded` falso (consultava `usuario_subgrupo.id` inexistente — commit aa04152). Ver `/security`, `/ops`.
+- **Docs novos:** `docs/INTEGRACOES_E_RISCOS.md` (mapa de integrações/riscos), `docs/qa/CENARIOS_DE_TESTE_MANUAL.md` (teste manual tela a tela), `docs/ops/WHATSAPP_ESTABILIDADE.md`.
+
 ## 🚀 SESSÃO 2026-06-26 — PIVÔ PWA + EXECUÇÃO OFFLINE
 - **Abandonado o app nativo (Expo/EAS/APK)** — builds falhavam e era "mais um serviço". App web virou **PWA instalável** ("Adicionar à tela inicial", sem store). `apps/mobile` arquivado.
 - **PWA + offline da operação entregue ponta a ponta** (commits `fbcf937`→`5fbe8cf`): instalar → abrir lista offline → abrir checklist a frio offline → finalizar offline → sincronizar ao reconectar. **Offline é só `/operacao`** (service worker escopado). Detalhes em `/arch` (seção "PWA & Offline").

@@ -13,6 +13,7 @@ description: Dynamic UI and file index for the CheckFlow project. Use this skill
 | `/login` | `(auth)/login/page.tsx` | Login form |
 | `/recuperar-senha` | `(auth)/recuperar-senha/page.tsx` | Request password reset |
 | `/nova-senha` | `(auth)/nova-senha/page.tsx` | Set new password |
+| `/pre-cadastro/[empresaId]` | `(auth)/pre-cadastro/[empresaId]/page.tsx` | **Pré-cadastro público (QR)** — form anônimo insere `pre_cadastros` pendente; mostra nome/logo via RPC `empresa_publica` |
 
 ### Gestão — Backoffice (`gestao/`)
 Layout: `gestao/layout.tsx` — sidebar + SessionProvider
@@ -29,7 +30,7 @@ Layout: `gestao/layout.tsx` — sidebar + SessionProvider
 | `/gestao/tarefas/[id]` | `gestao/tarefas/[id]/page.tsx` | Montador da lista de tarefas (encerramento data/qtd, janela edição, grupos/subgrupos, itens c/ flags) |
 | `/gestao/grupos` | `gestao/grupos/page.tsx` | Grupos list |
 | `/gestao/grupos/[id]/subgrupos` | `gestao/grupos/[id]/subgrupos/page.tsx` | Subgrupos |
-| `/gestao/acessos/usuarios` | `gestao/acessos/usuarios/page.tsx` | User management |
+| `/gestao/acessos/usuarios` | `gestao/acessos/usuarios/page.tsx` | User management + **QR pré-cadastro** (`QrPreCadastroModal`) e **moderação** de pendentes com contador (`ModeracaoPreCadastroModal` → aprovar escolhe perfil+unidades e reusa `/api/usuarios/criar`) |
 | `/gestao/acessos/perfis` | `gestao/acessos/perfis/page.tsx` | Access profiles |
 | `/gestao/acessos/empresa` | `gestao/acessos/empresa/page.tsx` | Company/units config |
 | `/gestao/acessos/turnos` | `gestao/acessos/turnos/page.tsx` | Turnos (shift windows) — TurnoModal.tsx |
@@ -133,9 +134,11 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 | `lib/idb.ts` | Acesso central ao IndexedDB (DB `checkflow` v3: `execucao_drafts`, `checklist_defs`, `pending_submissions`) |
 | `lib/offlineDraft.ts` | Rascunho local de respostas (autosave, sem File) |
 | `lib/checklistCache.ts` · `lib/checklistFetch.ts` | Snapshot da definição p/ render offline + busca/pré-cache |
-| `lib/syncQueue.ts` | Fila de submissões offline (reenvio idempotente: header upsert + respostas delete/insert) |
+| `lib/syncQueue.ts` | Fila de submissões offline (reenvio idempotente: header upsert + respostas delete/insert + **planos de ação**) |
 | `lib/offlineList.ts` | Cache (localStorage) da lista de checklists offline por unidade |
-| `components/layout/DownloadAppModal.tsx` | Modal de **instalação do PWA** (Android nativo / instruções iOS). Usado só na operação |
+| `lib/catalogoCache.ts` | Cache dos valores de catálogo (IndexedDB, sem imagem) p/ a atividade catálogo offline |
+| `components/pwa/InstallAppButton.tsx` | Botão "Instalar" compartilhado (operação+gestão); só no navegador (oculto se standalone) |
+| `components/layout/DownloadAppModal.tsx` | Modal de **instalação do PWA** (Android nativo / instruções iOS) |
 
 ## Context & Lib
 | File | Purpose |
@@ -153,7 +156,7 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 
 | File | Purpose |
 |------|---------|
-| `routes/whatsapp.ts` | POST /whatsapp/conectar, POST /whatsapp/status, POST /whatsapp/desconectar (logout da instância p/ troca de número), POST /whatsapp/enviar, POST /whatsapp/recuperar-senha (WA + email, usa DB template) |
+| `routes/whatsapp.ts` | POST /whatsapp/conectar, POST /whatsapp/status, POST /whatsapp/desconectar (troca de número), POST /whatsapp/enviar, POST /whatsapp/enviar-codigo (OTP WA+email), **POST /cron/whatsapp/health** (x-cron-secret — alerta+email na mudança de estado, `ALERT_EMAIL`) |
 | `routes/tickets.ts` | POST /tickets/notificar — busca template do banco, fallback hardcoded, envia WA+email para subgrupo ou abridor+assignee |
 | `routes/planos-acao.ts` | POST /planos-acao/notificar — N1 somente para aberto, N2 somente para enviado_n2 |
 | `routes/parceiros.ts` | POST /parceiros/boas-vindas (1x por parceiro), POST /cron/parceiros/resumo-mensal (protegido por `x-cron-secret`, último dia do mês) |
