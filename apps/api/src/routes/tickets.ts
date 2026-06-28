@@ -91,7 +91,7 @@ export async function ticketsRoutes(app: FastifyInstance) {
     const cor           = PRIORIDADE_COR[t.prioridade] ?? '#6b7280'
     const eventoLabel   = EVENTO_LABEL[evento] ?? evento
 
-    const baseUrl = process.env.APP_URL ?? 'https://web-production-36880.up.railway.app'
+    const baseUrl = process.env.APP_URL ?? 'https://app.checkflow.digital'
     const link    = `${baseUrl}/gestao/tickets/${ticket_id}`
 
     // 2. Empresa do ticket

@@ -152,7 +152,7 @@ async function dispararNotificacaoPlano(
     if (recebe === false) foraDoTurno.add(m.usuario_id)
   }))
 
-  const baseUrl = process.env.APP_URL ?? 'https://web-production-36880.up.railway.app'
+  const baseUrl = process.env.APP_URL ?? 'https://app.checkflow.digital'
   const link = `${baseUrl}/gestao/planos-acao/${plano_id}`
 
   // 3. Busca templates da empresa (devolvido_n1 não tem template → hardcoded)

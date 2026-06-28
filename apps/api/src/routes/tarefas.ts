@@ -76,7 +76,7 @@ export async function tarefasRoutes(app: FastifyInstance) {
       if (recebe === false) foraDoTurno.add(uid)
     }))
 
-    const baseUrl = process.env.APP_URL ?? 'https://web-production-36880.up.railway.app'
+    const baseUrl = process.env.APP_URL ?? 'https://app.checkflow.digital'
     const link = `${baseUrl}/operacao`
 
     // 5. Envia
