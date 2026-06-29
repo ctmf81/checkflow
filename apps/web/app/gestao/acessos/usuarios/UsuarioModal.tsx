@@ -103,9 +103,12 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
       const { data } = await q
       if (!data) return
 
+      // "Admin de sistema" é papel de plataforma — nunca atribuível pela gestão
+      // (seria escalada). Mantém só se o usuário editado já o tiver (não quebra o select).
+      const atribuiveis = data.filter(p => p.id !== ADMIN_SISTEMA_ID || p.id === usuario?.perfilId)
       const lista = souAdmin
-        ? data
-        : data.filter(p => p.publico || p.id === usuario?.perfilId)
+        ? atribuiveis
+        : atribuiveis.filter(p => p.publico || p.id === usuario?.perfilId)
 
       setPerfis(lista)
       // Se não tem perfil selecionado, usa Operação como padrão

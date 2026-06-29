@@ -12,6 +12,10 @@ interface PreCadastro {
 interface Perfil { id: string; nome: string }
 interface Unidade { id: string; nome: string }
 
+// "Admin de sistema" (seed) nunca pode ser atribuído pela moderação — seria
+// escalada de privilégio. É um papel de plataforma, não de enquadramento na empresa.
+const ADMIN_SISTEMA_ID = '00000000-0000-0000-0000-000000000001'
+
 export function ModeracaoPreCadastroModal({ empresaId, onClose, onChange }: {
   empresaId: string
   onClose: () => void
@@ -36,7 +40,7 @@ export function ModeracaoPreCadastroModal({ empresaId, onClose, onChange }: {
     const [pc, pf, un] = await Promise.all([
       sb.from('pre_cadastros').select('id, nome, cpf, telefone, email, observacao, criado_em')
         .eq('empresa_id', empresaId).eq('status', 'pendente').order('criado_em', { ascending: false }),
-      sb.from('perfis').select('id, nome').or(`empresa_id.eq.${empresaId},empresa_id.is.null`).order('nome'),
+      sb.from('perfis').select('id, nome').or(`empresa_id.eq.${empresaId},empresa_id.is.null`).neq('id', ADMIN_SISTEMA_ID).order('nome'),
       sb.from('unidades').select('id, nome').eq('empresa_id', empresaId).order('nome'),
     ])
     setPendentes(pc.data ?? [])
