@@ -24,6 +24,7 @@ export function NovaEmpresaModal({ onClose, onCriada }: Props) {
   const [cnpj, setCnpj] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
+  const [descricaoChecklist, setDescricaoChecklist] = useState('')
 
   // Logo
   const inputRef = useRef<HTMLInputElement>(null)
@@ -99,14 +100,36 @@ export function NovaEmpresaModal({ onClose, onCriada }: Props) {
       return
     }
 
-    // Cria unidade padrão automaticamente
-    await supabase.from('unidades').insert({
+    // Cria a estrutura padrão (unidade → grupo → subgrupo) para a empresa já
+    // nascer pronta para receber checklists e o admin como N1.
+    const { data: unidadePadrao } = await supabase.from('unidades').insert({
       nome: 'Unidade padrão',
       empresa_id: novaEmpresa.id,
       status: 'ativo',
       criado_por: user?.id ?? null,
       atualizado_por: user?.id ?? null,
-    })
+    }).select('id').single()
+
+    let subgrupoPadraoId: string | null = null
+    if (unidadePadrao) {
+      const { data: grupoPadrao } = await supabase.from('grupos').insert({
+        nome: 'Grupo padrão',
+        unidade_id: unidadePadrao.id,
+        status: 'ativo',
+        criado_por: user?.id ?? null,
+        atualizado_por: user?.id ?? null,
+      }).select('id').single()
+      if (grupoPadrao) {
+        const { data: subgrupoPadrao } = await supabase.from('subgrupos').insert({
+          nome: 'Subgrupo padrão',
+          grupo_id: grupoPadrao.id,
+          status: 'ativo',
+          criado_por: user?.id ?? null,
+          atualizado_por: user?.id ?? null,
+        }).select('id').single()
+        subgrupoPadraoId = subgrupoPadrao?.id ?? null
+      }
+    }
 
     // Atribui automaticamente o plano de teste (trial), se houver um ativo no catálogo
     const { data: trial } = await supabase.from('planos')
@@ -128,6 +151,23 @@ export function NovaEmpresaModal({ onClose, onCriada }: Props) {
         periodo_inicio: ymd(hoje), periodo_fim: ymd(periodoFim),
         trial_fim: ymd(trialFim), ja_usou_trial: true,
       })
+    }
+
+    // Checklist inicial por IA (opcional, best-effort): não bloqueia a criação.
+    // Empresa e estrutura já estão criadas; se a IA falhar, segue sem checklist.
+    if (descricaoChecklist.trim() && unidadePadrao && subgrupoPadraoId) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        await fetch('/api/empresas/checklist-inicial', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+          body: JSON.stringify({
+            unidade_id: unidadePadrao.id,
+            subgrupo_id: subgrupoPadraoId,
+            descricao: descricaoChecklist.trim(),
+          }),
+        })
+      } catch { /* best-effort */ }
     }
 
     setSalvando(false)
@@ -192,6 +232,19 @@ export function NovaEmpresaModal({ onClose, onCriada }: Props) {
                 )}
                 <span className="text-[10px] text-gray-400 text-center leading-tight">500 x 200<br />ou maior</span>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Checklist inicial <span className="text-gray-400 font-normal">(opcional)</span>
+              </label>
+              <textarea value={descricaoChecklist} onChange={e => setDescricaoChecklist(e.target.value)}
+                placeholder="Descreva o checklist que a IA deve gerar (ex.: abertura de loja — limpeza, equipamentos, segurança). Deixe em branco para criar depois."
+                rows={3}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none" />
+              <p className="text-xs text-gray-400 mt-1">
+                Se preenchido, geramos um checklist publicado (2 seções) já na unidade padrão.
+              </p>
             </div>
 
             {erro && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{erro}</p>}
