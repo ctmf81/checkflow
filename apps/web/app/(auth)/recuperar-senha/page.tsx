@@ -21,6 +21,10 @@ export default function RecuperarSenhaPage() {
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState('')
   const [info, setInfo] = useState('')
+  // Contagem de pedidos NESTA sessão (só UX): o servidor responde sempre genérico
+  // (anti-enumeração), então é aqui que avisamos a pessoa sobre o limite de 3/hora —
+  // senão ela espera um código que não vem e liga pro suporte sem entender.
+  const [pedidos, setPedidos] = useState(0)
 
   async function handleSolicitar(e: React.FormEvent) {
     e.preventDefault()
@@ -39,6 +43,7 @@ export default function RecuperarSenhaPage() {
         return
       }
       setInfo(json.message ?? 'Código enviado.')
+      setPedidos(p => p + 1)
       setEtapa('codigo')
     } catch (e: any) {
       setErro('Erro de conexão. Tente novamente.')
@@ -106,7 +111,16 @@ export default function RecuperarSenhaPage() {
       ) : (
         <>
           <h1 className="text-center text-xl font-bold text-gray-800 mb-1">Verificar código</h1>
-          <p className="text-center text-sm text-gray-500 mb-6">{info}</p>
+          <p className="text-center text-sm text-gray-500 mb-2">{info}</p>
+          <p className="text-center text-xs text-gray-400 mb-4">
+            Chega em até ~1 min por WhatsApp e e-mail (confira o spam). Limite de 3 envios por hora.
+          </p>
+          {pedidos >= 3 && (
+            <p className="text-xs text-amber-700 bg-amber-50 px-3 py-2 rounded-lg mb-4">
+              Você já solicitou o código <strong>3 vezes</strong>. Novos pedidos podem não ser enviados por cerca de 1 hora.
+              Confira o WhatsApp e o e-mail (incluindo spam). Se digitou o CPF errado, use <strong>“corrigir CPF”</strong> abaixo.
+            </p>
+          )}
           <form onSubmit={handleVerificar} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Código de 6 dígitos</label>
