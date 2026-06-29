@@ -95,11 +95,11 @@ Crie estes usuários para cobrir papéis e isolamento multi-tenant. Use CPFs de 
 | # | Cenário | Passos | Resposta esperada | Status |
 |---|---|---|---|---|
 | 1 | Recuperação feliz | "Esqueceu a senha?" → CPF `352.063.334-50` → enviar → **recebe código no WhatsApp** → digita → define nova senha → loga com ela | Loga com a **nova** senha | ⬜ |
-| 2 | Código errado | Pedir código → digitar **errado** | Conta tentativa; após **5**, bloqueia | ⬜ |
-| 3 | Código expirado | Pedir código, esperar **>15 min**, usar | Recusa, pede novo | ⬜ |
-| 4 | Limite de envios | Pedir **vários** códigos seguidos | Bloqueia após **3/hora** | ⬜ |
+| 2 | Código errado | Pedir código → digitar **errado** | Conta tentativa; após **5**, bloqueia | ✅ provado (1–5 "incorreto", 6º "máximo excedido") — invisível na UI, mas funciona |
+| 3 | Código expirado | Pedir código, esperar **>15 min**, usar | Recusa, pede novo | ✅ |
+| 4 | Limite de envios | Pedir **vários** códigos seguidos | Bloqueia após **3/hora** | ✅ provado (4º pedido não cria token) — invisível (resposta genérica), mas bloqueia |
 | 5 | CPF sem telefone | CPF de usuário sem telefone | Resposta **genérica** (não revela) | ⬜ |
-| 6 | CPF inexistente | CPF aleatório | Resposta **genérica** (anti-enumeração) | ⬜ |
+| 6 | CPF inexistente | CPF aleatório | Resposta **genérica** (anti-enumeração) | ✅ avança p/ "Verificar código" igual a um CPF real — anti-enumeração correto (testado 2026-06-28) |
 
 **Riscos / pontos de atenção:**
 - **Anti-enumeração:** casos 5 e 6 devem dar a **mesma** resposta de "se existir, enviamos o código" — não revelar se o CPF existe ou tem telefone.
@@ -111,8 +111,12 @@ Crie estes usuários para cobrir papéis e isolamento multi-tenant. Use CPFs de 
 > ⚠️ **Follow-up (não-bloqueador):** dados de CPF inconsistentes (8 com máscara, 13 sem). `usuarios/criar` e `usuarios/importar` dedupam por CPF stripped → risco de **duplicar** um usuário salvo com máscara. Candidato a **normalização de CPF** (migration + padronizar storage/lookup em tudo, incl. login).
 
 **🐞 2º bug (mesmo caso 1):** depois do fix do CPF, o código passou a **chegar**, mas o passo 2 dava sempre "Código inválido ou expirado". Causa raiz: a tabela **`password_reset_tokens` não existe no banco** (migration `20260610060000` nunca aplicada) → `criarCodigoOtp` inseria o token, falhava (tabela ausente) e **engolia o erro** → o código era enviado mesmo assim, mas nunca validava. Recuperação de senha e primeiro acesso **nunca funcionaram em produção**. **Ações:**
-> - **Aplicar 3 migrations faltantes** (sweep confiável detectou): `20260610060000_password_reset_tokens` (🔴 bloqueador), `20260610030000_onboarding_paginas`, `20260607000003_termos_de_uso`.
+> - **Aplicar a migration faltante:** `20260610060000_password_reset_tokens` (🔴 única realmente ausente — `onboarding_paginas` e `termos_uso` já existem; foram falso-positivo do sweep por nome de tabela errado).
 > - **Hardening:** `criarCodigoOtp` agora **falha alto** se o token não persistir (não envia código morto). Assim, esse tipo de migration-faltante aparece na hora.
+
+**🐞 3º bug (E1 — WhatsApp do OTP nunca entregava):** o e-mail chegava mas o WhatsApp não. Diagnóstico chamando o endpoint **real de prod**: `{"whatsapp":{"ok":false,"erro":"...exists:false...82988912651..."}}`. Causa: `enviarWhatsApp` mandava o telefone **sem o DDI 55** (`82988912651`); a Evolution responde `exists:false` e descarta. Só a rota de planos-de-ação adicionava o 55 (por isso avisos ao N1 funcionavam). **Corrigido** (`fd7883e`): normalização `+55` (idempotente) centralizada em `enviarWhatsApp`/`enviarWhatsAppMidia`. Afeta toda a base (qualquer telefone salvo sem 55). WhatsApp em si está saudável (envios diretos com 55 entregam).
+
+> 💡 **Aprendizado:** vários casos (E2, E4, E6) "funcionam mas são invisíveis" por causa da resposta genérica anti-enumeração — no teste manual, confirmar pelo **efeito** (token criado? senha trocada?), não pela tela.
 
 ---
 
