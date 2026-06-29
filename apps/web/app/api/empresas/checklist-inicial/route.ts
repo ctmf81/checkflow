@@ -39,12 +39,13 @@ export async function POST(req: NextRequest) {
 
   const admin = createClient(SUPABASE_URL, SUPABASE_SECRET)
 
-  // ── Checklist JÁ PUBLICADO, escopado à unidade/subgrupo ──
+  // Cria como RASCUNHO, popula, e só PUBLICA no fim se ao menos uma seção entrou
+  // — evita deixar um checklist publicado vazio caso a população falhe no meio.
   const nome = String(dados.nome || descricao).slice(0, 120)
   const { data: cl, error: clErr } = await admin.from('checklists').insert({
     unidade_id, subgrupo_id, nome,
     descricao: dados.descricao ? String(dados.descricao).slice(0, 300) : null,
-    status: 'publicado', versao_atual: 1, is_template: false, criado_por: user.id,
+    status: 'rascunho', versao_atual: 0, is_template: false, criado_por: user.id,
   }).select('id').single()
   if (clErr || !cl) return Response.json({ error: `Erro ao criar checklist: ${clErr?.message ?? ''}` }, { status: 500 })
 
@@ -81,12 +82,21 @@ export async function POST(req: NextRequest) {
     secoesSnapshot.push({ id: secRow.id, nome: secNome, ordem: si, atividades: atvsSnapshot })
   }
 
-  // Snapshot v1 (mesmo contrato do "publicar" do montador).
+  // Nenhuma seção populada → não publica (evita checklist vazio na Operação);
+  // fica como rascunho para o admin completar/publicar no montador.
+  if (secoesSnapshot.length === 0) {
+    return Response.json({ ok: true, id: cl.id, publicado: false })
+  }
+
+  // Publica: snapshot v1 + flip de status (mesmo contrato do "publicar" do montador).
   await admin.from('checklist_versoes').insert({
     checklist_id: cl.id, numero_versao: 1,
     snapshot: { nome, descricao: dados.descricao ?? null, subgrupo_id, secoes: secoesSnapshot },
     publicado_por: user.id,
   })
+  await admin.from('checklists').update({
+    status: 'publicado', versao_atual: 1, atualizado_em: new Date().toISOString(),
+  }).eq('id', cl.id)
 
-  return Response.json({ ok: true, id: cl.id })
+  return Response.json({ ok: true, id: cl.id, publicado: true })
 }
