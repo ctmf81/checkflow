@@ -81,7 +81,8 @@ function LoginForm() {
     try {
       const email = await resolverEmail()
       if (!email) {
-        setErro('CPF não encontrado.')
+        // Mensagem genérica (anti-enumeração): não revela se o CPF existe.
+        setErro('CPF ou senha incorretos.')
         setLoading(false)
         return
       }
@@ -96,6 +97,17 @@ function LoginForm() {
       }
 
       const user = data.user!
+
+      // Bloqueia conta INATIVADA (desativada pelo gestor). A credencial é válida
+      // (signInWithPassword passou), então a mensagem pode ser clara — não há
+      // enumeração anônima aqui. Lê o próprio status via RLS (auth.uid() = id).
+      const { data: meuPerfil } = await supabase.from('usuarios').select('status').eq('id', user.id).maybeSingle()
+      if (meuPerfil?.status !== 'ativo') {
+        await supabase.auth.signOut()
+        setErro('Esta conta está inativa. Fale com o administrador da empresa.')
+        setLoading(false)
+        return
+      }
 
       // Turno modo 'login': barra o acesso fora do horário (admins isentos,
       // verificado no Postgres). Quem já está logado não é afetado.
