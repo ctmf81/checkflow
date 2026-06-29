@@ -38,9 +38,18 @@ async function resolverNumero(numero: string): Promise<string> {
   }
 }
 
+// Normaliza para o formato da Evolution: dígitos + DDI 55. Telefones são salvos
+// como "82988912651" (DDD + número, sem o 55); sem o DDI o número "não existe"
+// no WhatsApp (exists:false) e o envio falha. Idempotente (não duplica o 55).
+// O resolverNumero cuida do 9º dígito depois.
+function normalizarNumero(numero: string): string {
+  const limpo = (numero ?? '').replace(/\D/g, '').replace(/^0/, '')
+  return limpo.startsWith('55') ? limpo : `55${limpo}`
+}
+
 export async function enviarWhatsApp({ numero, mensagem }: WhatsAppMessage): Promise<{ ok: boolean; erro?: string }> {
   try {
-    const numeroResolvido = await resolverNumero(numero)
+    const numeroResolvido = await resolverNumero(normalizarNumero(numero))
 
     const res = await fetch(`${EVO_URL}/message/sendText/${EVO_INSTANCE}`, {
       method: 'POST',
@@ -81,7 +90,7 @@ export async function enviarWhatsAppMidia({
       method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: EVO_KEY },
       body: JSON.stringify({
-        number: numero,
+        number: normalizarNumero(numero),
         mediatype: 'image',
         mimetype: 'image/jpeg',
         media: imagemUrl,
