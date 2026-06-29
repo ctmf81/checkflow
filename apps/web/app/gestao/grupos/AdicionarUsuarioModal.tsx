@@ -18,7 +18,10 @@ interface Props {
 interface Usuario { id: string; nome: string; email: string }
 interface Subgrupo { id: string; nome: string }
 
-type Funcao = 'Operação' | 'Nível 1' | 'Nível 2'
+// Valores do enum da coluna usuario_subgrupo.funcao (migration 20260606000008).
+// ATENÇÃO: precisa ser exatamente 'operacao' | 'nivel_1' | 'nivel_2' — gravar o
+// rótulo ('Nível 1') viola a constraint e o upsert falha em silêncio.
+type Funcao = 'operacao' | 'nivel_1' | 'nivel_2'
 
 export function AdicionarUsuarioModal({ grupoId, grupoNome, subgrupoLabel, onClose, onSalvo }: Props) {
   const { empresaAtiva } = useSession()
@@ -26,7 +29,7 @@ export function AdicionarUsuarioModal({ grupoId, grupoNome, subgrupoLabel, onClo
   const [subgrupos, setSubgrupos] = useState<Subgrupo[]>([])
   const [usuarioId, setUsuarioId] = useState('')
   const [subgruposSelecionados, setSubgruposSelecionados] = useState<string[]>([])
-  const [funcao, setFuncao] = useState<Funcao>('Operação')
+  const [funcao, setFuncao] = useState<Funcao>('operacao')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
   const [loading, setLoading] = useState(true)
@@ -166,9 +169,9 @@ export function AdicionarUsuarioModal({ grupoId, grupoNome, subgrupoLabel, onClo
                   onChange={(e) => setFuncao(e.target.value as Funcao)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
                 >
-                  <option value="Operação">Operação — executa checklists</option>
-                  <option value="Nível 1">Nível 1 — aprova planos de ação</option>
-                  <option value="Nível 2">Nível 2 — aprova planos e escalações</option>
+                  <option value="operacao">Operação — executa checklists</option>
+                  <option value="nivel_1">Nível 1 — executa + modera planos de ação</option>
+                  <option value="nivel_2">Nível 2 — executa + N1 + escala planos</option>
                 </select>
                 <p className="text-xs text-gray-400 mt-1">
                   Define a permissão do usuário neste subgrupo.
