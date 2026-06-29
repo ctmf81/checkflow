@@ -101,17 +101,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
       const isAdmin = user.user_metadata?.role === 'admin_sistema'
 
-      // Carrega empresas
+      // Carrega as empresas do usuário numa lista LOCAL. NÃO dá pra ler o state
+      // `empresas` recém-setado na mesma execução: setState é assíncrono, então
+      // `empresas` ficaria vazio (stale) e o usuário cairia em "Nenhuma empresa
+      // selecionada" no login (bug histórico para admin da empresa / não-admins).
+      let minhasEmpresas: Empresa[] = []
       if (isAdmin) {
         const { data: emps } = await supabase.from('empresas').select('id, nome').order('nome')
-        if (emps) setEmpresas(emps)
+        minhasEmpresas = emps ?? []
       } else {
         const { data: ue } = await supabase
           .from('usuario_empresa')
           .select('empresa:empresa_id(id, nome)')
           .eq('usuario_id', user.id)
-        if (ue) setEmpresas(ue.map((r: any) => r.empresa).filter(Boolean))
+        minhasEmpresas = (ue ?? []).map((r: any) => r.empresa).filter(Boolean)
       }
+      setEmpresas(minhasEmpresas)
 
       // Carrega sessão salva
       const { data: sessao } = await supabase
@@ -121,11 +126,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         .single()
 
       if (sessao) setAmbienteState(sessao.ultimo_ambiente as Ambiente)
-
-      // Lista de empresas do usuário (já carregada acima em `emps`/`ue`)
-      const minhasEmpresas: Empresa[] = isAdmin
-        ? (await supabase.from('empresas').select('id, nome').order('nome')).data ?? []
-        : empresas
 
       if (minhasEmpresas.length > 1) {
         // Tenta restaurar a última empresa usada
