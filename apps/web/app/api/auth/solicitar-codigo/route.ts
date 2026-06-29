@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { criarCodigoOtp, contarSolicitacoesRecentes, enviarCodigoUsuario } from '@/lib/passwordReset'
+import { criarCodigoOtp, contarSolicitacoesRecentes, enviarCodigoUsuario, cpfVariantes } from '@/lib/passwordReset'
 
 function makeAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -24,11 +24,12 @@ export async function POST(req: NextRequest) {
 
     const supabaseAdmin = makeAdmin()
 
-    const { data: usuario } = await supabaseAdmin
+    const { data: encontrados } = await supabaseAdmin
       .from('usuarios')
       .select('id, nome, email, telefone, status')
-      .eq('cpf', cpfDigits)
-      .maybeSingle()
+      .in('cpf', cpfVariantes(cpf))
+      .limit(1)
+    const usuario = encontrados?.[0]
 
     // Não revela se o CPF existe ou não
     if (!usuario || usuario.status !== 'ativo') {

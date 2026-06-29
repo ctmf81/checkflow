@@ -13,6 +13,17 @@ export function hashValor(valor: string): string {
   return createHash('sha256').update(valor).digest('hex')
 }
 
+// O CPF pode estar gravado COM ou SEM máscara (dados legados inconsistentes:
+// alguns "XXX.XXX.XXX-XX", outros "XXXXXXXXXXX"). Devolve as duas variantes para
+// uma busca tolerante: `.in('cpf', cpfVariantes(cpf))`. Sem isso, o lookup que
+// tira a máscara não encontra usuários salvos com máscara (quebra recuperação
+// de senha e primeiro acesso para eles).
+export function cpfVariantes(cpf: string): string[] {
+  const d = (cpf ?? '').replace(/\D/g, '')
+  if (d.length !== 11) return [d]
+  return [d, d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')]
+}
+
 function gerarCodigo(): string {
   return String(randomInt(0, 1000000)).padStart(6, '0')
 }

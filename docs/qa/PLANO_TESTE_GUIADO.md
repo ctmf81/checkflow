@@ -77,4 +77,39 @@ Crie estes usuários para cobrir papéis e isolamento multi-tenant. Use CPFs de 
 
 ---
 
-> **Próximas telas (a adicionar conforme formos testando):** 2. Recuperar senha · 3. Primeiro acesso · 4. Pré-cadastro QR · 5. Operação (lista) · 6. Execução de checklist · 7. PWA offline · … (segue a ordem do CENARIOS_DE_TESTE_MANUAL.md).
+## Tela 2 — Recuperar senha (`/recuperar-senha` → código → `/nova-senha`)
+
+**Funcionalidade:** "Esqueci minha senha" por **CPF → código de 6 dígitos** (WhatsApp + e-mail) → define nova senha → loga com ela. Anti-abuso: máx. tentativas e limite de envios.
+
+**Usuários necessários:**
+- 1 usuário **ativo com telefone** → **já criado** (abaixo).
+- *(opcional, p/ caso 5)* 1 usuário **sem telefone**.
+
+**Dados de teste prontos:**
+- 🟢 **Recuperar:** CPF `352.063.334-50` · telefone `82988912651` (seu WhatsApp recebe o código) · e-mail ctmf81+recuperar@gmail.com. Senha atual `CheckFlow@2026` (você vai trocá-la).
+
+**Pré-condições:** WhatsApp conectado (✅ verificado); estar deslogado.
+
+### Casos
+
+| # | Cenário | Passos | Resposta esperada | Status |
+|---|---|---|---|---|
+| 1 | Recuperação feliz | "Esqueceu a senha?" → CPF `352.063.334-50` → enviar → **recebe código no WhatsApp** → digita → define nova senha → loga com ela | Loga com a **nova** senha | ⬜ |
+| 2 | Código errado | Pedir código → digitar **errado** | Conta tentativa; após **5**, bloqueia | ⬜ |
+| 3 | Código expirado | Pedir código, esperar **>15 min**, usar | Recusa, pede novo | ⬜ |
+| 4 | Limite de envios | Pedir **vários** códigos seguidos | Bloqueia após **3/hora** | ⬜ |
+| 5 | CPF sem telefone | CPF de usuário sem telefone | Resposta **genérica** (não revela) | ⬜ |
+| 6 | CPF inexistente | CPF aleatório | Resposta **genérica** (anti-enumeração) | ⬜ |
+
+**Riscos / pontos de atenção:**
+- **Anti-enumeração:** casos 5 e 6 devem dar a **mesma** resposta de "se existir, enviamos o código" — não revelar se o CPF existe ou tem telefone.
+- **Uso único / expiração** do código (15 min); tentativas limitadas (5); envios limitados (3/h) — todos já têm teste unitário (`passwordReset.unit.test.ts`), aqui validamos o **fluxo real** (WhatsApp chegando).
+- **Canal:** código vai por WhatsApp **e** e-mail — confirme que chega em pelo menos um.
+
+### 🐞 Bug encontrado e corrigido (2026-06-28)
+**Caso 1 falhou de cara:** o código **não chegou em lugar nenhum** (nem WhatsApp nem e-mail). Causa: o CPF é gravado **com máscara** (`352.063.334-50`), mas as 3 rotas do fluxo de código (`solicitar-codigo`, `verificar-codigo`, `definir-senha`) **tiravam a máscara** antes de buscar (`.eq('cpf', cpfDigits)`) → não achavam o usuário → silenciavam (resposta genérica anti-enumeração). Afetava **TODOS os 8 usuários reais** → recuperação de senha **e** primeiro acesso estavam quebrados pra eles. **Corrigido** com `cpfVariantes()` (busca tolerante a CPF com/sem máscara) nas 3 rotas. **Re-testar o caso 1 após o deploy.**
+> ⚠️ **Follow-up (não-bloqueador):** dados de CPF inconsistentes (8 com máscara, 13 sem). `usuarios/criar` e `usuarios/importar` dedupam por CPF stripped → risco de **duplicar** um usuário salvo com máscara. Candidato a **normalização de CPF** (migration + padronizar storage/lookup em tudo, incl. login).
+
+---
+
+> **Próximas telas (a adicionar conforme formos testando):** 3. Primeiro acesso · 4. Pré-cadastro QR · 5. Operação (lista) · 6. Execução de checklist · 7. PWA offline · … (segue a ordem do CENARIOS_DE_TESTE_MANUAL.md).

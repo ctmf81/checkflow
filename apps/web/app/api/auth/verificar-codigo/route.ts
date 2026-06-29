@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { validarCodigoOtp } from '@/lib/passwordReset'
+import { validarCodigoOtp, cpfVariantes } from '@/lib/passwordReset'
 
 function makeAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -22,11 +22,12 @@ export async function POST(req: NextRequest) {
 
     const supabaseAdmin = makeAdmin()
 
-    const { data: usuario } = await supabaseAdmin
+    const { data: encontrados } = await supabaseAdmin
       .from('usuarios')
       .select('id, status')
-      .eq('cpf', cpfDigits)
-      .maybeSingle()
+      .in('cpf', cpfVariantes(cpf))
+      .limit(1)
+    const usuario = encontrados?.[0]
 
     if (!usuario || usuario.status !== 'ativo') {
       return NextResponse.json({ message: 'Código inválido ou expirado.' }, { status: 400 })
