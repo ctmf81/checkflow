@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   } catch { return Response.json({ error: 'Body inválido' }, { status: 400 }) }
   if (!descricao) return Response.json({ error: 'Descreva o checklist que deseja gerar.' }, { status: 400 })
 
-  const dados = await gerarEstruturaChecklist({ descricao, segmentos, minSecoes: 2, maxSecoes: 6 })
+  const dados = await gerarEstruturaChecklist({ descricao, segmentos, minSecoes: 2, maxSecoes: 6, contexto: 'template' })
   if (!dados?.secoes?.length) return Response.json({ error: 'A IA não retornou um checklist válido. Tente refinar a descrição.' }, { status: 502 })
 
   // ── Cria o template (rascunho) ──

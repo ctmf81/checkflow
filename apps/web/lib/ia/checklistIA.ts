@@ -106,8 +106,9 @@ export async function gerarEstruturaChecklist(params: {
   segmentos?: string[]
   minSecoes?: number
   maxSecoes?: number
+  contexto?: string // categoria registrada em ia_falhas (ex.: 'template' | 'checklist')
 }): Promise<EstruturaChecklistIA | null> {
-  const { descricao, segmentos = [], minSecoes = 2, maxSecoes = 6 } = params
+  const { descricao, segmentos = [], minSecoes = 2, maxSecoes = 6, contexto = 'checklist' } = params
   const admin = createClient(SUPABASE_URL, SUPABASE_SECRET)
   const { data: provDb } = await admin.from('ia_provedores')
     .select('provedor, api_key, modelo, base_url, ativo, ordem').eq('ativo', true).order('ordem', { ascending: true })
@@ -141,7 +142,7 @@ export async function gerarEstruturaChecklist(params: {
       const dados = parseJson(await c.run())
       if (dados?.secoes?.length) return dados
     } catch (e: any) {
-      admin.from('ia_falhas').insert({ contexto: 'checklist', provedor: c.nome, modelo: c.modelo, erro: String(e?.message ?? e).slice(0, 500) }).then(() => {}, () => {})
+      admin.from('ia_falhas').insert({ contexto, provedor: c.nome, modelo: c.modelo, erro: String(e?.message ?? e).slice(0, 500) }).then(() => {}, () => {})
     }
   }
   return null
