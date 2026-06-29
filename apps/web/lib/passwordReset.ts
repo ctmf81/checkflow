@@ -41,13 +41,16 @@ export async function criarCodigoOtp(
 ): Promise<string> {
   const codigo = gerarCodigo()
   const expira = new Date(Date.now() + TTL_CODIGO_MIN * 60_000).toISOString()
-  await sb.from('password_reset_tokens').insert({
+  const { error } = await sb.from('password_reset_tokens').insert({
     usuario_id: usuarioId,
     tipo,
     codigo_hash: hashValor(codigo),
     criado_por: criadoPor ?? null,
     expira_em: expira,
   })
+  // Não engolir a falha: se o token não persistir (ex.: tabela ausente, RLS),
+  // não adianta "enviar" um código que nunca vai validar — falha alto.
+  if (error) throw new Error(`Falha ao registrar o código de verificação: ${error.message}`)
   return codigo
 }
 
