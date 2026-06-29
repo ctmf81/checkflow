@@ -55,6 +55,14 @@ function LoginForm() {
     return () => { ativo = false; sub.subscription.unsubscribe() }
   }, [])
 
+  // Um bloqueio no submit (conta inativa / fora do turno) cria a sessão por um
+  // instante e o auth via localStorage redireciona (flash) antes do signOut,
+  // perdendo o estado do erro. Persistimos o aviso e o recuperamos no /login final.
+  useEffect(() => {
+    const aviso = sessionStorage.getItem('checkflow_login_aviso')
+    if (aviso) { setErro(aviso); sessionStorage.removeItem('checkflow_login_aviso') }
+  }, [])
+
   function formatCPF(value: string) {
     return value.replace(/\D/g, '').slice(0, 11)
       .replace(/(\d{3})(\d)/, '$1.$2')
@@ -103,6 +111,7 @@ function LoginForm() {
       // enumeração anônima aqui. Lê o próprio status via RLS (auth.uid() = id).
       const { data: meuPerfil } = await supabase.from('usuarios').select('status').eq('id', user.id).maybeSingle()
       if (meuPerfil?.status !== 'ativo') {
+        sessionStorage.setItem('checkflow_login_aviso', 'Esta conta está inativa. Fale com o administrador da empresa.')
         await supabase.auth.signOut()
         setErro('Esta conta está inativa. Fale com o administrador da empresa.')
         setLoading(false)
@@ -113,6 +122,7 @@ function LoginForm() {
       // verificado no Postgres). Quem já está logado não é afetado.
       const { data: podeAcessar } = await supabase.rpc('usuario_pode_acessar', { p_usuario_id: user.id })
       if (podeAcessar === false) {
+        sessionStorage.setItem('checkflow_login_aviso', 'Acesso permitido apenas dentro do seu turno de trabalho.')
         await supabase.auth.signOut()
         setErro('Acesso permitido apenas dentro do seu turno de trabalho.')
         setLoading(false)
