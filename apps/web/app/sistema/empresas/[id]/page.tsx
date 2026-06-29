@@ -14,6 +14,9 @@ import { AssinaturaEmpresa } from './AssinaturaEmpresa'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api-production-5bce.up.railway.app'
 
+// Perfil "Admin da empresa" (seed fixo) — mesmo id usado no UsuarioModal.
+const ADMIN_EMPRESA_ID = '00000000-0000-0000-0000-000000000002'
+
 type Aba = 'administrador' | 'plano' | 'pagamento' | 'parceiro' | 'configuracoes' | 'uso'
 
 const ORIGEM_LABEL: Record<string, string> = {
@@ -87,6 +90,8 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
   // Admin
   const [adminId, setAdminId] = useState('')
   const [usuarios, setUsuarios] = useState<{ id: string; nome: string; email: string }[]>([])
+  const [msgAdmin, setMsgAdmin] = useState('')
+  const [erroAdmin, setErroAdmin] = useState('')
 
   // Uso
   const [usoArmazenamento, setUsoArmazenamento] = useState<{ origem: string; bytes: number }[]>([])
@@ -177,6 +182,49 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
     const supabase = createClient()
     const { data } = await supabase.from('usuarios').select('id, nome, email').order('nome')
     if (data) setUsuarios(data)
+  }
+
+  // Vincula o usuário selecionado como Admin da empresa e o registra como N1 na
+  // estrutura padrão (unidade → grupo → subgrupo), para que ele já possa executar
+  // o checklist inicial e moderar planos de ação no primeiro acesso.
+  async function salvarAdministrador() {
+    if (!adminId) return
+    setSalvando(true)
+    setErroAdmin('')
+    setMsgAdmin('')
+    const supabase = createClient()
+
+    const { error: errVinc } = await supabase.from('usuario_empresa')
+      .upsert({ usuario_id: adminId, empresa_id: id, perfil_id: ADMIN_EMPRESA_ID }, { onConflict: 'usuario_id,empresa_id' })
+    if (errVinc) { setErroAdmin('Erro ao salvar o administrador.'); setSalvando(false); return }
+
+    // Estrutura padrão (a mais antiga = a criada no cadastro da empresa).
+    let virouN1 = false
+    const { data: unidade } = await supabase.from('unidades')
+      .select('id').eq('empresa_id', id).order('criado_em').limit(1).maybeSingle()
+    if (unidade) {
+      await supabase.from('usuario_unidade')
+        .upsert({ usuario_id: adminId, unidade_id: unidade.id }, { onConflict: 'usuario_id,unidade_id' })
+      const { data: grupo } = await supabase.from('grupos')
+        .select('id').eq('unidade_id', unidade.id).order('criado_em').limit(1).maybeSingle()
+      if (grupo) {
+        await supabase.from('usuario_grupo')
+          .upsert({ usuario_id: adminId, grupo_id: grupo.id }, { onConflict: 'usuario_id,grupo_id' })
+        const { data: subgrupo } = await supabase.from('subgrupos')
+          .select('id').eq('grupo_id', grupo.id).order('criado_em').limit(1).maybeSingle()
+        if (subgrupo) {
+          await supabase.from('usuario_subgrupo')
+            .upsert({ usuario_id: adminId, subgrupo_id: subgrupo.id, funcao: 'nivel_1' }, { onConflict: 'usuario_id,subgrupo_id' })
+          virouN1 = true
+        }
+      }
+    }
+
+    setSalvando(false)
+    setMsgAdmin(virouN1
+      ? 'Administrador salvo. Já é N1 na unidade padrão — pode executar o checklist inicial e moderar planos.'
+      : 'Administrador salvo.')
+    await carregarUsuarios()
   }
 
   useEffect(() => {
@@ -397,8 +445,13 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
               Cadastrar novo usuário
             </button>
 
+            {msgAdmin && <p className="text-xs text-green-600 bg-green-50 px-3 py-2 rounded-lg">{msgAdmin}</p>}
+            {erroAdmin && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{erroAdmin}</p>}
+
             <div className="flex justify-end pt-2">
-              <Button disabled={!adminId}>Salvar administrador</Button>
+              <Button onClick={salvarAdministrador} disabled={!adminId || salvando}>
+                {salvando ? 'Salvando...' : 'Salvar administrador'}
+              </Button>
             </div>
           </div>
         )}
