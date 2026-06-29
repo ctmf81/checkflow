@@ -150,4 +150,51 @@ Crie estes usuários para cobrir papéis e isolamento multi-tenant. Use CPFs de 
 
 ---
 
-> **Próximas telas (a adicionar conforme formos testando):** 4. Pré-cadastro QR · 5. Operação (lista) · 6. Execução de checklist · 7. PWA offline · … (segue a ordem do CENARIOS_DE_TESTE_MANUAL.md).
+## Tela 4 — Pré-cadastro por QR (`/pre-cadastro/[empresaId]` + moderação)
+
+**Funcionalidade:** página **pública** (acessada por QR) onde a pessoa se pré-cadastra → vira registro **pendente** na empresa-alvo → admin **modera** (aprova/rejeita) na tela de Usuários. Aprovar reusa `/api/usuarios/criar` (dispara código de 1º acesso).
+
+**Usuários/dados necessários:**
+- A página pública é **anônima** (deslogado).
+- Empresa de teste: **QA Smoke 2026-06-24** (`6f1f2f09-5fe0-46aa-b760-20cf7abb938b`).
+- Pra moderar: **Admin da empresa** da QA Smoke → CPF `716.212.012-10` · senha `CheckFlow@2026` (loga e cai direto no `/gestao` dela, sem impersonar). *(Alternativa: admin de sistema via "Acessar empresa".)*
+
+**URLs:**
+- Válida: `https://app.checkflow.digital/pre-cadastro/6f1f2f09-5fe0-46aa-b760-20cf7abb938b`
+- Inválida: `https://app.checkflow.digital/pre-cadastro/00000000-0000-0000-0000-000000000000`
+
+### Casos — página pública
+
+| # | Cenário | Passos | Resposta esperada | Status |
+|---|---|---|---|---|
+| 1 | Pré-cadastro feliz | Abrir URL válida (deslogado) → vê "QA Smoke 2026-06-24" + form → nome/CPF/telefone (e-mail opcional) → Enviar | Tela "Pré-cadastro enviado!" | ⬜ |
+| 2 | Nome vazio | deixar nome vazio → Enviar | "Informe seu nome." | ⬜ |
+| 3 | CPF < 11 dígitos | CPF incompleto → Enviar | "CPF deve ter 11 dígitos." | ⬜ |
+| 4 | Telefone sem DDD | telefone < 10 dígitos → Enviar | "Informe um telefone com DDD." | ⬜ |
+| 5 | Empresa inválida | abrir a URL inválida | "Link de pré-cadastro inválido ou indisponível." | ⬜ |
+
+### Casos — moderação (gestão)
+
+| # | Cenário | Passos | Resposta esperada | Status |
+|---|---|---|---|---|
+| 6 | Ver + aprovar | (admin) Acessar empresa QA Smoke → `/gestao/acessos/usuarios` → "Pré-cadastros" (contador) → abrir → **Aprovar** (perfil + unidade) | Cria usuário + envia código de 1º acesso → some da fila, aparece nos usuários | ⬜ |
+| 7 | Rejeitar | outro pendente → **Rejeitar** | some da fila (status rejeitado) | ⬜ |
+
+**Riscos / pontos de atenção:**
+- **Anti-enumeração/RLS:** anônimo só consegue **inserir** pendente (não lê/edita); admin da empresa B **não vê** pré-cadastros da QA Smoke.
+- Aprovar **sem perfil** → bloqueia. CPF que já é usuário → "já cadastrada"/vínculo.
+- `empresa_publica` filtra empresa inativa → URL de empresa inativa cai no mesmo "Link inválido".
+
+### ✅ Resultado (testado 2026-06-29)
+- **Parte A (pública):** caminho feliz ✅ + validações (nome / CPF curto / telefone sem DDD / link inválido) ✅.
+- **Parte B (moderação):** **aprovar ✅ e rejeitar ✅**.
+- **Bugs encontrados e corrigidos no caminho:**
+  1. **Login do admin da empresa caía em "Nenhuma empresa selecionada"** (stale state no SessionContext) → corrigido (`4059383`).
+  2. **Admin da empresa sem as permissões de Acessos** → não aprovava ("Você não tem permissão") → migration `20260629000000` (+ aplicado em prod).
+  3. **"Admin de sistema" aparecia como opção de perfil** (moderação + criar/editar usuário) → removido (anti-escalada, `bcb4b3d`).
+- **Re-cadastro após rejeição:** quem foi **rejeitado PODE** se pré-cadastrar de novo (cria novo pendente; rejeição não bloqueia — a moderação é a barreira a cada vez). Possível melhoria futura: bloquear/limitar re-envio após rejeição (anti-spam) — hoje aceita.
+- **Pendente:** eyeball do isolamento multi-tenant (admin da QA Smoke não vê Pointer/Amadê). RLS já coberta no pentest.
+
+---
+
+> **Próximas telas (a adicionar conforme formos testando):** 5. Operação (lista) · 6. Execução de checklist · 7. PWA offline · … (segue a ordem do CENARIOS_DE_TESTE_MANUAL.md).
