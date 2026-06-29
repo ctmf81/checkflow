@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CheckFlowLogo } from '@/components/auth/CheckFlowLogo'
@@ -21,6 +21,16 @@ async function destinoPosLogin(supabase: SupabaseClient, user: User, redirect?: 
   return isAdmin ? '/sistema' : '/gestao'
 }
 
+// Evita o login "pendurado" pra sempre se uma chamada de rede travar (latência /
+// cold start do Supabase). Passado o tempo, rejeita → o submit mostra "tente de
+// novo" e libera o botão, em vez de ficar em "Entrando..." sem saída.
+function comTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('LOGIN_TIMEOUT')), ms)),
+  ])
+}
+
 export default function LoginPage() {
   return (
     <Suspense fallback={null}>
@@ -36,6 +46,11 @@ function LoginForm() {
   const [senha, setSenha] = useState('')
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState('')
+  // Marca que o FORM está cuidando do login (com as checagens de inativo/turno).
+  // Enquanto true, o listener onAuthStateChange NÃO redireciona — evita a corrida
+  // de dupla navegação e o flash de bypass das checagens. (Magic-link/impersonação
+  // não setam isso, então o listener segue redirecionando esses casos.)
+  const submetendoRef = useRef(false)
 
   // Se já existe uma sessão ao abrir o /login (ex: magic link de impersonação,
   // ou usuário já logado), encaminha para o ambiente certo em vez de mostrar
@@ -44,7 +59,7 @@ function LoginForm() {
     const supabase = createClient()
     let ativo = true
     async function checar(user: User | null | undefined) {
-      if (!ativo || !user) return
+      if (!ativo || !user || submetendoRef.current) return
       const destino = await destinoPosLogin(supabase, user, searchParams.get('redirect'))
       router.replace(destino)
     }
@@ -87,7 +102,7 @@ function LoginForm() {
     setLoading(true)
 
     try {
-      const email = await resolverEmail()
+      const email = await comTimeout(resolverEmail(), 12000)
       if (!email) {
         // Mensagem genérica (anti-enumeração): não revela se o CPF existe.
         setErro('CPF ou senha incorretos.')
@@ -96,7 +111,8 @@ function LoginForm() {
       }
 
       const supabase = createClient()
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha })
+      submetendoRef.current = true
+      const { data, error } = await comTimeout(supabase.auth.signInWithPassword({ email, password: senha }), 12000)
 
       if (error) {
         setErro('CPF ou senha incorretos.')
@@ -134,7 +150,10 @@ function LoginForm() {
       router.refresh()
     } catch (e: any) {
       console.error('Login error:', e?.message ?? e)
-      setErro(`Erro: ${e?.message ?? 'Falha na conexão'}`)
+      submetendoRef.current = false
+      setErro(e?.message === 'LOGIN_TIMEOUT'
+        ? 'A conexão está lenta. Verifique sua internet e tente novamente.'
+        : `Erro: ${e?.message ?? 'Falha na conexão'}`)
       setLoading(false)
     }
   }
