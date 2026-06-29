@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { X, ImagePlus, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { ImageCropModal } from '@/components/ui/ImageCropModal'
+import { useToast } from '@/components/ui/feedback'
 import { createClient } from '@/lib/supabase'
 
 interface Props {
@@ -20,6 +21,7 @@ function formatCNPJ(v: string) {
 }
 
 export function NovaEmpresaModal({ onClose, onCriada }: Props) {
+  const toast = useToast()
   const [nome, setNome] = useState('')
   const [cnpj, setCnpj] = useState('')
   const [salvando, setSalvando] = useState(false)
@@ -154,11 +156,12 @@ export function NovaEmpresaModal({ onClose, onCriada }: Props) {
     }
 
     // Checklist inicial por IA (opcional, best-effort): não bloqueia a criação.
-    // Empresa e estrutura já estão criadas; se a IA falhar, segue sem checklist.
+    // Empresa e estrutura já estão criadas; a IA é informada por toast (sucesso/
+    // rascunho/falha) para o admin não achar que gerou quando não gerou.
     if (descricaoChecklist.trim() && unidadePadrao && subgrupoPadraoId) {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        await fetch('/api/empresas/checklist-inicial', {
+        const res = await fetch('/api/empresas/checklist-inicial', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
           body: JSON.stringify({
@@ -167,7 +170,17 @@ export function NovaEmpresaModal({ onClose, onCriada }: Props) {
             descricao: descricaoChecklist.trim(),
           }),
         })
-      } catch { /* best-effort */ }
+        const json = await res.json().catch(() => null)
+        if (!res.ok) {
+          toast.error(json?.error ?? 'Empresa criada, mas o checklist não pôde ser gerado (confira se há um provedor de IA ativo). Crie depois no montador.')
+        } else if (json?.publicado === false) {
+          toast.info('Empresa criada. O checklist ficou como rascunho — finalize e publique no montador.')
+        } else {
+          toast.success('Empresa criada e checklist inicial publicado.')
+        }
+      } catch {
+        toast.error('Empresa criada, mas o checklist não pôde ser gerado (sem conexão com a IA). Crie depois no montador.')
+      }
     }
 
     setSalvando(false)
