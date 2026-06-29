@@ -120,4 +120,34 @@ Crie estes usuários para cobrir papéis e isolamento multi-tenant. Use CPFs de 
 
 ---
 
-> **Próximas telas (a adicionar conforme formos testando):** 3. Primeiro acesso · 4. Pré-cadastro QR · 5. Operação (lista) · 6. Execução de checklist · 7. PWA offline · … (segue a ordem do CENARIOS_DE_TESTE_MANUAL.md).
+## Tela 3 — Primeiro acesso (`/primeiro-acesso` → `/nova-senha`)
+
+**Funcionalidade:** usuário recém-criado define a 1ª senha com **CPF + código de boas-vindas** (token `primeiro_acesso`). Mesmas rotas do esqueci-a-senha (`verificar-codigo` → `definir-senha`), então já herda os fixes (tabela de tokens, CPF com máscara, DDI 55).
+
+**Usuários necessários:** 1 usuário em estado de **primeiro acesso** (`primeiro_acesso=true`, com telefone) → **já criado** (abaixo).
+
+**Dados de teste prontos:**
+- 🟢 **Primeiro acesso:** CPF `167.497.728-03` · código `621234` (válido 2h, código conhecido — não precisa esperar WhatsApp).
+
+**Pré-condições:** estar deslogado.
+
+### Casos
+
+| # | Cenário | Passos | Resposta esperada | Status |
+|---|---|---|---|---|
+| 1 | Primeiro acesso feliz | `/primeiro-acesso` → CPF `167.497.728-03` + código `621234` → Continuar → define senha (≥8) → loga | Loga com a senha nova; `primeiro_acesso` vira false | ⬜ |
+| 2 | Código errado | CPF certo + código **errado** | "Código incorreto" (conta tentativa, bloqueia em 5) | ⬜ |
+| 3 | Código expirado | token expirado | Recusa, pede novo *(me peça um token expirado p/ testar)* | ⬜ |
+| 4 | Senha curta | na tela de nova senha, senha **< 8** | Bloqueia ("mínimo 8 caracteres") | ⬜ |
+| 5 | Senhas não conferem | confirmar diferente da senha | Bloqueia ("não coincidem") | ⬜ |
+
+**Riscos / pontos de atenção:**
+- O código é de **uso único** — depois do caso 1, o token é consumido e `primeiro_acesso` vira false. Pra re-testar, me peça um **código novo** (eu regenero).
+- A **entrega** do código de boas-vindas (WhatsApp/e-mail ao criar o usuário) é a mesma do E1 (já validada) e pertence à tela de **Usuários** (Tela 4).
+
+### ✅ Resultado (testado 2026-06-29)
+**P1–P5 todos ✅** — primeiro acesso feliz, código errado, **código expirado**, senha curta, senhas não conferem. **Nenhum bug novo** (reusa `verificar-codigo`/`definir-senha`, já corrigidas nas Telas 1–2). Tela 3 validada.
+
+---
+
+> **Próximas telas (a adicionar conforme formos testando):** 4. Pré-cadastro QR · 5. Operação (lista) · 6. Execução de checklist · 7. PWA offline · … (segue a ordem do CENARIOS_DE_TESTE_MANUAL.md).
