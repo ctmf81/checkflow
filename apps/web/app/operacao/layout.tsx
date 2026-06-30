@@ -2,9 +2,9 @@
 
 import { SessionProvider, useSession } from '@/contexts/SessionContext'
 import { createClient } from '@/lib/supabase'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { LayoutDashboard } from 'lucide-react'
+import { LayoutDashboard, LogOut, UserCircle, ChevronDown } from 'lucide-react'
 import { EscolherEmpresaModal } from '@/components/layout/EscolherEmpresaModal'
 import { TermosGate } from '@/components/layout/TermosGate'
 import { AvisoTurno } from '@/components/layout/AvisoTurno'
@@ -16,6 +16,9 @@ function OperacaoHeader() {
   const router = useRouter()
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [temGestao, setTemGestao] = useState(false)
+  const [nome, setNome] = useState('')
+  const [dropUsuario, setDropUsuario] = useState(false)
+  const refUsuario = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -23,9 +26,15 @@ function OperacaoHeader() {
       if (!data.session) router.replace('/login')
     })
     // Verifica se o usuário tem acesso à gestão (admin_sistema ou tem empresa ativa)
+    // e carrega o nome para o menu de usuário.
     supabase.auth.getUser().then(({ data }) => {
-      const role = data?.user?.user_metadata?.role
+      const user = data?.user
+      const role = user?.user_metadata?.role
       setTemGestao(role === 'admin_sistema' || role === 'usuario')
+      if (user) {
+        supabase.from('usuarios').select('nome').eq('id', user.id).single()
+          .then(({ data }) => { if (data?.nome) setNome(data.nome) })
+      }
     })
     // Redireciona se a sessão for encerrada — mas só quando ONLINE. Offline, um
     // refresh de token que falha por falta de rede não deve expulsar o operador
@@ -33,7 +42,14 @@ function OperacaoHeader() {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === 'SIGNED_OUT' || !session) && navigator.onLine) router.replace('/login')
     })
-    return () => sub.subscription.unsubscribe()
+    function handleClick(e: MouseEvent) {
+      if (refUsuario.current && !refUsuario.current.contains(e.target as Node)) setDropUsuario(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      sub.subscription.unsubscribe()
+    }
   }, [])
 
   useEffect(() => {
@@ -41,6 +57,13 @@ function OperacaoHeader() {
     createClient().from('empresas').select('logo_url').eq('id', empresaAtiva.id).single()
       .then(({ data }) => setLogoUrl(data?.logo_url ?? null))
   }, [empresaAtiva?.id])
+
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
@@ -68,6 +91,31 @@ function OperacaoHeader() {
               Gestão
             </button>
           )}
+
+          {/* Menu do usuário — identidade + Sair (operador em campo também precisa sair) */}
+          <div ref={refUsuario} className="relative">
+            <button
+              onClick={() => setDropUsuario(v => !v)}
+              className="flex items-center gap-1.5 text-gray-600 hover:text-gray-900"
+              aria-label="Menu do usuário">
+              <UserCircle size={26} className="text-orange-400" />
+              <span className="hidden sm:block text-sm font-medium max-w-[140px] truncate">{nome || '...'}</span>
+              <ChevronDown size={14} className="text-orange-500" />
+            </button>
+
+            {dropUsuario && (
+              <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                {nome && (
+                  <p className="px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-100 truncate">{nome}</p>
+                )}
+                <button onClick={handleLogout}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors">
+                  <LogOut size={16} />
+                  Sair
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>
