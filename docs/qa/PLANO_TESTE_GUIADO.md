@@ -281,6 +281,15 @@ Crie estes usuários para cobrir papéis e isolamento multi-tenant. Use CPFs de 
 - Dependente só conta no progresso quando **visível** (caso 7).
 - **Fora deste checklist** (precisam de aparelho/câmera ou config): **catálogo, localização (GPS), vídeo, assinatura, QR/barcode** → ficam para um teste no **celular** (junto da Tela 7 PWA).
 
+### ✅ Resultado (testado 2026-06-30)
+**Casos 1–10 todos ✅.** **2 bugs encontrados e corrigidos** (commit `ae73ff6`):
+1. 🔴→✅ **Plano de ação deixava finalizar SEM preencher** (caso 5): item reprovado com `gera_plano_acao` não exigia o plano — a validação só checava obrigatórias. Agora o Finalizar **bloqueia** ("Abra o plano de ação para: …") até o plano ser preenchido (observação obrigatória no modal).
+2. 🔴→✅ **Campo pendente em seção colapsada inalcançável** (caso 6): seções são acordeão; o erro citava um campo de outra seção e o operador não chegava nele. Agora o Finalizar **abre a seção do 1º pendente e rola até ela** (`irParaAtividade`).
+
+**Edge case mapeado (decisão: deixar como está):** responder → criar plano → "Continuar depois" → "Não executar checklist". O "Continuar depois" salva só as **respostas** (servidor), **não** o plano (finalize-only) → o plano digitado se perde ali. A não-execução então descarta as respostas e fecha como `não executado` — **sem plano órfão, sem inconsistência**. Na retomada, a regra do fix #1 força recriar o plano antes de finalizar. Ver `/biz`.
+
+**Tipos não cobertos aqui** (exigem câmera/aparelho/config): catálogo, GPS, vídeo, assinatura, QR → **Tela 7 (celular)**.
+
 ---
 
 > **Próximas telas (a adicionar conforme formos testando):** 7. PWA offline · … (segue a ordem do CENARIOS_DE_TESTE_MANUAL.md).
