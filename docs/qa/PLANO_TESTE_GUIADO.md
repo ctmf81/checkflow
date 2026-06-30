@@ -197,4 +197,42 @@ Crie estes usuários para cobrir papéis e isolamento multi-tenant. Use CPFs de 
 
 ---
 
-> **Próximas telas (a adicionar conforme formos testando):** 5. Operação (lista) · 6. Execução de checklist · 7. PWA offline · … (segue a ordem do CENARIOS_DE_TESTE_MANUAL.md).
+## Tela 5 — Operação · lista de checklists (`/operacao`, aba Checklists)
+
+**Funcionalidade:** área do operador. A aba **Checklists** mostra, de cima p/ baixo: **Não finalizados** (execuções que o próprio usuário iniciou e não concluiu), **Agendados pendentes** (execuções criadas por agendamento, sem operador, do subgrupo), **Workflows em andamento** (itens liberados do subgrupo), uma **busca**, e os **checklists publicados da unidade ativa** agrupados por **grupo → subgrupo**. Regra central: o operador vê **só os checklists dos seus subgrupos**; **admin (sistema/empresa) vê todos**. As abas (Checklists/Tarefas/Histórico/Documentos) só aparecem quando têm conteúdo.
+
+**Usuários/dados prontos** (senha `CheckFlow@2026`, tel `82988912651`):
+- 🟢 **OP_A (Linha 1):** CPF `390.485.712-60` · ctmf81+opl1@gmail.com — operador do subgrupo **Linha 1**, que tem o checklist publicado **"Teste Execuçãoção"** → deve **ver** esse checklist.
+- 🟢 **OP_A2 (Linha 2):** CPF `512.983.460-70` · ctmf81+opl2@gmail.com — operador do subgrupo **Linha 2**, **sem** checklist publicado → **não** vê "Teste Execuçãoção" (lista vazia). Prova o isolamento por subgrupo.
+- 🔵 **Admin da empresa** QA Smoke: CPF `716.212.012-10` — vê **todos** os checklists (todos os subgrupos).
+
+**Estrutura de teste:** QA Smoke → **Unidade padrão** → grupo **Produção** → subgrupos **Linha 1** (1 checklist publicado) e **Linha 2** (vazio).
+
+**Pré-condições:** estar deslogado. (Checklist "Teste Execuçãoção" já publicado em Linha 1 ✅.)
+
+### Casos
+
+| # | Cenário | Usuário | Passos | Resposta esperada | Status |
+|---|---|---|---|---|---|
+| 1 | Operador vê só o seu subgrupo | OP_A (L1) | logar → cai em `/operacao` (aba Checklists) | Vê **Produção › Linha 1** com **"Teste Execuçãoção"** | ⬜ |
+| 2 | Isolamento por subgrupo | OP_A2 (L2) | logar → `/operacao` | **Não** vê "Teste Execuçãoção"; lista **vazia** (abas sem conteúdo somem → tela só com a busca) | ⬜ |
+| 3 | Admin vê todos | Admin empresa (716) | acessar QA Smoke → ambiente Operação | Vê **todos** os checklists da unidade (qualquer subgrupo) | ⬜ |
+| 4 | Busca | OP_A | digitar parte do nome; depois um texto sem match | Filtra pelo nome; sem match → "Nenhum resultado para..." | ⬜ |
+| 5 | Abrir checklist | OP_A | tocar no card | Navega p/ `/operacao/[id]` (execução — Tela 6) | ⬜ |
+| 6 | "Não finalizados" | OP_A | abrir o checklist, sair **sem** finalizar, voltar à lista | Aparece a seção **Não finalizados** no topo, com **Continuar** e **Não executar** (motivo obrigatório) | ⬜ |
+
+**Riscos / pontos de atenção:**
+- **Visibilidade ≠ segurança:** o filtro por subgrupo é **client-side** (espelho da regra de exibição). A barreira real é o **RLS por unidade** — OP_A2 até **lê** o checklist por RLS (mesma unidade), mas a UI o esconde por subgrupo. Isolamento entre **empresas** (A×B) é RLS, coberto no pentest.
+- **"Porta dupla":** checklist liberado por **workflow** **não** aparece na lista avulsa (só no card "Workflows em andamento") — evita execução solta que não vincula/avança o fluxo.
+- **Abas dinâmicas:** se a aba ativa fica sem conteúdo, pula p/ a primeira com conteúdo; operador sem nada vê tela "vazia" (só a busca).
+- **Sem unidade ativa** → "Nenhuma unidade selecionada" (o stale-state que travava o admin foi corrigido em `4059383`; reconfirmar que **operador** entra direto na unidade).
+
+**Exceções:**
+- Operador de subgrupo **sem checklist** publicado → lista vazia (caso 2). (Idêntico visualmente a "operador sem subgrupo".)
+- Checklist em **rascunho/inativo** → não aparece (só `status='publicado'`).
+- Checklist de **outro subgrupo** → não aparece (caso 2).
+- **Offline (Tela 7):** a lista offline mostra **só** checklists marcados "Disponível offline". Hoje "Teste Execuçãoção" está `permite_offline=false` → não apareceria offline; marcar offline é teste da gestão/Tela 7.
+
+---
+
+> **Próximas telas (a adicionar conforme formos testando):** 6. Execução de checklist · 7. PWA offline · … (segue a ordem do CENARIOS_DE_TESTE_MANUAL.md).
