@@ -1665,6 +1665,14 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     if (!unidadeAtiva || !checklist) return
     setErroFinalizar(null)
 
+    // Exige internet: "Continuar depois" cria/atualiza um em_andamento no
+    // servidor. Offline não há onde guardar o parcial (sem rascunho local) —
+    // avisa em vez de falhar em silêncio (getUser volta null offline).
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setErroFinalizar('"Continuar depois" precisa de internet. Offline, finalize o checklist para salvá-lo no aparelho (ele sincroniza ao reconectar).')
+      return
+    }
+
     // Bloqueio por limite do plano — só ao criar uma execução nova
     if (!execAgendadaId && empresaAtiva?.id) {
       const { data: pode } = await createClient().rpc('billing_pode_executar', { p_empresa_id: empresaAtiva.id })
@@ -2394,12 +2402,17 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
               ? <><Clock size={16} className="animate-pulse" />Salvando...</>
               : <><Send size={16} />Finalizar checklist</>}
           </button>
-          {/* Continuar depois — só para checklists pausáveis */}
+          {/* Continuar depois — só para checklists pausáveis; exige internet */}
           {checklist.permite_continuar_depois !== false && (
-            <button onClick={continuarDepois} disabled={salvando}
-              className="w-full py-2.5 text-gray-500 rounded-xl font-medium text-sm flex items-center justify-center gap-2 border border-gray-200 hover:bg-gray-50 disabled:opacity-60 transition-colors">
-              <Clock size={15} />Continuar depois
-            </button>
+            <>
+              <button onClick={continuarDepois} disabled={salvando || !online}
+                className="w-full py-2.5 text-gray-500 rounded-xl font-medium text-sm flex items-center justify-center gap-2 border border-gray-200 hover:bg-gray-50 disabled:opacity-60 transition-colors">
+                <Clock size={15} />Continuar depois
+              </button>
+              {!online && (
+                <p className="text-center text-xs text-gray-400">Indisponível offline — finalize para salvar no aparelho.</p>
+              )}
+            </>
           )}
         </div>
       </div>

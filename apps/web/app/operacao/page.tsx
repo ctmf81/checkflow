@@ -18,6 +18,7 @@ import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_OPERACAO } from '@/components/onboarding/configs'
 import { visivelPorSubgrupo, checklistVisivelOperador, documentoVisivelOperador } from '@/lib/visibilidade'
 import { ehAdminDaEmpresa } from '@/lib/admin'
+import { useOnlineStatus } from '@/lib/useOnlineStatus'
 import { listaDisponivel } from '@/lib/tarefas'
 import { videoEmbedUrl } from '@/lib/videoEmbed'
 import { carregarListaOffline, salvarListaOffline } from '@/lib/offlineList'
@@ -1155,6 +1156,7 @@ function ChecklistCard({ checklist, onClick }: { checklist: Checklist; onClick: 
 export default function OperacaoPage() {
   const { unidadeAtiva, empresaAtiva } = useSession()
   const router = useRouter()
+  const online = useOnlineStatus()
   const [aba, setAba] = useState<Aba>('checklists')
   const [ticketModalOpen, setTicketModalOpen] = useState(false)
   const [grupos, setGrupos] = useState<GrupoAgrupado[]>([])
@@ -1452,6 +1454,13 @@ export default function OperacaoPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-16">
       <Onboarding pageId="operacao" titulo="Operação" cards={ONBOARDING_OPERACAO} visualizacaoUnica />
+      {/* Aviso de sem conexão — offline a lista mostra só os checklists disponíveis offline */}
+      {!online && (
+        <div className="mt-4 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+          <AlertTriangle size={14} className="text-amber-500 flex-shrink-0" />
+          <p className="text-xs text-amber-700 font-medium">Sem conexão — exibindo só os checklists disponíveis offline.</p>
+        </div>
+      )}
       {/* Abas */}
       <div className="sticky top-14 z-20 bg-gray-50 pt-4 pb-3">
         <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
