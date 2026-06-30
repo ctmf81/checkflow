@@ -49,8 +49,9 @@ export function Header() {
   async function handleLogout() {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+    // Navegação DURA: garante que a sessão saia da tela imediatamente. Com
+    // router.push + refresh a tela continuava "logada" até um reload manual.
+    window.location.href = '/login'
   }
 
   function irPara(ambiente: 'gestao' | 'operacao' | 'sistema') {

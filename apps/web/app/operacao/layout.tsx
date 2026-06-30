@@ -61,8 +61,8 @@ function OperacaoHeader() {
   async function handleLogout() {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+    // Navegação DURA p/ sair na hora (router.push + refresh exigia reload manual).
+    window.location.href = '/login'
   }
 
   return (
