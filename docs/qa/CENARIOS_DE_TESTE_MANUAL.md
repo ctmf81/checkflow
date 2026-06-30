@@ -102,7 +102,7 @@
 
 **Exceções**
 - [ ] Tentar finalizar offline um checklist de **workflow** ou **execução agendada** → bloqueia, orienta "Continuar depois".
-- [ ] Respostas em andamento + recarregar a página offline → não se perdem (rascunho local).
+- [ ] Respostas em andamento + recarregar a página (online ou offline) → **começa do zero** (decisão 2026-06-30: NÃO há rascunho local; só "Continuar depois"/Finalizar persiste). Ver `/biz`.
 - [ ] Login: estando offline e sem sessão salva → não consegue logar (login exige internet — logar antes de ir a campo).
 - [ ] Sincronizar com conexão instável → não duplica execução nem plano (idempotente).
 - [ ] Imagem de catálogo offline → não aparece (esperado: só texto).

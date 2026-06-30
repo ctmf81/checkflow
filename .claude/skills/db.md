@@ -348,6 +348,13 @@ create policy "usuario_unidade_propria" on usuario_unidade
 ```
 Se uma tabela nova depender de `usuario_unidade` em policy, essa policy já cobre — não precisa repetir.
 
+⚠️ **Mesma classe em `usuario_empresa` e `usuario_grupo` (migration `20260630000000_usuario_empresa_grupo_self_select.sql`, ✅ aplicada 2026-06-30)** — descoberto no teste manual logando como **operador real**. As únicas policies dessas duas tabelas eram admin-sistema e admin-empresa; faltava o "ver a própria linha". Efeito: **qualquer não-admin** (operador/N1/N2/gestor) recebia `usuario_empresa = []` no `SessionContext` → **"Nenhuma unidade selecionada"** (app inutilizável), e toda subquery `select empresa_id from usuario_empresa where usuario_id = auth.uid()` (`empresas_acesso`, turnos, workflows, billing, uso) voltava vazia. O admin escapava via `is_admin_empresa`. Fix idêntico:
+```sql
+create policy "usuario_empresa_propria" on usuario_empresa for select using (usuario_id = auth.uid());
+create policy "usuario_grupo_propria"   on usuario_grupo   for select using (usuario_id = auth.uid());
+```
+`usuario_subgrupo` já tinha (`usuario_subgrupo_propria`, 20260622210000) — os irmãos `usuario_empresa`/`usuario_grupo` ficaram de fora. **Lição: ao criar policy admin-only numa tabela de vínculo do usuário, sempre adicionar também a self-select `usuario_id = auth.uid()`.**
+
 ## RLS Gotcha: admin_sistema sem linha em `usuario_unidade` (migration 20260614040000, ✅ aplicada)
 Mesmo com a policy acima, um `admin_sistema` pode não ter nenhuma linha em `usuario_unidade` (ele normalmente acessa tudo via `is_admin_sistema()`). Qualquer policy que dependa **só** de `exists (select 1 from usuario_unidade ...)` sem `or is_admin_sistema()` bloqueia o admin. Corrigido em `tickets_leitura`, `tickets_criar`, `ticket_eventos_*`, `ticket_evidencias_*`, `ticket_categorias_leitura`, `ticket_sla_leitura`. **Ao criar policy nova baseada em `usuario_unidade`, sempre adicionar `is_admin_sistema() or ...` no início.**
 

@@ -37,7 +37,8 @@ CheckFlow is a checklist management SaaS with two distinct areas:
 O app é um **PWA instalável** e **offline vale SÓ para a operação** (gestão/sistema sempre online). Detalhes técnicos em `/arch`.
 - **Login é online-única**: não existe login offline (senha exige servidor). O operador loga uma vez **com internet** (depósito/escritório) e a sessão fica no aparelho; em campo o app o reconhece sem rede. A sessão dura (Supabase time-box/inactivity = never).
 - **Flag por checklist** (`permite_offline`, opt-in, toggle no montador): só os marcados aparecem na lista offline e têm a definição pré-baixada. Decisão: opt-in conservador — o gestor escolhe quais checklists são seguros p/ campo sem sinal.
-- **O que funciona offline**: abrir a lista (só os offline), abrir o checklist a frio, preencher (incl. **foto**, **catálogo** — valores cacheados, sem imagem), reprovar + abrir **plano de ação**, **finalizar** → fila local → sincroniza sozinho ao reconectar (plano replayado junto). Respostas em andamento têm autosave local (não se perdem em queda/refresh).
+- **O que funciona offline**: abrir a lista (só os offline), abrir o checklist a frio, preencher (incl. **foto**, **catálogo** — valores cacheados, sem imagem), reprovar + abrir **plano de ação**, **finalizar** → fila local → sincroniza sozinho ao reconectar (plano replayado junto).
+- ⚠️ **NÃO há rascunho local de respostas em andamento** (decisão 2026-06-30, commit `e016ebb`): o autosave/restauração local foi **removido**. Sair/recarregar **sem finalizar** (offline) ou **sem "Continuar depois"** (online) **perde** o progresso. Ver "Modo de execução do Checklist".
 - **O que EXIGE conexão** (bloqueia offline, orienta "Continuar depois"): **workflow** e **execução agendada** (`?exec=`). Billing não é checado offline (a inspeção de campo já foi feita; admin acerta cobrança depois).
 - **Instalação**: botão "Instalar" na operação e na gestão (só aparece no navegador; some no app instalado). Removida a opção "compartilhar app".
 
@@ -88,6 +89,7 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - **true (pausável)**: na execução aparece "Continuar depois" — salva o progresso parcial (respostas + upload de fotos/vídeos já feitos) numa execução `em_andamento` e volta. Ao reabrir (via `?exec=`), as respostas são **restauradas** (fotos/vídeos voltam como `{url}`, a UI faz preview). Botão Voltar disponível
 - **false (de uma vez)**: sem botão Voltar nem "Continuar depois" — o operador conclui em uma sessão
 - Execuções iniciadas e não finalizadas (em_andamento, do próprio operador, não-workflow) aparecem na seção vermelha "Não finalizados" no topo da aba Checklists da Operação, com "Continuar" (retoma via `?exec=`). **Não há descarte livre — nem para admin**: a única forma de abandonar é "Não executar" → escolher um motivo (`nao_execucao_motivos` tipo checklist vinculado ao checklist) → respostas são descartadas e a execução salva como `nao_executado` com `motivo_nao_execucao_id`/`_obs`. Se o checklist não tem motivos cadastrados, só resta finalizar
+- ⚠️ **Abrir um checklist é SEMPRE execução nova e limpa** (decisão 2026-06-30, commit `e016ebb`): não existe rascunho local; **nada é restaurado** ao reabrir do zero. A única restauração é a **retomada explícita** via "Continuar" do "Não finalizados" (server `?exec=`, respostas vêm do banco). Quem responde e sai **sem** "Continuar depois"/Finalizar **perde** o progresso — intencional (evita dados de uma execução abandonada reaparecerem na próxima, num checklist recorrente). O plano de ação só vira registro no **finalizar** (com a execução) — nunca um plano órfão.
 
 ## Home / Visão Geral (`/gestao`) — revisado 2026-06-20
 - **A Home é, por enquanto, dashboard de CHECKLIST** — só reflete informações de checklist. Dashboard da **unidade ativa** (escopado por `unidadeAtiva.id`; antes agregava todas as unidades).
@@ -108,6 +110,7 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - Tocar num checklist = escolher um **modelo publicado** → cria uma **instância** de execução.
 - **3 abas**: (1) **Checklists** (lista por grupo/subgrupo + Não finalizados / Agendados / Workflows em andamento — workflows só dos subgrupos do usuário); (2) **Histórico** (execuções do usuário: status, planos abertos, PDF); (3) **Documentos** (docs da unidade/subgrupos + Consulta Inteligente).
 - **Abrir Ticket** (FAB): chamado avulso para não conformidades **fora do roteiro** dos checklists (ex: máquina quebrou → ticket p/ Manutenção). Checklist = roteiro fixo; ticket = a qualquer momento.
+- **Sair (logout)** (2026-06-30, commit `8427336`): menu de usuário no header (ícone + nome ▾ → **Sair**), disponível para **todo papel** — inclusive operador puro. Antes o header só tinha "Instalar" + "Gestão" (admin), e o operador ficava preso sem logout. O botão "Gestão" continua, só para quem tem acesso.
 - **Não funciona offline** — requer conexão.
 
 ## Documentos (suporte de conhecimento da Operação) — revisado 2026-06-20

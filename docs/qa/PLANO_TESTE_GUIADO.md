@@ -233,6 +233,12 @@ Crie estes usuários para cobrir papéis e isolamento multi-tenant. Use CPFs de 
 - Checklist de **outro subgrupo** → não aparece (caso 2).
 - **Offline (Tela 7):** a lista offline mostra **só** checklists marcados "Disponível offline". Hoje "Teste Execuçãoção" está `permite_offline=false` → não apareceria offline; marcar offline é teste da gestão/Tela 7.
 
+### ✅ Resultado (testado 2026-06-30)
+**Casos 1–7 todos ✅** (operador vê só seu subgrupo, isolamento OP_A2, admin vê todos, busca, abrir card, "Não finalizados", logout). **3 bugs/decisões no caminho:**
+1. 🔴→✅ **Operador travava em "Nenhuma unidade selecionada"** (todo não-admin, não só o admin do `4059383`): faltava self-select RLS em `usuario_empresa`/`usuario_grupo` → `SessionContext` recebia `minhasEmpresas=[]`. **Migration `20260630000000`** (aplicada em prod; verificada sob RLS: lê só a própria linha, escrita segue admin-only). Ver `/db` e `/security`.
+2. 🔴→✅ **Operador puro sem logout** no header da Operação (só tinha Instalar + Gestão-admin) → menu de usuário com **Sair** (commit `8427336`).
+3. 🟡 **Persistência da execução** (caso 6): observado que sair pelo "Voltar" do navegador não joga na lista "Não finalizados" (isso é registro no servidor, só via "Continuar depois"). **Decisão de produto:** abrir = **sempre execução nova e limpa**; o **rascunho local foi removido** (autosave/restauração), commit `e016ebb`. Quem não usa "Continuar depois"/Finalizar perde o progresso (intencional). Retomada legítima (`?exec=`) segue carregando do servidor. Plano de ação só vira registro no finalizar (nunca órfão). Ver `/biz`.
+
 ---
 
 > **Próximas telas (a adicionar conforme formos testando):** 6. Execução de checklist · 7. PWA offline · … (segue a ordem do CENARIOS_DE_TESTE_MANUAL.md).
