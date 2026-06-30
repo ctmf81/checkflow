@@ -1608,6 +1608,25 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     return lista
   }
 
+  // Seção que contém uma atividade (busca raízes + dependentes) — usada para
+  // levar o operador até um campo pendente que está numa seção colapsada.
+  function secaoDaAtividade(atividadeId: string): string | null {
+    const contem = (atvs: Atividade[]): boolean =>
+      atvs.some(a => a.id === atividadeId || contem(a.dependentes ?? []))
+    return secoes.find(s => contem(s.atividades))?.id ?? null
+  }
+
+  // Abre a seção do campo e rola até ela (o acordeão mantém só uma seção aberta;
+  // sem isso, o erro de finalização aponta para um campo que o operador não vê).
+  function irParaAtividade(atividadeId: string) {
+    const secId = secaoDaAtividade(atividadeId)
+    if (!secId) return
+    setSecaoAberta(secId)
+    setTimeout(() => {
+      document.getElementById(`secao-${secId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 80)
+  }
+
   // Limite de tamanho para uploads
   const MAX_FOTO_MB = 10
   const MAX_VIDEO_MB = 100
@@ -1731,6 +1750,19 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     })
     if (pendentes.length > 0) {
       setErroFinalizar(`${pendentes.length} campo(s) obrigatório(s) sem resposta: ${pendentes.map(a => a.nome).join(', ')}`)
+      irParaAtividade(pendentes[0].id)
+      return
+    }
+
+    // Reprovar item com "gera plano de ação" EXIGE o plano preenchido (a
+    // observação é obrigatória no modal). Sem isso, a não conformidade ficaria
+    // sem tratativa registrada.
+    const planosFaltando = visiveis.filter(a =>
+      a.gera_plano_acao && calcularValidacao(a) === false && !planosCapturados[a.id]
+    )
+    if (planosFaltando.length > 0) {
+      setErroFinalizar(`Abra o plano de ação para: ${planosFaltando.map(a => a.nome).join(', ')}`)
+      irParaAtividade(planosFaltando[0].id)
       return
     }
 
@@ -2308,7 +2340,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
           }).length
 
           return (
-            <div key={secao.id} className="bg-gray-50 rounded-2xl overflow-hidden border border-gray-200">
+            <div key={secao.id} id={`secao-${secao.id}`} className="bg-gray-50 rounded-2xl overflow-hidden border border-gray-200 scroll-mt-4">
               <button onClick={() => setSecaoAberta(aberta ? null : secao.id)}
                 className="w-full flex items-center justify-between px-4 py-3.5 text-left">
                 <div className="flex items-center gap-2">
