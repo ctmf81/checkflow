@@ -12,6 +12,12 @@ const STORE = 'execucao_drafts'
 
 export interface DraftPayload {
   respostas: Record<string, unknown>
+  // Planos de ação em preenchimento (parte serializável: observação/causa raiz).
+  // Fotos/vídeo do plano NÃO entram aqui (File não é serializável) — quem chama
+  // já remove a mídia antes de passar; são recapturados ao reabrir, como nas
+  // respostas. Ainda é só rascunho local: o registro em `planos_acao` só nasce
+  // no finalizar, atrelado à execução (nunca um plano órfão no servidor).
+  planos?: Record<string, unknown>
   updatedAt: number
 }
 
@@ -26,10 +32,17 @@ function apenasSerializavel(respostas: Record<string, unknown>): Record<string, 
   return out
 }
 
-export async function salvarDraftLocal(key: string, respostas: Record<string, unknown>): Promise<void> {
+export async function salvarDraftLocal(
+  key: string,
+  respostas: Record<string, unknown>,
+  planos?: Record<string, unknown>,
+): Promise<void> {
   const payload: DraftPayload = {
     respostas: JSON.parse(JSON.stringify(apenasSerializavel(respostas))),
     updatedAt: Date.now(),
+  }
+  if (planos && Object.keys(planos).length > 0) {
+    payload.planos = JSON.parse(JSON.stringify(planos))
   }
   await idbPut(STORE, key, payload)
 }

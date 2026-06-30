@@ -1019,6 +1019,17 @@ interface DadosPlano {
   causaRaizObs?: string
 }
 
+// Parte serializável do plano para o rascunho local (IndexedDB): só texto e
+// causa raiz. Fotos/vídeo carregam File + blob URL (inválidos após recarga) e
+// ficam de fora — são recapturados ao reabrir, como nas respostas com mídia.
+function planosParaDraft(planos: Record<string, DadosPlano>): Record<string, Partial<DadosPlano>> {
+  const out: Record<string, Partial<DadosPlano>> = {}
+  for (const [k, p] of Object.entries(planos)) {
+    out[k] = { observacao: p.observacao, causaRaizId: p.causaRaizId ?? null, causaRaizObs: p.causaRaizObs ?? '' }
+  }
+  return out
+}
+
 interface CausaOpt { id: string; nome: string }
 interface OcorrenciaItem { id: string; observacao: string | null; criado_em: string; causa_nome: string; usuario_nome: string | null }
 
@@ -1452,18 +1463,19 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     if (key) removerDraftLocal(key)
   }
 
-  // Salva o progresso (respostas não-arquivo) localmente, com debounce, para
-  // sobreviver a queda de conexão / recarga. Não substitui o salvamento no
-  // servidor — é um espelho local de segurança.
+  // Salva o progresso (respostas + planos de ação em preenchimento) localmente,
+  // com debounce, para sobreviver a queda de conexão / recarga / "voltar" do
+  // navegador. Não substitui o salvamento no servidor — é um espelho local de
+  // segurança; nada vira registro no banco aqui.
   useEffect(() => {
     if (loading || concluido) return
-    if (Object.keys(respostas).length === 0) return
+    if (Object.keys(respostas).length === 0 && Object.keys(planosCapturados).length === 0) return
     const key = draftKeyAtual()
     if (!key) return
-    const t = setTimeout(() => { salvarDraftLocal(key, respostas) }, 800)
+    const t = setTimeout(() => { salvarDraftLocal(key, respostas, planosParaDraft(planosCapturados)) }, 800)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [respostas, loading, concluido, unidadeAtiva?.id])
+  }, [respostas, planosCapturados, loading, concluido, unidadeAtiva?.id])
 
   // Constrói o formulário (árvore de atividades + seções + motivos) a partir
   // dos dados crus. Usado tanto pelo carregamento online quanto pelo cache offline.
@@ -1510,6 +1522,21 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     const local = await carregarDraftLocal(draftKey)
     if (local?.respostas && Object.keys(local.respostas).length > 0) {
       setRespostas(prev => ({ ...prev, ...local.respostas }))
+    }
+    // Planos de ação em preenchimento: reconstrói o DadosPlano (texto/causa raiz
+    // voltam; fotos/vídeo são recapturados — não persistimos File no rascunho).
+    if (local?.planos && Object.keys(local.planos).length > 0) {
+      const restaurados: Record<string, DadosPlano> = {}
+      for (const [k, p] of Object.entries(local.planos as Record<string, Partial<DadosPlano>>)) {
+        restaurados[k] = {
+          observacao: p.observacao ?? '',
+          fotos: [],
+          video: null,
+          causaRaizId: p.causaRaizId ?? null,
+          causaRaizObs: p.causaRaizObs ?? '',
+        }
+      }
+      setPlanosCapturados(prev => ({ ...restaurados, ...prev }))
     }
   }
 

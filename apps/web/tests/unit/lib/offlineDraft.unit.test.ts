@@ -85,6 +85,28 @@ describe('salvarDraftLocal', () => {
     respostas.aninhado.x = 999
     expect(value.respostas.aninhado.x).toBe(1)
   })
+
+  it('grava os planos de ação em preenchimento quando informados', async () => {
+    const planos = { atv1: { observacao: 'vazou óleo', causaRaizId: 'cr-9', causaRaizObs: '' } }
+    await salvarDraftLocal('k', { a: 1 }, planos)
+    const { value } = ultimoPayloadGravado()
+    expect(value.planos).toEqual({ atv1: { observacao: 'vazou óleo', causaRaizId: 'cr-9', causaRaizObs: '' } })
+  })
+
+  it('omite a chave planos quando não há plano (ou objeto vazio)', async () => {
+    await salvarDraftLocal('k', { a: 1 })
+    expect(ultimoPayloadGravado().value.planos).toBeUndefined()
+    await salvarDraftLocal('k', { a: 1 }, {})
+    expect(ultimoPayloadGravado().value.planos).toBeUndefined()
+  })
+
+  it('clona os planos (sem refs ao objeto original)', async () => {
+    const planos = { atv1: { observacao: 'orig' } }
+    await salvarDraftLocal('k', {}, planos)
+    const { value } = ultimoPayloadGravado()
+    planos.atv1.observacao = 'mudou'
+    expect((value.planos as any).atv1.observacao).toBe('orig')
+  })
 })
 
 describe('carregarDraftLocal', () => {
