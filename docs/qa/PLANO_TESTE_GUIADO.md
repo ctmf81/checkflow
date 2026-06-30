@@ -292,4 +292,43 @@ Crie estes usuários para cobrir papéis e isolamento multi-tenant. Use CPFs de 
 
 ---
 
-> **Próximas telas (a adicionar conforme formos testando):** 7. PWA offline · … (segue a ordem do CENARIOS_DE_TESTE_MANUAL.md).
+## Tela 7 — PWA / Execução **offline** (📱 celular)
+
+**Funcionalidade:** o app é um **PWA instalável**; **offline vale só para a Operação**. Checklists marcados **"Disponível offline"** (`permite_offline`) ficam executáveis sem rede; ao finalizar offline, vão p/ uma **fila local** e **sincronizam sozinhos** ao reconectar (o **plano de ação é replayado junto**).
+
+**Usuário:** **OP_A** (`390.485.712-60` · `CheckFlow@2026`) — no **celular**.
+**Checklist offline:** **"QA Execução (Tela 6)"** (já marcado `permite_offline=true`).
+
+**Preparação (com internet, ANTES de cortar a rede):**
+1. Logar como OP_A no **navegador do celular** (login é **online-única**).
+2. Tocar **"Instalar"** → instalar o PWA (ícone na tela inicial).
+3. Abrir o **app instalado** → **Operação** → **aguardar ~20s** (pré-baixa a definição + cacheia a rota). *Sem esse passo, o checklist pode não abrir offline.*
+
+### Casos
+
+| # | Cenário | Passos | Esperado | Status |
+|---|---|---|---|---|
+| 1 | Instalar | no navegador, botão **"Instalar"** | instala; abre em **tela cheia**; no app instalado o "Instalar" **some** | ⬜ |
+| 2 | Lista offline | **modo avião** → abrir Operação | mostra **só** os checklists offline ("QA Execução…") + **aviso de sem conexão** | ⬜ |
+| 3 | Abrir offline | tocar no checklist offline | abre e **renderiza** o formulário sem rede | ⬜ |
+| 4 | Executar + foto offline | preencher tudo (EPI, temp, lote, múltipla, **foto**) → **Finalizar** | tela **"salvo no aparelho"** (fila local) | ⬜ |
+| 5 | Reprovar + plano offline | Vazamento=**Sim** → abrir plano (observação + foto) → Finalizar | finaliza offline com o **plano na fila** | ⬜ |
+| 6 | **Sincronizar** | **voltar a internet** | indicador **"Enviando…"**; execução **e** plano aparecem no **Histórico/Gestão**; chega aviso N1 (seu nº) | ⬜ |
+| 7 | Recarregar offline | preencher parte → **recarregar a página** offline | **começa do zero** (decisão 2026-06-30: **sem rascunho local**) | ⬜ |
+| 8 | Login offline | deslogar → tentar logar offline | **não loga** (login exige internet) | ⬜ |
+| 9 | Idempotência | sincronizar com conexão **instável** | **não duplica** execução nem plano | ⬜ |
+
+**Riscos / pontos de atenção:**
+- Só os `permite_offline=true` aparecem offline; o resto **some** no modo avião.
+- **Sem rascunho local** (decisão da Tela 6): recarregar/sair offline **sem finalizar** perde o progresso → o jeito de salvar offline é **Finalizar** (enfileira).
+- **Foto** offline é capturada e guardada na fila (blob) → enviada na sincronização.
+- **Workflow / execução agendada** NÃO finalizam offline (bloqueiam, orientam "Continuar depois") — não testável com este checklist (sem workflow); fica anotado.
+- Catálogo offline = valores cacheados sem imagem — este checklist não tem catálogo (n/a aqui).
+
+**Exceções:**
+- Sem o pré-cache (não esperou os ~20s online) → pode não abrir offline. Refazer a preparação.
+- Sincronização parcial (rede caiu no meio) → a fila reenvia; **não duplica** (caso 9).
+
+---
+
+> **Próximas telas (a adicionar conforme formos testando):** 8+ Gestão (checklists/montador, acessos, etc.) · … (segue a ordem do CENARIOS_DE_TESTE_MANUAL.md).
