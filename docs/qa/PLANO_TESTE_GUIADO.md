@@ -241,4 +241,46 @@ Crie estes usuários para cobrir papéis e isolamento multi-tenant. Use CPFs de 
 
 ---
 
-> **Próximas telas (a adicionar conforme formos testando):** 6. Execução de checklist · 7. PWA offline · … (segue a ordem do CENARIOS_DE_TESTE_MANUAL.md).
+## Tela 6 — Execução de checklist (`/operacao/[id]`)
+
+**Funcionalidade:** preencher e finalizar um checklist. Tipos com **validação automática** (sim/não, número, múltipla escolha) ou sem (texto, foto…); **atividades dependentes** (aparecem conforme a resposta do pai); o **progresso conta só as visíveis**; **Finalizar** → resultado **aprovado** (tudo conforme) ou **reprovado** (qualquer não conformidade) → **PDF sob demanda**. Reprovar atividade marcada **"gera plano de ação"** abre o plano. **"Continuar depois"** (se pausável) e **"Não executar"** (com motivo).
+
+**Usuário:** **OP_A** (`390.485.712-60` · `CheckFlow@2026`).
+
+**Checklist de teste:** **"QA Execução (Tela 6)"** (criado em Linha 1, id `4af9d9c4-…`):
+- **Seção "Inspeção":** `EPI em uso?` (sim/não, esperado **SIM**) · `Temperatura (°C)` (número **2–8**) · `Nº do lote` (texto) · `Itens verificados` (múltipla: Higiene OK / Temperatura OK / **Embalagem danificada = inválida**).
+- **Seção "Plano de ação e foto":** `Há vazamento?` (sim/não, esperado **NÃO**, **gera plano de ação**, SLA 24h) · `Descreva o vazamento` (texto, **só aparece se vazamento = SIM**) · `Foto da área` (obrigatória).
+- **Motivos de não execução:** "Área interditada" (checklist) · "Sensor com falha" (atividade).
+
+**Pré-condições:** OP_A logado, na Operação. ⚠️ Ao finalizar **com plano** (caso 5), o **N1 da Linha 1 é o Admin (716) = seu número** → você **vai receber** o WhatsApp/e-mail de aviso (esperado).
+
+### Casos
+
+| # | Cenário | Passos | Esperado | Status |
+|---|---|---|---|---|
+| 1 | Caminho feliz → **Aprovado** | EPI=Sim, Temp=5, Lote=ABC, marcar só Higiene+Temperatura, Vazamento=Não, anexar foto → **Finalizar** | Resultado **Aprovado** → tela de conclusão + botão **Gerar PDF** | ⬜ |
+| 2 | Validação numérica | Temp=**12** (fora de 2–8) | Campo sinaliza **não conforme** | ⬜ |
+| 3 | **Reprovado** | EPI=**Não** (ou marcar "Embalagem danificada") → preencher o resto → Finalizar | Resultado **Reprovado** | ⬜ |
+| 4 | Atividade **dependente** | Responder `Há vazamento?` = **Sim** | aparece **"Descreva o vazamento"**; mudar p/ Não → **some** | ⬜ |
+| 5 | **Plano de ação** | Vazamento=**Sim** → na atividade reprovada, botão **"Abrir plano de ação"** → observação (+ foto opcional) → Finalizar | Plano criado **junto** da execução; no **Histórico**: "Reprovado · Aguarda N1"; chega aviso N1 | ⬜ |
+| 6 | Obrigatória **bloqueia** | deixar a **Foto** (ou EPI) sem responder → Finalizar | **Bloqueia** com a lista de pendentes | ⬜ |
+| 7 | Progresso conta visíveis | observar o contador com vazamento Não vs Sim | progresso considera **só as atividades visíveis** | ⬜ |
+| 8 | **Continuar depois** | preencher parte → **Continuar depois** → voltar | volta à lista; aparece em **"Não finalizados"**; "Continuar" **restaura** (do servidor) | ⬜ |
+| 9 | **Não executar** (checklist) | em "Não finalizados" → **Não executar** → motivo **"Área interditada"** | execução vira **não executado**; sai da pendência | ⬜ |
+| 10 | Não executar **atividade** | numa obrigatória → "Não consigo executar esta atividade" → **"Sensor com falha"** | atividade marcada não-executada (conta como respondida) | ⬜ |
+
+**Riscos / pontos de atenção:**
+- **Reprovado = QUALQUER** atividade não conforme (sim/não ≠ esperado, número fora da faixa, múltipla com opção inválida). Texto/foto não validam.
+- O **plano de ação** só vira registro **ao Finalizar** (atrelado à execução) — sair antes **não** persiste (decisão da Tela 5). **Não há rascunho local**: sair sem "Continuar depois"/Finalizar **perde** o progresso.
+- **PDF é sob demanda** (botão), não automático.
+- **Foto** = 1 por atividade (comprimida ~300–500 KB); evidência de plano aceita até **5**.
+
+**Exceções:**
+- Obrigatória sem resposta → bloqueia finalização (caso 6).
+- "Não executar" **exige motivo** (casos 9/10).
+- Dependente só conta no progresso quando **visível** (caso 7).
+- **Fora deste checklist** (precisam de aparelho/câmera ou config): **catálogo, localização (GPS), vídeo, assinatura, QR/barcode** → ficam para um teste no **celular** (junto da Tela 7 PWA).
+
+---
+
+> **Próximas telas (a adicionar conforme formos testando):** 7. PWA offline · … (segue a ordem do CENARIOS_DE_TESTE_MANUAL.md).
