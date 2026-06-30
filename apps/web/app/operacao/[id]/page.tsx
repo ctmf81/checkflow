@@ -7,7 +7,6 @@ import { notificarPlanoAberto } from '@/lib/notificacoes'
 import { registrarUsoArmazenamento } from '@/lib/uso'
 import { useSession } from '@/contexts/SessionContext'
 import { useOnlineStatus } from '@/lib/useOnlineStatus'
-import { salvarDraftLocal, carregarDraftLocal, removerDraftLocal } from '@/lib/offlineDraft'
 import { chaveChecklist, salvarChecklistCache, carregarChecklistCache } from '@/lib/checklistCache'
 import { buscarCatalogo, salvarCatalogoCache, carregarCatalogoCache } from '@/lib/catalogoCache'
 import { enfileirarSubmissao } from '@/lib/syncQueue'
@@ -1019,17 +1018,6 @@ interface DadosPlano {
   causaRaizObs?: string
 }
 
-// Parte serializável do plano para o rascunho local (IndexedDB): só texto e
-// causa raiz. Fotos/vídeo carregam File + blob URL (inválidos após recarga) e
-// ficam de fora — são recapturados ao reabrir, como nas respostas com mídia.
-function planosParaDraft(planos: Record<string, DadosPlano>): Record<string, Partial<DadosPlano>> {
-  const out: Record<string, Partial<DadosPlano>> = {}
-  for (const [k, p] of Object.entries(planos)) {
-    out[k] = { observacao: p.observacao, causaRaizId: p.causaRaizId ?? null, causaRaizObs: p.causaRaizObs ?? '' }
-  }
-  return out
-}
-
 interface CausaOpt { id: string; nome: string }
 interface OcorrenciaItem { id: string; observacao: string | null; criado_em: string; causa_nome: string; usuario_nome: string | null }
 
@@ -1450,33 +1438,6 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   // buscar — senão a query roda com unidade vazia e falha com "não encontrado".
   useEffect(() => { if (unidadeAtiva?.id) carregar() }, [id, unidadeAtiva?.id])
 
-  // Chave do rascunho local (IndexedDB): identifica esta execução por
-  // checklist + execução reaberta (?exec=) + unidade. Lê o ?exec direto da URL
-  // para não depender da ordem de hidratação dos estados.
-  function draftKeyAtual(): string | null {
-    if (typeof window === 'undefined' || !unidadeAtiva?.id) return null
-    const execParam = new URLSearchParams(window.location.search).get('exec') ?? 'novo'
-    return `exec:${id}:${execParam}:${unidadeAtiva.id}`
-  }
-  function limparDraftLocal() {
-    const key = draftKeyAtual()
-    if (key) removerDraftLocal(key)
-  }
-
-  // Salva o progresso (respostas + planos de ação em preenchimento) localmente,
-  // com debounce, para sobreviver a queda de conexão / recarga / "voltar" do
-  // navegador. Não substitui o salvamento no servidor — é um espelho local de
-  // segurança; nada vira registro no banco aqui.
-  useEffect(() => {
-    if (loading || concluido) return
-    if (Object.keys(respostas).length === 0 && Object.keys(planosCapturados).length === 0) return
-    const key = draftKeyAtual()
-    if (!key) return
-    const t = setTimeout(() => { salvarDraftLocal(key, respostas, planosParaDraft(planosCapturados)) }, 800)
-    return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [respostas, planosCapturados, loading, concluido, unidadeAtiva?.id])
-
   // Constrói o formulário (árvore de atividades + seções + motivos) a partir
   // dos dados crus. Usado tanto pelo carregamento online quanto pelo cache offline.
   function montarFormulario(
@@ -1514,32 +1475,6 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     setMotivosAtividade(motivosTodos.filter(m => m.tipo === 'atividade'))
   }
 
-  // Restaura o rascunho local de respostas em andamento (IndexedDB). O local é
-  // o mais recente (autosave), então sobrepõe o que veio do servidor.
-  async function restaurarRascunhoLocal() {
-    const draftKey = draftKeyAtual()
-    if (!draftKey) return
-    const local = await carregarDraftLocal(draftKey)
-    if (local?.respostas && Object.keys(local.respostas).length > 0) {
-      setRespostas(prev => ({ ...prev, ...local.respostas }))
-    }
-    // Planos de ação em preenchimento: reconstrói o DadosPlano (texto/causa raiz
-    // voltam; fotos/vídeo são recapturados — não persistimos File no rascunho).
-    if (local?.planos && Object.keys(local.planos).length > 0) {
-      const restaurados: Record<string, DadosPlano> = {}
-      for (const [k, p] of Object.entries(local.planos as Record<string, Partial<DadosPlano>>)) {
-        restaurados[k] = {
-          observacao: p.observacao ?? '',
-          fotos: [],
-          video: null,
-          causaRaizId: p.causaRaizId ?? null,
-          causaRaizObs: p.causaRaizObs ?? '',
-        }
-      }
-      setPlanosCapturados(prev => ({ ...restaurados, ...prev }))
-    }
-  }
-
   async function carregar() {
     setLoading(true); setErroCarregar(null)
     const sb = createClient()
@@ -1560,7 +1495,6 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
           snap.cl, snap.secoesData as any[], snap.atvsData as any[],
           snap.opcoesMap as any, snap.motivos as any,
         )
-        await restaurarRascunhoLocal()
         setLoading(false)
         return
       }
@@ -1621,7 +1555,6 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       }
     }
 
-    await restaurarRascunhoLocal()
     setLoading(false)
   }
 
@@ -1705,7 +1638,6 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     setEnviandoNaoExec(false)
     if (error) { setErroFinalizar('Erro ao registrar não execução. Tente novamente.'); return }
     setNaoExecModal(false)
-    limparDraftLocal() // checklist marcado como não executado — descarta o rascunho local
     router.push('/operacao')
   }
 
@@ -1772,7 +1704,6 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     if (linhas.length > 0) await sb.from('checklist_execucao_respostas').insert(linhas)
 
     setSalvando(false)
-    limparDraftLocal() // progresso salvo no servidor — descarta o rascunho local
     router.push('/operacao')
   }
 
@@ -1908,7 +1839,6 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       })
 
       setSalvando(false)
-      limparDraftLocal()
       setEnfileiradoOffline(true)
       return
     }
@@ -2154,7 +2084,6 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     setPdfStatus('idle')
     setPdfUrl(null)
     setConcluido(true)
-    limparDraftLocal() // execução finalizada — descarta o rascunho local
   }
 
   // Geração do PDF sob demanda (não é mais automática)
