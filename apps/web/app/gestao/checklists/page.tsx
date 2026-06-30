@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, Suspense } from 'react'
-import { Plus, Search, FileCheck, MoreVertical, AlertCircle, CheckCircle2, Clock, Eye, ChevronLeft, Copy, EyeOff, Loader2, ChevronDown, LayoutGrid } from 'lucide-react'
+import { Plus, Search, FileCheck, MoreVertical, AlertCircle, CheckCircle2, Clock, Eye, ChevronLeft, Copy, EyeOff, Loader2, ChevronDown, LayoutGrid, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
@@ -62,6 +62,9 @@ function ChecklistsContent() {
 
   // Modal duplicar
   const [duplicando, setDuplicando] = useState<Checklist | null>(null)
+
+  // Modal gerar com IA
+  const [gerandoIA, setGerandoIA] = useState(false)
 
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
@@ -213,6 +216,7 @@ function ChecklistsContent() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setGerandoIA(true)}><Sparkles size={16} />Gerar com IA</Button>
           <Link href="/gestao/checklists/modelos">
             <Button variant="outline"><LayoutGrid size={16} />Usar um modelo</Button>
           </Link>
@@ -337,7 +341,91 @@ function ChecklistsContent() {
           onDuplicado={() => { setDuplicando(null); carregar() }}
         />
       )}
+
+      {/* Modal gerar com IA */}
+      {gerandoIA && (
+        <GerarIAModal
+          unidadeId={unidadeAtiva.id}
+          subgrupoId={filtroSubgrupoId}
+          onClose={() => setGerandoIA(false)}
+        />
+      )}
     </>
+  )
+}
+
+// ─── Modal Gerar com IA ───────────────────────────────────────────────────────
+
+function GerarIAModal({ unidadeId, subgrupoId, onClose }: {
+  unidadeId: string
+  subgrupoId: string | null
+  onClose: () => void
+}) {
+  const router = useRouter()
+  const [descricao, setDescricao] = useState('')
+  const [gerando, setGerando] = useState(false)
+  const [erro, setErro] = useState('')
+
+  async function gerar() {
+    if (descricao.trim().length < 15) { setErro('Descreva com mais detalhes — quanto mais específico, melhor o resultado.'); return }
+    setGerando(true); setErro('')
+    try {
+      const sb = createClient()
+      const { data: { session } } = await sb.auth.getSession()
+      const res = await fetch('/api/checklists/gerar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+        body: JSON.stringify({ descricao: descricao.trim(), unidade_id: unidadeId, subgrupo_id: subgrupoId }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || !json.id) { setErro(json.error ?? 'Não foi possível gerar. Tente novamente.'); setGerando(false); return }
+      // Abre o montador com o rascunho gerado para revisão/publicação.
+      router.push(`/gestao/checklists/${json.id}/montar`)
+    } catch {
+      setErro('Erro inesperado. Tente novamente.')
+      setGerando(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
+        <div className="px-6 py-5 border-b border-gray-100">
+          <h2 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+            <Sparkles size={18} className="text-orange-500" />Gerar checklist com IA
+          </h2>
+          <p className="text-xs text-gray-400 mt-0.5">A IA cria as seções e atividades; você revisa, ajusta e publica no montador.</p>
+        </div>
+
+        <div className="px-6 py-5 space-y-3">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-xs text-amber-700 leading-relaxed">
+            💡 <strong>Seja bem detalhista.</strong> Quanto mais específico (o que inspecionar, faixas de valores, o que é crítico, o que abre plano de ação), melhor o resultado.
+            <br />Ex.: <em>&ldquo;Inspeção diária de empilhadeira: nível de óleo (ok/baixo), pressão dos pneus (mín. 80 psi), buzina e luzes funcionando, vazamentos — se houver, abrir plano de ação; foto do horímetro.&rdquo;</em>
+          </div>
+          <textarea
+            value={descricao}
+            onChange={e => setDescricao(e.target.value)}
+            rows={6}
+            autoFocus
+            placeholder="Descreva em detalhes o checklist que você quer..."
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none"
+          />
+          {erro && <p className="text-xs text-red-500">{erro}</p>}
+          {gerando && <p className="text-xs text-gray-400">Gerando com IA… isso pode levar alguns segundos.</p>}
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+          <button onClick={onClose} disabled={gerando}
+            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50">
+            Cancelar
+          </button>
+          <button onClick={gerar} disabled={gerando || descricao.trim().length < 15}
+            className="flex items-center gap-2 px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50">
+            {gerando ? <><Loader2 size={14} className="animate-spin" />Gerando...</> : <><Sparkles size={14} />Gerar com IA</>}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
