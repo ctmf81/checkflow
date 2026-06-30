@@ -329,6 +329,13 @@ Crie estes usuários para cobrir papéis e isolamento multi-tenant. Use CPFs de 
 - Sem o pré-cache (não esperou os ~20s online) → pode não abrir offline. Refazer a preparação.
 - Sincronização parcial (rede caiu no meio) → a fila reenvia; **não duplica** (caso 9).
 
+### ✅ Resultado (testado 2026-06-30, no celular)
+**Casos 1–9 OK.** **2 fixes** (commit `c4857b1`):
+1. 🔴→✅ **Lista offline sem aviso de conexão** (caso 2): adicionado banner **"Sem conexão — exibindo só os checklists disponíveis offline"** (`useOnlineStatus`).
+2. 🔴→✅ **"Continuar depois" falhava em silêncio offline** (`getUser` volta null → return sem feedback): agora **desabilitado offline** com a dica "finalize para salvar no aparelho" + guard que avisa. ("Continuar depois" exige servidor — cria `em_andamento`.)
+- **Caso 9 (idempotência):** confirmado **pelo código** (header por upsert do id do cliente; respostas/planos "criar só se não existem") — não testado à mão. Sem duplicação em reenvio.
+- **Pendência mapeada (deixar como está):** a **fila de sync é presa ao aparelho/navegador** (IndexedDB). Deslogar **não perde** (sobrevive ao `signOut`; sincroniza quando um operador abre a Operação **nesse mesmo device** online — `PendingSync` roda só na Operação, ao carregar/voltar a rede/30s, atribuindo ao operador original). Risco: se aquele device nunca mais for usado online, os pendentes ficam parados ali. Não é bug (natureza do PWA offline). Possível melhoria futura: indicador "pendências neste aparelho" / alerta antes de deslogar com fila.
+
 ---
 
 > **Próximas telas (a adicionar conforme formos testando):** 8+ Gestão (checklists/montador, acessos, etc.) · … (segue a ordem do CENARIOS_DE_TESTE_MANUAL.md).
