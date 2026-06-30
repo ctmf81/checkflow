@@ -95,6 +95,7 @@ Rule: **never mutate a published checklist structure** — create a new version 
 
 ## Home / Visão Geral (`/gestao`) — revisado 2026-06-20
 - **A Home é, por enquanto, dashboard de CHECKLIST** — só reflete informações de checklist. Dashboard da **unidade ativa** (escopado por `unidadeAtiva.id`; antes agregava todas as unidades).
+- **Guia de implantação ("Primeiros passos")** (`components/onboarding/PrimeirosPassos.tsx`, revisado 2026-06-30): card no topo da Home **só para o admin da empresa** (gate `ehAdminDaEmpresa`) — guia de setup na ordem certa antes de operar: **estrutura (grupos/subgrupos) → equipe + funções (Operação/N1/N2) → criar checklist (modelo/zero/IA) → executar na Operação**. Conclusão detectada do banco (grupos/usuarios/checklists/execucoes), barra de progresso, "dispensar" por empresa (localStorage), some quando 100%. Nota dos **opcionais** (perfis, turnos, catálogos, documentos). Operador/gestor de área não veem.
 - **Funil de Execuções** (período 1h/6h/12h/24h/15d/30d): tudo em **EXECUÇÕES concluídas** → Executados / Aprovados / Reprovados / **Em moderação** (execuções com ≥1 plano em moderação). Abaixo, **indicador de moderação por nível** (contagem de PLANOS): Aguardando N1 (em_moderacao_n1 + reaberto) / Aguardando N2 (em_moderacao_n2). **Últimas Execuções** (filtros Todos/Reprovados/Com PA, link PDF/planos) + Primeiros Passos.
 - **Bloco "Planos com SLA crítico" REMOVIDO da Home (2026-06-20)** — Home é só checklist; SLA segue arquivado na UI. O campo `plano_acao_sla_horas` (SLA por atividade no montador) permanece no banco; `sla_prazo` do plano continua sendo calculado na abertura (`abertura + horas`), apenas não é exibido.
 
@@ -136,7 +137,7 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - **"Continuar depois" salva só as respostas** (snapshot no servidor), **NÃO** o plano de ação em preenchimento (é finalize-only) — o plano digitado se perde ao "Continuar depois". Na retomada (`?exec=`) a atividade reaparece reprovada e a regra acima **força recriar** o plano antes de finalizar (nenhuma não conformidade escapa). Decisão do usuário (2026-06-30): **deixar assim** (coerente com "sem rascunho local").
 - **Validação leva ao campo pendente** (2026-06-30): as seções são acordeão (uma aberta por vez); ao bloquear o Finalizar, o app **abre a seção do 1º campo pendente e rola até ela** (`irParaAtividade`) — vale p/ obrigatória sem resposta e p/ plano de ação faltando.
 - `data_expiracao` = `data_execucao + tempo_guarda_meses` meses (calculado pela aplicação)
-- `tempo_guarda_meses` padrão: 12. Opções: 1, 3, 6, 12, 24, 36, 48, 64 meses
+- `tempo_guarda_meses` **padrão: 1 mês** (era 12 — mudado no DB default em 2026-06-30, migration `20260630120000`, p/ não guardar mídia à toa). Vale em **todo** caminho de criação (manual, duplicação, modelo/`clonar_template`, IA, setup) — o usuário aumenta manualmente no montador se quiser. Opções: 1, 3, 6, 12, 24, 36, 48, 60 meses
 - Execuções são isoladas por `unidade_id` via RLS
 - Quando vem de workflow (`?wf_item=<id>`): insert com `status='em_andamento'` → linka `workflow_item_execucoes` → update para `'concluido'` → trigger avança o pipeline
 
@@ -321,6 +322,7 @@ Atividade tipo `padrao`: validação **complexa** cujo valor de referência NÃO
 - Quem cria workflows pode usar checklists de outros grupos/subgrupos — picker tem seletor de Grupo + Subgrupo, pré-selecionado com o grupo/subgrupo atual do usuário
 
 ## Perfis — flag "público"
+- **Perfis criados automaticamente por empresa:** além dos perfis de **SISTEMA** globais (`Admin da empresa` `…002`, `Operação` `…003`, `Admin de sistema` `…001` — `empresa_id null`, `is_system=true`, não editáveis), toda empresa nova ganha um perfil **PER-EMPRESA "Gestão do Grupo"** (`is_system=false`, `publico=false`, `empresa_id` da empresa — **editável/excluível** pelo admin da empresa). 28 permissões de gestão de área (grupos/subgrupos, agendamentos, catálogos, documentos, causa raiz, não execução, tickets). Criado por `seed_perfil_gestao_grupo` + trigger `trg_empresa_gestao_grupo_seed` (migration `20260630130000`, espelha o perfil de referência da QA Smoke). Ver `/db`.
 - `perfis.publico` (boolean): determina quem pode atribuir aquele perfil a um usuário
   - **Público** = pode ser atribuído por quem gerencia usuários do próprio grupo/setor (ex: substituição temporária de um líder de férias, sem precisar do admin da empresa)
   - **Não público** = só pode ser atribuído pelo Administrador da empresa

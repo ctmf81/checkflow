@@ -49,7 +49,7 @@ Generate timestamp: `(Get-Date -Format "yyyyMMddHHmmss")` (PowerShell)
 ### Checklists
 | Table | Description | Migration |
 |-------|-------------|-----------|
-| `checklists` | Headers: `nome`, `status`, `versao_atual`, `tempo_guarda_meses`, `subgrupo_id`, `permite_continuar_depois`, `permite_offline` | 20260603000017, 20260606000002, 20260613004044, 20260626000000 (✅ aplicada) |
+| `checklists` | Headers: `nome`, `status`, `versao_atual`, `tempo_guarda_meses` (**default 1 mês** desde `20260630120000` — era 12; vale p/ todo caminho de criação que não envia o campo: duplicar, clonar_template, IA, setup), `subgrupo_id`, `permite_continuar_depois`, `permite_offline` | 20260603000017, 20260606000002, 20260613004044, 20260626000000, 20260630120000 (✅ aplicada) |
 | `checklist_versoes` | Immutable snapshots (`snapshot jsonb`) | 20260603000017 |
 | `checklist_secoes` | Sections within a checklist | 20260603000017 |
 | `checklist_atividades` | Activities — see tipo constraint below | 20260603000017 |
@@ -238,6 +238,9 @@ Rota `/api/documentos/consultar` lê `ia_provedores` (ativo, por ordem) como fon
 ⚠️ `reset_senha` agora envia **código de 6 dígitos** (`{{codigo}}`), não link — atualizado em `seed_notificacao_templates` na migration 20260610070000 (também faz `update` nos templates existentes que ainda tinham `{{link}}`).
 
 **Função `seed_notificacao_templates(empresa_id)`** — insere 10 templates padrão (5 tipos × 2 canais) com `on conflict do nothing`. Dollar-quoting correto: `$tpl$...$tpl$` dentro de função `$$...$$`.
+
+### Perfil "Gestão do Grupo" por empresa (migration `20260630130000`, aplicar no SQL Editor)
+`seed_perfil_gestao_grupo(p_empresa_id)` (security definer) cria — se ainda não existir — um perfil **PER-EMPRESA** "Gestão do Grupo" (`is_system=false`, `publico=false`, `empresa_id`), **editável/excluível** pelo admin da empresa, com **28 permissões** (grupos/subgrupos, agendamentos, catálogos, documentos, causa_raiz, nao_execucao, ticket). Trigger `trg_empresa_gestao_grupo_seed` (after insert on `empresas`) + backfill das existentes (guard por nome não duplica). Mesmo padrão do `seed_notificacao_templates`. Diferente dos perfis de **sistema** (`…001/002/003`, `empresa_id null`, `is_system=true`).
 
 **Trigger `trg_empresa_notif_seed`** — executa seed automaticamente em cada novo insert em `empresas`.
 
