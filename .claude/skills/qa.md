@@ -48,6 +48,10 @@ npx playwright install chromium
 ## Teste manual (tela a tela)
 `docs/qa/CENARIOS_DE_TESTE_MANUAL.md` (2026-06-27) — guia de cenários **caminho feliz + exceções** por tela, em checklist: auth (incl. pré-cadastro QR), operação (incl. PWA/offline: catálogo, plano de ação, sincronização), gestão (todas), sistema, e transversais (RLS multi-tenant, responsividade, billing). Use para regressão manual antes de releases.
 
+### 🧪 Plano de teste GUIADO — `docs/qa/PLANO_TESTE_GUIADO.md` (EM ANDAMENTO, 2026-06-29)
+Formato por tela: **funcionalidade · usuários necessários · respostas esperadas · riscos · exceções** + tabela de casos com status. Construído **incrementalmente** (uma tela por vez). Testado **em PRODUÇÃO** com usuários reais (criados via service role — credenciais na memória `teste-manual-guiado-progresso`). **Validadas: Telas 1–4** (login, esqueci a senha, primeiro acesso, pré-cadastro QR). Próxima: 5 (Operação).
+**Lição:** testar **como o usuário real** (ex.: logar como Admin da empresa, não impersonando) pegou **8 bugs reais** que impersonação/unit-test escondiam — incl. integração/infra (migration nunca aplicada, env, RLS, stale state). Ver `/security` (achados de segurança) e a memória do progresso.
+
 ## Convenções
 
 - Testes ficam em `apps/web/tests/`

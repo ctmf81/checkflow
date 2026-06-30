@@ -24,6 +24,7 @@ Generate timestamp: `(Get-Date -Format "yyyyMMddHHmmss")` (PowerShell)
 - RLS `using` clause for unit-scoped tables: `unidade_id in (select unidade_id from usuario_unidade where usuario_id = auth.uid())`
 - `plano_acao_movimentacoes`/`plano_acao_movimentacao_evidencias` usam `created_at` (não `criado_em`) — ao embutir via PostgREST use alias `criado_em:created_at` se o front espera esse nome (bug corrigido em 2026-06-14, `operacao/page.tsx`)
 - `grupos`/`subgrupos` só tinham policy "meu grupo" (`usuario_grupo`/`usuario_subgrupo`) — mesmo padrão sistêmico do `usuario_unidade`. Adicionadas `grupos_unidade_membro`/`subgrupos_unidade_membro` (20260614060000) para listar TODOS os grupos/subgrupos da unidade (necessário p/ transferência de ticket)
+- ⚠️ **`usuarios.cpf` está armazenado de forma MISTA** — parte com máscara (`XXX.XXX.XXX-XX`), parte só dígitos (legado). O login compara o valor **formatado**; rotas de OTP tiravam a máscara → não batia → "CPF não encontrado". Ao buscar por CPF, tolere ambos: `cpfVariantes(cpf)` (em `apps/web/lib/passwordReset.ts`) devolve `[soDigitos, mascarado]` e as rotas usam `.in('cpf', cpfVariantes(cpf))` em vez de `.eq`. (descoberto 2026-06-29)
 
 ## Table Index
 
@@ -37,7 +38,7 @@ Generate timestamp: `(Get-Date -Format "yyyyMMddHHmmss")` (PowerShell)
 | `usuario_empresa` | M:N user ↔ empresa |
 | `usuario_unidade` | M:N user ↔ unidade |
 | `sessao_usuario` | Last active empresa/unidade/ambiente per user |
-| `password_reset_tokens` | OTP de 6 dígitos para login por código (20260610060000). `tipo`: `primeiro_acesso`\|`reset_admin`\|`self_service`\|`sessao_senha`. `codigo_hash` (sha256), `expira_em` (15min OTP / 10min sessão), `tentativas` (máx 5), `usado`. Sem RLS policies — só service role (`apps/web/lib/passwordReset.ts`) |
+| `password_reset_tokens` | OTP de 6 dígitos para login por código (20260610060000). `tipo`: `primeiro_acesso`\|`reset_admin`\|`self_service`\|`sessao_senha`. `codigo_hash` (sha256), `expira_em` (15min OTP / 10min sessão), `tentativas` (máx 5), `usado`. Sem RLS policies — só service role (`apps/web/lib/passwordReset.ts`). ⚠️ **A migration ficou pulada em prod até 2026-06-29** (descoberto no teste manual: todo OTP falhava silencioso) — aplicada manualmente. `criarCodigoOtp` agora lança no erro do insert (não engole mais) |
 
 ### Taxonomy
 | Table | Description |
@@ -160,6 +161,7 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 - **Policies aditivas** (`for all`, OR com as existentes — não reescreve): estrutura (`unidades`/`grupos`/`subgrupos`/`turnos`), acessos (`usuario_empresa`/`usuario_unidade`/`usuario_grupo`/`usuario_subgrupo`) e **operacionais (todas as unidades)**: checklists(+versoes/secoes/atividades/opcoes/nao_exec), checklist_execucoes(+respostas), documentos(+etapas/imagens), catalogos(+valores), nao_execucao_motivos, causa_raiz, tickets(+categorias/sla/eventos/evidencias), planos_acao(+evidencias/movimentacoes/mov_evidencias), tarefa_listas(+grupos/subgrupos/itens/execucoes/respostas), agendamentos. Filhas escopadas via `<fk> in (select id from <pai> where is_admin_empresa_unidade(unidade_id))` — só liberam p/ admin (não afrouxam p/ usuário comum).
 - **Guard crítico**: `usuario_empresa_admin_empresa` `with check` proíbe atribuir `perfil_id='…001'` (Admin de sistema). `perfis`/`perfil_permissoes` já tinham policy de empresa (20260607120000).
 - **UI**: `SessionContext.carregarUnidades` lista todas as unidades da empresa p/ o admin; `lib/admin.ts ehAdminDaEmpresa()` no bypass de subgrupo das telas.
+- ⚠️ **Gap de SEED corrigido** (migration `20260629000000_admin_empresa_permissoes_acessos.sql`, ✅ aplicada via service role 2026-06-29): o perfil seed **Admin da empresa** (`…002`) tinha só ~50/66 permissões — faltavam as de **Acessos** (`usuarios`, `unidades`, `perfis` + `empresas.ver/editar`), então o admin não conseguia aprovar pré-cadastro nem gerir usuários ("Você não tem permissão"). O `insert ... select` concede essas a `…002` com `on conflict do nothing` (NÃO concede `empresas.criar/deletar` — isso é de plataforma). Descoberto testando como admin da empresa real. As policies RLS já existiam; o que faltava era a **linha em `perfil_permissoes`** (RLS libera a ação, mas `usuario_tem_permissao` ainda checa o vínculo perfil→permissão).
 
 ### Listas de Tarefas — cota de mídia (migration `20260618160000_uso_armazenamento_tarefa.sql`, ✅ aplicada 2026-06-18)
 - `uso_armazenamento.origem` aceita `'tarefa'`; policy de insert ganhou bypass `is_admin_sistema()`. Mídia de tarefa contabilizada via `lib/uso.ts` + bloqueio `billing_armazenamento_disponivel`.
