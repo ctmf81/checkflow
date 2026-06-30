@@ -239,7 +239,7 @@ Rota `/api/documentos/consultar` lê `ia_provedores` (ativo, por ordem) como fon
 
 **Função `seed_notificacao_templates(empresa_id)`** — insere 10 templates padrão (5 tipos × 2 canais) com `on conflict do nothing`. Dollar-quoting correto: `$tpl$...$tpl$` dentro de função `$$...$$`.
 
-### Perfil "Gestão do Grupo" por empresa (migration `20260630130000`, aplicar no SQL Editor)
+### Perfil "Gestão do Grupo" por empresa (migration `20260630130000`, ✅ aplicada 2026-06-30 — 8/8 empresas com 28 permissões)
 `seed_perfil_gestao_grupo(p_empresa_id)` (security definer) cria — se ainda não existir — um perfil **PER-EMPRESA** "Gestão do Grupo" (`is_system=false`, `publico=false`, `empresa_id`), **editável/excluível** pelo admin da empresa, com **28 permissões** (grupos/subgrupos, agendamentos, catálogos, documentos, causa_raiz, nao_execucao, ticket). Trigger `trg_empresa_gestao_grupo_seed` (after insert on `empresas`) + backfill das existentes (guard por nome não duplica). Mesmo padrão do `seed_notificacao_templates`. Diferente dos perfis de **sistema** (`…001/002/003`, `empresa_id null`, `is_system=true`).
 
 **Trigger `trg_empresa_notif_seed`** — executa seed automaticamente em cada novo insert em `empresas`.
