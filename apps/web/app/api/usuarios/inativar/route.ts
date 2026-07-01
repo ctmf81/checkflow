@@ -25,16 +25,19 @@ export async function POST(req: NextRequest) {
       .eq('perfil_id', ADMIN_EMPRESA_ID)
 
     for (const vinculo of adminVinculos ?? []) {
-      const { count } = await supabase
+      // Conta APENAS admins ATIVOS — inativos não contam como salvaguarda
+      const { data: outrosAdmins } = await supabase
         .from('usuario_empresa')
-        .select('usuario_id', { count: 'exact', head: true })
+        .select('usuario_id, usuario:usuario_id(status)')
         .eq('empresa_id', vinculo.empresa_id)
         .eq('perfil_id', ADMIN_EMPRESA_ID)
         .neq('usuario_id', usuarioId)
 
-      if ((count ?? 0) === 0) {
+      const ativos = (outrosAdmins ?? []).filter((r: any) => r.usuario?.status === 'ativo').length
+
+      if (ativos === 0) {
         return NextResponse.json(
-          { error: 'Não é possível inativar o último administrador da empresa. Atribua outro admin antes.' },
+          { error: 'Não é possível inativar o último administrador ativo da empresa. Atribua outro admin antes.' },
           { status: 409 }
         )
       }

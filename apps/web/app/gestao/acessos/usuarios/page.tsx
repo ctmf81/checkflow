@@ -140,9 +140,17 @@ export default function UsuariosPage() {
     if (!await confirm({ titulo: 'Reativar este usuário?', mensagem: 'Ele voltará a ter acesso ao sistema.', confirmarLabel: 'Reativar' })) return
     setReativandoId(usuarioId)
     try {
-      const supabase = createClient()
-      const { error } = await supabase.from('usuarios').update({ status: 'ativo' }).eq('id', usuarioId)
-      if (error) { toast.error('Erro ao reativar: ' + error.message); return }
+      const { data: { session } } = await createClient().auth.getSession()
+      const res = await fetch('/api/usuarios/reativar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+        body: JSON.stringify({ usuarioId }),
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => null)
+        toast.error(json?.error ?? 'Não foi possível reativar o usuário.')
+        return
+      }
       toast.success('Usuário reativado.')
       carregar()
     } finally {
