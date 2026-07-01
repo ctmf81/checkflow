@@ -55,11 +55,11 @@ export async function POST(req: NextRequest) {
       }
 
       if (Array.isArray(unidades) && unidades.length > 0) {
-        const { error: uuErr } = await supabaseAdmin.from('usuario_unidade').insert(
-          unidades.map((uid: string) => ({ usuario_id: existente.id, unidade_id: uid }))
+        const { error: uuErr } = await supabaseAdmin.from('usuario_unidade').upsert(
+          unidades.map((uid: string) => ({ usuario_id: existente.id, unidade_id: uid })),
+          { onConflict: 'usuario_id,unidade_id', ignoreDuplicates: true }
         )
         if (uuErr) {
-          // Rollback do vínculo de empresa para não deixar estado parcial
           await supabaseAdmin.from('usuario_empresa').delete()
             .eq('usuario_id', existente.id).eq('empresa_id', empresaId)
           return NextResponse.json({ message: 'Não foi possível vincular a pessoa às unidades.' }, { status: 400 })
