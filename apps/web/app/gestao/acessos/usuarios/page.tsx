@@ -317,19 +317,7 @@ export default function UsuariosPage() {
                 )}
               </div>
 
-              {/* Login como (só para admin_sistema) */}
-              {isAdminSistema && (
-                <button
-                  onClick={() => loginComo(usuario.email, usuario.id)}
-                  disabled={impersonandoId === usuario.id}
-                  className="text-gray-300 hover:text-indigo-500 transition-colors p-1 disabled:opacity-50"
-                  title={`Entrar como ${usuario.nome}`}
-                >
-                  {impersonandoId === usuario.id
-                    ? <Loader2 size={15} className="animate-spin" />
-                    : <LogIn size={15} />}
-                </button>
-              )}
+              {/* Login como (desativado temporariamente — problema de redirect no Railway) */}
 
               {/* Inativar / Reativar */}
               {usuario.status === 'inativo' ? (
