@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     // Invalida todas as sessões ativas do usuário imediatamente
-    await supabase.auth.admin.signOut(usuarioId, { scope: 'global' })
+    await supabase.auth.admin.signOut(usuarioId, 'global')
 
     return NextResponse.json({ ok: true })
   } catch (e: any) {
