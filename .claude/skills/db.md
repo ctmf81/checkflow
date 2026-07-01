@@ -93,6 +93,7 @@ Trigger `trg_validar_troca_perfil` (before update em `usuario_empresa`) chama `v
 Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem registro em DB, logo marcar não tinha efeito):
 `grupos.adicionar_usuario/gerenciar_usuario`, `subgrupos.gerenciar_funcoes`, `workflows.*`, `turnos.*`, `catalogos.*`, `documentos.*`, `causa_raiz.*`, `nao_execucao.*`, `planos_acao.ver/moderar_n1/moderar_n2`. Concede automaticamente aos perfis `is_system = true`.
 ⚠️ **Removidas depois** (migration 20260622160000): `planos_acao.*` (moderação é por Subgrupo→Função N1/N2, não por perfil) e `configuracoes.*` (sem enforcement) — saíram do construtor de perfis e foram deletadas de `permissoes` (cascata p/ `perfil_permissoes`).
+⚠️ **`indicadores` e `relatorios` removidos do construtor** (`permissoes.ts`, 2026-06-30, commit `63d9659`): nunca existiram em `permissoes` (marcar não salvava — bug reportado) e não têm enforcement. **Descoberta relacionada:** o **menu lateral (`Sidebar.tsx`) é 100% estático — não filtra NENHUM item por permissão.** Logo, permissões do tipo `*.ver` de seção **não restringem acesso a menu hoje**; controle de acesso é por **ação** (criar/editar/RLS), não por visibilidade de menu. (Menu "Relatórios"/"Dashboards" apontam p/ páginas inexistentes = 404.)
 
 ### Tickets / Chamados (migration 20260609000001)
 | Table | Description |
