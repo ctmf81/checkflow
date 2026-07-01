@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Search, UserCircle, AlertCircle, Upload, PowerOff, ChevronDown, LogIn, Loader2, KeyRound, QrCode, UserCheck } from 'lucide-react'
+import { Plus, Search, UserCircle, AlertCircle, Upload, PowerOff, ChevronDown, LogIn, Loader2, KeyRound, QrCode, UserCheck, RotateCcw, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { UsuarioModal } from './UsuarioModal'
 import { ImportarUsuariosModal } from './ImportarUsuariosModal'
@@ -23,6 +23,7 @@ interface Usuario {
   perfilId?: string
   unidades: { id: string; nome: string }[]
   turnoId?: string | null
+  status?: string
 }
 
 interface Perfil { id: string; nome: string }
@@ -45,6 +46,8 @@ export default function UsuariosPage() {
   const [qrAberto, setQrAberto] = useState(false)
   const [moderacaoAberto, setModeracaoAberto] = useState(false)
   const [pendentesCount, setPendentesCount] = useState(0)
+  const [mostrarInativos, setMostrarInativos] = useState(false)
+  const [reativandoId, setReativandoId] = useState<string | null>(null)
 
   // Verifica se usuário logado é admin_sistema
   useEffect(() => {
@@ -91,7 +94,7 @@ export default function UsuariosPage() {
 
     if (ueRes.data) {
       setUsuarios(ueRes.data
-        .filter((r: any) => r.usuario?.status === 'ativo')
+        .filter((r: any) => r.usuario != null)
         .map((r: any) => ({
           id: r.usuario.id,
           nome: r.usuario.nome,
@@ -102,6 +105,7 @@ export default function UsuariosPage() {
           perfilId: r.perfil?.id ?? '',
           unidades: [],
           turnoId: r.usuario.turno_id ?? null,
+          status: r.usuario.status,
         })))
     }
     if (perfisRes.data) setPerfis(perfisRes.data)
@@ -130,6 +134,20 @@ export default function UsuariosPage() {
     }
     toast.success('Usuário inativado.')
     carregar()
+  }
+
+  async function reativar(usuarioId: string) {
+    if (!await confirm({ titulo: 'Reativar este usuário?', mensagem: 'Ele voltará a ter acesso ao sistema.', confirmarLabel: 'Reativar' })) return
+    setReativandoId(usuarioId)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.from('usuarios').update({ status: 'ativo' }).eq('id', usuarioId)
+      if (error) { toast.error('Erro ao reativar: ' + error.message); return }
+      toast.success('Usuário reativado.')
+      carregar()
+    } finally {
+      setReativandoId(null)
+    }
   }
 
   async function resetarSenha(usuario: Usuario) {
@@ -177,11 +195,13 @@ export default function UsuariosPage() {
 
   useEffect(() => { carregar() }, [empresaAtiva?.id])
 
-  const filtrados = usuarios.filter(u =>
-    u.nome.toLowerCase().includes(busca.toLowerCase()) ||
-    u.email.toLowerCase().includes(busca.toLowerCase()) ||
-    (u.cpf ?? '').includes(busca)
-  )
+  const filtrados = usuarios
+    .filter(u => mostrarInativos ? true : u.status !== 'inativo')
+    .filter(u =>
+      u.nome.toLowerCase().includes(busca.toLowerCase()) ||
+      u.email.toLowerCase().includes(busca.toLowerCase()) ||
+      (u.cpf ?? '').includes(busca)
+    )
 
   if (!empresaAtiva) return (
     <div className="py-16 text-center">
@@ -230,7 +250,14 @@ export default function UsuariosPage() {
             <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Nome ou CPF"
               className="pl-8 pr-4 py-1.5 text-sm border-b border-gray-200 bg-transparent focus:outline-none focus:border-orange-400 w-56 transition-colors" />
           </div>
-          <span className="text-sm text-gray-500">Quantidade: <span className="font-medium text-gray-700">{filtrados.length}</span></span>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setMostrarInativos(!mostrarInativos)}
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${mostrarInativos ? 'border-orange-300 text-orange-500 bg-orange-50' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+              {mostrarInativos ? <Eye size={13} /> : <EyeOff size={13} />}
+              {mostrarInativos ? 'Ocultar inativos' : 'Mostrar inativos'}
+            </button>
+            <span className="text-sm text-gray-500">Quantidade: <span className="font-medium text-gray-700">{filtrados.length}</span></span>
+          </div>
         </div>
 
         {loading ? (
@@ -241,15 +268,20 @@ export default function UsuariosPage() {
             <p className="text-sm text-gray-500">Nenhum usuário nesta empresa.</p>
           </div>
         ) : filtrados.map(usuario => (
-          <div key={usuario.id} className="flex items-center px-6 py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+          <div key={usuario.id} className={`flex items-center px-6 py-3 border-b border-gray-100 last:border-0 transition-colors ${usuario.status === 'inativo' ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50'}`}>
             <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center mr-3 flex-shrink-0">
               <UserCircle size={24} className="text-gray-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <button onClick={() => { setUsuarioEditando(usuario); setModalAberto(true) }}
-                className="font-medium text-sm text-gray-800 hover:text-orange-500 transition-colors text-left">
-                {usuario.nome}
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { if (usuario.status !== 'inativo') { setUsuarioEditando(usuario); setModalAberto(true) } }}
+                  className={`font-medium text-sm transition-colors text-left ${usuario.status === 'inativo' ? 'text-gray-400 cursor-default' : 'text-gray-800 hover:text-orange-500'}`}>
+                  {usuario.nome}
+                </button>
+                {usuario.status === 'inativo' && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-500 font-medium">Inativo</span>
+                )}
+              </div>
               <p className="text-xs text-gray-500 truncate">{usuario.email}</p>
             </div>
             <div className="flex items-center gap-3">
@@ -290,11 +322,18 @@ export default function UsuariosPage() {
                 </button>
               )}
 
-              {/* Inativar */}
-              <button onClick={() => inativar(usuario.id)}
-                className="text-gray-300 hover:text-red-400 transition-colors p-1" title="Inativar usuário">
-                <PowerOff size={15} />
-              </button>
+              {/* Inativar / Reativar */}
+              {usuario.status === 'inativo' ? (
+                <button onClick={() => reativar(usuario.id)} disabled={reativandoId === usuario.id}
+                  className="text-gray-300 hover:text-green-500 transition-colors p-1 disabled:opacity-50" title="Reativar usuário">
+                  {reativandoId === usuario.id ? <Loader2 size={15} className="animate-spin" /> : <RotateCcw size={15} />}
+                </button>
+              ) : (
+                <button onClick={() => inativar(usuario.id)}
+                  className="text-gray-300 hover:text-red-400 transition-colors p-1" title="Inativar usuário">
+                  <PowerOff size={15} />
+                </button>
+              )}
 
               {/* Reset senha */}
               <button
