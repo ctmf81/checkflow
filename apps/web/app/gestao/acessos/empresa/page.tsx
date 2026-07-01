@@ -66,10 +66,18 @@ export default function EmpresaPage() {
   async function salvarEmpresa() {
     if (!empresa) return
     setSalvando(true)
-    const supabase = createClient()
-    const { error } = await supabase.from('empresas').update({ nome, cnpj: cnpj || null, atualizado_em: new Date().toISOString() }).eq('id', empresa.id)
+    const { data: { session } } = await createClient().auth.getSession()
+    const res = await fetch('/api/empresa/atualizar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: JSON.stringify({ empresaId: empresa.id, nome, cnpj }),
+    })
     setSalvando(false)
-    if (error) { toast.error('Não foi possível salvar os dados da empresa.'); return }
+    if (!res.ok) {
+      const json = await res.json()
+      toast.error(json.message ?? 'Não foi possível salvar os dados da empresa.')
+      return
+    }
     setEditando(false)
     toast.success('Dados da empresa salvos.')
     await carregar()

@@ -216,14 +216,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (veTodas) {
-      const { data } = await supabase.from('unidades').select('id, nome').eq('empresa_id', empresaId).order('nome')
+      const { data } = await supabase.from('unidades').select('id, nome').eq('empresa_id', empresaId).eq('status', 'ativo').order('nome')
       lista = data ?? []
     } else {
       const { data } = await supabase
         .from('usuario_unidade')
-        .select('unidade:unidade_id(id, nome)')
+        .select('unidade:unidade_id(id, nome, status)')
         .eq('usuario_id', userId)
-      lista = (data ?? []).map((r: any) => r.unidade).filter(Boolean)
+      lista = (data ?? []).map((r: any) => r.unidade).filter((u: any) => u && u.status === 'ativo')
     }
     setUnidades(lista)
     return lista
