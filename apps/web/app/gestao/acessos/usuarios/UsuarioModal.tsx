@@ -194,6 +194,12 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
           nome, cpf: cpf || null, telefone: telefone || null, turno_id: turnoId || null
         }).eq('id', usuario.id)
 
+        // Notifica o Header para atualizar o nome caso seja o próprio usuário logado
+        const { data: { user: me } } = await supabase.auth.getUser()
+        if (me?.id === usuario.id) {
+          window.dispatchEvent(new CustomEvent('usuario-nome-atualizado', { detail: { nome } }))
+        }
+
         // Atualiza o perfil na empresa (guard do último admin via trigger)
         if (perfilId && empresaId) {
           const { error: errPerfil } = await supabase.from('usuario_empresa')

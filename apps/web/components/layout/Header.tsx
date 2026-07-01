@@ -40,6 +40,13 @@ export function Header() {
         .then(({ data }) => { if (data?.nome) setNome(data.nome) })
     })
 
+    // Atualiza o nome no header quando UsuarioModal edita o próprio usuário na lista
+    function onNomeAtualizado(e: Event) {
+      const nome = (e as CustomEvent<{ nome: string }>).detail?.nome
+      if (nome) setNome(nome)
+    }
+    window.addEventListener('usuario-nome-atualizado', onNomeAtualizado)
+
     // Redireciona ao login se a sessão expirar/cair durante o uso
     const { data: authSub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT' || !session) router.replace('/login')
@@ -52,6 +59,7 @@ export function Header() {
     document.addEventListener('mousedown', handleClick)
     return () => {
       document.removeEventListener('mousedown', handleClick)
+      window.removeEventListener('usuario-nome-atualizado', onNomeAtualizado)
       authSub.subscription.unsubscribe()
     }
   }, [])

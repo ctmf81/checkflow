@@ -187,15 +187,16 @@ export default function UsuariosPage() {
 
   async function alterarPerfil(usuarioId: string, perfilId: string) {
     if (!empresaAtiva?.id) return
-    const { error } = await createClient().from('usuario_empresa')
-      .update({ perfil_id: perfilId })
-      .eq('usuario_id', usuarioId)
-      .eq('empresa_id', empresaAtiva.id)
     setPerfilDropdown(null)
-    if (error) {
-      toast.error(error.message.includes('último administrador')
-        ? 'Não é possível remover o perfil de Admin da empresa do último administrador.'
-        : `Erro ao alterar perfil: ${error.message}`)
+    const { data: { session } } = await createClient().auth.getSession()
+    const res = await fetch('/api/usuarios/alterar-perfil', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: JSON.stringify({ usuarioId, empresaId: empresaAtiva.id, perfilId }),
+    })
+    const json = await res.json()
+    if (!res.ok) {
+      toast.error(json.error ?? 'Erro ao alterar perfil.')
       return
     }
     carregar()
