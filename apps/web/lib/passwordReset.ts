@@ -135,6 +135,31 @@ export async function validarSessaoSenha(
   return true
 }
 
+/** Notifica o usuário que o admin redefiniu sua senha — envia apenas o link, sem código. */
+export async function enviarAvisoResetAdmin(
+  usuario: { nome: string; telefone: string | null; email: string | null }
+): Promise<{ enviado: boolean; erro?: string }> {
+  const emailReal = usuario.email && !usuario.email.endsWith('@checkflow.local') ? usuario.email : undefined
+  try {
+    const res = await fetch(`${API_URL}/whatsapp/enviar-codigo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.INTERNAL_API_SECRET ?? '' },
+      body: JSON.stringify({
+        numero: usuario.telefone ?? undefined,
+        nome: usuario.nome,
+        email: emailReal,
+        contexto: 'reset_admin',
+      }),
+    })
+    if (!res.ok) return { enviado: false, erro: `Falha no envio (HTTP ${res.status}).` }
+    const json: any = await res.json().catch(() => ({}))
+    const ok = json?.whatsapp?.ok === true || json?.email?.ok === true
+    return ok ? { enviado: true } : { enviado: false, erro: json?.whatsapp?.erro ?? 'WhatsApp não confirmou a entrega.' }
+  } catch (e: any) {
+    return { enviado: false, erro: e?.message ?? 'Falha de rede ao enviar o aviso.' }
+  }
+}
+
 /** Envia o código via WhatsApp + e-mail (apps/api), respeitando templates da empresa. */
 export async function enviarCodigoUsuario(
   sb: SupabaseClient,

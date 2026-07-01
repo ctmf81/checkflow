@@ -318,10 +318,10 @@ export async function whatsappRoutes(app: FastifyInstance) {
   app.post('/whatsapp/enviar-codigo', async (req, reply) => {
     if (!await exigirAutorizacao(req, reply)) return
     const { numero, nome, codigo, email, empresa_id, contexto } = req.body as {
-      numero?: string; nome: string; codigo: string; email?: string; empresa_id?: string
+      numero?: string; nome: string; codigo?: string; email?: string; empresa_id?: string
       contexto?: 'primeiro_acesso' | 'reset_admin' | 'self_service'
     }
-    if (!codigo) return reply.status(400).send({ error: 'codigo é obrigatório' })
+    if (!codigo && contexto !== 'reset_admin') return reply.status(400).send({ error: 'codigo é obrigatório' })
 
     const vars = {
       nome,
@@ -344,14 +344,15 @@ export async function whatsappRoutes(app: FastifyInstance) {
 
     const resultados: any = {}
 
+    const appUrl = (process.env.APP_URL ?? 'https://app.checkflow.digital').replace(/\/$/, '')
     const fallbackTexto = (() => {
+      if (contexto === 'reset_admin') {
+        return `Olá${nome ? ` ${nome}` : ''}! 👋\n\nSua senha no *CheckFlow* foi redefinida por um administrador.\n\nClique no link abaixo para criar sua nova senha:\n${appUrl}/recuperar-senha`
+      }
       if (contexto === 'primeiro_acesso') {
-        const appUrl = (process.env.APP_URL ?? 'https://app.checkflow.digital').replace(/\/$/, '')
         return `Olá${nome ? ` ${nome}` : ''}! 👋\n\nSeu acesso ao *CheckFlow* foi criado.\n\nSeu código de primeiro acesso é:\n\n*${codigo}*\n\nClique no link abaixo para definir sua senha:\n${appUrl}/primeiro-acesso\n\n_Este código expira em 15 minutos._`
       }
-      const appUrl = (process.env.APP_URL ?? 'https://app.checkflow.digital').replace(/\/$/, '')
-      const aviso = contexto === 'reset_admin' ? '' : '\n\n_Se você não solicitou, ignore esta mensagem._'
-      return `Olá${nome ? ` ${nome}` : ''}! 👋\n\nSua senha no *CheckFlow* foi redefinida.\n\nSeu código de verificação é:\n\n*${codigo}*\n\nClique no link abaixo para criar sua nova senha:\n${appUrl}/recuperar-senha${aviso}\n\n_Este código expira em 15 minutos._`
+      return `Olá${nome ? ` ${nome}` : ''}! 👋\n\nVocê solicitou a recuperação de senha do *CheckFlow*.\n\nSeu código de verificação é:\n\n*${codigo}*\n\nClique no link abaixo para criar sua nova senha:\n${appUrl}/recuperar-senha\n\n_Este código expira em 15 minutos. Se você não solicitou, ignore esta mensagem._`
     })()
 
     // WhatsApp
@@ -391,12 +392,20 @@ export async function whatsappRoutes(app: FastifyInstance) {
   </td></tr></table>
 </body></html>`
       } else if (!tmplEmail || tmplEmail.ativo) {
-        const titulo = contexto === 'primeiro_acesso' ? 'Bem-vindo ao CheckFlow' : 'Recuperação de senha'
-        const appUrl = (process.env.APP_URL ?? 'https://app.checkflow.digital').replace(/\/$/, '')
-        const texto = contexto === 'primeiro_acesso'
-          ? `Seu acesso ao CheckFlow foi criado. Use o código abaixo na página de primeiro acesso para definir sua senha: <a href="${appUrl}/primeiro-acesso">${appUrl}/primeiro-acesso</a>`
-          : `${contexto === 'reset_admin' ? 'Sua senha foi redefinida pelo administrador.' : 'Você solicitou a recuperação de senha.'} Use o código abaixo para criar sua nova senha: <a href="${appUrl}/recuperar-senha">${appUrl}/recuperar-senha</a>`
-        html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;padding:32px">
+        if (contexto === 'reset_admin') {
+          html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;padding:32px">
+<h2 style="color:#f97316">CheckFlow</h2>
+<p>Olá${nome ? ` ${nome}` : ''}!</p>
+<p>Sua senha foi redefinida por um administrador.</p>
+<p>Clique no link abaixo para criar sua nova senha:</p>
+<p><a href="${appUrl}/recuperar-senha" style="color:#f97316">${appUrl}/recuperar-senha</a></p>
+</body></html>`
+        } else {
+          const titulo = contexto === 'primeiro_acesso' ? 'Bem-vindo ao CheckFlow' : 'Recuperação de senha'
+          const texto = contexto === 'primeiro_acesso'
+            ? `Seu acesso ao CheckFlow foi criado. Use o código abaixo na página de primeiro acesso para definir sua senha: <a href="${appUrl}/primeiro-acesso">${appUrl}/primeiro-acesso</a>`
+            : `Você solicitou a recuperação de senha. Use o código abaixo para continuar: <a href="${appUrl}/recuperar-senha">${appUrl}/recuperar-senha</a>`
+          html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;padding:32px">
 <h2 style="color:#f97316">CheckFlow</h2>
 <p>Olá${nome ? ` ${nome}` : ''}!</p>
 <p>${titulo}</p>
@@ -406,6 +415,7 @@ export async function whatsappRoutes(app: FastifyInstance) {
 </div>
 <p style="color:#999;font-size:12px;margin-top:24px">Este código expira em 15 minutos.</p>
 </body></html>`
+        }
       } else {
         html = ''
       }

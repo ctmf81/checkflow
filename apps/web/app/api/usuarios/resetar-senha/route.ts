@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { criarCodigoOtp, contarSolicitacoesRecentes, enviarCodigoUsuario } from '@/lib/passwordReset'
+import { contarSolicitacoesRecentes, enviarAvisoResetAdmin } from '@/lib/passwordReset'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_PUBLISHABLE = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -60,10 +60,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Muitos resets recentes para este usuário. Aguarde alguns minutos.' }, { status: 429 })
     }
 
-    const codigo = await criarCodigoOtp(supabaseAdmin, usuario.id, 'reset_admin', caller.id)
-    await enviarCodigoUsuario(supabaseAdmin, usuario as any, codigo, 'reset_admin')
+    await enviarAvisoResetAdmin(usuario as any)
 
-    return NextResponse.json({ ok: true, message: `Código de redefinição enviado para ${usuario.nome} via WhatsApp${usuario.email && !usuario.email.endsWith('@checkflow.local') ? ' e e-mail' : ''}.` })
+    return NextResponse.json({ ok: true, message: `Link de redefinição enviado para ${usuario.nome} via WhatsApp${usuario.email && !usuario.email.endsWith('@checkflow.local') ? ' e e-mail' : ''}.` })
   } catch (e: any) {
     return NextResponse.json({ message: e.message ?? 'Erro interno.' }, { status: 500 })
   }
