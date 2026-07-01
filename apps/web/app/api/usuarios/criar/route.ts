@@ -33,10 +33,12 @@ export async function POST(req: NextRequest) {
     const supabaseAdmin = makeAdmin()
 
     // ── Pessoa já cadastrada? (mesma pessoa pode estar em várias empresas) ──
-    // Se o CPF já existe, vincula o usuário existente a ESTA empresa em vez de
-    // recriar (CPF é único). Não mexe no auth, senha ou dados pessoais dele.
+    // CPFs são salvos com ou sem máscara (dados legados inconsistentes).
+    // Consulta as duas variantes para não criar duplicatas.
+    const cpfFormatado = cpfDigits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
     const { data: existente } = await supabaseAdmin
-      .from('usuarios').select('id, nome, email, telefone, primeiro_acesso').eq('cpf', cpfDigits).maybeSingle()
+      .from('usuarios').select('id, nome, email, telefone, primeiro_acesso')
+      .in('cpf', [cpfDigits, cpfFormatado]).maybeSingle()
 
     if (existente) {
       const { data: jaVinculado } = await supabaseAdmin
