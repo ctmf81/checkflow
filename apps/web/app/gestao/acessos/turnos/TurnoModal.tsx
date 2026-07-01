@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
@@ -10,6 +10,8 @@ import { useToast } from '@/components/ui/feedback'
 interface DiaConfig { dia: number; inicio: string; fim: string }
 
 type ModoForaTurno = 'notificacao' | 'login' | 'aviso'
+
+interface TurnoPeriodo { id?: string; nome: string; offset_horas: number; ordem: number }
 
 interface Turno {
   id: string
@@ -47,6 +49,18 @@ function diasDoConfig(config: any): DiaConfig[] {
   return []
 }
 
+function computarPeriodos(hTrab: number, hFolga: number, existentes: TurnoPeriodo[]): TurnoPeriodo[] {
+  const total = hTrab + hFolga
+  if (!hTrab || !hFolga || total <= 0) return []
+  const n = Math.round(total / hTrab)
+  return Array.from({ length: n }, (_, i) => ({
+    id: existentes[i]?.id,
+    nome: existentes[i]?.nome ?? `Turno ${i + 1}`,
+    offset_horas: i * hTrab,
+    ordem: i + 1,
+  }))
+}
+
 export function TurnoModal({ turno, onClose, onSalvo }: Props) {
   const { empresaAtiva } = useSession()
   const toast = useToast()
@@ -56,12 +70,12 @@ export function TurnoModal({ turno, onClose, onSalvo }: Props) {
   const [tipo, setTipo] = useState<'administrativo' | 'escala'>(turno?.tipo ?? 'administrativo')
   const [modoFora, setModoFora] = useState<ModoForaTurno>(turno?.modo_fora_turno ?? 'notificacao')
 
-  // Administrativo: mapa dia -> { ativo, inicio, fim }
+  // Administrativo
   const diasIniciais = diasDoConfig(turno?.config)
   const [diasAtivos, setDiasAtivos] = useState<Record<number, boolean>>(() => {
     const m: Record<number, boolean> = {}
     DIAS.forEach(d => { m[d.v] = diasIniciais.some(x => x.dia === d.v) })
-    if (diasIniciais.length === 0) { [1,2,3,4,5].forEach(d => m[d] = true) } // padrão seg-sex
+    if (diasIniciais.length === 0) { [1,2,3,4,5].forEach(d => m[d] = true) }
     return m
   })
   const [horarios, setHorarios] = useState<Record<number, { inicio: string; fim: string }>>(() => {
@@ -76,11 +90,35 @@ export function TurnoModal({ turno, onClose, onSalvo }: Props) {
   // Escala
   const [dataReferencia, setDataReferencia] = useState(turno?.config?.data_referencia ?? '')
   const [horaInicioEscala, setHoraInicioEscala] = useState(turno?.config?.hora_inicio ?? '07:00')
-  const [horasTrabalho, setHorasTrabalho] = useState(turno?.config?.horas_trabalho ?? 12)
-  const [horasFolga, setHorasFolga] = useState(turno?.config?.horas_folga ?? 36)
+  const [horasTrabalho, setHorasTrabalho] = useState<number>(turno?.config?.horas_trabalho ?? 12)
+  const [horasFolga, setHorasFolga] = useState<number>(turno?.config?.horas_folga ?? 36)
+  const [periodos, setPeriodos] = useState<TurnoPeriodo[]>([])
 
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
+
+  // Carrega períodos existentes ao editar
+  useEffect(() => {
+    if (!turno?.id || turno.tipo !== 'escala') return
+    createClient()
+      .from('turno_periodos')
+      .select('id, nome, offset_horas, ordem')
+      .eq('turno_id', turno.id)
+      .order('ordem')
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setPeriodos(data as TurnoPeriodo[])
+        } else {
+          setPeriodos(computarPeriodos(turno.config?.horas_trabalho ?? 12, turno.config?.horas_folga ?? 36, []))
+        }
+      })
+  }, [turno?.id])
+
+  // Recomputa períodos quando horas mudam (modo criação ou se não carregou do banco ainda)
+  useEffect(() => {
+    if (tipo !== 'escala') return
+    setPeriodos(prev => computarPeriodos(horasTrabalho, horasFolga, prev))
+  }, [horasTrabalho, horasFolga, tipo])
 
   function toggleDia(v: number) {
     setDiasAtivos(prev => ({ ...prev, [v]: !prev[v] }))
@@ -90,47 +128,45 @@ export function TurnoModal({ turno, onClose, onSalvo }: Props) {
     setHorarios(prev => ({ ...prev, [v]: { ...prev[v], [campo]: valor } }))
   }
 
+  function setPeriodoNome(i: number, novoNome: string) {
+    setPeriodos(prev => prev.map((p, idx) => idx === i ? { ...p, nome: novoNome } : p))
+  }
+
   async function salvar() {
     if (!nome.trim()) { setErro('Informe o nome do turno.'); return }
 
     let config: any = {}
+    let horaInicio = '00:00'
+    let horaFim = '00:00'
+
     if (tipo === 'administrativo') {
       const dias: DiaConfig[] = DIAS
         .filter(d => diasAtivos[d.v])
         .map(d => ({ dia: d.v, inicio: horarios[d.v].inicio, fim: horarios[d.v].fim }))
       if (dias.length === 0) { setErro('Selecione ao menos um dia da semana.'); return }
       config = { dias }
+      horaInicio = dias[0]?.inicio ?? '08:00'
+      horaFim = dias[dias.length - 1]?.fim ?? '17:00'
     } else {
       if (!dataReferencia) { setErro('Informe a data de referência da escala.'); return }
       if (!horasTrabalho || !horasFolga) { setErro('Informe as horas de trabalho e de folga.'); return }
+      if (periodos.some(p => !p.nome.trim())) { setErro('Nomeie todos os períodos.'); return }
       config = {
         data_referencia: dataReferencia,
         hora_inicio: horaInicioEscala,
         horas_trabalho: Number(horasTrabalho),
         horas_folga: Number(horasFolga),
       }
+      horaInicio = horaInicioEscala
+      const hTrab = Number(horasTrabalho)
+      const [h, m] = horaInicio.split(':').map(Number)
+      const fimMin = h * 60 + m + hTrab * 60
+      horaFim = `${String(Math.floor(fimMin / 60) % 24).padStart(2, '0')}:${String(fimMin % 60).padStart(2, '0')}`
     }
 
     setErro('')
     setSalvando(true)
     const supabase = createClient()
-
-    // hora_inicio / hora_fim: colunas diretas na tabela (NOT NULL)
-    // Administrativo: primeiro/último horário dos dias ativos
-    // Escala: hora de início do ciclo e hora de início + horas de trabalho
-    let horaInicio = '00:00'
-    let horaFim = '00:00'
-    if (tipo === 'administrativo') {
-      const diasCfg = (config.dias ?? []) as DiaConfig[]
-      horaInicio = diasCfg[0]?.inicio ?? '08:00'
-      horaFim = diasCfg[diasCfg.length - 1]?.fim ?? '17:00'
-    } else {
-      horaInicio = config.hora_inicio ?? '07:00'
-      const hTrab = Number(config.horas_trabalho ?? 12)
-      const [h, m] = horaInicio.split(':').map(Number)
-      const fimMin = h * 60 + m + hTrab * 60
-      horaFim = `${String(Math.floor(fimMin / 60) % 24).padStart(2, '0')}:${String(fimMin % 60).padStart(2, '0')}`
-    }
 
     const payload = {
       nome: nome.trim(),
@@ -142,14 +178,32 @@ export function TurnoModal({ turno, onClose, onSalvo }: Props) {
       atualizado_em: new Date().toISOString(),
     }
 
+    let turnoId = turno?.id ?? ''
+
     if (isEdicao) {
       const { error } = await supabase.from('turnos').update(payload).eq('id', turno.id)
       if (error) { setErro('Erro ao salvar.'); setSalvando(false); return }
     } else {
-      const { error } = await supabase.from('turnos').insert({
+      const { data, error } = await supabase.from('turnos').insert({
         ...payload, empresa_id: empresaAtiva?.id ?? null, ativo: true,
-      })
-      if (error) { setErro('Erro ao criar.'); setSalvando(false); return }
+      }).select('id').single()
+      if (error || !data) { setErro('Erro ao criar.'); setSalvando(false); return }
+      turnoId = data.id
+    }
+
+    // Salva períodos (só para escala)
+    if (tipo === 'escala' && periodos.length > 0) {
+      // Apaga os existentes e reinserere (garante consistência se a quantidade mudou)
+      await supabase.from('turno_periodos').delete().eq('turno_id', turnoId)
+      const { error: errPer } = await supabase.from('turno_periodos').insert(
+        periodos.map(p => ({
+          turno_id: turnoId,
+          nome: p.nome.trim(),
+          offset_horas: p.offset_horas,
+          ordem: p.ordem,
+        }))
+      )
+      if (errPer) { setErro('Turno salvo, mas não foi possível salvar os períodos.'); setSalvando(false); return }
     }
 
     setSalvando(false)
@@ -213,7 +267,6 @@ export function TurnoModal({ turno, onClose, onSalvo }: Props) {
                     className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded-lg bg-gray-50 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-orange-200" />
                 </div>
               ))}
-              <p className="text-xs text-gray-400">Ex: segunda a sexta das 08h às 17h e sábado das 08h às 11h — configure cada dia individualmente.</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -224,7 +277,7 @@ export function TurnoModal({ turno, onClose, onSalvo }: Props) {
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Início do 1º turno</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Início do 1º período</label>
                   <input type="time" value={horaInicioEscala} onChange={e => setHoraInicioEscala(e.target.value)}
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
                 </div>
@@ -232,18 +285,42 @@ export function TurnoModal({ turno, onClose, onSalvo }: Props) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Horas de trabalho</label>
-                  <input type="number" min={1} value={horasTrabalho} onChange={e => setHorasTrabalho(e.target.value)}
+                  <input type="number" min={1} value={horasTrabalho}
+                    onChange={e => setHorasTrabalho(Number(e.target.value))}
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Horas de folga</label>
-                  <input type="number" min={1} value={horasFolga} onChange={e => setHorasFolga(e.target.value)}
+                  <input type="number" min={1} value={horasFolga}
+                    onChange={e => setHorasFolga(Number(e.target.value))}
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
                 </div>
               </div>
-              <p className="text-xs text-gray-400">
-                Ex: 12x36 = 12h de trabalho + 36h de folga, repetindo continuamente a partir da data/hora de referência informada.
-              </p>
+
+              {/* Períodos computados */}
+              {periodos.length > 0 && (
+                <div className="border border-gray-100 rounded-lg p-3 bg-gray-50 space-y-2">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    {periodos.length} período{periodos.length > 1 ? 's' : ''} — nomeie cada equipe
+                  </p>
+                  {periodos.map((p, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 w-20 flex-shrink-0">
+                        +{p.offset_horas}h offset
+                      </span>
+                      <input
+                        value={p.nome}
+                        onChange={e => setPeriodoNome(i, e.target.value)}
+                        placeholder={`Turno ${i + 1}`}
+                        className="flex-1 px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-200"
+                      />
+                    </div>
+                  ))}
+                  <p className="text-xs text-gray-400">
+                    O offset indica quantas horas depois do ponto zero esta equipe começa o seu ciclo.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

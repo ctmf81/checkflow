@@ -10,6 +10,8 @@ import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { useConfirm, useToast } from '@/components/ui/feedback'
 
+interface TurnoPeriodo { id: string; nome: string; ordem: number }
+
 interface Turno {
   id: string
   nome: string
@@ -17,6 +19,7 @@ interface Turno {
   config: any
   ativo: boolean
   modo_fora_turno?: 'notificacao' | 'login' | 'aviso'
+  periodos?: TurnoPeriodo[]
 }
 
 const DIA_LABEL: Record<number, string> = { 0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb' }
@@ -26,10 +29,19 @@ function resumo(turno: Turno): React.ReactNode {
   if (turno.tipo === 'escala') {
     const c = turno.config ?? {}
     return (
-      <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5">
-        <Repeat size={12} className="text-gray-300" />
-        Ciclo {c.horas_trabalho}h trabalho / {c.horas_folga}h folga · início {c.hora_inicio?.slice(0,5)} a partir de {c.data_referencia ? new Date(c.data_referencia + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
-      </p>
+      <div className="mt-0.5 space-y-1">
+        <p className="text-xs text-gray-500 flex items-center gap-1.5">
+          <Repeat size={12} className="text-gray-300" />
+          Ciclo {c.horas_trabalho}h/{c.horas_folga}h · início {c.hora_inicio?.slice(0,5)} a partir de {c.data_referencia ? new Date(c.data_referencia + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
+        </p>
+        {(turno.periodos ?? []).length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {(turno.periodos ?? []).map(p => (
+              <span key={p.id} className="text-[10px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">{p.nome}</span>
+            ))}
+          </div>
+        )}
+      </div>
     )
   }
   const dias: { dia: number; inicio: string; fim: string }[] = turno.config?.dias ?? []
@@ -62,7 +74,7 @@ export default function TurnosPage() {
     setLoading(true)
     const { data } = await createClient()
       .from('turnos')
-      .select('id, nome, tipo, config, ativo, modo_fora_turno')
+      .select('id, nome, tipo, config, ativo, modo_fora_turno, periodos:turno_periodos(id, nome, ordem)')
       .eq('empresa_id', empresaAtiva.id)
       .eq('ativo', true)
       .order('nome')

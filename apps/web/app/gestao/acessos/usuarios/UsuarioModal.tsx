@@ -25,6 +25,7 @@ interface Perfil { id: string; nome: string; publico: boolean; is_system: boolea
 const ADMIN_EMPRESA_ID = '00000000-0000-0000-0000-000000000002'
 const ADMIN_SISTEMA_ID = '00000000-0000-0000-0000-000000000001'
 interface Turno { id: string; nome: string; tipo: 'administrativo' | 'escala' }
+interface TurnoPeriodo { id: string; nome: string; ordem: number }
 
 interface Props {
   usuario?: Usuario
@@ -56,9 +57,11 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
   const [perfilId, setPerfilId] = useState(usuario?.perfilId ?? '')
   const [unidadesSel, setUnidadesSel] = useState<Unidade[]>(usuario?.unidades ?? [])
   const [turnoId, setTurnoId] = useState(usuario?.turnoId ?? '')
+  const [turnoPeriodoId, setTurnoPeriodoId] = useState<string>('')
   const [perfis, setPerfis] = useState<Perfil[]>([])
   const [unidades, setUnidades] = useState<Unidade[]>([])
   const [turnos, setTurnos] = useState<Turno[]>([])
+  const [turnoPeriodos, setTurnoPeriodos] = useState<TurnoPeriodo[]>([])
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
   // Pessoa já cadastrada no sistema (mesmo CPF em outra empresa) → modo vínculo
@@ -156,7 +159,26 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
     let tq = supabase.from('turnos').select('id, nome, tipo').eq('ativo', true).order('nome')
     if (empresaId) tq = tq.eq('empresa_id', empresaId) as typeof tq
     tq.then(({ data }) => { if (data) setTurnos(data as Turno[]) })
+
+    // Carrega o período atual do usuário (edição)
+    if (usuario?.id) {
+      supabase.from('usuarios').select('turno_periodo_id').eq('id', usuario.id).single()
+        .then(({ data }) => { if (data?.turno_periodo_id) setTurnoPeriodoId(data.turno_periodo_id) })
+    }
   }, [perfilFixo, empresaId, usuario?.perfilId])
+
+  // Carrega períodos ao selecionar turno de escala
+  useEffect(() => {
+    if (!turnoId) { setTurnoPeriodos([]); return }
+    const turno = turnos.find(t => t.id === turnoId)
+    if (turno?.tipo !== 'escala') { setTurnoPeriodos([]); return }
+    createClient()
+      .from('turno_periodos')
+      .select('id, nome, ordem')
+      .eq('turno_id', turnoId)
+      .order('ordem')
+      .then(({ data }) => setTurnoPeriodos((data ?? []) as TurnoPeriodo[]))
+  }, [turnoId, turnos])
 
   function toggleUnidade(u: Unidade) {
     setUnidadesSel(prev =>
@@ -191,7 +213,9 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
       if (isEdicao) {
         // Atualiza dados do usuário existente
         await supabase.from('usuarios').update({
-          nome, cpf: cpf || null, telefone: telefone || null, turno_id: turnoId || null
+          nome, cpf: cpf || null, telefone: telefone || null,
+          turno_id: turnoId || null,
+          turno_periodo_id: turnoPeriodoId || null,
         }).eq('id', usuario.id)
 
         // Notifica o Header para atualizar o nome caso seja o próprio usuário logado
@@ -322,15 +346,27 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Turno</label>
-            <select value={turnoId} onChange={e => setTurnoId(e.target.value)}
+            <select value={turnoId} onChange={e => { setTurnoId(e.target.value); setTurnoPeriodoId('') }}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
               <option value="">Sem turno (recebe mensagens a qualquer hora)</option>
               {turnos.map(t => (
                 <option key={t.id} value={t.id}>{t.nome} ({t.tipo === 'escala' ? 'escala' : 'administrativo'})</option>
               ))}
             </select>
+            {turnoPeriodos.length > 0 && (
+              <div className="mt-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1">Período (equipe)</label>
+                <select value={turnoPeriodoId} onChange={e => setTurnoPeriodoId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
+                  <option value="">Sem período específico</option>
+                  {turnoPeriodos.map(p => (
+                    <option key={p.id} value={p.id}>{p.nome}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <p className="text-xs text-gray-400 mt-1">
-              Fora do turno, o usuário não recebe mensagens de moderação por WhatsApp (mas continua podendo moderar normalmente pelo sistema).
+              Fora do turno, o usuário não recebe mensagens de moderação por WhatsApp.
             </p>
           </div>
 
