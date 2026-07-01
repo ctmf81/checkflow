@@ -50,6 +50,18 @@ Onboarding self-service com moderação. Detalhes técnicos em `/db` (RLS) e `/u
 - O **admin da empresa** modera na tela de Usuários (aba "Pré-cadastros" com contador): **Aprovar** (escolhe perfil + unidades) → reusa `/api/usuarios/criar` (cria o usuário **e dispara o código de 1º acesso** WhatsApp/e-mail); **Rejeitar** marca rejeitado.
 - E-mail é **recomendado** no form (canal de backup do código). CPF já existente → **vincula** à empresa (e reenvia o código se a pessoa nunca concluiu o 1º acesso). Spam é contido pela moderação (anônimo só cria pendente).
 
+## Setup automático de nova empresa — 2026-06-28
+Ao criar uma empresa (`NovaEmpresaModal`), o sistema executa automaticamente:
+1. **Unidade padrão** (já existia antes)
+2. **Grupo padrão + Subgrupo padrão** — estrutura mínima para receber checklists e usuários (commits `3be77bb`/`359f464`)
+3. **2 turnos padrão** — "Administrativo" (seg-sex 08-17h) + "12x36" com 4 períodos (trigger `trg_empresa_turnos_seed`)
+4. **Perfil "Gestão do Grupo"** — perfil per-empresa editável, 28 permissões de gestão de área (trigger `trg_empresa_gestao_grupo_seed`)
+5. **10 templates de notificação** — WhatsApp + e-mail para cada tipo de evento (trigger `trg_empresa_notif_seed`)
+6. **Checklist inicial por IA** (opcional, campo no modal): se o admin informar uma descrição, gera via IA um checklist **já publicado** (2 seções, tipos sem cadastro prévio — sim_nao/numero/texto/foto/data_hora/multipla_escolha), escopado à unidade/subgrupo padrão. Geração best-effort: falha da IA não impede criar a empresa. Motor: `lib/ia/checklistIA.ts` (reusa o failover de `ia_provedores`; **NÃO debita tokens do cliente**).
+7. **"Salvar administrador"**: no fluxo de criação, o 1º admin é vinculado à empresa (`usuario_empresa`, perfil Admin da empresa) **e registrado como N1 no subgrupo padrão** (`usuario_subgrupo`, funcao=`nivel_1`) — pronto para receber e moderar planos de ação (commit `238d158`).
+
+Toda a estrutura nasce consistente: a empresa pode receber execuções imediatamente após a criação.
+
 ## Tenant / Access Hierarchy
 ```
 Empresa → Unidade → Usuário
@@ -169,7 +181,7 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - **Visibilidade**: o operador vê os checklists publicados dos subgrupos a que está associado (`usuario_subgrupo`). **Regra do "nenhum subgrupo selecionado = acesso a todos"**: aparece em `AdicionarUsuarioModal` e `SubgruposUsuarioModal` — confirmar implementação real no fetch da Operação.
 - **Perfil público** (`perfis.publico=true`): perfil que **gestores de grupo/setor** podem atribuir (ex: cobertura temporária de liderança); não-público só o **Admin da empresa** (ou admin de sistema) atribui — trigger `validar_troca_perfil` garante. NÃO confundir com `empresa_id is null` (= perfil de sistema/global, modelo p/ todas as empresas). No `UsuariosGrupoModal` (contexto de gestor) o seletor de perfil mostra **só os públicos** (+ o perfil atual do usuário, mesmo não-público, apenas para exibição; só atualiza se mudar). Em Acessos → Usuários (admin da empresa) mostra todos.
 - **Pré-requisito p/ adicionar ao grupo**: o usuário precisa **já estar cadastrado na empresa** (`usuario_empresa`). O `AdicionarUsuarioModal` só lista usuários da empresa; cadastro de novo usuário é em `/gestao/acessos/usuarios`.
-- **"Gerenciar usuários"** (`UsuariosGrupoModal`) — por usuário do grupo: editar **nome/telefone/perfil**; gerenciar **subgrupos** de acesso; **reenviar senha** (envia código por WhatsApp via `/api/usuarios/resetar-senha` — fluxo CPF+OTP, exige telefone); **remover do grupo** (apaga `usuario_grupo` **e** os `usuario_subgrupo` daquele grupo, sem acesso órfão — não exclui o usuário do sistema). Editar perfil respeita o guard do último admin (trigger). Corrigido 2026-06-17.
+- **"Gerenciar usuários"** (`UsuariosGrupoModal`) — por usuário do grupo: editar **nome/telefone/perfil/turno/período**; gerenciar **subgrupos** de acesso; **reenviar senha** (envia código por WhatsApp via `/api/usuarios/resetar-senha` — fluxo CPF+OTP, exige telefone); **remover do grupo** (apaga `usuario_grupo` **e** os `usuario_subgrupo` daquele grupo, sem acesso órfão — não exclui o usuário do sistema). Editar perfil respeita o guard do último admin (trigger). Perfil: só mostra públicos (+ atual); turno/período: carrega turnos da empresa + períodos condicionalmente (igual ao fluxo de Acessos → Usuários). Atualizado 2026-07-01.
 - **Funções por subgrupo** (`usuario_subgrupo.funcao`): definem o papel do usuário sobre os checklists daquela área.
   - **— (null)**: só visualiza.
   - **Operação**: executa checklists.
@@ -177,9 +189,14 @@ Rule: **never mutate a published checklist structure** — create a new version 
   - **Nível 2**: recebe a moderação **escalada pelo N1** → ações: **corrigir, não corrigir, devolver para N1**; também pode atuar como N1 e executar checklist.
   - **Notificações por nível**: cada nível só recebe alerta (WhatsApp + e-mail) quando a ação é **compatível com o seu nível** (N1 recebe o que é de N1; N2 recebe o escalado para N2).
 
-## Acessos → Usuários — revisado/corrigido 2026-06-17
-- Lista usuários ativos da empresa (`usuario_empresa`). Login por CPF; telefone obrigatório (OTP WhatsApp); e-mail opcional (→ `cpf@checkflow.local`).
-- **Cadastro (modal `UsuarioModal`)**: nome, CPF, telefone, e-mail, **perfil** (obrigatório; só públicos p/ não-admin), **turno**, **unidades**. 
+## Acessos → Usuários — revisado/corrigido 2026-07-01
+- Lista usuários **ativos** da empresa por padrão. **Toggle "Mostrar inativos"** exibe usuários inativados com badge cinza + visual acinzentado + botão "Reativar" (ícone RotateCcw). Ativos continuam ocultos no toggle inativo.
+- **Inativar usuário**: `/api/usuarios/inativar` invalida a sessão do usuário (`signOut` global) + marca `status='inativo'`. **Guard do último admin**: bloqueia (HTTP 409) se o usuário for o último `admin_empresa` ativo da empresa — não pode restar a empresa sem administrador.
+- **Reativar usuário**: rota via service role (bypassa RLS de escrita que só permite inativar o próprio). Admin de sistema ou admin da empresa pode reativar.
+- **Cadastro/edição (modal `UsuarioModal`)**: nome, CPF, telefone, e-mail, **perfil** (obrigatório; só públicos p/ não-admin), **turno**, **período do turno** (seletor aparece condicionalmente se turno for tipo escala), **unidades**. Acessível também via **"Minha conta"** no dropdown do header (edita o próprio usuário logado; nome no header atualiza ao salvar).
+- **Unidades inativas** não aparecem no seletor de unidades do modal (filtradas para não criar vínculo com unidade desativada).
+- **RLS UPDATE de usuários por admin de empresa** (migration `20260701050000`): adicionada policy `usuarios_escrita_admin_empresa` — admin de empresa pode UPDATE em `usuarios` para qualquer usuário da sua empresa (inclui nome, cpf, telefone, turno_id, turno_periodo_id). Sem esta policy, o UPDATE via browser client falhava silenciosamente.
+- **RLS leitura por admin de empresa** (migration `20260701000000`): policy `usuarios_admin_empresa` garante que admin de empresa veja todos os usuários da empresa diretamente, sem depender do join recursivo.
 - 🔴→✅ **Bug corrigido (2026-06-17)**: a criação avulsa **não vinculava `usuario_empresa`/perfil/unidades** (usuário ficava órfão, não aparecia na lista nem podia entrar em grupos) e a **edição não salvava perfil/unidades**. Fix: rota `/api/usuarios/criar` agora recebe `empresaId/perfilId/unidades` e insere `usuario_empresa` (com rollback) + `usuario_unidade`; o modal salva perfil (`usuario_empresa`) e sincroniza unidades (`usuario_unidade`) na edição, e carrega as unidades atuais ao abrir. Avatar removido (não haverá foto de pessoa).
 - ✅ **RLS resolvido (2026-06-20)**: o **Admin da empresa** agora tem policies próprias para gerenciar `usuario_empresa`/`usuario_unidade`/`usuario_grupo`/`usuario_subgrupo` (+ estrutura) da sua empresa — edições client-side de perfil/unidades funcionam sem depender de service role. Ver seção "Admin da empresa" abaixo.
 
@@ -308,7 +325,12 @@ Atividade tipo `padrao`: validação **complexa** cujo valor de referência NÃO
   - **Administrativo**: horário fixo configurável por dia da semana (ex: seg-sex 08-17h, sábado 08-11h — cada dia com sua própria janela)
   - **Escala**: ciclo rotativo trabalho/folga a partir de uma data de referência (ex: 12x36, 24x48 — calculado continuamente, sem precisar recadastrar)
 - **Escopo por empresa** (não unidade): turno tem `empresa_id`; reusado entre unidades e vinculado ao **usuário**. É exceção deliberada à regra "toda tela = unidade ativa" — vale para as telas de Acessos em geral (são empresa-level).
-- Vínculo opcional (1 turno por usuário) feito na edição do usuário (`UsuarioModal.tsx` em `/gestao/acessos/usuarios`)
+- **Auto-seed ao criar empresa** (migration `20260701030000` + `20260701040000`): toda empresa nova recebe automaticamente 2 turnos padrão via trigger `trg_empresa_turnos_seed`:
+  - "Administrativo" — seg-sex, 08:00–17:00
+  - "12x36" — escala, data_referência 2026-01-01, hora_inicio 07:00, horas_trabalho=12, horas_folga=36 + 4 períodos (Turno 1/2/3/4, offsets 0/12/24/36h)
+- Vínculo opcional (1 turno + 1 período por usuário) feito na edição do usuário em **Acessos → Usuários** (`UsuarioModal.tsx`) **e também** em **Grupos → Usuários → Editar** (`UsuariosGrupoModal.tsx` — gestores de grupo podem alterar). Campos: `usuarios.turno_id` + `usuarios.turno_periodo_id`
+- **Períodos de escala** (`turno_periodos`): para turnos do tipo `escala`, o sistema computa automaticamente a quantidade de períodos com base em `(horas_trabalho + horas_folga) / horas_trabalho` (ex: 12x36 → 4 períodos). O gestor nomeia cada período (ex: "Turno A", "Turno B"). Cada período tem `offset_horas = i * horas_trabalho` — desloca o zero-point do ciclo para a equipe. `usuario_esta_no_turno()` aplica o offset do período atribuído ao cálculo do ciclo.
+- **Proteção ao reduzir períodos**: ao editar um turno escala com mudança de `horas_trabalho` ou `horas_folga` que resulte em menos períodos que antes, o sistema detecta quantos usuários estão em períodos que serão removidos, exibe diálogo de confirmação ("X usuários perderão o período mas manterão o turno") e, se confirmado, faz `UPDATE usuarios SET turno_periodo_id = null` para os afetados antes de deletar/recriar os períodos.
 - **Modo fora do turno** (revisado 2026-06-22) — coluna `turnos.modo_fora_turno`, escolha única de 3 (default `notificacao`):
   - `notificacao` (padrão, = comportamento histórico): fora do horário **não recebe WhatsApp** de moderação; acessa e usa normal. (e-mail sempre é enviado)
   - `login`: fora do horário **não consegue logar** (checado no login após `signInWithPassword` via RPC `usuario_pode_acessar`; bloqueado → `signOut` + aviso). **Quem já está logado continua** — não derruba sessão. **Isentos: admin de sistema e admin da empresa.** Notificações seguem normais.
@@ -316,6 +338,7 @@ Atividade tipo `padrao`: validação **complexa** cujo valor de referência NÃO
   - Cada modo faz **exatamente uma** coisa (mutuamente exclusivos). Funções SQL: `usuario_recebe_notificacao`, `usuario_pode_acessar`, `usuario_deve_avisar_turno` (migration `20260622120000`).
 - Usuário sem turno (ou turno inativo) nunca é restringido
 - Notificação aplica-se tanto a moderadores N1 quanto N2
+- ⏳ **Pendência — férias**: ao revisar o módulo de notificações, implementar `ferias_inicio`/`ferias_fim` por usuário; usuário em férias não recebe nenhuma notificação (similar ao check de `usuario_esta_no_turno`)
 
 ## Workflow + Checklist: regras de integridade
 - Não é possível inativar um checklist em uso por workflow `publicado` (trigger bloqueia com exceção)
@@ -323,6 +346,9 @@ Atividade tipo `padrao`: validação **complexa** cujo valor de referência NÃO
 
 ## Perfis — flag "público"
 - **Perfis criados automaticamente por empresa:** além dos perfis de **SISTEMA** globais (`Admin da empresa` `…002`, `Operação` `…003`, `Admin de sistema` `…001` — `empresa_id null`, `is_system=true`, não editáveis), toda empresa nova ganha um perfil **PER-EMPRESA "Gestão do Grupo"** (`is_system=false`, `publico=false`, `empresa_id` da empresa — **editável/excluível** pelo admin da empresa). 28 permissões de gestão de área (grupos/subgrupos, agendamentos, catálogos, documentos, causa raiz, não execução, tickets). Criado por `seed_perfil_gestao_grupo` + trigger `trg_empresa_gestao_grupo_seed` (migration `20260630130000`, espelha o perfil de referência da QA Smoke). Ver `/db`.
+- **Admin de sistema oculto na tela de Perfis do admin de empresa** (2026-07-01): a query da listagem de perfis em `/gestao/acessos/perfis` filtra `.neq('id', '00000000-0000-0000-0000-000000000001')` para admin de empresa — o perfil "Admin de sistema" nunca aparece (não é gerenciável por ele).
+- **Bug de permissões corrigido** (migration `20260701020000`): a foundation seed usava `acao = 'deletar'` mas o frontend usava `acao = 'excluir'` → todos os checkboxes "Excluir" de grupos/subgrupos/usuários/perfis chegavam sempre desmarcados ao salvar. Corrigido por rename no DB. Também faltavam as permissões `checklists.*` (criar/editar/excluir/configuracoes/duplicar) no catálogo — adicionadas na mesma migration.
+- **Contagem de usuários no card de perfil**: UI minimalista — texto simples "N usuários" (ou "sem usuários" em cinza claro), sem stack de avatares.
 - **Menu lateral por permissão** (2026-06-30, commit `82774d1`): o Sidebar da gestão **só mostra o que o perfil libera** — cada item mapeia um `recurso` (ou é admin-only); admin da empresa/sistema vê tudo; Home/Planos de Ação/Indicadores são sempre visíveis (sem permissão de perfil). É **UX** (esconder seção não-usada), não segurança — a barreira real é RLS + checagem de permissão nas ações. `indicadores`/`relatorios` foram **removidos do construtor** (não tinham enforcement; ver `/db`). "Relatórios"/"Dashboards" no menu = páginas **planejadas** (hoje 404).
 - `perfis.publico` (boolean): determina quem pode atribuir aquele perfil a um usuário
   - **Público** = pode ser atribuído por quem gerencia usuários do próprio grupo/setor (ex: substituição temporária de um líder de férias, sem precisar do admin da empresa)
@@ -436,9 +462,10 @@ Implementado em 2026-06-10 (Fases 2-6 da estratégia de login). Tudo baseado em 
 
 - **Primeiro acesso**: ao criar usuário (`/api/usuarios/criar`) ou importar (`/api/usuarios/importar`), gera-se automaticamente um código `primeiro_acesso` e dispara por WhatsApp (+ e-mail se houver). Usuário acessa `/primeiro-acesso`, informa CPF + código → recebe um token de sessão → `/nova-senha` define a senha (marca `primeiro_acesso = false`)
 - **Self-service ("esqueci minha senha")**: `/recuperar-senha` (CPF → código → `/nova-senha`). Resposta sempre genérica (`/api/auth/solicitar-codigo`) para não revelar se o CPF existe. Limite: 3 solicitações/hora por usuário
-- **Reset disparado por gestor**: botão "Resetar senha" (ícone chave) em `/gestao/acessos/usuarios`, chama `/api/usuarios/resetar-senha` (gated por `is_admin_sistema()` ou `usuario_tem_permissao('usuarios','editar')`). Envia código `reset_admin` por WhatsApp ao usuário. Limite: 5/hora por usuário
-- Fluxo de verificação é unificado: `/api/auth/verificar-codigo` aceita código de qualquer um dos 3 tipos (`primeiro_acesso`/`reset_admin`/`self_service`), retorna um token de sessão de uso único (`sessao_senha`, 10min) consumido por `/api/auth/definir-senha`
-- Código expira em 15 minutos, máx. 5 tentativas
+- **Reset disparado por gestor** (revisado 2026-07-01): botão "Resetar senha" (ícone chave) em `/gestao/acessos/usuarios`, chama `/api/usuarios/resetar-senha`. Gera token `sessao_senha` (TTL 24h) e envia **link direto** `/nova-senha?t=TOKEN&uid=ID` por WhatsApp/e-mail — o usuário clica e define a nova senha sem precisar digitar CPF nem código OTP. A `/nova-senha` detecta `?t+uid` na URL e pula a etapa de verificação. ⚠️ Não confundir com self-service (que ainda usa CPF → OTP → nova senha).
+- Fluxo de verificação: `/api/auth/definir-senha` aceita `{ uid, token }` (reset admin, direto) além de `{ cpf, token }` (self-service). Token de sessão único (`sessao_senha`) consumido em ambos os casos.
+- Código OTP ainda existe apenas para **self-service** e **primeiro acesso** — reset pelo admin é exclusivamente magic link desde 2026-07-01.
+- Código/link expiram em 15 min (OTP) / 24h (magic link); máx. 5 tentativas por código OTP.
 - Pré-requisito: usuário precisa ter `telefone` cadastrado (ver provisionamento) — sem telefone, reset/primeiro acesso não funcionam
 
 ## Onboarding Contextual
