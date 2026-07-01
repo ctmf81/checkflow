@@ -10,32 +10,21 @@ begin
   end if;
 
   -- Turno 1: Administrativo — seg a sex, 08h às 17h
-  insert into turnos (empresa_id, nome, tipo, config) values (
+  insert into turnos (empresa_id, nome, tipo, config, hora_inicio, hora_fim) values (
     p_empresa_id,
     'Administrativo',
     'administrativo',
-    '{
-      "dias": [
-        {"dia": 1, "inicio": "08:00", "fim": "17:00"},
-        {"dia": 2, "inicio": "08:00", "fim": "17:00"},
-        {"dia": 3, "inicio": "08:00", "fim": "17:00"},
-        {"dia": 4, "inicio": "08:00", "fim": "17:00"},
-        {"dia": 5, "inicio": "08:00", "fim": "17:00"}
-      ]
-    }'::jsonb
+    '{"dias":[{"dia":1,"inicio":"08:00","fim":"17:00"},{"dia":2,"inicio":"08:00","fim":"17:00"},{"dia":3,"inicio":"08:00","fim":"17:00"},{"dia":4,"inicio":"08:00","fim":"17:00"},{"dia":5,"inicio":"08:00","fim":"17:00"}]}'::jsonb,
+    '08:00', '17:00'
   );
 
   -- Turno 2: 12x36 — escala rotativa, referência 2026-01-01 07h
-  insert into turnos (empresa_id, nome, tipo, config) values (
+  insert into turnos (empresa_id, nome, tipo, config, hora_inicio, hora_fim) values (
     p_empresa_id,
     '12x36',
     'escala',
-    '{
-      "data_referencia": "2026-01-01",
-      "hora_inicio": "07:00",
-      "horas_trabalho": 12,
-      "horas_folga": 36
-    }'::jsonb
+    '{"data_referencia":"2026-01-01","hora_inicio":"07:00","horas_trabalho":12,"horas_folga":36}'::jsonb,
+    '07:00', '19:00'
   );
 end;
 $$;

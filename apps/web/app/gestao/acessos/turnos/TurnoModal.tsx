@@ -115,11 +115,30 @@ export function TurnoModal({ turno, onClose, onSalvo }: Props) {
     setSalvando(true)
     const supabase = createClient()
 
+    // hora_inicio / hora_fim: colunas diretas na tabela (NOT NULL)
+    // Administrativo: primeiro/último horário dos dias ativos
+    // Escala: hora de início do ciclo e hora de início + horas de trabalho
+    let horaInicio = '00:00'
+    let horaFim = '00:00'
+    if (tipo === 'administrativo') {
+      const diasCfg = (config.dias ?? []) as DiaConfig[]
+      horaInicio = diasCfg[0]?.inicio ?? '08:00'
+      horaFim = diasCfg[diasCfg.length - 1]?.fim ?? '17:00'
+    } else {
+      horaInicio = config.hora_inicio ?? '07:00'
+      const hTrab = Number(config.horas_trabalho ?? 12)
+      const [h, m] = horaInicio.split(':').map(Number)
+      const fimMin = h * 60 + m + hTrab * 60
+      horaFim = `${String(Math.floor(fimMin / 60) % 24).padStart(2, '0')}:${String(fimMin % 60).padStart(2, '0')}`
+    }
+
     const payload = {
       nome: nome.trim(),
       tipo,
       config,
       modo_fora_turno: modoFora,
+      hora_inicio: horaInicio,
+      hora_fim: horaFim,
       atualizado_em: new Date().toISOString(),
     }
 
