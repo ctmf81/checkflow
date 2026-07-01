@@ -60,6 +60,7 @@ export async function enviarWhatsApp({ numero, mensagem }: WhatsAppMessage): Pro
       body: JSON.stringify({
         number: numeroResolvido,
         text: mensagem,
+        linkPreview: false,
       }),
     })
 
