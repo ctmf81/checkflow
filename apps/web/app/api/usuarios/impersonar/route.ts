@@ -40,9 +40,13 @@ export async function POST(req: NextRequest) {
     const { email } = await req.json()
     if (!email) return NextResponse.json({ message: 'Email obrigatório.' }, { status: 400 })
 
-    // APP_URL tem precedência: em Railway, req.url retorna localhost:3000 (URL
-    // interna do container), não a URL pública. APP_URL corrige isso.
-    const origin = (process.env.APP_URL ?? '').replace(/\/$/, '') || new URL(req.url).origin
+    // Railway injeta x-forwarded-host com o hostname público.
+    // APP_URL é o segundo fallback; new URL(req.url).origin é só para dev local.
+    const fwdHost = req.headers.get('x-forwarded-host')
+    const fwdProto = req.headers.get('x-forwarded-proto') ?? 'https'
+    const origin = fwdHost
+      ? `${fwdProto}://${fwdHost}`
+      : (process.env.APP_URL ?? '').replace(/\/$/, '') || new URL(req.url).origin
 
     const adminClient = createClient(SUPABASE_URL, SUPABASE_SECRET)
     const { data, error } = await adminClient.auth.admin.generateLink({
