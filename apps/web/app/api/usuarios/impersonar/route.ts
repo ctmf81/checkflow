@@ -40,10 +40,9 @@ export async function POST(req: NextRequest) {
     const { email } = await req.json()
     if (!email) return NextResponse.json({ message: 'Email obrigatório.' }, { status: 400 })
 
-    // Redireciona de volta para a MESMA origem do admin (prod ou local), na
-    // /login — que detecta a sessão recém-criada pelo hash e roteia para o
-    // ambiente certo. Sem isto o link cai na Site URL padrão do Supabase.
-    const origin = new URL(req.url).origin
+    // APP_URL tem precedência: em Railway, req.url retorna localhost:3000 (URL
+    // interna do container), não a URL pública. APP_URL corrige isso.
+    const origin = (process.env.APP_URL ?? '').replace(/\/$/, '') || new URL(req.url).origin
 
     const adminClient = createClient(SUPABASE_URL, SUPABASE_SECRET)
     const { data, error } = await adminClient.auth.admin.generateLink({
