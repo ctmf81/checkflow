@@ -6,10 +6,12 @@ import { EscolherEmpresaModal } from '@/components/layout/EscolherEmpresaModal'
 import { TermosGate } from '@/components/layout/TermosGate'
 import { AvisoTurno } from '@/components/layout/AvisoTurno'
 import { AssistenteAjuda } from '@/components/ajuda/AssistenteAjuda'
+import { GestaoGuard } from '@/components/layout/GestaoGuard'
 
 export default function GestaoLayout({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
+      <GestaoGuard />
       <SidebarProvider>
         <div className="flex min-h-screen bg-slate-50">
           <TermosGate />
