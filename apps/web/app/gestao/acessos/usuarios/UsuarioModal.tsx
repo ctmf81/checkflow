@@ -67,16 +67,29 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
   async function verificarCpf() {
     if (isEdicao) return
     const digits = cpf.replace(/\D/g, '')
-    if (digits.length !== 11) { setPessoaExistente(null); return }
-    const { data } = await createClient().rpc('buscar_pessoa_por_cpf', { p_cpf: digits })
+    if (digits.length !== 11) { setPessoaExistente(null); setErro(''); return }
+    const supabase = createClient()
+    const { data } = await supabase.rpc('buscar_pessoa_por_cpf', { p_cpf: digits })
     const p = Array.isArray(data) ? data[0] : data
     if (p?.id) {
+      // Verifica se já está nesta empresa (evita aguardar o submit para dar erro)
+      if (empresaId) {
+        const { data: jaVinc } = await supabase
+          .from('usuario_empresa').select('usuario_id')
+          .eq('usuario_id', p.id).eq('empresa_id', empresaId).maybeSingle()
+        if (jaVinc) {
+          setErro('Esta pessoa já está cadastrada nesta empresa.')
+          setPessoaExistente(null)
+          return
+        }
+      }
+      setErro('')
       setPessoaExistente({ id: p.id, nome: p.nome })
-      // Pré-preenche para passar nas validações (campos ficam read-only no modo vínculo)
       if (p.nome) setNome(p.nome)
       if (p.telefone) setTelefone(formatTelefone(p.telefone))
     } else {
       setPessoaExistente(null)
+      setErro('')
     }
   }
 
