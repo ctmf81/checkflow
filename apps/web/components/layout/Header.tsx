@@ -2,24 +2,34 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { ChevronDown, LogOut, UserCircle, Building2, LayoutDashboard, Settings, Menu } from 'lucide-react'
+import { ChevronDown, LogOut, UserCircle, Building2, LayoutDashboard, Settings, Menu, User } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { useSidebarOptional } from './SidebarContext'
 import { InstallAppButton } from '@/components/pwa/InstallAppButton'
+import { UsuarioModal } from '@/app/gestao/acessos/usuarios/UsuarioModal'
+
+interface UsuarioParaModal {
+  id: string; nome: string; email: string; cpf: string | null
+  telefone: string | null; perfil: string; perfilId?: string
+  unidades: { id: string; nome: string }[]; turnoId?: string | null
+}
 
 export function Header() {
   const router = useRouter()
   const pathname = usePathname()
   const isSistema = pathname.startsWith('/sistema')
   const sidebar = useSidebarOptional()
-  const { unidades, unidadeAtiva, setUnidadeAtiva, setAmbiente, setEmpresaAtiva } = useSession()
+  const { unidades, unidadeAtiva, setUnidadeAtiva, setAmbiente, setEmpresaAtiva, empresaAtiva } = useSession()
   const [nome, setNome] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
   const [dropUnidade, setDropUnidade] = useState(false)
   const [dropUsuario, setDropUsuario] = useState(false)
   const refUnidade = useRef<HTMLDivElement>(null)
   const refUsuario = useRef<HTMLDivElement>(null)
+  const [minhaContaAberta, setMinhaContaAberta] = useState(false)
+  const [minhaContaDados, setMinhaContaDados] = useState<UsuarioParaModal | null>(null)
+  const [minhaContaCarregando, setMinhaContaCarregando] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -45,6 +55,45 @@ export function Header() {
       authSub.subscription.unsubscribe()
     }
   }, [])
+
+  async function abrirMinhaConta() {
+    setDropUsuario(false)
+    if (minhaContaDados) { setMinhaContaAberta(true); return }
+    setMinhaContaCarregando(true)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const empId = empresaAtiva?.id
+      const [{ data: u }, { data: vinculo }, { data: unids }] = await Promise.all([
+        supabase.from('usuarios').select('id,nome,email,cpf,telefone,turno_id').eq('id', user.id).single(),
+        empId
+          ? supabase.from('usuario_empresa').select('perfil_id, perfil:perfil_id(nome)')
+              .eq('usuario_id', user.id).eq('empresa_id', empId).maybeSingle()
+          : Promise.resolve({ data: null }),
+        supabase.from('usuario_unidade').select('unidade:unidade_id(id,nome)').eq('usuario_id', user.id),
+      ])
+
+      if (!u) return
+      const perfilRow = vinculo as any
+      const unidadesRow = (unids ?? []) as any[]
+      setMinhaContaDados({
+        id: u.id,
+        nome: u.nome,
+        email: u.email ?? '',
+        cpf: u.cpf,
+        telefone: u.telefone,
+        perfil: perfilRow?.perfil?.nome ?? '',
+        perfilId: perfilRow?.perfil_id ?? undefined,
+        unidades: unidadesRow.map((r: any) => r.unidade).filter(Boolean),
+        turnoId: u.turno_id ?? null,
+      })
+      setMinhaContaAberta(true)
+    } finally {
+      setMinhaContaCarregando(false)
+    }
+  }
 
   async function handleLogout() {
     const supabase = createClient()
@@ -155,6 +204,11 @@ export function Header() {
             )}
 
             <div className="border-t border-gray-100 mt-1">
+              <button onClick={abrirMinhaConta} disabled={minhaContaCarregando}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors disabled:opacity-50">
+                <User size={16} className="text-orange-400" />
+                {minhaContaCarregando ? 'Carregando...' : 'Minha conta'}
+              </button>
               <button onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors">
                 <LogOut size={16} />
@@ -170,6 +224,24 @@ export function Header() {
         <button onClick={handleLogout} className="ml-2 text-gray-400 hover:text-red-500 transition-colors" title="Sair">
           <LogOut size={18} />
         </button>
+      )}
+
+      {minhaContaAberta && minhaContaDados && (
+        <UsuarioModal
+          usuario={minhaContaDados}
+          empresaId={empresaAtiva?.id}
+          onClose={() => {
+            setMinhaContaAberta(false)
+            // Atualiza o nome no header se o usuário o alterou
+            setMinhaContaDados(null)
+            const supabase = createClient()
+            supabase.auth.getUser().then(({ data: { user } }) => {
+              if (!user) return
+              supabase.from('usuarios').select('nome').eq('id', user.id).single()
+                .then(({ data }) => { if (data?.nome) setNome(data.nome) })
+            })
+          }}
+        />
       )}
 
     </header>
