@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, Suspense } from 'react'
-import { Plus, Search, FileCheck, MoreVertical, AlertCircle, CheckCircle2, Clock, Eye, ChevronLeft, Copy, EyeOff, Loader2, ChevronDown, LayoutGrid, Sparkles } from 'lucide-react'
+import { Plus, Search, FileCheck, MoreVertical, AlertCircle, CheckCircle2, Clock, Eye, ChevronLeft, Copy, EyeOff, Loader2, ChevronDown, LayoutGrid, Sparkles, RotateCcw } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
@@ -57,8 +57,9 @@ function ChecklistsContent() {
   const [menuAberto, setMenuAberto] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  // Inativar state
+  // Inativar/reativar state
   const [inativando, setInativando] = useState<string | null>(null)
+  const [mostrarInativos, setMostrarInativos] = useState(false)
 
   // Modal duplicar
   const [duplicando, setDuplicando] = useState<Checklist | null>(null)
@@ -75,8 +76,9 @@ function ChecklistsContent() {
       .from('checklists')
       .select('id, nome, descricao, status, versao_atual, subgrupo:subgrupo_id(nome)')
       .eq('unidade_id', unidadeAtiva.id)
-      .neq('status', 'inativo')
       .order('nome')
+
+    if (!mostrarInativos) query = query.neq('status', 'inativo')
 
     if (filtroSubgrupoId) query = query.eq('subgrupo_id', filtroSubgrupoId)
 
@@ -116,7 +118,7 @@ function ChecklistsContent() {
     setLoading(false)
   }
 
-  useEffect(() => { carregar() }, [unidadeAtiva?.id, filtroSubgrupoId])
+  useEffect(() => { carregar() }, [unidadeAtiva?.id, filtroSubgrupoId, mostrarInativos])
 
   // Fecha dropdown ao clicar fora
   useEffect(() => {
@@ -128,6 +130,26 @@ function ChecklistsContent() {
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
+
+  async function reativar(id: string, nome: string) {
+    setMenuAberto(null)
+    const ok = await confirm({
+      titulo: 'Reativar este checklist?',
+      mensagem: `"${nome}" voltará para rascunho e poderá ser editado e publicado novamente.`,
+      confirmarLabel: 'Reativar',
+    })
+    if (!ok) return
+    setInativando(id)
+    const { error } = await createClient().from('checklists').update({ status: 'rascunho' }).eq('id', id)
+    if (error) {
+      toast.error('Não foi possível reativar este checklist.')
+      setInativando(null)
+      return
+    }
+    setChecklists(prev => mostrarInativos ? prev.map(c => c.id === id ? { ...c, status: 'rascunho' } : c) : prev.filter(c => c.id !== id))
+    setInativando(null)
+    toast.success('Checklist reativado como rascunho.')
+  }
 
   async function inativar(id: string, nome: string) {
     setMenuAberto(null)
@@ -233,7 +255,7 @@ function ChecklistsContent() {
           <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar checklist"
             className="pl-8 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 w-52" />
         </div>
-        {['', 'rascunho', 'publicado'].map(s => (
+        {['', 'rascunho', 'publicado', ...(mostrarInativos ? ['inativo'] : [])].map(s => (
           <button key={s} onClick={() => setFiltroStatus(s)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               filtroStatus === s ? 'bg-orange-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
@@ -241,6 +263,14 @@ function ChecklistsContent() {
             {s === '' ? 'Todos' : STATUS_CONFIG[s as keyof typeof STATUS_CONFIG]?.label}
           </button>
         ))}
+        <button
+          onClick={() => { setMostrarInativos(v => !v); setFiltroStatus('') }}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+            mostrarInativos ? 'bg-gray-100 border-gray-300 text-gray-700' : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50'
+          }`}
+        >
+          {mostrarInativos ? 'Ocultar inativos' : 'Mostrar inativos'}
+        </button>
         <span className="text-sm text-gray-500 ml-auto">{filtrados.length} checklist{filtrados.length !== 1 ? 's' : ''}</span>
       </div>
 
@@ -314,13 +344,23 @@ function ChecklistsContent() {
                           <Copy size={14} className="text-gray-400" />
                           Duplicar
                         </button>
-                        <button
-                          onClick={() => inativar(cl.id, cl.nome)}
-                          className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                        >
-                          <EyeOff size={14} className="text-red-400" />
-                          Inativar
-                        </button>
+                        {cl.status === 'inativo' ? (
+                          <button
+                            onClick={() => reativar(cl.id, cl.nome)}
+                            className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-green-700 hover:bg-green-50 transition-colors"
+                          >
+                            <RotateCcw size={14} className="text-green-500" />
+                            Reativar
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => inativar(cl.id, cl.nome)}
+                            className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <EyeOff size={14} className="text-red-400" />
+                            Inativar
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
