@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     }
 
     const sessaoToken = await criarSessaoResetAdmin(supabaseAdmin, usuario.id)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('supabase.co', 'checkflow.digital') ?? 'https://app.checkflow.digital'
+    const appUrl = (process.env.APP_URL ?? 'https://app.checkflow.digital').replace(/\/$/, '')
     const linkComToken = `${appUrl}/nova-senha?t=${sessaoToken}&uid=${usuario.id}`
 
     await enviarAvisoResetAdmin(usuario as any, linkComToken)
