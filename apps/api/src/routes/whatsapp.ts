@@ -349,7 +349,9 @@ export async function whatsappRoutes(app: FastifyInstance) {
         const appUrl = (process.env.APP_URL ?? 'https://app.checkflow.digital').replace(/\/$/, '')
         return `Olá${nome ? ` ${nome}` : ''}! 👋\n\nSeu acesso ao *CheckFlow* foi criado.\n\nSeu código de primeiro acesso é:\n\n*${codigo}*\n\nClique no link abaixo para definir sua senha:\n${appUrl}/primeiro-acesso\n\n_Este código expira em 15 minutos._`
       }
-      return `Olá${nome ? ` ${nome}` : ''}! 👋\n\nVocê solicitou a recuperação de senha do *CheckFlow*.\n\nSeu código de verificação é:\n\n*${codigo}*\n\nInforme este código na tela de recuperação de senha para continuar.\n\n_Este código expira em 15 minutos. Se você não solicitou, ignore esta mensagem._`
+      const appUrl = (process.env.APP_URL ?? 'https://app.checkflow.digital').replace(/\/$/, '')
+      const aviso = contexto === 'reset_admin' ? '' : '\n\n_Se você não solicitou, ignore esta mensagem._'
+      return `Olá${nome ? ` ${nome}` : ''}! 👋\n\nSua senha no *CheckFlow* foi redefinida.\n\nSeu código de verificação é:\n\n*${codigo}*\n\nClique no link abaixo para criar sua nova senha:\n${appUrl}/recuperar-senha${aviso}\n\n_Este código expira em 15 minutos._`
     })()
 
     // WhatsApp
@@ -393,7 +395,7 @@ export async function whatsappRoutes(app: FastifyInstance) {
         const appUrl = (process.env.APP_URL ?? 'https://app.checkflow.digital').replace(/\/$/, '')
         const texto = contexto === 'primeiro_acesso'
           ? `Seu acesso ao CheckFlow foi criado. Use o código abaixo na página de primeiro acesso para definir sua senha: <a href="${appUrl}/primeiro-acesso">${appUrl}/primeiro-acesso</a>`
-          : 'Você solicitou a recuperação de senha. Use o código abaixo para continuar.'
+          : `${contexto === 'reset_admin' ? 'Sua senha foi redefinida pelo administrador.' : 'Você solicitou a recuperação de senha.'} Use o código abaixo para criar sua nova senha: <a href="${appUrl}/recuperar-senha">${appUrl}/recuperar-senha</a>`
         html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;padding:32px">
 <h2 style="color:#f97316">CheckFlow</h2>
 <p>Olá${nome ? ` ${nome}` : ''}!</p>
