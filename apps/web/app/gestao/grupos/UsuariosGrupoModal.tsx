@@ -23,7 +23,12 @@ interface UsuarioGrupo {
   email: string
   telefone: string | null
   subgrupos: string[] // IDs dos subgrupos vinculados
+  turnoId?: string | null
+  turnoPeriodoId?: string | null
 }
+
+interface Turno { id: string; nome: string; tipo: 'administrativo' | 'escala' }
+interface TurnoPeriodo { id: string; nome: string; ordem: number }
 
 // ─── Sub-modal: Editar nome / telefone ───────────────────────────────────────
 
@@ -38,12 +43,13 @@ function EditarUsuarioModal({ usuario, onClose, onSalvo }: {
   const [perfis, setPerfis] = useState<{ id: string; nome: string }[]>([])
   const [perfilId, setPerfilId] = useState('')
   const [perfilOriginal, setPerfilOriginal] = useState('')
+  const [turnos, setTurnos] = useState<Turno[]>([])
+  const [turnoId, setTurnoId] = useState(usuario.turnoId ?? '')
+  const [turnoPeriodos, setTurnoPeriodos] = useState<TurnoPeriodo[]>([])
+  const [turnoPeriodoId, setTurnoPeriodoId] = useState(usuario.turnoPeriodoId ?? '')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
 
-  // Carrega só os perfis PÚBLICOS (atribuíveis por gestor de grupo/setor) +
-  // o perfil atual do usuário nesta empresa. Perfis não-públicos só o Admin
-  // da empresa atribui (em Acessos → Usuários) — o trigger valida_troca_perfil garante.
   useEffect(() => {
     if (!empresaAtiva?.id) return
     const supabase = createClient()
@@ -52,18 +58,29 @@ function EditarUsuarioModal({ usuario, onClose, onSalvo }: {
         .or(`empresa_id.eq.${empresaAtiva.id},empresa_id.is.null`).order('nome'),
       supabase.from('usuario_empresa').select('perfil:perfil_id(id, nome)')
         .eq('usuario_id', usuario.id).eq('empresa_id', empresaAtiva.id).single(),
-    ]).then(([pubRes, ueRes]) => {
+      supabase.from('turnos').select('id, nome, tipo').eq('empresa_id', empresaAtiva.id).eq('ativo', true).order('nome'),
+    ]).then(([pubRes, ueRes, turnosRes]) => {
       const publicos = pubRes.data ?? []
       const atual: any = (ueRes.data as any)?.perfil
       const atualNorm = Array.isArray(atual) ? atual[0] : atual
-      // Inclui o perfil atual na lista mesmo se não for público, só para exibição
-      const lista = atualNorm && !publicos.some(p => p.id === atualNorm.id)
+      const lista = atualNorm && !publicos.some((p: any) => p.id === atualNorm.id)
         ? [atualNorm, ...publicos]
         : publicos
       setPerfis(lista)
       if (atualNorm?.id) { setPerfilId(atualNorm.id); setPerfilOriginal(atualNorm.id) }
+      setTurnos((turnosRes.data ?? []) as Turno[])
     })
   }, [empresaAtiva?.id, usuario.id])
+
+  // Carrega períodos quando turno muda para escala
+  useEffect(() => {
+    if (!turnoId) { setTurnoPeriodos([]); return }
+    const turno = turnos.find(t => t.id === turnoId)
+    if (turno?.tipo !== 'escala') { setTurnoPeriodos([]); return }
+    createClient().from('turno_periodos').select('id, nome, ordem')
+      .eq('turno_id', turnoId).order('ordem')
+      .then(({ data }) => setTurnoPeriodos((data ?? []) as TurnoPeriodo[]))
+  }, [turnoId, turnos])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -73,12 +90,15 @@ function EditarUsuarioModal({ usuario, onClose, onSalvo }: {
     const supabase = createClient()
     const { error } = await supabase
       .from('usuarios')
-      .update({ nome: nome.trim(), telefone: telefone.trim() || null })
+      .update({
+        nome: nome.trim(),
+        telefone: telefone.trim() || null,
+        turno_id: turnoId || null,
+        turno_periodo_id: turnoPeriodoId || null,
+      })
       .eq('id', usuario.id)
     if (error) { setSalvando(false); setErro('Erro ao salvar.'); return }
 
-    // Atualiza o perfil só se mudou (evita reenviar um perfil não-público que o
-    // gestor não pode atribuir). Guard do último admin protegido por trigger.
     if (perfilId && perfilId !== perfilOriginal && empresaAtiva?.id) {
       const { error: errPerfil } = await supabase.from('usuario_empresa')
         .update({ perfil_id: perfilId })
@@ -123,6 +143,21 @@ function EditarUsuarioModal({ usuario, onClose, onSalvo }: {
               <option value="">Selecione um perfil</option>
               {perfis.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Turno</label>
+            <select value={turnoId} onChange={e => { setTurnoId(e.target.value); setTurnoPeriodoId('') }}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
+              <option value="">Sem turno</option>
+              {turnos.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+            </select>
+            {turnoPeriodos.length > 0 && (
+              <select value={turnoPeriodoId} onChange={e => setTurnoPeriodoId(e.target.value)}
+                className="w-full mt-2 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
+                <option value="">Sem período específico</option>
+                {turnoPeriodos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+              </select>
+            )}
           </div>
           {erro && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{erro}</p>}
           <div className="flex justify-end gap-2 pt-1">
@@ -247,7 +282,7 @@ export function UsuariosGrupoModal({ grupoId, grupoNome, subgrupoLabel, onClose,
 
     const { data: ug } = await supabase
       .from('usuario_grupo')
-      .select('usuario:usuario_id(id, nome, email, telefone)')
+      .select('usuario:usuario_id(id, nome, email, telefone, turno_id, turno_periodo_id)')
       .eq('grupo_id', grupoId)
 
     if (!ug) { setLoading(false); return }
@@ -277,6 +312,8 @@ export function UsuariosGrupoModal({ grupoId, grupoNome, subgrupoLabel, onClose,
           email: u.email,
           telefone: u.telefone,
           subgrupos: subgruposPorUsuario[u.id] ?? [],
+          turnoId: u.turno_id ?? null,
+          turnoPeriodoId: u.turno_periodo_id ?? null,
         }))
         .sort((a: UsuarioGrupo, b: UsuarioGrupo) => a.nome.localeCompare(b.nome))
     )
