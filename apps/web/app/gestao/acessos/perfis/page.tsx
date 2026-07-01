@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, UserCircle, AlertCircle } from 'lucide-react'
+import { Plus, Trash2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { PerfilModal } from './PerfilModal'
 import { createClient } from '@/lib/supabase'
@@ -17,23 +17,9 @@ interface Perfil {
   is_system: boolean
 }
 
-function AvatarStack({ total }: { total: number }) {
-  const visible = Math.min(total, 3)
-  const resto = total - visible
-  return (
-    <div className="flex items-center">
-      {Array.from({ length: visible }).map((_, i) => (
-        <div key={i} className="w-8 h-8 rounded-full bg-gray-100 border-2 border-white -ml-2 first:ml-0 flex items-center justify-center">
-          <UserCircle size={20} className="text-gray-400" />
-        </div>
-      ))}
-      {resto > 0 && (
-        <div className="w-8 h-8 rounded-full bg-blue-50 border-2 border-white -ml-2 flex items-center justify-center">
-          <span className="text-xs font-semibold text-blue-500">+{resto}</span>
-        </div>
-      )}
-    </div>
-  )
+function UserCount({ total }: { total: number }) {
+  if (total === 0) return <span className="text-xs text-gray-300">sem usuários</span>
+  return <span className="text-xs text-gray-400">{total} {total === 1 ? 'usuário' : 'usuários'}</span>
 }
 
 export default function PerfisPage() {
@@ -55,6 +41,7 @@ export default function PerfisPage() {
       .from('perfis')
       .select('id, nome, is_system')
       .or(`empresa_id.eq.${empresaAtiva.id},empresa_id.is.null`)
+      .neq('id', '00000000-0000-0000-0000-000000000001') // oculta Admin de sistema
       .order('nome')
 
     if (error || !data) {
@@ -129,7 +116,7 @@ export default function PerfisPage() {
               )}
             </div>
             <div className="flex items-center gap-3">
-              <AvatarStack total={perfil.totalUsuarios} />
+              <UserCount total={perfil.totalUsuarios} />
               {!perfil.is_system && (
                 <button onClick={() => excluir(perfil)}
                   className="text-gray-300 hover:text-red-400 transition-colors p-1 ml-1">
