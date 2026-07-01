@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
+import { useToast } from '@/components/ui/feedback'
 
 interface Unidade { id: string; nome: string }
 
@@ -47,6 +48,7 @@ function formatTelefone(v: string) {
 
 export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props) {
   const isEdicao = !!usuario
+  const toast = useToast()
   const [nome, setNome] = useState(usuario?.nome ?? '')
   const [email, setEmail] = useState(usuario?.email ?? '')
   const [cpf, setCpf] = useState(usuario?.cpf ?? '')
@@ -217,11 +219,14 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
             empresaId, perfilId, unidades: unidadesSel.map(u => u.id),
           }),
         })
+        const json = await res.json()
         if (!res.ok) {
-          const err = await res.json()
-          setErro(err.message ?? 'Erro ao criar usuário.')
+          setErro(json.message ?? 'Erro ao criar usuário.')
           setSalvando(false)
           return
+        }
+        if (json.vinculado) {
+          toast.success(`${pessoaExistente?.nome ?? 'Usuário'} vinculado a esta empresa com sucesso.`)
         }
       }
 
