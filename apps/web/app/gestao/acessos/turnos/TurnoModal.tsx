@@ -5,7 +5,7 @@ import { X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
-import { useToast } from '@/components/ui/feedback'
+import { useConfirm, useToast } from '@/components/ui/feedback'
 
 interface DiaConfig { dia: number; inicio: string; fim: string }
 
@@ -64,6 +64,7 @@ function computarPeriodos(hTrab: number, hFolga: number, existentes: TurnoPeriod
 export function TurnoModal({ turno, onClose, onSalvo }: Props) {
   const { empresaAtiva } = useSession()
   const toast = useToast()
+  const confirm = useConfirm()
   const isEdicao = !!turno
 
   const [nome, setNome] = useState(turno?.nome ?? '')
@@ -92,6 +93,8 @@ export function TurnoModal({ turno, onClose, onSalvo }: Props) {
   const [horaInicioEscala, setHoraInicioEscala] = useState(turno?.config?.hora_inicio ?? '07:00')
   const [horasTrabalho, setHorasTrabalho] = useState<number>(turno?.config?.horas_trabalho ?? 12)
   const [horasFolga, setHorasFolga] = useState<number>(turno?.config?.horas_folga ?? 36)
+  const horasTrabalhoOriginal = turno?.config?.horas_trabalho ?? 0
+  const horasFolgaOriginal = turno?.config?.horas_folga ?? 0
   const [periodos, setPeriodos] = useState<TurnoPeriodo[]>([])
 
   const [salvando, setSalvando] = useState(false)
@@ -193,7 +196,38 @@ export function TurnoModal({ turno, onClose, onSalvo }: Props) {
 
     // Salva períodos (só para escala)
     if (tipo === 'escala' && periodos.length > 0) {
-      // Apaga os existentes e reinserere (garante consistência se a quantidade mudou)
+      // Detecta redução de períodos em edição (pode deixar usuários órfãos)
+      if (isEdicao && (horasTrabalho !== horasTrabalhoOriginal || horasFolga !== horasFolgaOriginal)) {
+        const { data: periodosAtuais } = await supabase
+          .from('turno_periodos').select('id').eq('turno_id', turnoId)
+        const qtdAtual = periodosAtuais?.length ?? 0
+        const qtdNova = periodos.length
+
+        if (qtdNova < qtdAtual) {
+          const idsRemovidos = (periodosAtuais ?? []).slice(qtdNova).map((p: any) => p.id)
+          const { count } = await supabase
+            .from('usuarios').select('id', { count: 'exact', head: true })
+            .in('turno_periodo_id', idsRemovidos)
+          const afetados = count ?? 0
+
+          if (afetados > 0) {
+            setSalvando(false)
+            const ok = await confirm({
+              titulo: 'Períodos serão removidos',
+              mensagem: `${afetados} usuário${afetados > 1 ? 's' : ''} está${afetados > 1 ? 'o' : ''} alocado${afetados > 1 ? 's' : ''} em período${afetados > 1 ? 's' : ''} que deixará${afetados > 1 ? 'ão' : 'á'} de existir. Eles manterão o turno, mas perderão o período específico.`,
+              confirmarLabel: 'Salvar mesmo assim',
+              perigo: true,
+            })
+            if (!ok) return
+            setSalvando(true)
+            // Null out nos usuários afetados
+            await supabase.from('usuarios')
+              .update({ turno_periodo_id: null })
+              .in('turno_periodo_id', idsRemovidos)
+          }
+        }
+      }
+
       await supabase.from('turno_periodos').delete().eq('turno_id', turnoId)
       const { error: errPer } = await supabase.from('turno_periodos').insert(
         periodos.map(p => ({
