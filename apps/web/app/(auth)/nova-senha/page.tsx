@@ -1,21 +1,35 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import { CheckFlowLogo } from '@/components/auth/CheckFlowLogo'
 
-export default function NovaSenhaPage() {
+function NovaSenhaForm() {
   const router = useRouter()
+  const params = useSearchParams()
   const [senha, setSenha] = useState('')
   const [confirmar, setConfirmar] = useState('')
   const [mostrar, setMostrar] = useState(false)
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState('')
   const [pronto, setPronto] = useState(false)
+  // magic link: token + uid vêm pela URL (admin reset)
+  const [linkToken, setLinkToken] = useState<string | null>(null)
+  const [linkUid, setLinkUid] = useState<string | null>(null)
 
   useEffect(() => {
+    const t = params.get('t')
+    const uid = params.get('uid')
+    if (t && uid) {
+      // Fluxo magic link (admin reset): token na URL, sem sessionStorage
+      setLinkToken(t)
+      setLinkUid(uid)
+      setPronto(true)
+      return
+    }
+    // Fluxo OTP (self-service): token no sessionStorage
     const cpf = sessionStorage.getItem('checkflow_reset_cpf')
     const token = sessionStorage.getItem('checkflow_reset_token')
     if (!cpf || !token) {
@@ -23,7 +37,7 @@ export default function NovaSenhaPage() {
       return
     }
     setPronto(true)
-  }, [router])
+  }, [router, params])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -32,14 +46,20 @@ export default function NovaSenhaPage() {
     setErro('')
     setLoading(true)
 
-    const cpf = sessionStorage.getItem('checkflow_reset_cpf')
-    const token = sessionStorage.getItem('checkflow_reset_token')
-
     try {
+      let body: Record<string, string>
+      if (linkToken && linkUid) {
+        body = { uid: linkUid, token: linkToken, novaSenha: senha }
+      } else {
+        const cpf = sessionStorage.getItem('checkflow_reset_cpf') ?? ''
+        const token = sessionStorage.getItem('checkflow_reset_token') ?? ''
+        body = { cpf, token, novaSenha: senha }
+      }
+
       const res = await fetch('/api/auth/definir-senha', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cpf, token, novaSenha: senha }),
+        body: JSON.stringify(body),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -93,5 +113,13 @@ export default function NovaSenhaPage() {
         <ArrowLeft size={14} /> Voltar para o login
       </Link>
     </div>
+  )
+}
+
+export default function NovaSenhaPage() {
+  return (
+    <Suspense>
+      <NovaSenhaForm />
+    </Suspense>
   )
 }

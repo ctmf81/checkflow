@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { contarSolicitacoesRecentes, enviarAvisoResetAdmin } from '@/lib/passwordReset'
+import { contarSolicitacoesRecentes, enviarAvisoResetAdmin, criarSessaoResetAdmin } from '@/lib/passwordReset'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_PUBLISHABLE = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -60,7 +60,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Muitos resets recentes para este usuário. Aguarde alguns minutos.' }, { status: 429 })
     }
 
-    await enviarAvisoResetAdmin(usuario as any)
+    const sessaoToken = await criarSessaoResetAdmin(supabaseAdmin, usuario.id)
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('supabase.co', 'checkflow.digital') ?? 'https://app.checkflow.digital'
+    const linkComToken = `${appUrl}/nova-senha?t=${sessaoToken}&uid=${usuario.id}`
+
+    await enviarAvisoResetAdmin(usuario as any, linkComToken)
 
     return NextResponse.json({ ok: true, message: `Link de redefinição enviado para ${usuario.nome} via WhatsApp${usuario.email && !usuario.email.endsWith('@checkflow.local') ? ' e e-mail' : ''}.` })
   } catch (e: any) {

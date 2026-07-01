@@ -135,9 +135,31 @@ export async function validarSessaoSenha(
   return true
 }
 
-/** Notifica o usuário que o admin redefiniu sua senha — envia apenas o link, sem código. */
+/**
+ * Cria um token de sessão de senha diretamente para o admin reset.
+ * Bypassa o OTP — o link enviado já é a autorização. TTL longo (24h) porque
+ * o usuário pode não checar o WhatsApp imediatamente.
+ */
+export async function criarSessaoResetAdmin(
+  sb: SupabaseClient,
+  usuarioId: string
+): Promise<string> {
+  const sessaoToken = gerarTokenSessao()
+  const expira = new Date(Date.now() + 24 * 60 * 60_000).toISOString() // 24h
+  const { error } = await sb.from('password_reset_tokens').insert({
+    usuario_id: usuarioId,
+    tipo: 'sessao_senha',
+    codigo_hash: hashValor(sessaoToken),
+    expira_em: expira,
+  })
+  if (error) throw new Error(`Falha ao registrar o token de reset: ${error.message}`)
+  return sessaoToken
+}
+
+/** Notifica o usuário que o admin redefiniu sua senha — envia link com token embutido. */
 export async function enviarAvisoResetAdmin(
-  usuario: { nome: string; telefone: string | null; email: string | null }
+  usuario: { nome: string; telefone: string | null; email: string | null },
+  linkComToken: string
 ): Promise<{ enviado: boolean; erro?: string }> {
   const emailReal = usuario.email && !usuario.email.endsWith('@checkflow.local') ? usuario.email : undefined
   try {
@@ -149,6 +171,7 @@ export async function enviarAvisoResetAdmin(
         nome: usuario.nome,
         email: emailReal,
         contexto: 'reset_admin',
+        linkResetAdmin: linkComToken,
       }),
     })
     if (!res.ok) return { enviado: false, erro: `Falha no envio (HTTP ${res.status}).` }

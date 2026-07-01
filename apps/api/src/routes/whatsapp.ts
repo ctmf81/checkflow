@@ -317,9 +317,10 @@ export async function whatsappRoutes(app: FastifyInstance) {
   // POST /whatsapp/enviar-codigo — envia código numérico (OTP) via WhatsApp + Email
   app.post('/whatsapp/enviar-codigo', async (req, reply) => {
     if (!await exigirAutorizacao(req, reply)) return
-    const { numero, nome, codigo, email, empresa_id, contexto } = req.body as {
+    const { numero, nome, codigo, email, empresa_id, contexto, linkResetAdmin } = req.body as {
       numero?: string; nome: string; codigo?: string; email?: string; empresa_id?: string
       contexto?: 'primeiro_acesso' | 'reset_admin' | 'self_service'
+      linkResetAdmin?: string
     }
     if (!codigo && contexto !== 'reset_admin') return reply.status(400).send({ error: 'codigo é obrigatório' })
 
@@ -347,7 +348,8 @@ export async function whatsappRoutes(app: FastifyInstance) {
     const appUrl = (process.env.APP_URL ?? 'https://app.checkflow.digital').replace(/\/$/, '')
     const fallbackTexto = (() => {
       if (contexto === 'reset_admin') {
-        return `Olá${nome ? ` ${nome}` : ''}! 👋\n\nSua senha no *CheckFlow* foi redefinida por um administrador.\n\nClique no link abaixo para criar sua nova senha:\n${appUrl}/recuperar-senha`
+        const link = linkResetAdmin ?? `${appUrl}/recuperar-senha`
+        return `Olá${nome ? ` ${nome}` : ''}! 👋\n\nSua senha no *CheckFlow* foi redefinida por um administrador.\n\nClique no link abaixo para criar sua nova senha:\n${link}`
       }
       if (contexto === 'primeiro_acesso') {
         return `Olá${nome ? ` ${nome}` : ''}! 👋\n\nSeu acesso ao *CheckFlow* foi criado.\n\nSeu código de primeiro acesso é:\n\n*${codigo}*\n\nClique no link abaixo para definir sua senha:\n${appUrl}/primeiro-acesso\n\n_Este código expira em 15 minutos._`
@@ -393,12 +395,13 @@ export async function whatsappRoutes(app: FastifyInstance) {
 </body></html>`
       } else if (!tmplEmail || tmplEmail.ativo) {
         if (contexto === 'reset_admin') {
+          const linkReset = linkResetAdmin ?? `${appUrl}/recuperar-senha`
           html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;padding:32px">
 <h2 style="color:#f97316">CheckFlow</h2>
 <p>Olá${nome ? ` ${nome}` : ''}!</p>
 <p>Sua senha foi redefinida por um administrador.</p>
 <p>Clique no link abaixo para criar sua nova senha:</p>
-<p><a href="${appUrl}/recuperar-senha" style="color:#f97316">${appUrl}/recuperar-senha</a></p>
+<p><a href="${linkReset}" style="color:#f97316">${linkReset}</a></p>
 </body></html>`
         } else {
           const titulo = contexto === 'primeiro_acesso' ? 'Bem-vindo ao CheckFlow' : 'Recuperação de senha'

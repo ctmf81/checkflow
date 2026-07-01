@@ -10,42 +10,57 @@ function makeAdmin() {
 }
 
 // POST /api/auth/definir-senha — etapa final do fluxo de código (recuperação ou primeiro acesso)
+// Aceita dois modos:
+//   - Fluxo OTP (self-service): { cpf, token, novaSenha }
+//   - Fluxo magic link (admin reset): { uid, token, novaSenha }
 export async function POST(req: NextRequest) {
   try {
-    const { cpf, token, novaSenha } = await req.json()
-    const cpfDigits = (cpf ?? '').replace(/\D/g, '')
+    const { cpf, uid, token, novaSenha } = await req.json()
 
-    if (cpfDigits.length !== 11 || !token) {
-      return NextResponse.json({ message: 'Sessão inválida. Solicite um novo código.' }, { status: 400 })
+    if (!token) {
+      return NextResponse.json({ message: 'Sessão inválida. Solicite um novo link.' }, { status: 400 })
     }
     if (!novaSenha || novaSenha.length < 8) {
       return NextResponse.json({ message: 'A senha deve ter no mínimo 8 caracteres.' }, { status: 400 })
     }
 
     const supabaseAdmin = makeAdmin()
+    let usuarioId: string
 
-    const { data: encontrados } = await supabaseAdmin
-      .from('usuarios')
-      .select('id, status')
-      .in('cpf', cpfVariantes(cpf))
-      .limit(1)
-    const usuario = encontrados?.[0]
-
-    if (!usuario || usuario.status !== 'ativo') {
-      return NextResponse.json({ message: 'Sessão inválida. Solicite um novo código.' }, { status: 400 })
+    if (uid) {
+      // Modo magic link: encontra usuário pelo ID diretamente
+      const { data: u } = await supabaseAdmin
+        .from('usuarios').select('id, status').eq('id', uid).maybeSingle()
+      if (!u || u.status !== 'ativo') {
+        return NextResponse.json({ message: 'Link inválido ou expirado.' }, { status: 400 })
+      }
+      usuarioId = u.id
+    } else {
+      // Modo OTP: encontra usuário pelo CPF
+      const cpfDigits = (cpf ?? '').replace(/\D/g, '')
+      if (cpfDigits.length !== 11) {
+        return NextResponse.json({ message: 'Sessão inválida. Solicite um novo código.' }, { status: 400 })
+      }
+      const { data: encontrados } = await supabaseAdmin
+        .from('usuarios').select('id, status').in('cpf', cpfVariantes(cpf)).limit(1)
+      const u = encontrados?.[0]
+      if (!u || u.status !== 'ativo') {
+        return NextResponse.json({ message: 'Sessão inválida. Solicite um novo código.' }, { status: 400 })
+      }
+      usuarioId = u.id
     }
 
-    const sessaoValida = await validarSessaoSenha(supabaseAdmin, usuario.id, token)
+    const sessaoValida = await validarSessaoSenha(supabaseAdmin, usuarioId, token)
     if (!sessaoValida) {
-      return NextResponse.json({ message: 'Sessão expirada. Solicite um novo código.' }, { status: 400 })
+      return NextResponse.json({ message: uid ? 'Link expirado. Peça ao administrador para enviar um novo.' : 'Sessão expirada. Solicite um novo código.' }, { status: 400 })
     }
 
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(usuario.id, { password: novaSenha })
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(usuarioId, { password: novaSenha })
     if (error) {
       return NextResponse.json({ message: 'Não foi possível atualizar a senha.' }, { status: 500 })
     }
 
-    await supabaseAdmin.from('usuarios').update({ primeiro_acesso: false }).eq('id', usuario.id)
+    await supabaseAdmin.from('usuarios').update({ primeiro_acesso: false }).eq('id', usuarioId)
 
     return NextResponse.json({ ok: true })
   } catch (e: any) {
