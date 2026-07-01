@@ -155,22 +155,11 @@ const recursosTodos: Recurso[] = [
       { key: 'excluir',label: 'Excluir perfil' },
     ],
   },
-  {
-    key: 'indicadores',
-    label: 'Indicadores',
-    acoes: [
-      { key: 'ver',    label: 'Visualizar indicadores' },
-      { key: 'editar', label: 'Editar indicadores' },
-    ],
-  },
-  {
-    key: 'relatorios',
-    label: 'Relatórios',
-    acoes: [
-      { key: 'ver',      label: 'Visualizar relatórios' },
-      { key: 'exportar', label: 'Exportar relatórios' },
-    ],
-  },
+  // 'indicadores' e 'relatorios' REMOVIDOS (2026-06-30): eram checkboxes que
+  // NÃO salvavam — não existem na tabela `permissoes` e não são enforçados em
+  // lugar nenhum (o menu lateral é estático, não filtra por permissão; a página
+  // de Relatórios nem existe). Mesmo motivo pelo qual planos_acao/configuracoes
+  // saíram do construtor (20260622160000): permissão sem enforcement engana.
 ]
 
 // Workflow desabilitado: não aparece no construtor de perfis
