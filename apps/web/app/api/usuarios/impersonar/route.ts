@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     const { data, error } = await adminClient.auth.admin.generateLink({
       type: 'magiclink',
       email,
-      options: { redirectTo: `${origin}/gestao` },
+      options: { redirectTo: `${origin}/login` },
     })
 
     if (error || !data?.properties?.action_link) {
