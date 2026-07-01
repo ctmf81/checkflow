@@ -98,7 +98,9 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
         souAdmin = vinculo?.perfil_id === ADMIN_EMPRESA_ID || vinculo?.perfil_id === ADMIN_SISTEMA_ID
       }
 
-      let q = supabase.from('perfis').select('id, nome, publico, is_system').order('nome')
+      let q = supabase.from('perfis').select('id, nome, publico, is_system')
+        .or(`empresa_id.eq.${empresaId},empresa_id.is.null`)
+        .order('nome')
       if (perfilFixo) q = q.eq('nome', perfilFixo) as typeof q
       const { data } = await q
       if (!data) return
