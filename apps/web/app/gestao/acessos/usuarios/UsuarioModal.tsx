@@ -205,16 +205,18 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
       return
     }
 
-    // Guard: não pode trocar o perfil do último admin da empresa
+    // Guard: não pode trocar o perfil do último admin ATIVO da empresa
     if (isEdicao && usuario.perfilId === ADMIN_EMPRESA_ID && perfilId !== ADMIN_EMPRESA_ID && empresaId) {
       const supabaseCheck = createClient()
-      const { count } = await supabaseCheck
+      const { data: outrosAdmins } = await supabaseCheck
         .from('usuario_empresa')
-        .select('*', { count: 'exact', head: true })
+        .select('usuario:usuario_id!inner(status)')
         .eq('empresa_id', empresaId)
         .eq('perfil_id', ADMIN_EMPRESA_ID)
-      if ((count ?? 0) <= 1) {
-        setErro('Não é possível remover o perfil de Admin da empresa do único administrador.')
+        .neq('usuario_id', usuario.id)
+        .eq('usuario.status', 'ativo')
+      if ((outrosAdmins?.length ?? 0) === 0) {
+        setErro('Não é possível remover o perfil de Admin da empresa do único administrador ativo.')
         return
       }
     }
