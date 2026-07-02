@@ -1,17 +1,16 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { MoreVertical, Pencil, UserPlus, PowerOff } from 'lucide-react'
+import { MoreVertical, Pencil, PowerOff } from 'lucide-react'
 
 interface Props {
   grupoId: string
   grupoNome: string
   onEditar: () => void
-  onAdicionarUsuario: () => void
   onExcluir: () => void
 }
 
-export function GrupoMenu({ grupoNome, onEditar, onAdicionarUsuario, onExcluir }: Props) {
+export function GrupoMenu({ grupoNome, onEditar, onExcluir }: Props) {
   const [aberto, setAberto] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -44,14 +43,6 @@ export function GrupoMenu({ grupoNome, onEditar, onAdicionarUsuario, onExcluir }
           >
             <Pencil size={14} className="text-gray-400" />
             Editar grupo
-          </button>
-
-          <button
-            onClick={() => { setAberto(false); onAdicionarUsuario() }}
-            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <UserPlus size={14} className="text-gray-400" />
-            Adicionar usuário
           </button>
 
           <div className="border-t border-gray-100 mt-1">

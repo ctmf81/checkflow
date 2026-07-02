@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { NovoGrupoModal } from './NovoGrupoModal'
 import { GrupoMenu } from './GrupoMenu'
-import { AdicionarUsuarioModal } from './AdicionarUsuarioModal'
 import { EditarGrupoModal } from './EditarGrupoModal'
 import { UsuariosGrupoModal } from './UsuariosGrupoModal'
 import { createClient } from '@/lib/supabase'
@@ -31,7 +30,6 @@ export default function GruposPage() {
   const [grupos, setGrupos] = useState<Grupo[]>([])
   const [modal, setModal] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [grupoUsuario, setGrupoUsuario] = useState<Grupo | null>(null)
   const [grupoEditando, setGrupoEditando] = useState<Grupo | null>(null)
   const [grupoListaUsuarios, setGrupoListaUsuarios] = useState<Grupo | null>(null)
 
@@ -120,7 +118,6 @@ export default function GruposPage() {
                   grupoId={grupo.id}
                   grupoNome={grupo.display_name || grupo.nome}
                   onEditar={() => setGrupoEditando(grupo)}
-                  onAdicionarUsuario={() => setGrupoUsuario(grupo)}
                   onExcluir={() => desativarGrupo(grupo.id, grupo.display_name || grupo.nome)}
                 />
               </div>
@@ -169,15 +166,6 @@ export default function GruposPage() {
         />
       )}
 
-      {grupoUsuario && (
-        <AdicionarUsuarioModal
-          grupoId={grupoUsuario.id}
-          grupoNome={grupoUsuario.display_name || grupoUsuario.nome}
-          subgrupoLabel={subgrupoLabel}
-          onClose={() => setGrupoUsuario(null)}
-          onSalvo={() => { setGrupoUsuario(null); carregar() }}
-        />
-      )}
     </>
   )
 }
