@@ -87,6 +87,11 @@ export default function EmpresaPage() {
     // Soft-delete: NUNCA hard delete — `unidades` é cascade em quase toda a
     // árvore (grupos, checklists, catálogos, tickets, tarefas...), então um
     // delete apagaria os dados da unidade inteira. Inativar é reversível.
+    const ativasRestantes = unidades.filter(u => u.status === 'ativo' && u.id !== id).length
+    if (ativasRestantes === 0) {
+      toast.error('A empresa deve ter ao menos uma unidade ativa.')
+      return
+    }
     if (!await confirm({ titulo: 'Inativar esta unidade?', mensagem: 'A unidade deixa de aparecer para uso. Você pode reativá-la depois pela edição.', confirmarLabel: 'Inativar', perigo: true })) return
     const { error } = await createClient().from('unidades').update({ status: 'inativo' }).eq('id', id)
     if (error) { toast.error('Não foi possível inativar a unidade.'); return }
