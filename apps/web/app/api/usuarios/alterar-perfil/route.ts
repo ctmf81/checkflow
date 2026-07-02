@@ -46,9 +46,9 @@ export async function POST(req: NextRequest) {
       .update({ perfil_id: perfilId })
       .eq('usuario_id', usuarioId).eq('empresa_id', empresaId)
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Erro ao alterar perfil. Tente novamente.' }, { status: 500 })
     return NextResponse.json({ ok: true })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+  } catch {
+    return NextResponse.json({ error: 'Erro interno.' }, { status: 500 })
   }
 }

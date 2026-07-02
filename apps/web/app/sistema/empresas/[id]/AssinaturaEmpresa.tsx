@@ -139,7 +139,7 @@ export function AssinaturaEmpresa({ empresaId }: { empresaId: string }) {
 
     const { error } = await createClient().from('empresa_assinaturas').upsert(payload, { onConflict: 'empresa_id' })
     setSalvando(false)
-    if (error) { toast.error(`Erro ao definir plano: ${error.message}`); return }
+    if (error) { toast.error('Erro ao definir plano. Tente novamente.'); return }
     toast.success('Plano definido.')
     setPlanoSel('')
     carregar()

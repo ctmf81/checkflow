@@ -99,7 +99,7 @@ export default function OnboardingAdminPage() {
     })
 
     if (error) {
-      setErro('Erro ao salvar: ' + error.message)
+      setErro('Erro ao salvar. Tente novamente.')
     } else {
       setLinhas(ls => ls.map(l => l.page_id === linha.page_id ? { ...l, cards_override: parsed } : l))
       setEditando(null)

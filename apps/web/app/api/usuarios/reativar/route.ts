@@ -19,9 +19,9 @@ export async function POST(req: NextRequest) {
       .update({ status: 'ativo' })
       .eq('id', usuarioId)
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Erro ao reativar usuário. Tente novamente.' }, { status: 500 })
     return NextResponse.json({ ok: true })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+  } catch {
+    return NextResponse.json({ error: 'Erro interno.' }, { status: 500 })
   }
 }

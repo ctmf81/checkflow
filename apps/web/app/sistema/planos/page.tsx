@@ -76,7 +76,7 @@ export default function PlanosPage() {
     })
     if (!ok) return
     const { error } = await createClient().from('planos').delete().eq('id', p.id)
-    if (error) { toast.error(`Erro ao excluir: ${error.message}`); return }
+    if (error) { toast.error('Erro ao excluir plano. Tente novamente.'); return }
     toast.success('Plano excluído.')
     carregar()
   }
@@ -199,7 +199,7 @@ function PlanoModal({ plano, onClose, onSaved }: { plano: Plano | null; onClose:
       : await sb.from('planos').insert(payload)
 
     setSalvando(false)
-    if (error) { toast.error(`Erro ao salvar: ${error.message}`); return }
+    if (error) { toast.error('Erro ao salvar plano. Tente novamente.'); return }
     toast.success(plano ? 'Plano atualizado.' : 'Plano criado.')
     onSaved()
   }

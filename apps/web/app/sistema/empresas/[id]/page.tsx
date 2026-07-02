@@ -271,7 +271,7 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
       atualizado_em: new Date().toISOString()
     }).eq('id', id)
     setSalvando(false)
-    if (error) setErroConfig(`Erro ao salvar: ${error.message}`)
+    if (error) setErroConfig('Erro ao salvar configurações. Tente novamente.')
   }
 
   // Aceita "1.234,56", "1234,56" e "1234.56" — retorna null se inválido
@@ -303,7 +303,7 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
       atualizado_em: new Date().toISOString()
     }, { onConflict: 'empresa_id' })
     setSalvandoPag(false)
-    if (error) setErroPag(`Erro ao salvar: ${error.message}`)
+    if (error) setErroPag('Erro ao salvar paginação. Tente novamente.')
   }
 
   async function salvarParceiro() {
@@ -328,7 +328,7 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
 
     if (error) {
       setSalvandoParceiro(false)
-      setErroParceiro(`Erro ao salvar: ${error.message}`)
+      setErroParceiro('Erro ao salvar parceiro. Tente novamente.')
       return
     }
 

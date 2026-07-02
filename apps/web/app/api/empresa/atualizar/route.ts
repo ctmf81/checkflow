@@ -21,9 +21,9 @@ export async function POST(req: NextRequest) {
       .update({ nome: nome.trim(), cnpj: cnpj?.trim() || null, atualizado_em: new Date().toISOString() })
       .eq('id', empresaId)
 
-    if (error) return NextResponse.json({ message: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ message: 'Erro ao atualizar empresa. Tente novamente.' }, { status: 500 })
     return NextResponse.json({ ok: true })
-  } catch (e: any) {
-    return NextResponse.json({ message: e.message ?? 'Erro interno.' }, { status: 500 })
+  } catch {
+    return NextResponse.json({ message: 'Erro interno.' }, { status: 500 })
   }
 }

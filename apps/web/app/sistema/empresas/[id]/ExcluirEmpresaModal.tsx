@@ -27,7 +27,7 @@ export function ExcluirEmpresaModal({ empresaId, empresaNome, onClose, onExcluid
     const supabase = createClient()
     const { error } = await supabase.rpc('excluir_empresa_cascata', { p_empresa_id: empresaId })
     if (error) {
-      setErro(error.message)
+      setErro('Erro ao excluir empresa. Verifique se todos os dados foram removidos e tente novamente.')
       setExcluindo(false)
       return
     }

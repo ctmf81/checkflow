@@ -81,7 +81,7 @@ export default function IntegracoesIAPage() {
     }
     const { error } = await sb.from('ia_provedores').update(patch).eq('provedor', row.provedor)
     setSalvando(null)
-    if (error) { toast.error(`Erro ao salvar: ${error.message}`); return }
+    if (error) { toast.error('Erro ao salvar integração. Tente novamente.'); return }
     setNovaChave(prev => ({ ...prev, [row.provedor]: '' }))
     toast.success(`${META[row.provedor].nome} salvo.`)
     carregar()

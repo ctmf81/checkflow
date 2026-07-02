@@ -90,7 +90,7 @@ function WorkflowsConteudo() {
       p_usuario_id: user?.id,
     })
     setIniciando(null)
-    if (error) { toast.error('Erro ao iniciar: ' + error.message); return }
+    if (error) { toast.error('Erro ao iniciar workflow. Tente novamente.'); return }
     window.location.href = `/gestao/workflows/${workflowId}/execucoes/${data}`
   }
 

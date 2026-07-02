@@ -120,7 +120,7 @@ function NovoAgendamentoModal({
       ? await sb.from('agendamentos').update(payload).eq('id', agendamento!.id)
       : await sb.from('agendamentos').insert({ ...payload, empresa_id: empresaId, unidade_id: unidadeId, criado_por: user?.id })
     setSalvando(false)
-    if (error) { setErro('Erro ao salvar agendamento: ' + error.message); return }
+    if (error) { setErro('Erro ao salvar agendamento. Tente novamente.'); return }
     onCriado()
   }
 

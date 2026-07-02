@@ -36,7 +36,7 @@ export default function SistemaAjudaPage() {
   async function excluir(a: Artigo) {
     if (!await confirm({ titulo: `Excluir "${a.titulo}"?`, confirmarLabel: 'Excluir', perigo: true })) return
     const { error } = await createClient().from('ajuda_artigos').delete().eq('id', a.id)
-    if (error) { toast.error(`Erro: ${error.message}`); return }
+    if (error) { toast.error('Erro ao excluir artigo. Tente novamente.'); return }
     toast.success('Artigo excluído.'); carregar()
   }
 
@@ -114,7 +114,7 @@ function ArtigoModal({ artigo, onClose, onSaved }: { artigo: Artigo | null; onCl
       ? await sb.from('ajuda_artigos').update(payload).eq('id', artigo.id)
       : await sb.from('ajuda_artigos').insert(payload)
     setSalvando(false)
-    if (error) { toast.error(`Erro ao salvar: ${error.message}`); return }
+    if (error) { toast.error('Erro ao salvar artigo. Tente novamente.'); return }
     toast.success(artigo ? 'Artigo atualizado.' : 'Artigo criado.'); onSaved()
   }
 

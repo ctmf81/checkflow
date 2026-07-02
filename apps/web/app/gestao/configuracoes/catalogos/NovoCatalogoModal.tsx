@@ -89,7 +89,7 @@ export function NovoCatalogoModal({ catalogo, onClose, onSalvo }: Props) {
     if (isEdicao) {
       const { error } = await supabase.from('catalogos')
         .update({ ...payload, atualizado_em: new Date().toISOString() }).eq('id', catalogo.id)
-      if (error) { setErro(`Erro ao salvar: ${error.message}`); setSalvando(false); return }
+      if (error) { setErro('Erro ao salvar catálogo. Tente novamente.'); setSalvando(false); return }
       setSyncMsg('Configuração salva com sucesso.')
       onSalvo({ id: catalogo.id, ...payload })
     } else {

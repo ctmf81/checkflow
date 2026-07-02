@@ -65,7 +65,7 @@ export default function PacotesPage() {
     })
     if (!ok) return
     const { error } = await createClient().from('pacotes_adicionais').delete().eq('id', p.id)
-    if (error) { toast.error(`Erro ao excluir: ${error.message}`); return }
+    if (error) { toast.error('Erro ao excluir pacote. Tente novamente.'); return }
     toast.success('Pacote excluído.')
     carregar()
   }
@@ -170,7 +170,7 @@ function PacoteModal({ pacote, onClose, onSaved }: { pacote: Pacote | null; onCl
       : await sb.from('pacotes_adicionais').insert(payload)
 
     setSalvando(false)
-    if (error) { toast.error(`Erro ao salvar: ${error.message}`); return }
+    if (error) { toast.error('Erro ao salvar pacote. Tente novamente.'); return }
     toast.success(pacote ? 'Pacote atualizado.' : 'Pacote criado.')
     onSaved()
   }

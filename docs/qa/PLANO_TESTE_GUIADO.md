@@ -357,9 +357,20 @@ Bug 18+19: mensagens WhatsApp/email sem link (1º acesso + reset admin). Fix: li
 Bug 20: reset_admin enviava código + link redundante. Fix: só link.
 Bug 21: admin 716 não aparecia na própria lista. Fix: migration `20260701000000` (RLS policy) + "Minha conta" no header.
 
-**9.1.5 (guard último admin) — ⏳ re-testar.**
+**9.1.5 (guard último admin) ✅ — Bug 24 corrigido (2026-07-02):** trigger e UI guard contavam admins inativos. Fix: `JOIN usuarios WHERE status = 'ativo'` no trigger + UI guard. Migration `20260702010000`, commit `634ddbd`.
 
-### 9.2 Pré-cadastro / Moderação — ⏳ pendente
+### 9.2 Pré-cadastro / Moderação (`/gestao/acessos/usuarios` → aba Pré-cadastros) — ⏳ pendente
+
+**Usuários necessários:** ADM_A (admin ativo da empresa), link de pré-cadastro gerado via QR code da empresa.
+
+| # | Cenário | Passos | Esperado | Status |
+|---|---------|--------|----------|--------|
+| 9.2.1 | Pré-cadastro via QR | Acessa link de pré-cadastro → preenche dados → envia | Aparece como "pendente" na aba moderação | ⬜ |
+| 9.2.2 | Aprovar pré-cadastro | Admin abre moderação → clica Aprovar | Usuário criado, recebe acesso, some da fila | ⬜ |
+| 9.2.3 | Rejeitar pré-cadastro | Admin clica Rejeitar | Some da fila, usuário não é criado | ⬜ |
+| 9.2.4 | Campos obrigatórios | Envia pré-cadastro sem nome/CPF/telefone | Validação impede envio | ⬜ |
+| 9.2.5 | CPF duplicado | Envia pré-cadastro com CPF já cadastrado na empresa | Mensagem de erro adequada | ⬜ |
+| 9.2.6 | Isolamento multi-tenant | Pré-cadastro da Empresa A não aparece na Empresa B | Listas separadas por empresa | ⬜ |
 
 ### 9.3 Perfis (`/gestao/acessos/perfis`) — ⏳ pendente
 

@@ -47,7 +47,7 @@ export default function SistemaTemplatesPage() {
     })
     if (!ok) return
     const { error } = await createClient().from('checklists').delete().eq('id', t.id)
-    if (error) { toast.error(`Erro ao excluir: ${error.message}`); return }
+    if (error) { toast.error('Erro ao excluir modelo. Tente novamente.'); return }
     toast.success('Modelo excluído.')
     carregar()
   }

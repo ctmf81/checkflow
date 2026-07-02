@@ -48,13 +48,13 @@ export async function POST(req: NextRequest) {
       .update({ status: 'inativo' })
       .eq('id', usuarioId)
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Erro ao inativar usuário. Tente novamente.' }, { status: 500 })
 
     // Invalida todas as sessões ativas do usuário imediatamente
     await supabase.auth.admin.signOut(usuarioId, 'global')
 
     return NextResponse.json({ ok: true })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+  } catch {
+    return NextResponse.json({ error: 'Erro interno.' }, { status: 500 })
   }
 }
