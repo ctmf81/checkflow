@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { Eye, EyeOff } from 'lucide-react'
 import { CheckFlowLogo } from '@/components/auth/CheckFlowLogo'
 import { createClient } from '@/lib/supabase'
 import type { User, SupabaseClient } from '@supabase/supabase-js'
@@ -44,6 +45,7 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const [identificador, setIdentificador] = useState('')
   const [senha, setSenha] = useState('')
+  const [mostrarSenha, setMostrarSenha] = useState(false)
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState('')
   // Marca que o FORM está cuidando do login (com as checagens de inativo/turno).
@@ -183,14 +185,20 @@ function LoginForm() {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
-          <input
-            type="password"
-            value={senha}
-            onChange={e => setSenha(e.target.value)}
-            placeholder="Digite sua senha"
-            className="w-full px-4 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200"
-            required
-          />
+          <div className="relative">
+            <input
+              type={mostrarSenha ? 'text' : 'password'}
+              value={senha}
+              onChange={e => setSenha(e.target.value)}
+              placeholder="Digite sua senha"
+              className="w-full px-4 py-3 pr-11 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200"
+              required
+            />
+            <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              {mostrarSenha ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
         </div>
 
         {erro && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{erro}</p>}
