@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { X, Users, Pencil, PowerOff, RefreshCw, Check, ChevronDown, ChevronUp, Loader2, UserCircle, Phone, Mail } from 'lucide-react'
+import { X, Users, Pencil, PowerOff, RefreshCw, Check, Loader2, UserCircle, Phone, Mail, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { useConfirm, useToast } from '@/components/ui/feedback'
+import { AdicionarUsuarioModal } from './AdicionarUsuarioModal'
 
 interface Props {
   grupoId: string
@@ -270,6 +271,7 @@ export function UsuariosGrupoModal({ grupoId, grupoNome, subgrupoLabel, onClose,
   const toast = useToast()
   const [usuarios, setUsuarios] = useState<UsuarioGrupo[]>([])
   const [loading, setLoading] = useState(true)
+  const [adicionando, setAdicionando] = useState(false)
   const [editando, setEditando] = useState<UsuarioGrupo | null>(null)
   const [subgruposUsuario, setSubgruposUsuario] = useState<UsuarioGrupo | null>(null)
   const [enviandoSenha, setEnviandoSenha] = useState<string | null>(null)
@@ -391,7 +393,15 @@ export function UsuariosGrupoModal({ grupoId, grupoNome, subgrupoLabel, onClose,
                 <p className="text-xs text-gray-400">{grupoNome}</p>
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setAdicionando(true)}
+                title="Adicionar usuário"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors">
+                <UserPlus size={13} />Adicionar
+              </button>
+              <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            </div>
           </div>
 
           {/* Lista */}
@@ -492,6 +502,16 @@ export function UsuariosGrupoModal({ grupoId, grupoNome, subgrupoLabel, onClose,
           </div>
         </div>
       </div>
+
+      {adicionando && (
+        <AdicionarUsuarioModal
+          grupoId={grupoId}
+          grupoNome={grupoNome}
+          subgrupoLabel={subgrupoLabel}
+          onClose={() => setAdicionando(false)}
+          onSalvo={() => { setAdicionando(false); onAlterado?.(); carregar() }}
+        />
+      )}
 
       {editando && (
         <EditarUsuarioModal

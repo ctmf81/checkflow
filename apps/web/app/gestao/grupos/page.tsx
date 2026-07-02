@@ -59,8 +59,19 @@ export default function GruposPage() {
   }
 
   async function desativarGrupo(id: string, nome: string) {
+    const supabase = createClient()
+    const { count: subCount } = await supabase.from('subgrupos').select('id', { count: 'exact', head: true }).eq('grupo_id', id).eq('status', 'ativo')
+    if ((subCount ?? 0) > 0) {
+      toast.error(`Desative os ${subgrupoLabel.toLowerCase()} do grupo "${nome}" antes de desativá-lo.`)
+      return
+    }
+    const { count: userCount } = await supabase.from('usuario_grupo').select('usuario_id', { count: 'exact', head: true }).eq('grupo_id', id)
+    if ((userCount ?? 0) > 0) {
+      toast.error(`Remova os usuários do grupo "${nome}" antes de desativá-lo.`)
+      return
+    }
     if (!await confirm({ titulo: `Desativar o grupo "${nome}"?`, confirmarLabel: 'Desativar', perigo: true })) return
-    const { error } = await createClient().from('grupos').update({ status: 'inativo' }).eq('id', id)
+    const { error } = await supabase.from('grupos').update({ status: 'inativo' }).eq('id', id)
     if (error) { toast.error('Não foi possível desativar o grupo.'); return }
     toast.success('Grupo desativado.')
     carregar()
