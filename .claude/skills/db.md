@@ -280,6 +280,10 @@ escala:         { "data_referencia": "YYYY-MM-DD", "hora_inicio": "HH:MM",
 - `buscar_pessoa_por_cpf(p_cpf)` → `(id, nome, telefone)` security definer, restrita a admin sistema/empresa. Usada pelo `UsuarioModal` p/ detectar CPF já cadastrado e oferecer vínculo a outra empresa (mesma pessoa, perfil próprio por empresa).
 Função `usuario_esta_no_turno(p_usuario_id, p_momento default now())` → boolean — calcula se o usuário está dentro do turno **agora**, suportando ambos os tipos (administrativo: olha dia da semana + janela; escala: calcula posição no ciclo trabalho/folga desde `data_referencia`). Sem turno = sempre `true` (não restringe).
 
+⚠️ **`usuario_esta_no_turno` com `turno.ativo = false`**: a função faz `join turnos t ... where t.ativo` — se o turno estiver inativo, `not found` → retorna `true` (usuário sempre "dentro do turno", sem restrição). Comportamento esperado, mas usuários não devem ficar alocados em turnos inativos. Ao inativar um turno, desatar `turno_id` dos usuários antes. Descoberto no teste 9.4.11 (2026-07-02).
+
+⚠️ **Timezone das funções de turno**: `usuario_esta_no_turno()` e derivadas rodam em UTC (timezone padrão do Supabase). `hora_inicio` / janelas dos dias são interpretadas como UTC. Admins que configuram horários em BRT (UTC-3) devem somar 3h ao cadastrar. Bug de design — sem correção no schema atual.
+
 **Modo fora do turno** (migration `20260622120000`) — 3 funções derivadas (todas `sem turno/inativo` = não restringe):
 - `usuario_recebe_notificacao(uid, momento)` → `false` só se turno ativo modo `notificacao` e fora do horário. Usada nas 3 rotas de notificação WhatsApp (`/planos-acao/notificar`, `/tarefas/notificar`, `/tickets/notificar`) — substituiu o uso direto de `usuario_esta_no_turno`.
 - `usuario_pode_acessar(uid, momento)` (security definer) → `false` só se turno ativo modo `login`, fora do horário, e **não** `is_admin_sistema()` nem `is_admin_empresa(empresa_id)`. Chamada no login (web) após autenticar; `false` → `signOut`.

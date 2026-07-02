@@ -338,4 +338,49 @@ Crie estes usuários para cobrir papéis e isolamento multi-tenant. Use CPFs de 
 
 ---
 
-> **Próximas telas (a adicionar conforme formos testando):** 8+ Gestão (checklists/montador, acessos, etc.) · … (segue a ordem do CENARIOS_DE_TESTE_MANUAL.md).
+---
+
+## Tela 8 — Gestão › Checklists (`/gestao/checklists` + montador)
+
+**✅ Concluída — 2026-07-01 (14 casos, 8.1–8.4)**
+
+Bug 16: reativação de checklist inativo era impossível (nenhum botão) → implementado toggle "Mostrar inativos" + botão "Reativar". Commit `a843ede`.
+
+---
+
+## Tela 9 — Gestão › Acessos
+
+### 9.1 Usuários (`/gestao/acessos/usuarios`) — ✅ 9.1.1–9.1.4 OK (2026-07-01)
+
+Bug 17: perfil "Gestão do Grupo" aparecia N vezes no dropdown (uma por empresa). Fix: filtro por `empresa_id` em `UsuarioModal.tsx` (`d9c5412`).
+Bug 18+19: mensagens WhatsApp/email sem link (1º acesso + reset admin). Fix: links embutidos nos templates.
+Bug 20: reset_admin enviava código + link redundante. Fix: só link.
+Bug 21: admin 716 não aparecia na própria lista. Fix: migration `20260701000000` (RLS policy) + "Minha conta" no header.
+
+**9.1.5 (guard último admin) — ⏳ re-testar.**
+
+### 9.2 Pré-cadastro / Moderação — ⏳ pendente
+
+### 9.3 Perfis (`/gestao/acessos/perfis`) — ⏳ pendente
+
+### 9.4 Turnos (`/gestao/acessos/turnos`) — ✅ 9.4.1–9.4.11 OK (2026-07-02)
+
+| # | Cenário | Status |
+|---|---------|--------|
+| 9.4.1–9.4.3 | CRUD básico (criar/editar/excluir turno) | ✅ |
+| 9.4.4–9.4.6 | Períodos de escala (criar, nomear, proteção ao reduzir) | ✅ |
+| 9.4.7 | Banner "fora do turno" (modo aviso) | ✅ |
+| 9.4.8 | Bloqueio no login (modo login) | ✅ |
+| 9.4.9 | Notificação bloqueada para fora do turno (SQL) | ✅ |
+| 9.4.10 | Sem restrição (modo desativado) | ✅ |
+| 9.4.11 | Escala: `usuario_esta_no_turno()` correto fora do ciclo | ✅ |
+
+**Bug 22 (2026-07-02):** turno `12x36` da QA Smoke tinha `ativo = false` → `usuario_esta_no_turno()` retornava `true` por NOT FOUND (sem turno = sem restrição). Fix: ativado via SQL. **Regra:** ao inativar turno, desvinculá-lo dos usuários.
+
+**Aprendizado timezone:** função e SQL Editor rodam em UTC. `hora_inicio` dos turnos é interpretada em UTC. Admins que configuram em BRT precisam somar +3h.
+
+### 9.5 Empresa/Unidades (`/gestao/acessos/empresa`) — ⏳ pendente
+
+---
+
+> **Próximas telas (a adicionar conforme formos testando):** Tela 10 (Grupos/Subgrupos) → Tela 11 (Tickets) → … (segue a ordem do CENARIOS_DE_TESTE_MANUAL.md).

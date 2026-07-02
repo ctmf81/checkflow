@@ -34,6 +34,16 @@ Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste ·
 12. Plano ❌ (analisada, NÃO corrigida — ver pendências)  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ✅ · Formatação ✅ · Causa raiz ✅ (feature completa) · Notificações ✅ · Relatórios ❌ · Dashboards ❌
 + Ambiente **Sistema** (admin plataforma: empresas, planos/preços, templates, parceiros, integrações IA, onboarding) — revisar ao final/à parte.
 
+## 🗓️ SESSÃO 2026-07-02 — Tela 9.4 (Turnos) completa ✅
+
+**9.4.1–9.4.11 — todos passaram.** Bug root-cause: turno `12x36` da QA Smoke estava com `ativo = false` → `usuario_esta_no_turno()` retornava `true` por NOT FOUND (sem turno = sem restrição). Fix: ativado via SQL direto no prod.
+
+**Diagnósticos de timezone:** SQL Editor = UTC; função também UTC; `hora_inicio` = UTC. Admins que configuram em BRT (UTC-3) precisam somar +3h — bug de design documentado em `/db`.
+
+**Pendências Tela 9:** 9.1.5 (re-test guard último admin), 9.1.6, 9.2.x (Pré-cadastro), 9.3.x (Perfis), 9.5.x (Empresa/Unidades).
+
+**Próxima sessão:** terminar Tela 9 → Tela 10 (Grupos/Subgrupos, cenário 5 de `CENARIOS_DE_TESTE_MANUAL.md`).
+
 ## 🗓️ SESSÃO 2026-06-27 — pré-cadastro QR, offline completo, confiabilidade WhatsApp
 - **Offline completo** (continuação do PWA): catálogo offline (`catalogoCache`, IndexedDB v4, sem imagem), **plano de ação na fila offline** (replay idempotente), abertura da rota offline via **iframe preload** (prefetch não bastava no App Router), `InstallAppButton` compartilhado (operação+gestão, só no navegador). Responsividade da aba Histórico corrigida.
 - **Pré-cadastro por QR** (feature nova, commits bf16b0f/1d420e3): migration `20260627000000_pre_cadastros.sql` **✅ aplicada**; página pública `/pre-cadastro/[empresaId]`, QR + moderação na tela de Usuários, aprovação reusa `/api/usuarios/criar`. Ver `/biz`, `/db`, [[pendencia-precadastro-qrcode]].
