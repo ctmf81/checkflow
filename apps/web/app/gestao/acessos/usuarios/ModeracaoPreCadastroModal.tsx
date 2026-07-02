@@ -67,13 +67,11 @@ export function ModeracaoPreCadastroModal({ empresaId, onClose, onChange }: {
         const u = await sb.auth.getUser()
         return { data: { session: s.data.session, user: u.data.user } }
       })()
-      const senhaTemp = Math.random().toString(36).slice(-10) + 'A1!'
-
       const res = await fetch('/api/usuarios/criar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
         body: JSON.stringify({
-          email: pc.email ?? '', nome: pc.nome, cpf: pc.cpf, telefone: pc.telefone ?? '', senhaTemp,
+          email: pc.email ?? '', nome: pc.nome, cpf: pc.cpf, telefone: pc.telefone ?? '',
           empresaId, perfilId: perfilSel, unidades: unidadesSel,
         }),
       })

@@ -267,14 +267,13 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
           )
         }
       } else {
-        // Cria usuário no Supabase Auth com senha temporária + vínculo de empresa/perfil/unidades
-        const senhaTemp = Math.random().toString(36).slice(-10) + 'A1!'
+        // Cria usuário e envia link de primeiro acesso via WhatsApp
         const { data: { session } } = await supabase.auth.getSession()
         const res = await fetch('/api/usuarios/criar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
           body: JSON.stringify({
-            email, nome, cpf, telefone, senhaTemp,
+            email, nome, cpf, telefone,
             empresaId, perfilId, unidades: unidadesSel.map(u => u.id),
           }),
         })

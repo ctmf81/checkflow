@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { criarCodigoOtp, enviarCodigoUsuario } from '@/lib/passwordReset'
+import { criarSessaoResetAdmin, enviarLinkPrimeiroAcesso, criarCodigoOtp, enviarCodigoUsuario } from '@/lib/passwordReset'
 import { autorizarPermissao } from '@/lib/apiAuth'
 
 function makeAdmin() {
@@ -67,16 +67,16 @@ export async function POST(req: NextRequest) {
       }
 
       // Se a pessoa existe mas NUNCA concluiu o primeiro acesso (não definiu
-      // senha), reenvia o código — senão ela fica vinculada mas sem como entrar.
+      // senha), reenvia o link — senão ela fica vinculada mas sem como entrar.
       let codigoReenviado = false
       let envioErro: string | undefined
       if (existente.primeiro_acesso) {
-        const codigo = await criarCodigoOtp(supabaseAdmin, existente.id, 'primeiro_acesso')
-        const envio = await enviarCodigoUsuario(
-          supabaseAdmin,
-          { id: existente.id, nome: existente.nome, email: existente.email, telefone: existente.telefone },
-          codigo,
-          'primeiro_acesso'
+        const appUrl = (process.env.APP_URL ?? 'https://app.checkflow.digital').replace(/\/$/, '')
+        const sessaoToken = await criarSessaoResetAdmin(supabaseAdmin, existente.id)
+        const linkComToken = `${appUrl}/nova-senha?t=${sessaoToken}&uid=${existente.id}`
+        const envio = await enviarLinkPrimeiroAcesso(
+          { nome: existente.nome, email: existente.email, telefone: existente.telefone },
+          linkComToken
         )
         codigoReenviado = envio.enviado
         envioErro = envio.erro
@@ -146,13 +146,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Dispara código de primeiro acesso por WhatsApp (e e-mail, se houver)
-    const codigo = await criarCodigoOtp(supabaseAdmin, authData.user.id, 'primeiro_acesso')
-    const envio = await enviarCodigoUsuario(
-      supabaseAdmin,
-      { id: authData.user.id, nome, email: emailFinal, telefone: telDigits },
-      codigo,
-      'primeiro_acesso'
+    // Envia link direto para definição de senha (sem etapa de código OTP)
+    const appUrl = (process.env.APP_URL ?? 'https://app.checkflow.digital').replace(/\/$/, '')
+    const sessaoToken = await criarSessaoResetAdmin(supabaseAdmin, authData.user.id)
+    const linkComToken = `${appUrl}/nova-senha?t=${sessaoToken}&uid=${authData.user.id}`
+    const envio = await enviarLinkPrimeiroAcesso(
+      { nome, email: emailFinal, telefone: telDigits },
+      linkComToken
     )
 
     return NextResponse.json(

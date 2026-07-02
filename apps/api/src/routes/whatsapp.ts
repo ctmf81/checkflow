@@ -317,12 +317,14 @@ export async function whatsappRoutes(app: FastifyInstance) {
   // POST /whatsapp/enviar-codigo — envia código numérico (OTP) via WhatsApp + Email
   app.post('/whatsapp/enviar-codigo', async (req, reply) => {
     if (!await exigirAutorizacao(req, reply)) return
-    const { numero, nome, codigo, email, empresa_id, contexto, linkResetAdmin } = req.body as {
+    const { numero, nome, codigo, email, empresa_id, contexto, linkResetAdmin, linkPrimeiroAcesso } = req.body as {
       numero?: string; nome: string; codigo?: string; email?: string; empresa_id?: string
       contexto?: 'primeiro_acesso' | 'reset_admin' | 'self_service'
       linkResetAdmin?: string
+      linkPrimeiroAcesso?: string
     }
-    if (!codigo && contexto !== 'reset_admin') return reply.status(400).send({ error: 'codigo é obrigatório' })
+    const usandoLink = contexto === 'reset_admin' || (contexto === 'primeiro_acesso' && !!linkPrimeiroAcesso)
+    if (!codigo && !usandoLink) return reply.status(400).send({ error: 'codigo é obrigatório' })
 
     const vars = {
       nome,
@@ -352,6 +354,9 @@ export async function whatsappRoutes(app: FastifyInstance) {
         return `Olá${nome ? ` ${nome}` : ''}! 👋\n\nSua senha no *CheckFlow* foi redefinida por um administrador.\n\nClique no link abaixo para criar sua nova senha:\n${link}`
       }
       if (contexto === 'primeiro_acesso') {
+        if (linkPrimeiroAcesso) {
+          return `Olá${nome ? ` ${nome}` : ''}! 👋\n\nSeu acesso ao *CheckFlow* foi criado.\n\nClique no link abaixo para definir sua senha:\n${linkPrimeiroAcesso}\n\n_O link expira em 24 horas._`
+        }
         return `Olá${nome ? ` ${nome}` : ''}! 👋\n\nSeu acesso ao *CheckFlow* foi criado.\n\nSeu código de primeiro acesso é:\n\n*${codigo}*\n\nClique no link abaixo para definir sua senha:\n${appUrl}/primeiro-acesso\n\n_Este código expira em 15 minutos._`
       }
       return `Olá${nome ? ` ${nome}` : ''}! 👋\n\nVocê solicitou a recuperação de senha do *CheckFlow*.\n\nSeu código de verificação é:\n\n*${codigo}*\n\nClique no link abaixo para criar sua nova senha:\n${appUrl}/recuperar-senha\n\n_Este código expira em 15 minutos. Se você não solicitou, ignore esta mensagem._`
@@ -404,11 +409,21 @@ export async function whatsappRoutes(app: FastifyInstance) {
 <p><a href="${linkReset}" style="color:#f97316">${linkReset}</a></p>
 </body></html>`
         } else {
-          const titulo = contexto === 'primeiro_acesso' ? 'Bem-vindo ao CheckFlow' : 'Recuperação de senha'
-          const texto = contexto === 'primeiro_acesso'
-            ? `Seu acesso ao CheckFlow foi criado. Use o código abaixo na página de primeiro acesso para definir sua senha: <a href="${appUrl}/primeiro-acesso">${appUrl}/primeiro-acesso</a>`
-            : `Você solicitou a recuperação de senha. Use o código abaixo para continuar: <a href="${appUrl}/recuperar-senha">${appUrl}/recuperar-senha</a>`
-          html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;padding:32px">
+          if (contexto === 'primeiro_acesso' && linkPrimeiroAcesso) {
+            html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;padding:32px">
+<h2 style="color:#f97316">CheckFlow</h2>
+<p>Olá${nome ? ` ${nome}` : ''}!</p>
+<p>Seu acesso ao CheckFlow foi criado.</p>
+<p>Clique no link abaixo para definir sua senha:</p>
+<p><a href="${linkPrimeiroAcesso}" style="color:#f97316">${linkPrimeiroAcesso}</a></p>
+<p style="color:#999;font-size:12px;margin-top:24px">O link expira em 24 horas.</p>
+</body></html>`
+          } else {
+            const titulo = contexto === 'primeiro_acesso' ? 'Bem-vindo ao CheckFlow' : 'Recuperação de senha'
+            const texto = contexto === 'primeiro_acesso'
+              ? `Seu acesso ao CheckFlow foi criado. Use o código abaixo na página de primeiro acesso para definir sua senha: <a href="${appUrl}/primeiro-acesso">${appUrl}/primeiro-acesso</a>`
+              : `Você solicitou a recuperação de senha. Use o código abaixo para continuar: <a href="${appUrl}/recuperar-senha">${appUrl}/recuperar-senha</a>`
+            html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;padding:32px">
 <h2 style="color:#f97316">CheckFlow</h2>
 <p>Olá${nome ? ` ${nome}` : ''}!</p>
 <p>${titulo}</p>
@@ -418,6 +433,7 @@ export async function whatsappRoutes(app: FastifyInstance) {
 </div>
 <p style="color:#999;font-size:12px;margin-top:24px">Este código expira em 15 minutos.</p>
 </body></html>`
+          }
         }
       } else {
         html = ''

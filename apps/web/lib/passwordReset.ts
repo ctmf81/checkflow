@@ -156,6 +156,33 @@ export async function criarSessaoResetAdmin(
   return sessaoToken
 }
 
+/** Envia link de primeiro acesso (sem código OTP) — usuário clica e vai direto para definir senha. */
+export async function enviarLinkPrimeiroAcesso(
+  usuario: { nome: string; telefone: string | null; email: string | null },
+  linkComToken: string
+): Promise<{ enviado: boolean; erro?: string }> {
+  const emailReal = usuario.email && !usuario.email.endsWith('@checkflow.local') ? usuario.email : undefined
+  try {
+    const res = await fetch(`${API_URL}/whatsapp/enviar-codigo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.INTERNAL_API_SECRET ?? '' },
+      body: JSON.stringify({
+        numero: usuario.telefone ?? undefined,
+        nome: usuario.nome,
+        email: emailReal,
+        contexto: 'primeiro_acesso',
+        linkPrimeiroAcesso: linkComToken,
+      }),
+    })
+    if (!res.ok) return { enviado: false, erro: `Falha no envio (HTTP ${res.status}).` }
+    const json: any = await res.json().catch(() => ({}))
+    const ok = json?.whatsapp?.ok === true || json?.email?.ok === true
+    return ok ? { enviado: true } : { enviado: false, erro: json?.whatsapp?.erro ?? 'WhatsApp não confirmou a entrega.' }
+  } catch (e: any) {
+    return { enviado: false, erro: e?.message ?? 'Falha de rede ao enviar o link.' }
+  }
+}
+
 /** Notifica o usuário que o admin redefiniu sua senha — envia link com token embutido. */
 export async function enviarAvisoResetAdmin(
   usuario: { nome: string; telefone: string | null; email: string | null },
