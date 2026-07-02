@@ -55,7 +55,7 @@ export default function EmpresaPage() {
       setCnpj(emp.cnpj ?? '')
     }
 
-    const { data: unis } = await supabase.from('unidades').select('id, nome, status').eq('empresa_id', empresaAtiva.id).order('nome')
+    const { data: unis } = await supabase.from('unidades').select('id, nome, status').eq('empresa_id', empresaAtiva.id).order('status').order('nome')
     if (unis) setUnidades(unis)
 
     setLoading(false)
