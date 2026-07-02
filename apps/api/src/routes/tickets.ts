@@ -92,7 +92,6 @@ export async function ticketsRoutes(app: FastifyInstance) {
     const eventoLabel   = EVENTO_LABEL[evento] ?? evento
 
     const baseUrl = process.env.APP_URL ?? 'https://app.checkflow.digital'
-    const link    = `${baseUrl}/gestao/tickets/${ticket_id}`
 
     // 2. Empresa do ticket
     const empresaId = await empresaDeUnidade(sb, t.unidade_id)
@@ -115,6 +114,22 @@ export async function ticketsRoutes(app: FastifyInstance) {
     }
 
     if (!destinatarios.length) return reply.send({ wa_enviados: 0, email_enviados: 0, motivo: 'Sem destinatários' })
+
+    // 4b. Perfil de cada destinatário → link personalizado (gestão vs operação)
+    const PERFIL_OPERACAO = '00000000-0000-0000-0000-000000000003'
+    let perfilMap = new Map<string, string>()
+    if (empresaId) {
+      const { data: perfis } = await sb.from('usuario_empresa')
+        .select('usuario_id, perfil_id')
+        .eq('empresa_id', empresaId)
+        .in('usuario_id', destinatarios.map((u: any) => u.id))
+      perfilMap = new Map((perfis ?? []).map((p: any) => [p.usuario_id, p.perfil_id]))
+    }
+    function linkParaUsuario(uid: string): string {
+      const perfil = perfilMap.get(uid)
+      const area = perfil === PERFIL_OPERACAO ? 'operacao' : 'gestao'
+      return `${baseUrl}/${area}/tickets/${ticket_id}`
+    }
 
     // 5. Turno (só para WA no evento 'aberto'): suprime só modo 'notificacao' fora do horário
     const foraDoTurno = new Set<string>()
@@ -140,7 +155,7 @@ export async function ticketsRoutes(app: FastifyInstance) {
         ])
       : [null, null]
 
-    // Variáveis comuns de interpolação
+    // Variáveis base de interpolação (link é por-destinatário — veja abaixo)
     const varsBase = {
       numero: numeroStr,
       titulo: t.titulo,
@@ -153,7 +168,6 @@ export async function ticketsRoutes(app: FastifyInstance) {
       ator: atorNome,
       evento: eventoLabel,
       observacao: texto ?? '',
-      link,
     }
 
     // 8. Dispara para cada destinatário
@@ -161,7 +175,8 @@ export async function ticketsRoutes(app: FastifyInstance) {
     const erros: string[] = []
 
     await Promise.all(destinatarios.map(async (u) => {
-      const vars = { ...varsBase, destinatario: u.nome }
+      const link = linkParaUsuario(u.id)
+      const vars = { ...varsBase, link, destinatario: u.nome }
 
       // ── WhatsApp ──
       if (u.telefone && !foraDoTurno.has(u.id)) {
