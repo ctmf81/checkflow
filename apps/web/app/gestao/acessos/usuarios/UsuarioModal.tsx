@@ -139,7 +139,7 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
     }
     carregarPerfis()
 
-    let uq = supabase.from('unidades').select('id, nome').eq('ativo', true).order('nome')
+    let uq = supabase.from('unidades').select('id, nome').eq('status', 'ativo').order('nome')
     if (empresaId) uq = uq.eq('empresa_id', empresaId) as typeof uq
     uq.then(({ data }) => { if (data) setUnidades(data) })
 

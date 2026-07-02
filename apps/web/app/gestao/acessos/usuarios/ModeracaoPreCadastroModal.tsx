@@ -41,7 +41,7 @@ export function ModeracaoPreCadastroModal({ empresaId, onClose, onChange }: {
       sb.from('pre_cadastros').select('id, nome, cpf, telefone, email, observacao, criado_em')
         .eq('empresa_id', empresaId).eq('status', 'pendente').order('criado_em', { ascending: false }),
       sb.from('perfis').select('id, nome').or(`empresa_id.eq.${empresaId},empresa_id.is.null`).neq('id', ADMIN_SISTEMA_ID).order('nome'),
-      sb.from('unidades').select('id, nome').eq('empresa_id', empresaId).eq('ativo', true).order('nome'),
+      sb.from('unidades').select('id, nome').eq('empresa_id', empresaId).eq('status', 'ativo').order('nome'),
     ])
     setPendentes(pc.data ?? [])
     setPerfis(pf.data ?? [])
