@@ -62,7 +62,7 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
   const push = useCallback((tipo: ToastTipo, mensagem: string) => {
     const id = ++idRef.current
     setToasts(prev => [...prev, { id, tipo, mensagem }])
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000)
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 6000)
   }, [])
 
   const toastApi = useRef<ToastApi>({
