@@ -25,12 +25,9 @@ function OperacaoHeader() {
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) router.replace('/login')
     })
-    // Verifica se o usuário tem acesso à gestão (admin_sistema ou tem empresa ativa)
-    // e carrega o nome para o menu de usuário.
+    // Carrega o nome do usuário para o menu.
     supabase.auth.getUser().then(({ data }) => {
       const user = data?.user
-      const role = user?.user_metadata?.role
-      setTemGestao(role === 'admin_sistema' || role === 'usuario')
       if (user) {
         supabase.from('usuarios').select('nome').eq('id', user.id).single()
           .then(({ data }) => { if (data?.nome) setNome(data.nome) })
@@ -54,8 +51,23 @@ function OperacaoHeader() {
 
   useEffect(() => {
     if (!empresaAtiva?.id) return
-    createClient().from('empresas').select('logo_url').eq('id', empresaAtiva.id).single()
+    const supabase = createClient()
+    supabase.from('empresas').select('logo_url').eq('id', empresaAtiva.id).single()
       .then(({ data }) => setLogoUrl(data?.logo_url ?? null))
+    // Mostra botão Gestão apenas se o perfil não for o de Operação puro (…003)
+    supabase.auth.getUser().then(({ data }) => {
+      const user = data?.user
+      if (!user) return
+      if (user.user_metadata?.role === 'admin_sistema') { setTemGestao(true); return }
+      supabase.from('usuario_empresa')
+        .select('perfil_id')
+        .eq('usuario_id', user.id)
+        .eq('empresa_id', empresaAtiva.id)
+        .maybeSingle()
+        .then(({ data: ue }) => {
+          setTemGestao(!!ue && ue.perfil_id !== '00000000-0000-0000-0000-000000000003')
+        })
+    })
   }, [empresaAtiva?.id])
 
   async function handleLogout() {
