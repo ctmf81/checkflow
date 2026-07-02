@@ -97,10 +97,11 @@ export async function POST(req: NextRequest) {
     })
 
     if (authError || !authData.user) {
-      return NextResponse.json(
-        { message: authError?.message ?? 'Erro ao criar usuário.' },
-        { status: 400 }
-      )
+      const msg = authError?.message ?? ''
+      const msgTraduzida = msg.toLowerCase().includes('already been registered') || msg.toLowerCase().includes('already registered')
+        ? 'Já existe uma conta com este e-mail. Use um e-mail diferente ou deixe em branco.'
+        : msg || 'Erro ao criar usuário.'
+      return NextResponse.json({ message: msgTraduzida }, { status: 400 })
     }
 
     const { error: dbError } = await supabaseAdmin.from('usuarios').insert({
