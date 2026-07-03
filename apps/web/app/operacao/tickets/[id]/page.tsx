@@ -184,7 +184,7 @@ export default function TicketDetalheOperacao() {
     if (fechados.includes(s)) return 'Este ticket está encerrado.'
     if (s === 'aberto' && !ehDoSubgrupo) return `Aguardando alguém do ${subgrupoLabel.toLowerCase()} de destino assumir.`
     if (s === 'em_tratamento') return `Em tratamento por ${ticket.assignee?.nome ?? 'um responsável'}.`
-    if (s === 'aguardando_informacao') return `Aguardando resposta de ${ticket.aberto_por.nome}.`
+    if (s === 'aguardando_informacao') return `Aguardando resposta de ${ticket.aberto_por?.nome ?? 'quem abriu'}.`
     return 'Sem ações disponíveis no momento.'
   }
   const semAcaoMsg = motivoSemAcao()
@@ -209,9 +209,9 @@ export default function TicketDetalheOperacao() {
         <h1 className="text-base font-semibold text-gray-800 mt-2">{ticket.titulo}</h1>
         <p className="text-sm text-gray-600 mt-1">{ticket.descricao}</p>
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
-          <span>Destino: <strong>{ticket.grupo.nome} / {ticket.subgrupo.nome}</strong></span>
+          <span>Destino: <strong>{ticket.grupo?.nome ?? '—'} / {ticket.subgrupo?.nome ?? '—'}</strong></span>
           {ticket.categoria && <span>Categoria: <strong>{ticket.categoria.nome}</strong></span>}
-          <span>Aberto por: <strong>{ticket.aberto_por.nome}</strong></span>
+          {ticket.aberto_por && <span>Aberto por: <strong>{ticket.aberto_por.nome}</strong></span>}
           {ticket.assignee && <span>Responsável: <strong>{ticket.assignee.nome}</strong></span>}
         </div>
       </div>
