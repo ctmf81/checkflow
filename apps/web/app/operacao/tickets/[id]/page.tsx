@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Upload, AlertTriangle, Loader2, Info, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Upload, AlertTriangle, Loader2, Info } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { notificarTicket } from '@/lib/notificacoes'
@@ -71,9 +71,11 @@ export default function TicketDetalheOperacao() {
 
   const [texto,    setTexto]    = useState('')
   const [arquivos, setArquivos] = useState<File[]>([])
-  const [acaoOpen, setAcaoOpen] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [erro,     setErro]     = useState<string | null>(null)
+  // Ação documentada escolhida (comentar/concluir/devolver…) aguardando a
+  // observação. Assumir não passa por aqui — é executada com um toque.
+  const [acaoSel,  setAcaoSel]  = useState<Acao | null>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -125,7 +127,11 @@ export default function TicketDetalheOperacao() {
   }
 
   async function executarAcao(acao: Acao) {
-    if (!texto.trim()) { setErro('Observação obrigatória.'); return }
+    // Assumir é um toque só: não exige observação nem evidência. As demais
+    // ações (comentar, concluir, devolver…) documentam e exigem observação.
+    const semObs = acao.tipo === 'aceite'
+    if (!semObs && !texto.trim()) { setErro('Observação obrigatória.'); return }
+    const textoEvento = texto.trim() || (semObs ? 'Ticket assumido' : '')
     setEnviando(true); setErro(null)
 
     if (acao.tipo === 'aceite' || acao.novoStatus !== ticket!.status) {
@@ -145,7 +151,7 @@ export default function TicketDetalheOperacao() {
     }
 
     const { data: evento, error: evErr } = await supabase.from('ticket_eventos').insert({
-      ticket_id: id, tipo: acao.tipo, texto: texto.trim(),
+      ticket_id: id, tipo: acao.tipo, texto: textoEvento,
     }).select('id').single()
 
     if (evErr) { setEnviando(false); setErro('Não foi possível registrar o evento.'); carregar(); return }
@@ -166,9 +172,9 @@ export default function TicketDetalheOperacao() {
       }
     }
 
-    if (userId) notificarTicket({ ticket_id: id, evento: acao.tipo, ator_id: userId, texto: texto.trim() })
+    if (userId) notificarTicket({ ticket_id: id, evento: acao.tipo, ator_id: userId, texto: textoEvento })
 
-    setTexto(''); setArquivos([]); setAcaoOpen(false); setEnviando(false)
+    setTexto(''); setArquivos([]); setAcaoSel(null); setEnviando(false)
     carregar()
   }
 
@@ -176,6 +182,8 @@ export default function TicketDetalheOperacao() {
   if (!ticket) return <div className="py-16 text-center text-sm text-red-400">Ticket não encontrado.</div>
 
   const acoesDisponiveis = acoes()
+  const acaoAssumir = acoesDisponiveis.find(a => a.tipo === 'aceite')
+  const acoesDoc = acoesDisponiveis.filter(a => a.tipo !== 'aceite')
 
   function motivoSemAcao(): string | null {
     if (acoesDisponiveis.length > 0 || !ticket) return null
@@ -191,8 +199,8 @@ export default function TicketDetalheOperacao() {
 
   return (
     <div className="max-w-lg mx-auto p-4 pb-40">
-      <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4">
-        <ArrowLeft size={15} /> Voltar
+      <button onClick={() => router.push('/operacao')} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4">
+        <ArrowLeft size={15} /> Voltar para a operação
       </button>
 
       {/* Cabeçalho */}
@@ -255,49 +263,56 @@ export default function TicketDetalheOperacao() {
       {acoesDisponiveis.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-40">
           <div className="max-w-lg mx-auto flex flex-col gap-3">
-            <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={2}
-              placeholder="Observação obrigatória…"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none" />
 
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer border border-dashed border-gray-300 rounded-lg px-2.5 py-1.5 hover:bg-gray-50">
-                <Upload size={12} />
-                {arquivos.length > 0 ? `${arquivos.length} arq.` : 'Evidência'}
-                <input type="file" multiple accept="image/*,video/*" className="hidden"
-                  onChange={e => setArquivos(Array.from(e.target.files ?? []))} />
-              </label>
-
-              <div className="flex-1 flex gap-2 justify-end flex-wrap">
-                {acoesDisponiveis.filter(a => a.variante !== 'ghost').map(a => (
-                  <button key={a.tipo + a.novoStatus} onClick={() => executarAcao(a)} disabled={enviando}
-                    className={`text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50 flex items-center gap-1.5 ${
-                      a.variante === 'primary' ? 'bg-orange-500 text-white hover:bg-orange-600' : 'bg-red-50 text-red-600 hover:bg-red-100'
+            {acaoSel ? (
+              /* Ação documentada escolhida: observação (+ evidência) obrigatória */
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">{acaoSel.label}</span>
+                  <button onClick={() => { setAcaoSel(null); setTexto(''); setArquivos([]); setErro(null) }}
+                    className="text-xs text-gray-400 hover:text-gray-600">Cancelar</button>
+                </div>
+                <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={2} autoFocus
+                  placeholder="Observação obrigatória…"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none" />
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer border border-dashed border-gray-300 rounded-lg px-2.5 py-1.5 hover:bg-gray-50">
+                    <Upload size={12} />
+                    {arquivos.length > 0 ? `${arquivos.length} arq.` : 'Evidência'}
+                    <input type="file" multiple accept="image/*,video/*" className="hidden"
+                      onChange={e => setArquivos(Array.from(e.target.files ?? []))} />
+                  </label>
+                  <button onClick={() => executarAcao(acaoSel)} disabled={enviando}
+                    className={`flex-1 text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5 ${
+                      acaoSel.variante === 'danger' ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-orange-500 text-white hover:bg-orange-600'
                     }`}>
                     {enviando && <Loader2 size={13} className="animate-spin" />}
+                    Confirmar
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* Escolha da ação: Assumir é um toque; as demais abrem a observação */
+              <div className="flex gap-2 flex-wrap">
+                {acaoAssumir && (
+                  <button onClick={() => executarAcao(acaoAssumir)} disabled={enviando}
+                    className="flex-1 min-w-[8rem] bg-orange-500 text-white hover:bg-orange-600 text-sm font-medium px-4 py-2.5 rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5">
+                    {enviando && <Loader2 size={13} className="animate-spin" />}
+                    Assumir ticket
+                  </button>
+                )}
+                {acoesDoc.map(a => (
+                  <button key={a.tipo + a.novoStatus} onClick={() => { setErro(null); setAcaoSel(a) }} disabled={enviando}
+                    className={`flex-1 min-w-[8rem] text-sm font-medium px-4 py-2.5 rounded-lg disabled:opacity-50 border ${
+                      a.variante === 'danger' ? 'border-red-200 text-red-600 hover:bg-red-50'
+                        : a.variante === 'primary' ? 'border-orange-300 text-orange-600 hover:bg-orange-50'
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}>
                     {a.label}
                   </button>
                 ))}
-                {acoesDisponiveis.filter(a => a.variante === 'ghost').length > 0 && (
-                  <div className="relative">
-                    <button onClick={() => setAcaoOpen(o => !o)}
-                      className="flex items-center gap-1 text-sm font-medium px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
-                      Mais <ChevronDown size={13} />
-                    </button>
-                    {acaoOpen && (
-                      <div className="absolute bottom-full right-0 mb-1 bg-white rounded-xl shadow-lg border border-gray-100 py-1 min-w-48 z-50">
-                        {acoesDisponiveis.filter(a => a.variante === 'ghost').map(a => (
-                          <button key={a.tipo + a.novoStatus} onClick={() => { setAcaoOpen(false); executarAcao(a) }}
-                            disabled={enviando}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                            {a.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
-            </div>
+            )}
 
             {erro && (
               <div className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">
