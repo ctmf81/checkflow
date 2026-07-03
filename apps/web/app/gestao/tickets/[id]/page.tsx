@@ -189,7 +189,7 @@ export default function TicketDetalhe() {
 
     // Cria evento
     const { data: evento, error: evErr } = await supabase.from('ticket_eventos').insert({
-      ticket_id: id, tipo: acao.tipo, texto: texto.trim(),
+      ticket_id: id, tipo: acao.tipo, texto: texto.trim(), autor_id: userId,
     }).select('id').single()
 
     if (evErr) {
@@ -268,7 +268,7 @@ export default function TicketDetalhe() {
     const subgrupoNovo = subgrupos.find(s => s.id === subgrupoSel)?.nome ?? ''
 
     const { error: evErr } = await supabase.from('ticket_eventos').insert({
-      ticket_id: id, tipo: 'transferencia', texto: obsTransfer.trim(),
+      ticket_id: id, tipo: 'transferencia', texto: obsTransfer.trim(), autor_id: userId,
       meta: {
         de: { grupo: grupoAnterior, subgrupo: subgrupoAnterior },
         para: { grupo: grupoNovo, subgrupo: subgrupoNovo },

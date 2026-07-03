@@ -151,7 +151,7 @@ export default function TicketDetalheOperacao() {
     }
 
     const { data: evento, error: evErr } = await supabase.from('ticket_eventos').insert({
-      ticket_id: id, tipo: acao.tipo, texto: textoEvento,
+      ticket_id: id, tipo: acao.tipo, texto: textoEvento, autor_id: userId,
     }).select('id').single()
 
     if (evErr) { setEnviando(false); setErro('Não foi possível registrar o evento.'); carregar(); return }
