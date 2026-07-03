@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import NovoTicketModal from '@/components/tickets/NovoTicketModal'
 import { AbaTarefas } from './AbaTarefas'
+import { AbaTickets } from './AbaTickets'
 import { WORKFLOWS_HABILITADO } from '@/lib/features'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_OPERACAO } from '@/components/onboarding/configs'
@@ -28,7 +29,7 @@ import { buscarCatalogo, salvarCatalogoCache } from '@/lib/catalogoCache'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-type Aba = 'checklists' | 'tarefas' | 'historico' | 'documentos'
+type Aba = 'checklists' | 'tarefas' | 'tickets' | 'historico' | 'documentos'
 
 interface Checklist {
   id: string; nome: string; descricao: string | null
@@ -1168,6 +1169,7 @@ export default function OperacaoPage() {
   const [loading, setLoading] = useState(true)
   // Disponibilidade de cada aba — abas sem item são suprimidas do menu
   const [temTarefas, setTemTarefas] = useState(false)
+  const [temTickets, setTemTickets] = useState(false)
   const [temDocumentos, setTemDocumentos] = useState(false)
   const [temHistorico, setTemHistorico] = useState(false)
 
@@ -1215,8 +1217,14 @@ export default function OperacaoPage() {
         .select('id', { count: 'exact', head: true })
         .eq('unidade_id', unidadeAtiva!.id).eq('executado_por', user.id)
 
+      // Tickets (o RLS já restringe às linhas visíveis ao usuário)
+      const { count: countTickets } = await sb.from('tickets')
+        .select('id', { count: 'exact', head: true })
+        .eq('unidade_id', unidadeAtiva!.id)
+
       if (cancel) return
       setTemTarefas(temTar)
+      setTemTickets((countTickets ?? 0) > 0)
       setTemDocumentos(temDoc)
       setTemHistorico((count ?? 0) > 0)
     })()
@@ -1228,13 +1236,13 @@ export default function OperacaoPage() {
     const disp: Record<Aba, boolean> = {
       checklists: grupos.length > 0 || semGrupo.length > 0 || agendadas.length > 0
         || itensWorkflow.length > 0 || naoFinalizadas.length > 0,
-      tarefas: temTarefas, historico: temHistorico, documentos: temDocumentos,
+      tarefas: temTarefas, tickets: temTickets, historico: temHistorico, documentos: temDocumentos,
     }
     if (!disp[aba]) {
-      const primeira = (['checklists', 'tarefas', 'historico', 'documentos'] as Aba[]).find(id => disp[id])
+      const primeira = (['checklists', 'tarefas', 'tickets', 'historico', 'documentos'] as Aba[]).find(id => disp[id])
       if (primeira) setAba(primeira)
     }
-  }, [grupos, semGrupo, agendadas, itensWorkflow, naoFinalizadas, temTarefas, temHistorico, temDocumentos, aba])
+  }, [grupos, semGrupo, agendadas, itensWorkflow, naoFinalizadas, temTarefas, temTickets, temHistorico, temDocumentos, aba])
 
   async function carregarChecklists() {
     setLoading(true)
@@ -1442,11 +1450,12 @@ export default function OperacaoPage() {
   const temChecklists = grupos.length > 0 || semGrupo.length > 0 || agendadas.length > 0
     || itensWorkflow.length > 0 || naoFinalizadas.length > 0
   const dispMap: Record<Aba, boolean> = {
-    checklists: temChecklists, tarefas: temTarefas, historico: temHistorico, documentos: temDocumentos,
+    checklists: temChecklists, tarefas: temTarefas, tickets: temTickets, historico: temHistorico, documentos: temDocumentos,
   }
   const ABAS = ([
     { id: 'checklists', label: 'Checklists',  icon: <CheckSquare size={15} /> },
     { id: 'tarefas',    label: 'Tarefas',     icon: <ListChecks size={15} /> },
+    { id: 'tickets',    label: 'Tickets',     icon: <Ticket size={15} /> },
     { id: 'historico',  label: 'Histórico',   icon: <History size={15} /> },
     { id: 'documentos', label: 'Documentos',  icon: <FileText size={15} /> },
   ] as { id: Aba; label: string; icon: React.ReactNode }[]).filter(a => dispMap[a.id])
@@ -1491,6 +1500,7 @@ export default function OperacaoPage() {
               busca={busca} setBusca={setBusca} />
           )}
           {aba === 'tarefas' && <AbaTarefas unidadeId={unidadeAtiva.id} empresaId={empresaAtiva?.id} />}
+          {aba === 'tickets' && <AbaTickets unidadeId={unidadeAtiva.id} empresaId={empresaAtiva?.id} />}
           {aba === 'historico' && <AbaHistorico unidadeId={unidadeAtiva.id} />}
           {aba === 'documentos' && <AbaDocumentos unidadeId={unidadeAtiva.id} empresaId={empresaAtiva?.id} />}
         </>
