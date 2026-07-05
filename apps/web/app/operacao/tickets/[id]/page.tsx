@@ -278,13 +278,30 @@ export default function TicketDetalheOperacao() {
 
   const acoesDisponiveis = acoes()
   const acaoAssumir = acoesDisponiveis.find(a => a.tipo === 'aceite')
-  const acoesMenu = acoesDisponiveis.filter(a => a.tipo !== 'aceite')
+  const acaoTransferir = acoesDisponiveis.find(a => a.tipo === 'transferencia')
+
+  // Ordem fixa do menu na operação (mais simples que na gestão):
+  // Solicitar informação → Comentar → Concluir corrigido → Marcar não corrigido → Cancelar.
+  // "Corrigido parcial" e "Improcedente" ficam de fora aqui (seguem na gestão).
+  function ordemAcao(a: Acao): number {
+    const key = a.tipo === 'conclusao' ? `conclusao:${a.novoStatus}` : a.tipo
+    const mapa: Record<string, number> = {
+      resposta_devolucao: 0, reabertura: 0,
+      devolucao: 1, comentario: 2,
+      'conclusao:corrigido': 3, 'conclusao:nao_corrigido': 4,
+      cancelamento: 90,
+    }
+    return mapa[key] ?? 50
+  }
+  const acoesMenu = acoesDisponiveis
+    .filter(a => a.tipo !== 'aceite' && a.tipo !== 'transferencia' && a.tipo !== 'improcedencia'
+      && !(a.tipo === 'conclusao' && a.novoStatus === 'corrigido_parcialmente'))
+    .sort((x, y) => ordemAcao(x) - ordemAcao(y))
 
   function escolherAcao(a: Acao) {
     setMenuOpen(false)
     setErro(null)
-    if (a.tipo === 'transferencia') abrirTransferencia()
-    else setAcaoSel(a)
+    setAcaoSel(a)
   }
 
   function motivoSemAcao(): string | null {
@@ -403,7 +420,7 @@ export default function TicketDetalheOperacao() {
                 </div>
               </>
             ) : (
-              /* Escolha da ação: Assumir é um toque; as demais ficam num menu compacto */
+              /* Escolha da ação: Assumir é um toque; as demais num menu; Transferir é ícone à parte */
               <div className="flex gap-2">
                 {acaoAssumir && (
                   <button onClick={() => executarAcao(acaoAssumir)} disabled={enviando}
@@ -421,13 +438,12 @@ export default function TicketDetalheOperacao() {
                     {menuOpen && (
                       <>
                         <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                        <div className="absolute bottom-full right-0 mb-1 w-60 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                        <div className="absolute bottom-full left-0 mb-1 w-60 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
                           {acoesMenu.map(a => (
                             <button key={a.tipo + a.novoStatus} onClick={() => escolherAcao(a)}
-                              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center gap-2 ${
+                              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 ${
                                 a.variante === 'danger' ? 'text-red-600' : 'text-gray-700'
                               }`}>
-                              {a.tipo === 'transferencia' && <ArrowLeftRight size={14} className="text-indigo-500" />}
                               {a.label}
                             </button>
                           ))}
@@ -435,6 +451,13 @@ export default function TicketDetalheOperacao() {
                       </>
                     )}
                   </div>
+                )}
+                {acaoTransferir && (
+                  <button onClick={abrirTransferencia} disabled={enviando} title="Transferir para outro grupo/subgrupo"
+                    aria-label="Transferir ticket"
+                    className="flex-shrink-0 w-11 flex items-center justify-center rounded-lg border border-gray-300 text-indigo-500 hover:bg-indigo-50 disabled:opacity-50">
+                    <ArrowLeftRight size={16} />
+                  </button>
                 )}
               </div>
             )}
