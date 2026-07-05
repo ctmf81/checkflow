@@ -109,10 +109,11 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
       return
     }
 
-    // evento de abertura
-    await supabase.from('ticket_eventos').insert({
+    // evento de abertura (captura o id para vincular as evidências a ele —
+    // sem isso a foto fica órfã e não aparece na timeline, que mostra por evento)
+    const { data: eventoAbertura } = await supabase.from('ticket_eventos').insert({
       ticket_id: ticket.id, tipo: 'abertura', texto: descricao.trim(), autor_id: user.id,
-    })
+    }).select('id').single()
 
     // upload de evidências
     for (const file of arquivos) {
@@ -124,7 +125,7 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
         const { data: pub } = supabase.storage.from('execucoes').getPublicUrl(path)
         const tipo = file.type.startsWith('video') ? 'video' : file.type.startsWith('image') ? 'foto' : 'documento'
         await supabase.from('ticket_evidencias').insert({
-          ticket_id: ticket.id, url: pub.publicUrl, tipo, nome: file.name, uploaded_by: user.id,
+          ticket_id: ticket.id, evento_id: eventoAbertura?.id ?? null, url: pub.publicUrl, tipo, nome: file.name, uploaded_by: user.id,
         })
       }
     }
