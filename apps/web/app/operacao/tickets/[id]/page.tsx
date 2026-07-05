@@ -202,7 +202,7 @@ export default function TicketDetalheOperacao() {
           const { data: pub } = supabase.storage.from('execucoes').getPublicUrl(path)
           const tipo = file.type.startsWith('video') ? 'video' : file.type.startsWith('image') ? 'foto' : 'documento'
           const { error: evidInsErr } = await supabase.from('ticket_evidencias').insert({
-            ticket_id: id, evento_id: evento.id, url: pub.publicUrl, tipo, nome: file.name,
+            ticket_id: id, evento_id: evento.id, url: pub.publicUrl, tipo, nome: file.name, uploaded_by: userId,
           })
           if (evidInsErr) {
             console.error('[CheckFlow] falha ao salvar evidência do ticket:', evidInsErr)
