@@ -121,6 +121,9 @@ export default function TicketsPage() {
     return matchStatus && matchBusca
   })
 
+  // Abri e devolveram para eu responder → precisa da minha ação (fica evidente no topo).
+  const aguardandoMinhaResposta = tickets.filter(t => t.aberto_por_id === userId && t.status === 'aguardando_informacao')
+
   const visiveis = tickets.filter(t => ticketVisivel(t, visCtx))
   const contadores = {
     naoAceitos:   visiveis.filter(t => STATUS_NAO_ACEITO.includes(t.status as any)).length,
@@ -172,6 +175,32 @@ export default function TicketsPage() {
           <div className="text-xs text-gray-500 mt-0.5 truncate">Finalizados</div>
         </div>
       </div>
+
+      {/* Aguardando sua resposta — tickets que você abriu e voltaram para você */}
+      {aguardandoMinhaResposta.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock size={15} className="text-yellow-500" />
+            <h2 className="text-sm font-semibold text-gray-700">Aguardando sua resposta</h2>
+            <span className="text-xs bg-yellow-100 text-yellow-700 font-semibold px-2 py-0.5 rounded-full">{aguardandoMinhaResposta.length}</span>
+          </div>
+          <div className="bg-white rounded-xl border border-yellow-200 divide-y divide-gray-50">
+            {aguardandoMinhaResposta.map(t => (
+              <Link key={t.id} href={`/gestao/tickets/${t.id}`}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-yellow-50 transition-colors">
+                <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${PRIORIDADE_CONFIG[t.prioridade].cor}`}>
+                  {PRIORIDADE_CONFIG[t.prioridade].label}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs text-gray-400 font-mono mr-2">#{String(t.numero).padStart(4,'0')}</span>
+                  <span className="text-sm font-medium text-gray-800">{t.titulo}</span>
+                </div>
+                <span className="text-xs font-medium text-yellow-700 shrink-0">Responder →</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">

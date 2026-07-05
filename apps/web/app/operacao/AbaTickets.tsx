@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronRight, Ticket, Clock, CheckCircle, Inbox } from 'lucide-react'
+import { ChevronRight, Ticket, Clock, CheckCircle, Inbox, Bell } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { ehAdminDaEmpresa } from '@/lib/admin'
 import { STATUS_ABERTOS, STATUS_FECHADOS, type TicketStatus } from '@/lib/tickets'
@@ -85,6 +85,8 @@ export function AbaTickets({ unidadeId, empresaId }: { unidadeId: string; empres
   const doMeuSubgrupo = (t: TicketItem) => isAdmin || meusSubgrupos.has(t.subgrupo_id)
 
   const paraAssumir = tickets.filter(t => t.status === 'aberto' && !t.assignee_id && doMeuSubgrupo(t))
+  // Abri e devolveram para eu responder (aguardando informação) → precisa da minha ação.
+  const aguardandoVoce = tickets.filter(t => t.aberto_por_id === userId && t.status === 'aguardando_informacao')
   const comigo      = tickets.filter(t => t.assignee_id === userId && STATUS_ABERTOS.includes(t.status))
   const encerrados  = tickets
     .filter(t => STATUS_FECHADOS.includes(t.status)
@@ -97,7 +99,7 @@ export function AbaTickets({ unidadeId, empresaId }: { unidadeId: string; empres
     </div>
   )
 
-  if (paraAssumir.length === 0 && comigo.length === 0 && encerrados.length === 0) return (
+  if (aguardandoVoce.length === 0 && paraAssumir.length === 0 && comigo.length === 0 && encerrados.length === 0) return (
     <div className="text-center py-16">
       <Ticket size={40} className="text-gray-200 mx-auto mb-3" />
       <p className="text-sm text-gray-500">Nenhum ticket por aqui.</p>
@@ -140,6 +142,19 @@ export function AbaTickets({ unidadeId, empresaId }: { unidadeId: string; empres
 
   return (
     <div className="space-y-6">
+      {aguardandoVoce.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <Bell size={16} className="text-amber-500" />
+            <h2 className="text-base font-bold text-gray-800">Aguardando você</h2>
+            <span className="text-xs bg-amber-100 text-amber-600 font-semibold px-2 py-0.5 rounded-full">{aguardandoVoce.length}</span>
+          </div>
+          <div className="space-y-2">
+            {aguardandoVoce.map(t => <Card key={t.id} t={t} acao="Responder" />)}
+          </div>
+        </section>
+      )}
+
       {paraAssumir.length > 0 && (
         <section>
           <div className="flex items-center gap-2 mb-3">
