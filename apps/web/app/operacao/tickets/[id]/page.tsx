@@ -280,9 +280,8 @@ export default function TicketDetalheOperacao() {
   const acaoAssumir = acoesDisponiveis.find(a => a.tipo === 'aceite')
   const acaoTransferir = acoesDisponiveis.find(a => a.tipo === 'transferencia')
 
-  // Ordem fixa do menu na operação (mais simples que na gestão):
+  // Ordem fixa do menu na operação:
   // Solicitar informação → Comentar → Concluir corrigido → Marcar não corrigido → Cancelar.
-  // "Corrigido parcial" e "Improcedente" ficam de fora aqui (seguem na gestão).
   function ordemAcao(a: Acao): number {
     const key = a.tipo === 'conclusao' ? `conclusao:${a.novoStatus}` : a.tipo
     const mapa: Record<string, number> = {
@@ -294,8 +293,7 @@ export default function TicketDetalheOperacao() {
     return mapa[key] ?? 50
   }
   const acoesMenu = acoesDisponiveis
-    .filter(a => a.tipo !== 'aceite' && a.tipo !== 'transferencia' && a.tipo !== 'improcedencia'
-      && !(a.tipo === 'conclusao' && a.novoStatus === 'corrigido_parcialmente'))
+    .filter(a => a.tipo !== 'aceite' && a.tipo !== 'transferencia')
     .sort((x, y) => ordemAcao(x) - ordemAcao(y))
 
   function escolherAcao(a: Acao) {

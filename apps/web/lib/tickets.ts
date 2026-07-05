@@ -105,15 +105,9 @@ export function acoesDisponiveis(ctx: AcoesCtx): Acao[] {
   if (s === 'em_tratamento' && ehAssignee) {
     acoes.push({ label: 'Solicitar informação', tipo: 'devolucao', novoStatus: 'aguardando_informacao', variante: 'ghost' })
     // Responsável conclui direto; o abridor é avisado e pode reabrir se discordar.
-    acoes.push({ label: 'Concluir: corrigido',         tipo: 'conclusao', novoStatus: 'corrigido',              variante: 'primary' })
-    acoes.push({ label: 'Concluir: corrigido parcial', tipo: 'conclusao', novoStatus: 'corrigido_parcialmente', variante: 'ghost' })
-    acoes.push({ label: 'Marcar não corrigido',        tipo: 'conclusao', novoStatus: 'nao_corrigido',          variante: 'ghost' })
+    acoes.push({ label: 'Concluir: corrigido',  tipo: 'conclusao', novoStatus: 'corrigido',     variante: 'primary' })
+    acoes.push({ label: 'Marcar não corrigido', tipo: 'conclusao', novoStatus: 'nao_corrigido', variante: 'ghost' })
     acoes.push({ label: `Transferir para outro ${ctx.grupoLabel.toLowerCase()}/${ctx.subgrupoLabel.toLowerCase()}`, tipo: 'transferencia', novoStatus: 'aberto', variante: 'ghost' })
-  }
-
-  // Improcedência exige a permissão ticket.cancelar (regra de negócio).
-  if (s === 'em_tratamento' && ehAssignee && podeCancelar) {
-    acoes.push({ label: 'Marcar improcedente', tipo: 'improcedencia', novoStatus: 'improcedente', variante: 'danger' })
   }
 
   // Aguardando informação: apenas o abridor responde e retoma.

@@ -136,10 +136,10 @@ describe('acoesDisponiveis() — status ABERTO', () => {
 })
 
 describe('acoesDisponiveis() — status EM_TRATAMENTO', () => {
-  it('responsável conclui direto (3 conclusões), solicita info e transfere', () => {
+  it('responsável conclui direto (corrigido / não corrigido), solicita info e transfere', () => {
     const acoes = acoesDisponiveis(ctx({ status: 'em_tratamento', ehAssignee: true }))
     const conclusoes = acoes.filter(a => a.tipo === 'conclusao').map(a => a.novoStatus)
-    expect(conclusoes).toEqual(['corrigido', 'corrigido_parcialmente', 'nao_corrigido'])
+    expect(conclusoes).toEqual(['corrigido', 'nao_corrigido'])
     const t = acoes.map(a => a.tipo)
     expect(t).toContain('devolucao')
     expect(t).toContain('transferencia')
@@ -159,9 +159,9 @@ describe('acoesDisponiveis() — status EM_TRATAMENTO', () => {
     expect(t).not.toContain('transferencia')
   })
 
-  it('improcedência só aparece para responsável COM permissão cancelar', () => {
+  it('improcedência foi removida do fluxo — nunca é oferecida', () => {
     expect(tipos(ctx({ status: 'em_tratamento', ehAssignee: true, podeCancelar: true })))
-      .toContain('improcedencia')
+      .not.toContain('improcedencia')
     expect(tipos(ctx({ status: 'em_tratamento', ehAssignee: true, podeCancelar: false })))
       .not.toContain('improcedencia')
   })
