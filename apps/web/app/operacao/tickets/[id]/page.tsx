@@ -191,15 +191,23 @@ export default function TicketDetalheOperacao() {
     if (evento) {
       for (const file of arquivos) {
         const ext  = file.name.split('.').pop()
-        const path = `tickets/${id}/${Date.now()}.${ext}`
-        const { data: up } = await supabase.storage.from('execucoes').upload(path, file, { upsert: false })
+        const path = `tickets/${id}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`
+        const { data: up, error: upEvidErr } = await supabase.storage.from('execucoes').upload(path, file, { upsert: false })
+        if (upEvidErr) {
+          console.error('[CheckFlow] falha ao subir evidência do ticket:', upEvidErr)
+          setErro('Não foi possível enviar a evidência: ' + upEvidErr.message)
+        }
         if (up) {
           registrarUsoArmazenamento(empresaAtiva?.id, 'ticket', file.size)
           const { data: pub } = supabase.storage.from('execucoes').getPublicUrl(path)
           const tipo = file.type.startsWith('video') ? 'video' : file.type.startsWith('image') ? 'foto' : 'documento'
-          await supabase.from('ticket_evidencias').insert({
+          const { error: evidInsErr } = await supabase.from('ticket_evidencias').insert({
             ticket_id: id, evento_id: evento.id, url: pub.publicUrl, tipo, nome: file.name,
           })
+          if (evidInsErr) {
+            console.error('[CheckFlow] falha ao salvar evidência do ticket:', evidInsErr)
+            setErro('Não foi possível salvar a evidência: ' + evidInsErr.message)
+          }
         }
       }
     }
