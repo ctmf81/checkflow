@@ -2,7 +2,10 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Upload, AlertTriangle, Loader2, Info } from 'lucide-react'
+import {
+  ArrowLeft, Upload, AlertTriangle, Loader2, Info, ChevronDown,
+  ArrowLeftRight, X, Play, FileText,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { notificarTicket } from '@/lib/notificacoes'
@@ -29,6 +32,10 @@ interface Evento {
   autor: { nome: string }
   evidencias: { id: string; url: string; tipo: string; nome: string | null }[]
 }
+
+interface GrupoOpcao { id: string; nome: string }
+interface SubgrupoOpcao { id: string; nome: string; grupo_id: string }
+interface UsuarioOpcao { id: string; nome: string }
 
 const TIPO_EVENTO: Record<string, { label: string; cor: string }> = {
   abertura:           { label: 'Ticket aberto',              cor: 'text-blue-600' },
@@ -76,6 +83,21 @@ export default function TicketDetalheOperacao() {
   // Ação documentada escolhida (comentar/concluir/devolver…) aguardando a
   // observação. Assumir não passa por aqui — é executada com um toque.
   const [acaoSel,  setAcaoSel]  = useState<Acao | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  // Ampliação de evidência (foto)
+  const [lightbox, setLightbox] = useState<string | null>(null)
+
+  // Transferência (destino grupo/subgrupo + opção de atribuir a alguém)
+  const [transferOpen, setTransferOpen] = useState(false)
+  const [grupos,    setGrupos]    = useState<GrupoOpcao[]>([])
+  const [subgrupos, setSubgrupos] = useState<SubgrupoOpcao[]>([])
+  const [grupoSel,    setGrupoSel]    = useState('')
+  const [subgrupoSel, setSubgrupoSel] = useState('')
+  const [usuariosSub, setUsuariosSub] = useState<UsuarioOpcao[]>([])
+  const [usuarioSel,  setUsuarioSel]  = useState('')
+  const [obsTransfer, setObsTransfer] = useState('')
+  const [erroTransfer, setErroTransfer] = useState<string | null>(null)
+  const [transferindo, setTransferindo] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -114,6 +136,16 @@ export default function TicketDetalheOperacao() {
 
   useEffect(() => { if (id) carregar() }, [id])
 
+  // Usuários do subgrupo de destino (para atribuir a alguém específico na transferência)
+  useEffect(() => {
+    if (!subgrupoSel) { setUsuariosSub([]); return }
+    supabase.from('usuario_subgrupo')
+      .select('usuarios(id, nome)').eq('subgrupo_id', subgrupoSel)
+      .then(({ data }) => {
+        setUsuariosSub((data ?? []).map((r: any) => r.usuarios).filter(Boolean).map((u: any) => ({ id: u.id, nome: u.nome })))
+      })
+  }, [subgrupoSel])
+
   const ehAssignee   = ticket?.assignee?.id === userId
   const ehAbridor    = ticket?.aberto_por?.id === userId
   const ehDoSubgrupo = !!ticket && meusSubgrupos.has(ticket.subgrupo_id)
@@ -123,7 +155,7 @@ export default function TicketDetalheOperacao() {
     return calcularAcoes({
       status: ticket.status, ehDoSubgrupo, ehAssignee, ehAbridor, podeCancelar,
       grupoLabel, subgrupoLabel,
-    }).filter(a => a.tipo !== 'transferencia') // transferência fica só na gestão
+    })
   }
 
   async function executarAcao(acao: Acao) {
@@ -178,12 +210,82 @@ export default function TicketDetalheOperacao() {
     carregar()
   }
 
+  function abrirTransferencia() {
+    if (!ticket) return
+    setErroTransfer(null); setObsTransfer(''); setUsuarioSel('')
+    setGrupoSel(ticket.grupo_id); setSubgrupoSel(ticket.subgrupo_id)
+    supabase.from('grupos').select('id, nome').eq('unidade_id', ticket.unidade_id).eq('status', 'ativo').order('nome')
+      .then(async ({ data: gs }) => {
+        setGrupos((gs as any) ?? [])
+        const { data: sgs } = await supabase.from('subgrupos')
+          .select('id, nome, grupo_id').in('grupo_id', (gs ?? []).map((g: any) => g.id)).eq('status', 'ativo').order('nome')
+        setSubgrupos((sgs as any) ?? [])
+      })
+    setTransferOpen(true)
+  }
+
+  async function confirmarTransferencia() {
+    if (!ticket) return
+    if (!obsTransfer.trim()) { setErroTransfer('Observação é obrigatória.'); return }
+    if (!grupoSel || !subgrupoSel) { setErroTransfer(`Selecione o ${grupoLabel.toLowerCase()} e o ${subgrupoLabel.toLowerCase()} de destino.`); return }
+    const mesmoDestino = grupoSel === ticket.grupo_id && subgrupoSel === ticket.subgrupo_id
+    if (mesmoDestino && !usuarioSel) {
+      setErroTransfer(`Escolha um destino diferente ou atribua a alguém do ${subgrupoLabel.toLowerCase()}.`); return
+    }
+    setTransferindo(true); setErroTransfer(null)
+
+    // Com usuário específico: atribui direto a ele (em tratamento) → ele é notificado.
+    // Sem usuário: volta para "aberto" sem responsável, para o subgrupo assumir.
+    const patch: Record<string, any> = usuarioSel
+      ? { grupo_id: grupoSel, subgrupo_id: subgrupoSel, assignee_id: usuarioSel, status: 'em_tratamento' }
+      : { grupo_id: grupoSel, subgrupo_id: subgrupoSel, assignee_id: null, status: 'aberto' }
+
+    const { data: atualizado, error: upErr } = await supabase
+      .from('tickets').update(patch).eq('id', id).select('id')
+
+    if (upErr || !atualizado || atualizado.length === 0) {
+      setTransferindo(false)
+      setErroTransfer(upErr ? 'Não foi possível transferir o ticket.' : 'Você não tem permissão para transferir este ticket.')
+      return
+    }
+
+    const grupoNovo    = grupos.find(g => g.id === grupoSel)?.nome ?? ''
+    const subgrupoNovo = subgrupos.find(s => s.id === subgrupoSel)?.nome ?? ''
+    const usuarioNovo  = usuariosSub.find(u => u.id === usuarioSel)?.nome ?? null
+    const textoEvento  = usuarioNovo ? `${obsTransfer.trim()}\n→ Atribuído a ${usuarioNovo}` : obsTransfer.trim()
+
+    const { error: evErr } = await supabase.from('ticket_eventos').insert({
+      ticket_id: id, tipo: 'transferencia', texto: textoEvento, autor_id: userId,
+      meta: {
+        de: { grupo: ticket.grupo?.nome, subgrupo: ticket.subgrupo?.nome },
+        para: { grupo: grupoNovo, subgrupo: subgrupoNovo, usuario: usuarioNovo },
+      },
+    })
+
+    if (evErr) {
+      setTransferindo(false)
+      setErroTransfer('O ticket foi transferido, mas não foi possível registrar o evento.')
+      carregar(); return
+    }
+
+    if (userId) notificarTicket({ ticket_id: id, evento: 'transferencia', ator_id: userId, texto: textoEvento })
+    setTransferindo(false); setTransferOpen(false)
+    carregar()
+  }
+
   if (loading) return <div className="py-16 text-center text-sm text-gray-400">Carregando…</div>
   if (!ticket) return <div className="py-16 text-center text-sm text-red-400">Ticket não encontrado.</div>
 
   const acoesDisponiveis = acoes()
   const acaoAssumir = acoesDisponiveis.find(a => a.tipo === 'aceite')
-  const acoesDoc = acoesDisponiveis.filter(a => a.tipo !== 'aceite')
+  const acoesMenu = acoesDisponiveis.filter(a => a.tipo !== 'aceite')
+
+  function escolherAcao(a: Acao) {
+    setMenuOpen(false)
+    setErro(null)
+    if (a.tipo === 'transferencia') abrirTransferencia()
+    else setAcaoSel(a)
+  }
 
   function motivoSemAcao(): string | null {
     if (acoesDisponiveis.length > 0 || !ticket) return null
@@ -234,15 +336,24 @@ export default function TicketDetalheOperacao() {
                 <span className={`text-xs font-semibold ${conf.cor}`}>{conf.label}</span>
                 <span className="text-xs text-gray-400">{formatarTempo(ev.criado_em)}</span>
               </div>
-              <p className="text-sm text-gray-700">{ev.texto}</p>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{ev.texto}</p>
               <p className="text-xs text-gray-400 mt-1.5">{ev.autor?.nome}</p>
               {ev.evidencias?.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className="mt-2.5 flex flex-wrap gap-2">
                   {ev.evidencias.map(e => (
-                    <a key={e.id} href={e.url} target="_blank" rel="noreferrer"
-                      className="text-xs text-blue-600 underline underline-offset-2">
-                      {e.nome ?? e.tipo}
-                    </a>
+                    e.tipo === 'foto' ? (
+                      <button key={e.id} onClick={() => setLightbox(e.url)}
+                        className="w-16 h-16 rounded-lg overflow-hidden border border-gray-200 hover:border-orange-300 transition-colors">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={e.url} alt={e.nome ?? 'evidência'} className="w-full h-full object-cover" />
+                      </button>
+                    ) : (
+                      <a key={e.id} href={e.url} target="_blank" rel="noreferrer"
+                        className="w-16 h-16 rounded-lg border border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-500 hover:border-orange-300 transition-colors">
+                        {e.tipo === 'video' ? <Play size={18} /> : <FileText size={18} />}
+                        <span className="text-[10px]">{e.tipo === 'video' ? 'Vídeo' : 'Arquivo'}</span>
+                      </a>
+                    )
                   ))}
                 </div>
               )}
@@ -292,25 +403,39 @@ export default function TicketDetalheOperacao() {
                 </div>
               </>
             ) : (
-              /* Escolha da ação: Assumir é um toque; as demais abrem a observação */
-              <div className="flex gap-2 flex-wrap">
+              /* Escolha da ação: Assumir é um toque; as demais ficam num menu compacto */
+              <div className="flex gap-2">
                 {acaoAssumir && (
                   <button onClick={() => executarAcao(acaoAssumir)} disabled={enviando}
-                    className="flex-1 min-w-[8rem] bg-orange-500 text-white hover:bg-orange-600 text-sm font-medium px-4 py-2.5 rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5">
+                    className="flex-1 bg-orange-500 text-white hover:bg-orange-600 text-sm font-medium px-4 py-2.5 rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5">
                     {enviando && <Loader2 size={13} className="animate-spin" />}
                     Assumir ticket
                   </button>
                 )}
-                {acoesDoc.map(a => (
-                  <button key={a.tipo + a.novoStatus} onClick={() => { setErro(null); setAcaoSel(a) }} disabled={enviando}
-                    className={`flex-1 min-w-[8rem] text-sm font-medium px-4 py-2.5 rounded-lg disabled:opacity-50 border ${
-                      a.variante === 'danger' ? 'border-red-200 text-red-600 hover:bg-red-50'
-                        : a.variante === 'primary' ? 'border-orange-300 text-orange-600 hover:bg-orange-50'
-                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}>
-                    {a.label}
-                  </button>
-                ))}
+                {acoesMenu.length > 0 && (
+                  <div className="relative flex-1">
+                    <button onClick={() => setMenuOpen(o => !o)}
+                      className="w-full flex items-center justify-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
+                      Ações <ChevronDown size={14} />
+                    </button>
+                    {menuOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                        <div className="absolute bottom-full right-0 mb-1 w-60 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                          {acoesMenu.map(a => (
+                            <button key={a.tipo + a.novoStatus} onClick={() => escolherAcao(a)}
+                              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center gap-2 ${
+                                a.variante === 'danger' ? 'text-red-600' : 'text-gray-700'
+                              }`}>
+                              {a.tipo === 'transferencia' && <ArrowLeftRight size={14} className="text-indigo-500" />}
+                              {a.label}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -319,6 +444,83 @@ export default function TicketDetalheOperacao() {
                 <AlertTriangle size={12} /> {erro}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox de evidência (foto) */}
+      {lightbox && (
+        <div onClick={() => setLightbox(null)}
+          className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={lightbox} alt="Evidência" className="max-w-full max-h-full rounded-lg" />
+          <button className="absolute top-4 right-4 text-white/80 hover:text-white" aria-label="Fechar">
+            <X size={26} />
+          </button>
+        </div>
+      )}
+
+      {/* Modal de transferência */}
+      {transferOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-sm font-semibold text-gray-800">Transferir ticket</h2>
+              <button onClick={() => setTransferOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
+            </div>
+            <p className="text-xs text-gray-500 mb-4">
+              Encaminhe para outro {grupoLabel.toLowerCase()}/{subgrupoLabel.toLowerCase()}. Se atribuir a alguém, o ticket já vai para essa pessoa e ela é notificada.
+            </p>
+
+            <label className="block text-xs font-medium text-gray-600 mb-1">{grupoLabel}</label>
+            <select value={grupoSel}
+              onChange={e => { setGrupoSel(e.target.value); setSubgrupoSel(''); setUsuarioSel('') }}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-orange-300">
+              <option value="">Selecione…</option>
+              {grupos.map(g => <option key={g.id} value={g.id}>{g.nome}</option>)}
+            </select>
+
+            <label className="block text-xs font-medium text-gray-600 mb-1">{subgrupoLabel}</label>
+            <select value={subgrupoSel} onChange={e => { setSubgrupoSel(e.target.value); setUsuarioSel('') }}
+              disabled={!grupoSel}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3 disabled:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-300">
+              <option value="">Selecione…</option>
+              {subgrupos.filter(s => s.grupo_id === grupoSel).map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+            </select>
+
+            <label className="block text-xs font-medium text-gray-600 mb-1">Atribuir a <span className="text-gray-400">(opcional)</span></label>
+            <select value={usuarioSel} onChange={e => setUsuarioSel(e.target.value)}
+              disabled={!subgrupoSel || usuariosSub.length === 0}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-1 disabled:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-300">
+              <option value="">Qualquer um do {subgrupoLabel.toLowerCase()}</option>
+              {usuariosSub.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
+            </select>
+            <p className="text-[11px] text-gray-400 mb-3">
+              {usuarioSel ? 'A notificação vai direto para a pessoa escolhida.' : `Fica em aberto para o ${subgrupoLabel.toLowerCase()} assumir.`}
+            </p>
+
+            <label className="block text-xs font-medium text-gray-600 mb-1">Observação</label>
+            <textarea value={obsTransfer} onChange={e => setObsTransfer(e.target.value)} rows={2}
+              placeholder="Motivo da transferência…"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3 resize-none focus:outline-none focus:ring-2 focus:ring-orange-300" />
+
+            {erroTransfer && (
+              <div className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">
+                <AlertTriangle size={12} /> {erroTransfer}
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setTransferOpen(false)} disabled={transferindo}
+                className="text-sm font-medium px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-50">
+                Cancelar
+              </button>
+              <button onClick={confirmarTransferencia} disabled={transferindo}
+                className="text-sm font-medium px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 flex items-center gap-1.5">
+                {transferindo && <Loader2 size={13} className="animate-spin" />}
+                Transferir
+              </button>
+            </div>
           </div>
         </div>
       )}
