@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, AlertTriangle, Upload, Loader2 } from 'lucide-react'
+import { X, AlertTriangle, Loader2 } from 'lucide-react'
+import { EvidenciaPicker } from './EvidenciaPicker'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { notificarTicket } from '@/lib/notificacoes'
@@ -225,16 +226,7 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
             {/* Evidências */}
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Evidências (opcional)</label>
-              <label className="flex items-center gap-2 cursor-pointer border border-dashed border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-500 hover:bg-gray-50 transition-colors">
-                <Upload size={15} />
-                <span>{arquivos.length > 0 ? `${arquivos.length} arquivo(s) selecionado(s) — adicionar mais` : 'Fotos ou vídeos (pode selecionar várias)'}</span>
-                <input type="file" multiple accept="image/*,video/*" className="hidden"
-                  onChange={e => {
-                    const novos = Array.from(e.target.files ?? [])
-                    setArquivos(prev => [...prev, ...novos])
-                    e.target.value = ''
-                  }} />
-              </label>
+              <EvidenciaPicker files={arquivos} onFilesChange={setArquivos} onError={m => m && setErro(m)} />
               {arquivos.length > 0 && (
                 <ul className="mt-2 flex flex-col gap-1">
                   {arquivos.map((f, i) => (

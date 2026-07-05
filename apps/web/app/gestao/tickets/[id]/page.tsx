@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, CheckCircle2, XCircle, RotateCcw, MessageSquare,
-  Upload, AlertTriangle, Loader2, UserCheck, AlertCircle, ChevronDown, Info
+  AlertTriangle, Loader2, UserCheck, AlertCircle, ChevronDown, Info
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
@@ -12,6 +12,7 @@ import { notificarTicket } from '@/lib/notificacoes'
 import { registrarUsoArmazenamento } from '@/lib/uso'
 import { acoesDisponiveis as calcularAcoes, type Acao } from '@/lib/tickets'
 import { ehAdminDaEmpresa } from '@/lib/admin'
+import { EvidenciaPicker } from '@/components/tickets/EvidenciaPicker'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -398,13 +399,8 @@ export default function TicketDetalhe() {
               placeholder="Observação obrigatória para registrar qualquer ação…"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
 
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer border border-dashed border-gray-300 rounded-lg px-2.5 py-1.5 hover:bg-gray-50">
-                <Upload size={12} />
-                {arquivos.length > 0 ? `${arquivos.length} arq.` : 'Evidência'}
-                <input type="file" multiple accept="image/*,video/*" className="hidden"
-                  onChange={e => setArquivos(Array.from(e.target.files ?? []))} />
-              </label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <EvidenciaPicker files={arquivos} onFilesChange={setArquivos} onError={setErro} />
 
               <div className="flex-1 flex gap-2 justify-end flex-wrap">
                 {acoes.filter(a => a.variante !== 'ghost').map(a => (

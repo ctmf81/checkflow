@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  ArrowLeft, Upload, AlertTriangle, Loader2, Info, ChevronDown,
+  ArrowLeft, AlertTriangle, Loader2, Info, ChevronDown,
   ArrowLeftRight, X, Play, FileText,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
@@ -11,6 +11,7 @@ import { useSession } from '@/contexts/SessionContext'
 import { notificarTicket } from '@/lib/notificacoes'
 import { registrarUsoArmazenamento } from '@/lib/uso'
 import { acoesDisponiveis as calcularAcoes, type Acao } from '@/lib/tickets'
+import { EvidenciaPicker } from '@/components/tickets/EvidenciaPicker'
 
 type TicketStatus =
   | 'aberto' | 'em_tratamento' | 'aguardando_informacao'
@@ -409,21 +410,14 @@ export default function TicketDetalheOperacao() {
                 <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={2} autoFocus
                   placeholder="Observação obrigatória…"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none" />
-                <div className="flex items-center gap-2">
-                  <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer border border-dashed border-gray-300 rounded-lg px-2.5 py-1.5 hover:bg-gray-50">
-                    <Upload size={12} />
-                    {arquivos.length > 0 ? `${arquivos.length} arq.` : 'Evidência'}
-                    <input type="file" multiple accept="image/*,video/*" className="hidden"
-                      onChange={e => setArquivos(Array.from(e.target.files ?? []))} />
-                  </label>
-                  <button onClick={() => executarAcao(acaoSel)} disabled={enviando}
-                    className={`flex-1 text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5 ${
-                      acaoSel.variante === 'danger' ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-orange-500 text-white hover:bg-orange-600'
-                    }`}>
-                    {enviando && <Loader2 size={13} className="animate-spin" />}
-                    Confirmar
-                  </button>
-                </div>
+                <EvidenciaPicker files={arquivos} onFilesChange={setArquivos} onError={setErro} />
+                <button onClick={() => executarAcao(acaoSel)} disabled={enviando}
+                  className={`w-full text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5 ${
+                    acaoSel.variante === 'danger' ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-orange-500 text-white hover:bg-orange-600'
+                  }`}>
+                  {enviando && <Loader2 size={13} className="animate-spin" />}
+                  Confirmar
+                </button>
               </>
             ) : (
               /* Escolha da ação: Assumir é um toque; as demais num menu; Transferir é ícone à parte */
