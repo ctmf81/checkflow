@@ -121,24 +121,46 @@ const FUNCOES: { valor: Funcao; label: string; desc: string; cor: string }[] = [
   { valor: 'nivel_2',  label: 'Nível 2',   desc: 'Executa + N1 + escala planos',       cor: 'border-orange-400 text-orange-700 bg-orange-50' },
 ]
 
+// Perfil de sistema "Operação" — não acessa a Gestão, logo não modera planos.
+const PERFIL_OPERACAO_ID = '00000000-0000-0000-0000-000000000003'
+const AVISO_SO_OPERACAO = 'Perfil "Operação" não acessa a Gestão, então não modera planos de ação. Para ser Nível 1/2, o usuário precisa de um perfil com acesso à Gestão (ex.: "Gestão do Grupo").'
+
 function FuncoesModal({ subgrupo, onClose }: { subgrupo: Subgrupo; onClose: () => void }) {
+  const { empresaAtiva } = useSession()
+  const toast = useToast()
   const [usuarios, setUsuarios] = useState<UsuarioSubgrupo[]>([])
+  const [perfis, setPerfis] = useState<Map<string, string>>(new Map()) // usuario_id -> perfil_id na empresa
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState<string | null>(null) // usuario_id sendo salvo
 
   useEffect(() => {
-    createClient()
-      .from('usuario_subgrupo')
-      .select('usuario_id, funcao, usuarios(nome, email)')
-      .eq('subgrupo_id', subgrupo.id)
-      .order('usuario_id')
-      .then(({ data }) => {
-        if (data) setUsuarios(data as unknown as UsuarioSubgrupo[])
-        setLoading(false)
-      })
-  }, [subgrupo.id])
+    (async () => {
+      const sb = createClient()
+      const { data } = await sb.from('usuario_subgrupo')
+        .select('usuario_id, funcao, usuarios(nome, email)')
+        .eq('subgrupo_id', subgrupo.id).order('usuario_id')
+      const lista = (data ?? []) as unknown as UsuarioSubgrupo[]
+      setUsuarios(lista)
+      if (empresaAtiva?.id && lista.length) {
+        const { data: ues } = await sb.from('usuario_empresa')
+          .select('usuario_id, perfil_id').eq('empresa_id', empresaAtiva.id)
+          .in('usuario_id', lista.map(u => u.usuario_id))
+        setPerfis(new Map((ues ?? []).map((r: any) => [r.usuario_id, r.perfil_id])))
+      }
+      setLoading(false)
+    })()
+  }, [subgrupo.id, empresaAtiva?.id])
+
+  // Perfil "Operação" puro não modera — bloqueia N1/N2 para ele.
+  function soOperacao(usuarioId: string) {
+    return perfis.get(usuarioId) === PERFIL_OPERACAO_ID
+  }
 
   async function alterarFuncao(usuarioId: string, novaFuncao: Funcao) {
+    if ((novaFuncao === 'nivel_1' || novaFuncao === 'nivel_2') && soOperacao(usuarioId)) {
+      toast.error(AVISO_SO_OPERACAO)
+      return
+    }
     setSalvando(usuarioId)
     await createClient()
       .from('usuario_subgrupo')
@@ -210,14 +232,22 @@ function FuncoesModal({ subgrupo, onClose }: { subgrupo: Subgrupo; onClose: () =
                     <div className="flex gap-1.5 flex-wrap">
                       {FUNCOES.map(f => {
                         const ativa = funcaoAtual === f.valor
+                        const bloqueado = (f.valor === 'nivel_1' || f.valor === 'nivel_2') && soOperacao(u.usuario_id)
                         return (
                           <button
                             key={String(f.valor)}
-                            onClick={() => { if (!ativa && !isSalvando) alterarFuncao(u.usuario_id, f.valor) }}
+                            onClick={() => {
+                              if (isSalvando || ativa) return
+                              if (bloqueado) { toast.error(AVISO_SO_OPERACAO); return }
+                              alterarFuncao(u.usuario_id, f.valor)
+                            }}
                             disabled={isSalvando}
+                            title={bloqueado ? AVISO_SO_OPERACAO : undefined}
                             className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50 ${
                               ativa
                                 ? f.cor + ' ring-1 ring-offset-1 ' + (f.valor === null ? 'ring-gray-300' : f.valor === 'operacao' ? 'ring-blue-300' : f.valor === 'nivel_1' ? 'ring-amber-400' : 'ring-orange-400')
+                                : bloqueado
+                                ? 'border-gray-100 text-gray-300 bg-gray-50 cursor-not-allowed'
                                 : 'border-gray-200 text-gray-400 bg-white hover:bg-gray-50'
                             }`}>
                             {ativa && <Check size={10} />}
@@ -226,6 +256,9 @@ function FuncoesModal({ subgrupo, onClose }: { subgrupo: Subgrupo; onClose: () =
                         )
                       })}
                     </div>
+                    {soOperacao(u.usuario_id) && (
+                      <p className="text-[11px] text-gray-400 mt-1.5">Perfil "Operação" — não modera planos. N1/N2 exigem um perfil com acesso à Gestão.</p>
+                    )}
                   </li>
                 )
               })}
