@@ -40,7 +40,7 @@ Layout: `gestao/layout.tsx` — sidebar + SessionProvider
 | `/gestao/configuracoes/catalogos` | `gestao/configuracoes/catalogos/page.tsx` | Catalog management |
 | `/gestao/agendamentos` | `gestao/agendamentos/page.tsx` | Recurring scheduler for workflows/checklists (NovoAgendamentoModal) |
 | `/gestao/tickets` | `gestao/tickets/page.tsx` | Ticket listing — SLA semaphore, filter tabs (abertos/fechados/todos), summary cards |
-| `/gestao/tickets/[id]` | `gestao/tickets/[id]/page.tsx` | Ticket timeline + contextual actions by status+role. Fixed footer with mandatory textarea + evidence upload |
+| `/gestao/tickets/[id]` | `gestao/tickets/[id]/page.tsx` | Ticket timeline + contextual actions by status+role. Fixed footer com `EvidenciaPicker`. Banner "Aguardando sua resposta" no topo da listagem (abridor, 2026-07-05). Transferência com modal |
 | `/gestao/tickets/categorias` | `gestao/tickets/categorias/page.tsx` | Category tree CRUD (roots + children, create/edit/delete) |
 | `/gestao/tickets/sla` | `gestao/tickets/sla/page.tsx` | SLA config per priority (unidade default + overrides per category) |
 | `/gestao/configuracoes/notificacoes` | `gestao/configuracoes/notificacoes/page.tsx` | Notification template management — accordion by type, toggle active/inactive per canal, body/subject editor, available variable chips |
@@ -57,7 +57,9 @@ Layout: `operacao/layout.tsx` — NO sidebar, OperacaoHeader with unit selector
 |-------|------|---------|
 | `/operacao` | `operacao/page.tsx` | Checklist listing grouped by grupo/subgrupo. Seções no topo: 🔴 "Não finalizados", 🟡 Agendados, 🟣 Workflows. **OFFLINE**: monta a lista do cache (`offlineList.ts`) só com checklists `permite_offline`; online cacheia esses + pré-baixa definições. `agruparChecklists()` reusado online/offline |
 | `/operacao/[id]` | `operacao/[id]/page.tsx` | Tela de execução. `?exec=` retoma execução. Modo `permite_continuar_depois`. **OFFLINE**: render do cache (`checklistCache`), autosave de respostas (`offlineDraft`), banner "sem conexão", `finalizar()` enfileira (`syncQueue`) quando offline (só execução simples; plano/workflow/agendada exigem rede) |
-| layout operação | `operacao/layout.tsx` | `OperacaoHeader` (botão **Instalar** PWA + Gestão) + `PendingSync` (processa fila offline) |
+| aba Tickets (operação) | `operacao/AbaTickets.tsx` | Aba na `/operacao` (2026-07-05). Seções: Aguardando você (abridor · aguardando_informacao) · Para assumir (subgrupo) · Em tratamento comigo (assignee) · Encerrados recentes. Some se não há ticket |
+| `/operacao/tickets/[id]` | `operacao/tickets/[id]/page.tsx` | Detalhe do ticket p/ operador (2026-07-05). Assumir 1-toque; menu de ações compacto; ⇄ transferir com "Atribuir a"; evidência miniatura+lightbox. Reusa `lib/tickets` |
+| layout operação | `operacao/layout.tsx` | `OperacaoHeader` (botão **Instalar** PWA + Gestão só p/ perfil ≠ Operação) + `PendingSync`. `GestaoGuard` redireciona operador de `/gestao/tickets/[id]`→`/operacao/tickets/[id]` |
 
 ### Sistema — Super-admin (`sistema/`)
 Layout: `sistema/layout.tsx`
@@ -96,7 +98,8 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 ### `tickets/`
 | File | Purpose |
 |------|---------|
-| `NovoTicketModal.tsx` | Reusable modal — mobile-first, prioridade chips, grupo+subgrupo required, categoria/subcategoria, título, descrição, evidências. Calls `notificarTicket()` |
+| `NovoTicketModal.tsx` | Reusable modal — mobile-first, prioridade chips, grupo+subgrupo required, categoria/subcategoria, título, descrição, evidências (`EvidenciaPicker`). Vincula evidência ao evento de abertura (`evento_id`). Calls `notificarTicket()` |
+| `EvidenciaPicker.tsx` | Seletor de evidência: botões **Câmera** (`capture`) + **Galeria** (múltiplos). Valida tamanho via `lib/midia` (foto 10MB/vídeo 50MB). Usado em abertura/operação/gestão de ticket |
 
 ### `checklists/`
 | File | Purpose |
@@ -146,7 +149,7 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 | `contexts/SessionContext.tsx` | Empresa, unidade, ambiente state + persistence. **Offline-tolerante**: `getSession()` (sem rede) + reidrata do cache `checkflow:session-ctx` quando `getUser()` falha |
 | `lib/supabase.ts` | Supabase client singleton |
 | `lib/apiClient.ts` | `apiFetch(path, init)` — chamadas do navegador à API Fastify com Bearer do usuário (rotas internas autenticadas) |
-| `lib/padrao.ts` · `lib/perfis.ts` · `lib/turnos.ts` · `lib/tarefas.ts` · `lib/tickets.ts` · `lib/visibilidade.ts` | Lógica pura (validação/permissões/visibilidade) — fonte única importada pelas telas + testes unit |
+| `lib/padrao.ts` · `lib/perfis.ts` · `lib/turnos.ts` · `lib/tarefas.ts` · `lib/tickets.ts` · `lib/visibilidade.ts` · `lib/midia.ts` | Lógica pura (validação/permissões/visibilidade/limites de mídia) — fonte única importada pelas telas + testes unit. `lib/tickets` = ações por status/papel (sem "corrigido parcial"/"improcedente" desde 2026-07-05) |
 | `components/layout/AvisoTurno.tsx` | Banner "fora do turno" (modo aviso) nos layouts gestão/operação |
 | `components/planos-acao/CausaRaizModeracao.tsx` | Bloco de causa raiz + recorrência na moderação do plano (`/gestao/planos-acao/[id]`) |
 
@@ -157,7 +160,7 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 | File | Purpose |
 |------|---------|
 | `routes/whatsapp.ts` | POST /whatsapp/conectar, POST /whatsapp/status, POST /whatsapp/desconectar (troca de número), POST /whatsapp/enviar, POST /whatsapp/enviar-codigo (OTP WA+email), **POST /cron/whatsapp/health** (x-cron-secret — alerta+email na mudança de estado, `ALERT_EMAIL`) |
-| `routes/tickets.ts` | POST /tickets/notificar — busca template do banco, fallback hardcoded, envia WA+email para subgrupo ou abridor+assignee |
+| `routes/tickets.ts` | POST /tickets/notificar — template do banco (fallback hardcoded), WA+email. `aberto`→subgrupo; resto→abridor+assignee. **Link por perfil**: operador→`/operacao/tickets/[id]`, demais→`/gestao/tickets/[id]` |
 | `routes/planos-acao.ts` | POST /planos-acao/notificar — N1 somente para aberto, N2 somente para enviado_n2 |
 | `routes/parceiros.ts` | POST /parceiros/boas-vindas (1x por parceiro), POST /cron/parceiros/resumo-mensal (protegido por `x-cron-secret`, último dia do mês) |
 | `lib/whatsapp.ts` | Evolution API helper (enviarWhatsApp, enviarWhatsAppMidia, statusInstancia) |

@@ -212,13 +212,23 @@ Rule: **never mutate a published checklist structure** — create a new version 
 
 ## Tickets — revisado 2026-06-18
 - Chamado avulso para não conformidades fora do roteiro, direcionado a um **grupo + subgrupo** (terminologia padronizada — não usar "setor"; usar `grupoLabel`/`subgrupoLabel`). Categoria opcional. Qualquer usuário abre ticket para qualquer grupo/subgrupo da unidade.
-- **Status**: aberto → em_tratamento → (opcional: aguardando_informacao = responsável pediu algo ao abridor, SLA pausa) → o **responsável conclui direto**: corrigido / corrigido_parcialmente / nao_corrigido (ou cancelado / improcedente). O **abridor é avisado e pode REABRIR** se discordar (volta a 'aberto' sem responsável). **Mudança 2026-06-18**: removida a etapa "Propor conclusão"/`aguardando_validacao` — o responsável fecha e o abridor contesta via reabertura. (O bloco de `aguardando_validacao` permanece no código só para tickets legados que já estavam nesse estado.) Evento novo `conclusao` notifica o abridor.
+- **Status**: aberto → em_tratamento → (opcional: aguardando_informacao = responsável pediu algo ao abridor, SLA pausa) → o **responsável conclui direto**: **corrigido** ou **nao_corrigido** (ou cancelado). O **abridor é avisado e pode REABRIR** se discordar (volta a 'aberto' sem responsável). **Mudança 2026-06-18**: removida a etapa "Propor conclusão"/`aguardando_validacao`. Evento `conclusao` notifica o abridor.
+- **Mudança 2026-07-05: removidas as saídas "corrigido parcial" e "improcedente"** do fluxo (só complicavam) — some da operação E da gestão. Removidas de `lib/tickets.ts` (fonte única). Os status `corrigido_parcialmente`/`improcedente` seguem no enum só para dados históricos, mas **não são mais oferecidos**.
 - **SLA**: cadastrado em `/gestao/tickets/sla` — prazo de **aceite** e **resolução** por **prioridade** (padrão da unidade + override por categoria raiz). Semáforo verde/amarelo/vermelho; pausa em aguardando_informacao. SLA de tickets **fica** (não confundir com o SLA de planos, arquivado). Gestão por permissão `ticket/categorias_gerir` + unidade. Defaults 60min aceite / 480min resolução.
 - **Indicadores da listagem (revisado 2026-06-22)**: "Em aberto" conta **só os NÃO aceitos** (status `aberto`); ao ser assumido vira **"Em tratamento"** (em_tratamento + aguardando_*). Cards: Em aberto (a aceitar) / Em tratamento / Críticos em andamento / Finalizados. Filtro com as 4 abas. Antes "Em aberto" somava tudo não-finalizado. Grupos em `lib/tickets.ts`: `STATUS_NAO_ACEITO` / `STATUS_EM_TRATAMENTO`.
 - **Visibilidade (2026-06-18)**: a listagem mostra só os tickets dos **subgrupos do usuário** (+ os que ele abriu); admin vê todos. Contadores idem.
 - **Assumir**: só quem é do **subgrupo de destino** (ou admin). Demais ações por papel: responsável trata; abridor responde/valida/reabre; comentar sempre; cancelar = abridor ou permissão `ticket.cancelar`; improcedente = responsável com `ticket.cancelar`.
 - **Decisão 2026-06-18: NÃO usar perfil em tickets** — o controle de acesso é por **subgrupo** (visibilidade por subgrupo + assumir só por membro) + papel (abridor/responsável). As permissões `ticket.*` do catálogo ficam sem enforcement (exceto `ticket.cancelar`, que já gateia improcedente/cancelar). Não enforçar `ticket.ver/criar/tratar`.
 - **Categoria é OBRIGATÓRIA** ao abrir ticket (validação no `NovoTicketModal`, 2026-06-20).
+
+### Tickets na OPERAÇÃO — novo (2026-07-05)
+- **Aba "Tickets" na operação** (`app/operacao/AbaTickets.tsx`, ao lado de Checklists/Tarefas) — some quando não há ticket. Seções: **Aguardando você** (abri e voltou como `aguardando_informacao` → preciso responder), **Para assumir** (abertos sem responsável do meu subgrupo), **Em tratamento · comigo** (assumidos por mim), **Encerrados recentes** (últimos 5). Operação NÃO lista tickets que abri para OUTRO subgrupo (edge fora).
+- **Tela de detalhe do ticket na operação** (`app/operacao/tickets/[id]/page.tsx`) — operador chega por link da notificação OU pela aba. Reusa `lib/tickets.acoesDisponiveis`.
+- **Link da notificação por perfil**: operador puro (`perfil_id …003`) recebe `/operacao/tickets/[id]`; demais `/gestao/tickets/[id]` (na API `tickets.ts`). `GestaoGuard` também redireciona operador de `/gestao/tickets/[id]` → `/operacao/tickets/[id]`.
+- **Assumir = um toque**: não exige observação nem evidência (grava evento com texto padrão "Ticket assumido"). As demais ações documentam (observação obrigatória, revelada ao escolher a ação). Menu de ações compacto (dropdown), na ordem: Solicitar informação · Comentar · Concluir corrigido · Marcar não corrigido · Cancelar.
+- **Transferir na operação** (botão de ícone ⇄, fora do dropdown): grupo/subgrupo pré-marcados e editáveis + **"Atribuir a"** um usuário do subgrupo. Com usuário → vira `assignee` e `em_tratamento` (a notificação de `transferencia` chega direto nele); sem usuário → volta a `aberto` para o subgrupo assumir.
+- **"Aguardando você"** também na **gestão** (banner "Aguardando sua resposta" no topo da lista, independente do filtro) — para o abridor não depender só da mensagem.
+- **Evidências**: dois caminhos **Câmera + Galeria** (`components/tickets/EvidenciaPicker.tsx`), com **limite foto 10 MB / vídeo 50 MB** (`lib/midia.ts`) — barra no cliente com aviso. Fotos aparecem como **miniatura com lightbox** na timeline da operação. Evidência sempre vinculada ao evento (`evento_id`); `uploaded_by` obrigatório.
 
 ## Tickets → Categorias — revisado 2026-06-20
 - Árvore de **2 níveis** (raiz → subcategoria) por unidade. Classifica os chamados.
@@ -370,17 +380,17 @@ Atividade tipo `padrao`: validação **complexa** cujo valor de referência NÃO
 - Categoria é opcional — fallback automático para "Sem categoria" (criada por `garantir_categoria_generica()`)
 - `execucao_id` registra origem quando aberto dentro de uma execução (campo opcional)
 
-### Fluxo de Status
+### Fluxo de Status (revisado 2026-07-05)
 ```
 aberto → em_tratamento (aceite) → aguardando_informacao ↔ em_tratamento
-       → aguardando_validacao (conclusão proposta)
-       → corrigido | nao_corrigido | corrigido_parcialmente (validação pelo abridor)
-       → cancelado | improcedente (a qualquer momento)
-       → aberto (reabertura)
+       → corrigido | nao_corrigido (responsável conclui direto)
+       → cancelado (a qualquer momento)
+       → aberto (reabertura pelo abridor)
 ```
+- `corrigido_parcialmente`/`improcedente`/`aguardando_validacao` seguem no enum mas **NÃO são oferecidos** (fluxo antigo/histórico).
 - Qualquer membro do grupo/subgrupo destino pode assumir (virar assignee)
-- Cada transição exige **texto de observação obrigatório** + evidências opcionais
-- Timeline de eventos é **imutável** (blocked por CREATE RULE)
+- **Assumir não exige observação** (um toque); as demais ações exigem **texto obrigatório** + evidências opcionais
+- Timeline de eventos é **imutável** (blocked por CREATE RULE). `ticket_eventos.autor_id` e `.uploaded_by`/evidência agora sempre preenchidos pelo cliente (eram bugs de NOT NULL).
 
 ### Visibilidade (✅ 20260614060000)
 - Ticket **sem assignee**: visível para todos os membros da unidade (`usuario_unidade`)
@@ -392,11 +402,12 @@ aberto → em_tratamento (aceite) → aguardando_informacao ↔ em_tratamento
 - Sem deadline — tempo por participante é rastreado via eventos
 - Abridor responde → volta para `em_tratamento`
 
-### Transferência (✅ 20260614060000)
-- Assignee em `em_tratamento` pode transferir o ticket para outro grupo/setor da MESMA unidade
-- Ao transferir: `grupo_id`/`subgrupo_id` mudam, `assignee_id` volta a `null`, `status` volta a `aberto` (alguém do novo destino precisa assumir de novo)
-- Evento `transferencia` registra `meta: {de: {grupo,subgrupo}, para: {grupo,subgrupo}}` + observação obrigatória
-- Modal em `gestao/tickets/[id]/page.tsx` lista grupos/subgrupos da unidade via policies `grupos_unidade_membro`/`subgrupos_unidade_membro` (novas — antes só existia "meu grupo")
+### Transferência (✅ 20260614060000; operação + atribuição em 2026-07-05)
+- Assignee em `em_tratamento` pode transferir para outro grupo/subgrupo da MESMA unidade — disponível na **gestão E na operação**.
+- Ao transferir SEM atribuir a alguém: `grupo_id`/`subgrupo_id` mudam, `assignee_id` → `null`, `status` → `aberto` (novo destino assume). ⚠️ notifica só o abridor (não o subgrupo novo) — melhoria pendente.
+- Ao transferir COM **"Atribuir a"** um usuário do subgrupo: `assignee_id` = usuário, `status` = `em_tratamento`; a notificação de `transferencia` chega direto nele.
+- Evento `transferencia` registra `meta: {de:{grupo,subgrupo}, para:{grupo,subgrupo,usuario}}` + observação obrigatória.
+- **RLS `tickets_atualizar`** ganhou `WITH CHECK` (mesma unidade) em `20260703030000` — sem isso, reatribuir para outro assignee barrava operador não-abridor (USING virava check da linha nova).
 
 ### SLA
 - Configurável por categoria + prioridade em `/gestao/tickets/sla`
@@ -405,7 +416,9 @@ aberto → em_tratamento (aceite) → aguardando_informacao ↔ em_tratamento
 
 ### Notificações
 - Abertura → todos do subgrupo destino (turno respeitado para WA)
-- Qualquer movimentação → abridor + assignee
+- Qualquer movimentação → abridor + assignee (menos o ator)
+- **Link por perfil** (2026-07-05): cada destinatário recebe link para `/operacao/tickets/[id]` (operador puro) ou `/gestao/tickets/[id]` (demais).
+- Fluxo completo: `notificarTicket()` (cliente, fire-and-forget) → `POST /tickets/notificar` (API decide destinatários por evento, turno, template da empresa, WA+email).
 
 ### Permissões (`recurso = 'ticket'`)
 | Ação | Descrição |

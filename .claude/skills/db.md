@@ -102,10 +102,10 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 | `ticket_categorias` | Árvore self-ref por unidade (`pai_id`, `e_generica`, `ativo`). Unique index: máx 1 categoria genérica por unidade (`where e_generica = true`). Função `garantir_categoria_generica(unidade_id)` cria "Sem categoria" se não existir |
 | `ticket_sla_config` | Config de SLA por unidade+categoria+prioridade (`tempo_aceite_min`, `tempo_resolucao_min`). Unique em `(unidade_id, categoria_id, prioridade)` |
 | `tickets` | Chamado principal: `numero` (sequence), `titulo`, `descricao`, `prioridade` (enum), `status` (enum 9 valores), `aberto_por_id`, `assignee_id`, `sla_deadline_at`, `sla_pausado_em`, `sla_segundos_pausados`, `execucao_id` (origem opcional) |
-| `ticket_eventos` | Timeline imutável — bloqueada por `CREATE RULE ... DO INSTEAD NOTHING` em UPDATE e DELETE |
-| `ticket_evidencias` | Fotos/vídeos/documentos vinculados a ticket ou evento |
+| `ticket_eventos` | Timeline imutável — bloqueada por `CREATE RULE ... DO INSTEAD NOTHING` em UPDATE e DELETE. `autor_id` **NOT NULL sem default** → o cliente SEMPRE passa `autor_id` (bug corrigido 2026-07-05). FK `autor_id` → `usuarios(id)` (repontada de auth.users em `20260703020000`, senão o embed `autor:usuarios` quebra a query) |
+| `ticket_evidencias` | Fotos/vídeos/documentos. `uploaded_by` **NOT NULL** e `evento_id` devem ser passados pelo cliente (bugs 2026-07-05). Sobe no bucket `execucoes` em `tickets/<ticket_id>/...` |
 
-**Enums:** `ticket_status` (aberto/em_tratamento/aguardando_informacao/aguardando_validacao/corrigido/nao_corrigido/corrigido_parcialmente/cancelado/improcedente), `ticket_prioridade` (critica/alta/media/baixa), `ticket_evento_tipo` (11 valores)
+**Enums:** `ticket_status` (aberto/em_tratamento/aguardando_informacao/aguardando_validacao/corrigido/nao_corrigido/corrigido_parcialmente/cancelado/improcedente — **`corrigido_parcialmente` e `improcedente` não são mais oferecidos na UI desde 2026-07-05, só histórico**), `ticket_prioridade` (critica/alta/media/baixa), `ticket_evento_tipo` (12 valores — **`conclusao` adicionado em `20260703010000`**; o fluxo direto emite esse tipo)
 
 **Triggers:**
 - `trg_tickets_numero` — auto-incrementa `numero` via `ticket_numero_seq`
@@ -139,6 +139,15 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 | triggers `billing_inc_execucao` / `billing_inc_tokens` | AFTER INSERT em `checklist_execucoes` (deriva empresa via unidade) e `uso_ia_eventos` — incrementam contadores do período |
 | `billing_pode_executar` / `billing_pode_consumir_ia` / `billing_armazenamento_disponivel(empresa,bytes)` | Booleans de enforcement. Sem assinatura → não bloqueia; limite null → ilimitado |
 | `billing_status(empresa)` → jsonb | Leitura consolidada (plano, período, uso×limite×extra dos 3 recursos). Valida permissão (admin_sistema ou Admin da empresa) |
+
+### ⚠️ Migrations 2026-07-05 — TICKETS (APLICAR NO SQL EDITOR — pendentes)
+Correções do fluxo de ticket descobertas nos testes manuais (Tela 11). **Precisam ser aplicadas em prod pelo SQL Editor:**
+- `20260703010000_ticket_evento_tipo_conclusao.sql` — `alter type ticket_evento_tipo add value if not exists 'conclusao'`. Sem isso, **concluir** quebra (fluxo direto emite `conclusao`; enum só tinha conclusao_proposta/validacao).
+- `20260703020000_fix_ticket_eventos_fk_usuarios.sql` — repointa FK `ticket_eventos_autor_id_fkey` → `usuarios(id)` (era auth.users). Sem isso o embed `autor:usuarios(nome)` falha e a **timeline vem VAZIA**. (Mesmo gotcha da `20260614050000`, que cobriu `tickets` mas esqueceu `ticket_eventos`.)
+- `20260703030000_tickets_atualizar_with_check.sql` — `tickets_atualizar` ganha `WITH CHECK` (mesma unidade). Sem isso, **transferir/reatribuir** para outro assignee barra operador não-abridor (USING vira check da linha nova).
+- `20260703040000_storage_execucoes_tickets.sql` — `execucoes_upload/delete` passam a aceitar caminho `tickets/<ticket_id>/...` (comparação por texto, sem cast p/ uuid). Sem isso, **evidência de ticket não sobe**.
+- **Já aplicadas nesta leva**: `20260702020000` (buscar_email_por_cpf normaliza `\D`), `20260703000000` (`usuarios_leitura_scoped` via função `partilha_empresa(uuid)` SECURITY DEFINER — operador lê nome de colega; a subquery direta em `usuario_empresa` era barrada pelo RLS aninhado).
+- **UPDATE de dados** (backfill de evidência órfã da abertura): `update ticket_evidencias set evento_id = (select id from ticket_eventos e where e.ticket_id=ticket_evidencias.ticket_id and e.tipo='abertura' order by criado_em limit 1) where evento_id is null`.
 
 ### Migrations 2026-06-17 (✅ aplicadas)
 - `20260617140000_billing_catalogo_leitura.sql` — leitura de `planos`/`pacotes_adicionais` **ativos** por autenticados (corrige self-service `/gestao/plano`; escrita segue admin).
