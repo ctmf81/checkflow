@@ -465,7 +465,8 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
           atividadeId={plano.atividade_id}
           subgrupoId={plano.subgrupo_id}
           unidadeId={plano.unidade_id}
-          podeEditar={isAdmin || funcaoUsuario === 'nivel_1' || funcaoUsuario === 'nivel_2'}
+          podeEditar={(isAdmin || funcaoUsuario === 'nivel_1' || funcaoUsuario === 'nivel_2')
+            && plano.status !== 'corrigido' && plano.status !== 'nao_corrigido'}
         />
       )}
 
