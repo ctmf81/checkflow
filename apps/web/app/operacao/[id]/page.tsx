@@ -1052,27 +1052,10 @@ function PlanoAcaoModal({ atividade, subgrupoId, checklistId, unidadeId, dadosIn
     if (data) setCausas(data)
   }
 
-  useEffect(() => {
-    if (!subgrupoId) return
-    const sb = createClient()
-    sb.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      sb.from('usuario_subgrupo').select('funcao')
-        .eq('usuario_id', user.id).eq('subgrupo_id', subgrupoId).maybeSingle()
-        .then(({ data }) => setEhResolvedor(data?.funcao === 'nivel_1' || data?.funcao === 'nivel_2'))
-    })
-    carregarCausas()
-    // Últimas ocorrências da atividade (histórico)
-    sb.from('causa_raiz_ocorrencias')
-      .select('id, observacao, criado_em, causa:causa_raiz_id(nome), usuario:criado_por(nome)')
-      .eq('atividade_id', atividade.id).order('criado_em', { ascending: false }).limit(5)
-      .then(({ data }) => {
-        if (data) setOcorrencias(data.map((o: any) => ({
-          id: o.id, observacao: o.observacao, criado_em: o.criado_em,
-          causa_nome: o.causa?.nome ?? '—', usuario_nome: o.usuario?.nome ?? null,
-        })))
-      })
-  }, [atividade.id, subgrupoId])
+  // Causa raiz NÃO pertence à abertura do plano — é análise da MODERAÇÃO
+  // (N1/N2 na tela do plano em /gestao/planos-acao). Aqui o operador só reporta
+  // a não conformidade. Por isso o campo fica desabilitado na abertura.
+  useEffect(() => { setEhResolvedor(false) }, [atividade.id, subgrupoId])
 
   async function adicionarCausa() {
     const nome = novaCausaNome.trim()
