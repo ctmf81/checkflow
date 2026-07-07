@@ -41,6 +41,8 @@ Layout: `gestao/layout.tsx` — sidebar + SessionProvider
 | `/gestao/agendamentos` | `gestao/agendamentos/page.tsx` | Recurring scheduler for workflows/checklists (NovoAgendamentoModal) |
 | `/gestao/tickets` | `gestao/tickets/page.tsx` | Ticket listing — SLA semaphore, filter tabs (abertos/fechados/todos), summary cards |
 | `/gestao/tickets/[id]` | `gestao/tickets/[id]/page.tsx` | Ticket timeline + contextual actions by status+role. Fixed footer com `EvidenciaPicker`. Banner "Aguardando sua resposta" no topo da listagem (abridor, 2026-07-05). Transferência com modal |
+| `/gestao/execucoes/[id]` | `gestao/execucoes/[id]/page.tsx` | **Tela interativa da execução** (2026-07-06) — usa `ExecucaoViewer` ambiente=gestao. Foto amplia (lightbox), vídeo toca, planos clicáveis, Baixar PDF. Aberta pela seta da Home + "Ver execução completa" do plano |
+| `/operacao/execucao/[id]` | `operacao/execucao/[id]/page.tsx` | Mesma tela interativa (`ExecucaoViewer` ambiente=operacao) — aberta pelo botão do Histórico da operação |
 | `/gestao/tickets/categorias` | `gestao/tickets/categorias/page.tsx` | Category tree CRUD (roots + children, create/edit/delete) |
 | `/gestao/tickets/sla` | `gestao/tickets/sla/page.tsx` | SLA config per priority (unidade default + overrides per category) |
 | `/gestao/configuracoes/notificacoes` | `gestao/configuracoes/notificacoes/page.tsx` | Notification template management — accordion by type, toggle active/inactive per canal, body/subject editor, available variable chips |
@@ -100,6 +102,11 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 |------|---------|
 | `NovoTicketModal.tsx` | Reusable modal — mobile-first, prioridade chips, grupo+subgrupo required, categoria/subcategoria, título, descrição, evidências (`EvidenciaPicker`). Vincula evidência ao evento de abertura (`evento_id`). Calls `notificarTicket()` |
 | `EvidenciaPicker.tsx` | Seletor de evidência: botões **Câmera** (`capture`) + **Galeria** (múltiplos). Valida tamanho via `lib/midia` (foto 10MB/vídeo 50MB). Usado em abertura/operação/gestão de ticket |
+
+### `execucoes/`
+| File | Purpose |
+|------|---------|
+| `ExecucaoViewer.tsx` | Tela interativa da execução (compartilhada gestão+operação, prop `ambiente`). Renderiza respostas por seção/tipo; foto→lightbox, vídeo→player, localização→mapa, planos→link. Busca `GET /api/execucoes/[id]/dados` (service role + checagem de acesso). Botão "Baixar PDF" chama `POST /api/execucoes/[id]/pdf` |
 
 ### `checklists/`
 | File | Purpose |
