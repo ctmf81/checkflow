@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
+import ws from 'ws'
 import { executarLimpezaExecucoes, executarLimpezaTickets, executarLimpezaTarefas } from '../lib/limpezaExecucoes'
 
 export async function limpezaRoutes(app: FastifyInstance) {
@@ -20,7 +21,9 @@ export async function limpezaRoutes(app: FastifyInstance) {
         return reply.status(500).send({ error: 'env faltando', tem_url: !!url, tem_key: !!key })
       }
       etapa = 'createClient'
-      const sb = createClient(url, key)
+      // Node 20 (Railway) não tem WebSocket nativo — passa o transport 'ws',
+      // igual às demais rotas. Sem isso o createClient lança e derruba o cron.
+      const sb = createClient(url, key, { realtime: { transport: ws as any } })
 
       // Execuções/planos/PDF: pelo tempo de guarda. Tickets/tarefas: 3 meses fixos.
       etapa = 'execucoes';  const execucoes = await executarLimpezaExecucoes(sb)
