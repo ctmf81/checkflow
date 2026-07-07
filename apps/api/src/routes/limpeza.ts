@@ -12,17 +12,24 @@ export async function limpezaRoutes(app: FastifyInstance) {
       return reply.status(401).send({ error: 'Não autorizado' })
     }
 
-    const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
-
+    let etapa = 'init'
     try {
+      const url = process.env.SUPABASE_URL
+      const key = process.env.SUPABASE_SECRET_KEY
+      if (!url || !key) {
+        return reply.status(500).send({ error: 'env faltando', tem_url: !!url, tem_key: !!key })
+      }
+      etapa = 'createClient'
+      const sb = createClient(url, key)
+
       // Execuções/planos/PDF: pelo tempo de guarda. Tickets/tarefas: 3 meses fixos.
-      const execucoes = await executarLimpezaExecucoes(sb)
-      const tickets = await executarLimpezaTickets(sb)
-      const tarefas = await executarLimpezaTarefas(sb)
+      etapa = 'execucoes';  const execucoes = await executarLimpezaExecucoes(sb)
+      etapa = 'tickets';    const tickets = await executarLimpezaTickets(sb)
+      etapa = 'tarefas';    const tarefas = await executarLimpezaTarefas(sb)
       return reply.send({ ok: true, execucoes, tickets, tarefas })
     } catch (e: any) {
       app.log.error(e)
-      return reply.status(500).send({ error: e?.message ?? 'erro desconhecido' })
+      return reply.status(500).send({ error: e?.message ?? 'erro desconhecido', etapa, stack: e?.stack?.split('\n').slice(0, 5).join(' | ') })
     }
   })
 }
