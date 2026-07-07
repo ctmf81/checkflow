@@ -215,6 +215,28 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
   const [loading, setLoading] = useState(true)
   const [modalAcao, setModalAcao] = useState<{ acao: Acao; titulo: string; corBtn: string } | null>(null)
   const [salvando, setSalvando] = useState(false)
+  const [gerandoPdf, setGerandoPdf] = useState(false)
+
+  // Gera o PDF da execução de origem sob demanda (não é gerado no finalizar).
+  // O moderador precisa dele para "Ver execução completa" — mesma rota do Histórico.
+  async function gerarPdf() {
+    if (!plano || gerandoPdf) return
+    const execId = (plano.checklist_execucoes as any)?.id ?? plano.checklist_execucao_id
+    if (!execId) return
+    setGerandoPdf(true)
+    const sb = createClient()
+    const { data: { session } } = await sb.auth.getSession()
+    if (!session?.access_token) { setGerandoPdf(false); return }
+    try {
+      const res = await fetch(`/api/execucoes/${execId}/pdf`, {
+        method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const json = await res.json().catch(() => null)
+      if (res.ok && json?.pdf_url) {
+        setPlano(prev => prev ? { ...prev, checklist_execucoes: { ...(prev.checklist_execucoes as any), pdf_url: json.pdf_url } } : prev)
+      }
+    } finally { setGerandoPdf(false) }
+  }
 
   async function carregar() {
     setLoading(true)
@@ -453,9 +475,11 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
           <ExternalLink size={13} />Ver execução completa do checklist (PDF)
         </a>
       ) : (
-        <p className="flex items-center gap-2 text-xs text-gray-400 mb-5 w-fit">
-          <FileText size={13} />PDF da execução ainda não disponível
-        </p>
+        <button onClick={gerarPdf} disabled={gerandoPdf}
+          className="flex items-center gap-2 text-xs text-blue-600 hover:text-blue-700 mb-5 w-fit disabled:opacity-50">
+          {gerandoPdf ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />}
+          {gerandoPdf ? 'Gerando PDF da execução…' : 'Gerar PDF da execução'}
+        </button>
       )}
 
       {/* Causa raiz (banco + ocorrências do plano + recorrência) */}
