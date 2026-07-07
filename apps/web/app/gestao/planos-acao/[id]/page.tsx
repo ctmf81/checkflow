@@ -257,10 +257,10 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
 
     // O subgrupo tem algum moderador N2 configurado? (gestor do grupo deveria ser N2;
     // se ninguém for, o botão "Enviar para N2" fica desabilitado com aviso.)
-    const { count: n2Count } = await sb.from('usuario_subgrupo')
-      .select('usuario_id', { count: 'exact', head: true })
-      .eq('subgrupo_id', (p as any).subgrupo_id).eq('funcao', 'nivel_2')
-    setTemN2((n2Count ?? 0) > 0)
+    // Via RPC SECURITY DEFINER: o count direto sofre com o RLS de usuario_subgrupo
+    // (N1 não-admin só lê a própria linha → não enxergava o N2 → falso "sem N2").
+    const { data: temN2Rpc } = await sb.rpc('subgrupo_tem_n2', { p_subgrupo_id: (p as any).subgrupo_id })
+    setTemN2(!!temN2Rpc)
 
     setLoading(false)
   }
