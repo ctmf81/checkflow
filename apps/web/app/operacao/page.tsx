@@ -433,25 +433,7 @@ function AbaHistorico({ unidadeId }: { unidadeId: string }) {
   const [execucoes, setExecucoes] = useState<Execucao[]>([])
   const [loading, setLoading] = useState(true)
   const [expandido, setExpandido] = useState<string | null>(null)
-  const [gerandoPdf, setGerandoPdf] = useState<string | null>(null)
   const router = useRouter()
-
-  // Gera o PDF de uma execução sob demanda e atualiza o link na lista
-  async function gerarPdf(execId: string) {
-    setGerandoPdf(execId)
-    const sb = createClient()
-    const { data: { session } } = await sb.auth.getSession()
-    if (!session?.access_token) { setGerandoPdf(null); return }
-    try {
-      const res = await fetch(`/api/execucoes/${execId}/pdf`, {
-        method: 'POST', headers: { 'Authorization': `Bearer ${session.access_token}` },
-      })
-      const json = await res.json().catch(() => null)
-      if (res.ok && json?.pdf_url) {
-        setExecucoes(prev => prev.map(e => e.id === execId ? { ...e, pdf_url: json.pdf_url } : e))
-      }
-    } finally { setGerandoPdf(null) }
-  }
 
   useEffect(() => {
     async function carregar() {
@@ -566,22 +548,12 @@ function AbaHistorico({ unidadeId }: { unidadeId: string }) {
                 </div>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                {exec.pdf_url ? (
-                  <a href={exec.pdf_url} target="_blank" rel="noopener noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    title="Baixar PDF da execução"
-                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-orange-50 hover:text-orange-500 text-gray-400 transition-colors">
-                    <FileText size={14} />
-                  </a>
-                ) : (
-                  <button
-                    onClick={e => { e.stopPropagation(); gerarPdf(exec.id) }}
-                    disabled={gerandoPdf === exec.id}
-                    title="Gerar PDF da execução"
-                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-orange-50 hover:text-orange-500 text-gray-400 transition-colors disabled:opacity-50">
-                    {gerandoPdf === exec.id ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
-                  </button>
-                )}
+                <button
+                  onClick={e => { e.stopPropagation(); router.push(`/operacao/execucao/${exec.id}`) }}
+                  title="Abrir execução"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-orange-50 hover:text-orange-500 text-gray-400 transition-colors">
+                  <FileText size={14} />
+                </button>
                 {aberto ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
               </div>
             </button>
