@@ -75,7 +75,7 @@ export default function PlanoOperacaoPage({ params }: { params: Promise<{ id: st
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-16 pt-4">
       <div className="flex items-center gap-2 mb-4">
-        <button onClick={() => router.push('/operacao')} className="text-gray-400 hover:text-orange-500"><ChevronLeft size={20} /></button>
+        <button onClick={() => router.back()} className="text-gray-400 hover:text-orange-500"><ChevronLeft size={20} /></button>
         <h1 className="text-lg font-bold text-gray-800">Plano de ação</h1>
         <span className={`ml-auto inline-flex items-center gap-1 text-xs font-medium border px-2 py-0.5 rounded-full ${st.cor}`}>
           <st.Icon size={12} /> {st.label}

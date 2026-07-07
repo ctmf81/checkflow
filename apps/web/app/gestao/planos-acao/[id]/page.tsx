@@ -392,7 +392,7 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
     <div className="max-w-2xl mx-auto pb-16">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push('/gestao/planos-acao')}
+        <button onClick={() => router.back()}
           className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
           <ArrowLeft size={20} />
         </button>
