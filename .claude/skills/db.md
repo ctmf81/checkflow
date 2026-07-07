@@ -149,6 +149,11 @@ Correções do fluxo de ticket descobertas nos testes manuais (Tela 11). **Preci
 - **Já aplicadas nesta leva**: `20260702020000` (buscar_email_por_cpf normaliza `\D`), `20260703000000` (`usuarios_leitura_scoped` via função `partilha_empresa(uuid)` SECURITY DEFINER — operador lê nome de colega; a subquery direta em `usuario_empresa` era barrada pelo RLS aninhado).
 - **UPDATE de dados** (backfill de evidência órfã da abertura): `update ticket_evidencias set evento_id = (select id from ticket_eventos e where e.ticket_id=ticket_evidencias.ticket_id and e.tipo='abertura' order by criado_em limit 1) where evento_id is null`.
 
+### Migrations 2026-07-05/06 — PLANOS DE AÇÃO
+- `20260703050000_subgrupo_tem_n2.sql` (✅ aplicada) — função `subgrupo_tem_n2(uuid)` SECURITY DEFINER (devolve booleano). Corrige "Enviar para N2" desabilitado p/ N1 não-admin: o count `usuario_subgrupo funcao='nivel_2'` roda sob RLS (só a própria linha via `usuario_subgrupo_propria`) → N1 não via o N2. Usada em `gestao/planos-acao/[id]`.
+- **⚠️ Gotcha `usuario_subgrupo.funcao`**: valores REAIS em prod são **minúsculos** (`operacao`/`nivel_1`/`nivel_2`/null), como o código usa. A migration `20260624000000` (CHECK capitalizado `'Operação'/'Nível 1'/'Nível 2'`) **NÃO foi aplicada** — não usar os valores capitalizados. RLS de SELECT: só `usuario_subgrupo_propria` (própria linha) + admin/admin_empresa; contagens de peers precisam de função SECURITY DEFINER.
+- **PDF da execução é gerado sob demanda** (`POST /api/execucoes/[id]/pdf` grava `checklist_execucoes.pdf_url`), não no finalizar. Tela do plano agora tem botão "Gerar PDF" quando nulo (`38551da`).
+
 ### Migrations 2026-06-17 (✅ aplicadas)
 - `20260617140000_billing_catalogo_leitura.sql` — leitura de `planos`/`pacotes_adicionais` **ativos** por autenticados (corrige self-service `/gestao/plano`; escrita segue admin).
 - `20260617160000_motivo_padrao_nao_execucao.sql` — motivo padrão "Não disponível" por unidade (grupo/subgrupo nulos), `motivo_padrao_unidade(unidade,tipo)`, trigger `checklist_seed_motivos_padrao` (AFTER INSERT em checklists, associa ≥1 de cada tipo a checklist novo não-template) + retroativo.
