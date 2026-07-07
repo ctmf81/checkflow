@@ -141,3 +141,90 @@ export async function executarLimpezaExecucoes(sb: SupabaseClient): Promise<Resu
 
   return resultado
 }
+
+// ─── Limpeza por PRAZO FIXO (3 meses) — tickets e tarefas ─────────────────────
+// Diferente da execução (que segue o tempo de guarda do checklist), a mídia de
+// ticket e de tarefa é removida 3 meses após a criação. Só a mídia sai — os
+// registros permanecem. Bytes abatidos do uso de armazenamento (billing).
+
+const TRES_MESES_MS = 90 * 24 * 60 * 60 * 1000
+
+export interface ResLimpeza {
+  processadas: number
+  bytes_removidos: number
+  erros: { id: string; erro: string }[]
+}
+
+async function empresaDaUnidade(sb: SupabaseClient, cache: Map<string, string | null>, unidadeId: string | null): Promise<string | null> {
+  if (!unidadeId) return null
+  if (cache.has(unidadeId)) return cache.get(unidadeId)!
+  const { data } = await sb.from('unidades').select('empresa_id').eq('id', unidadeId).single()
+  const empresaId = data?.empresa_id ?? null
+  cache.set(unidadeId, empresaId)
+  return empresaId
+}
+
+async function abater(sb: SupabaseClient, cache: Map<string, string | null>, unidadeId: string | null, origem: string, bytes: number): Promise<void> {
+  if (bytes <= 0) return
+  const empresaId = await empresaDaUnidade(sb, cache, unidadeId)
+  if (empresaId) {
+    await sb.from('uso_armazenamento').insert({ empresa_id: empresaId, origem, tamanho_bytes: -bytes })
+  }
+}
+
+/** Remove a mídia de tickets criados há mais de 3 meses (evidências em execucoes/tickets/{id}/*). */
+export async function executarLimpezaTickets(sb: SupabaseClient): Promise<ResLimpeza> {
+  const cutoff = new Date(Date.now() - TRES_MESES_MS).toISOString()
+  const cache = new Map<string, string | null>()
+  const resultado: ResLimpeza = { processadas: 0, bytes_removidos: 0, erros: [] }
+
+  const { data: evids } = await sb.from('ticket_evidencias')
+    .select('ticket_id, tickets!inner(criado_em, unidade_id)')
+    .lt('tickets.criado_em', cutoff)
+
+  const porTicket = new Map<string, string | null>()
+  for (const e of (evids ?? [])) porTicket.set(e.ticket_id, (e.tickets as any)?.unidade_id ?? null)
+
+  for (const [ticketId, unidadeId] of porTicket) {
+    try {
+      const bytes = await removerPasta(sb, `tickets/${ticketId}`)
+      await sb.from('ticket_evidencias').delete().eq('ticket_id', ticketId)
+      await abater(sb, cache, unidadeId, 'ticket', bytes)
+      resultado.bytes_removidos += bytes
+      resultado.processadas++
+    } catch (e: any) {
+      resultado.erros.push({ id: ticketId, erro: e?.message ?? String(e) })
+    }
+  }
+  return resultado
+}
+
+/** Remove a mídia de tarefas cuja execução foi aberta há mais de 3 meses (execucoes/tarefas/{execId}/*). */
+export async function executarLimpezaTarefas(sb: SupabaseClient): Promise<ResLimpeza> {
+  const cutoff = new Date(Date.now() - TRES_MESES_MS).toISOString()
+  const cache = new Map<string, string | null>()
+  const resultado: ResLimpeza = { processadas: 0, bytes_removidos: 0, erros: [] }
+
+  const { data: resp } = await sb.from('tarefa_respostas')
+    .select('execucao_id, tarefa_execucoes!inner(aberta_em, unidade_id)')
+    .not('evidencia_url', 'is', null)
+    .lt('tarefa_execucoes.aberta_em', cutoff)
+
+  const porExec = new Map<string, string | null>()
+  for (const r of (resp ?? [])) porExec.set(r.execucao_id, (r.tarefa_execucoes as any)?.unidade_id ?? null)
+
+  for (const [execId, unidadeId] of porExec) {
+    try {
+      const bytes = await removerPasta(sb, `tarefas/${execId}`)
+      await sb.from('tarefa_respostas')
+        .update({ evidencia_url: null, evidencia_tipo: null })
+        .eq('execucao_id', execId).not('evidencia_url', 'is', null)
+      await abater(sb, cache, unidadeId, 'tarefa', bytes)
+      resultado.bytes_removidos += bytes
+      resultado.processadas++
+    } catch (e: any) {
+      resultado.erros.push({ id: execId, erro: e?.message ?? String(e) })
+    }
+  }
+  return resultado
+}

@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
-import { executarLimpezaExecucoes } from '../lib/limpezaExecucoes'
+import { executarLimpezaExecucoes, executarLimpezaTickets, executarLimpezaTarefas } from '../lib/limpezaExecucoes'
 
 export async function limpezaRoutes(app: FastifyInstance) {
   // POST /cron/limpeza-execucoes — disparo agendado (1x/dia)
@@ -15,8 +15,11 @@ export async function limpezaRoutes(app: FastifyInstance) {
     const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
 
     try {
-      const resultado = await executarLimpezaExecucoes(sb)
-      return reply.send({ ok: true, ...resultado })
+      // Execuções/planos/PDF: pelo tempo de guarda. Tickets/tarefas: 3 meses fixos.
+      const execucoes = await executarLimpezaExecucoes(sb)
+      const tickets = await executarLimpezaTickets(sb)
+      const tarefas = await executarLimpezaTarefas(sb)
+      return reply.send({ ok: true, execucoes, tickets, tarefas })
     } catch (e: any) {
       app.log.error(e)
       return reply.status(500).send({ error: e?.message ?? 'erro desconhecido' })
