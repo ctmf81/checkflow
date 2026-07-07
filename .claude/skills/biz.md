@@ -443,6 +443,7 @@ aberto → em_tratamento (aceite) → aguardando_informacao ↔ em_tratamento
   - terminal + N1: `reaberto` (→ `em_moderacao_n1`) — **N1 pode reabrir mesmo o que o N2 fechou** (decisão confirmada).
 - **Fallback sem N2**: o gestor do grupo deveria ser N2; se o subgrupo **não tem nenhum** `nivel_2`, o botão "Enviar para N2" fica **desabilitado** com aviso ("Não existe um moderador N2 configurado para o subgrupo X"). Contagem via `usuario_subgrupo` count `funcao='nivel_2'`.
 - Cada movimentação exige **observação obrigatória** + evidências opcionais (fotos/vídeos em `plano_acao_movimentacao_evidencias`).
+- **Causa raiz é análise da MODERAÇÃO, não da abertura** (2026-07-05): o plano nasce automático (operador só reporta — sem campo de causa na abertura). Quem escolhe/cria a causa raiz é o moderador (N1/N2) **enquanto o plano está em moderação**. Depois de **concluído** (corrigido/nao_corrigido) o editor de causa raiz é **omitido** (só mostra a causa registrada, read-only) — `podeEditar` gateado por status em `gestao/planos-acao/[id]`. Corrigido também no texto da ajuda (`app/api/ajuda/route.ts`).
 - **Notificações (WhatsApp/Email, respeita turno)**: abertura → **N1** do subgrupo; `enviado_n2` → **N2**; `devolvido_n1` → **N1** (devolução adicionada 2026-06-20; usa mensagem hardcoded, sem template dedicado). Ver tabela de destinatários abaixo.
 
 ## Templates de Notificação

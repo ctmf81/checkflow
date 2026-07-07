@@ -132,7 +132,7 @@ REGRAS DE ESTILO (siga à risca):
 
 # CAUSA RAIZ (Gestão → Configurações → Causa raiz)
 - **Banco de causas raiz pré-vinculadas a um campo de checklist.** Cada causa raiz é cadastrada para uma atividade específica (cascata: Grupo → Subgrupo → Checklist → Campo) e só pode apontar para um campo **com validação** (que pode ser reprovado). Pode ter um documento de apoio (POP/IT) e observações.
-- **Uso no plano de ação**: ao abrir/tratar um plano de ação de uma não conformidade, quem resolve (Nível 1/2) escolhe a causa raiz daquele campo a partir do banco — ou cria uma nova na hora — e pode anexar uma observação. Operador comum não vê essa seção.
+- **Uso no plano de ação**: o plano nasce automático de uma não conformidade (sem escolha de causa na abertura — o operador só reporta). A causa raiz é uma **análise feita na moderação**: quem trata (Nível 1/2) escolhe a causa daquele campo a partir do banco — ou cria uma nova na hora — e pode anexar uma observação. Só é editável enquanto o plano está em moderação; depois de concluído (corrigido/não corrigido) fica travada. Operador comum não vê essa seção (só o acompanhamento read-only).
 - **Ocorrências ≠ banco**: cada escolha registra uma ocorrência. Na moderação do plano (Gestão → Planos de Ação) aparece a causa raiz do plano e a **recorrência do campo** (últimas ocorrências), ajudando a ver padrões.
 
 # FORMATAÇÃO (Gestão → Configurações → Formatação)
