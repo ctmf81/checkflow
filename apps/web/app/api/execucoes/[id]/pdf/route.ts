@@ -131,10 +131,11 @@ function PdfExecucao({ dados }: { dados: any }) {
         ),
       ),
 
-      // Resultado badge
+      // Resultado badge — sem os símbolos ✓/✗ (não existem na Helvetica padrão do
+      // PDF e renderizavam como glifo quebrado, sobrepondo o texto). A cor já indica.
       React.createElement(View, { style: s.badgeWrap },
         React.createElement(Text, { style: aprovado ? s.badgeAprov : s.badgeReprov },
-          aprovado ? '✓ APROVADO' : '✗ REPROVADO'
+          aprovado ? 'APROVADO' : 'REPROVADO'
         ),
       ),
 

@@ -101,6 +101,29 @@ export default function GestaoHomePage() {
   const [execucoes, setExecucoes] = useState<ExecucaoItem[]>([])
   const [loadingFunil, setLoadingFunil] = useState(true)
   const [loadingExec, setLoadingExec]   = useState(true)
+  const [gerandoExec, setGerandoExec]   = useState<string | null>(null)
+
+  // Abre a execução (PDF renderizado do checklist). Gera sob demanda se ainda
+  // não existe. A seta da lista de execuções apontava por engano para a
+  // listagem de planos de ação — o correto é abrir a própria execução.
+  async function verExecucao(e: ExecucaoItem) {
+    if (e.pdf_url) { window.open(e.pdf_url, '_blank', 'noopener'); return }
+    if (gerandoExec) return
+    setGerandoExec(e.id)
+    const sb = createClient()
+    const { data: { session } } = await sb.auth.getSession()
+    if (!session?.access_token) { setGerandoExec(null); return }
+    try {
+      const res = await fetch(`/api/execucoes/${e.id}/pdf`, {
+        method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const json = await res.json().catch(() => null)
+      if (res.ok && json?.pdf_url) {
+        setExecucoes(prev => prev.map(x => x.id === e.id ? { ...x, pdf_url: json.pdf_url } : x))
+        window.open(json.pdf_url, '_blank', 'noopener')
+      }
+    } finally { setGerandoExec(null) }
+  }
 
   // Toda a Home é escopada pela UNIDADE ATIVA da sessão (como as demais telas).
   // O admin da empresa troca de unidade para ver cada uma; RLS garante o acesso.
@@ -357,9 +380,11 @@ export default function GestaoHomePage() {
                       </button>
                     )}
                     <button
-                      onClick={() => router.push(`/gestao/planos-acao`)}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors">
-                      <ChevronRight size={14} />
+                      onClick={() => verExecucao(e)}
+                      disabled={gerandoExec === e.id}
+                      title="Abrir execução (PDF)"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors disabled:opacity-50">
+                      {gerandoExec === e.id ? <Loader2 size={14} className="animate-spin" /> : <ChevronRight size={14} />}
                     </button>
                   </div>
                 </div>
