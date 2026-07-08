@@ -36,9 +36,9 @@ interface TopAtividade {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const PERIODOS: { valor: Periodo; label: string }[] = [
-  { valor: '24h', label: 'Últimas 24h' },
-  { valor: '15d', label: 'Últimos 15d' },
-  { valor: '30d', label: 'Últimos 30d' },
+  { valor: '24h', label: '24h' },
+  { valor: '15d', label: '15d' },
+  { valor: '30d', label: '30d' },
 ]
 
 function periodoParaISO(p: Periodo): string {
@@ -276,7 +276,7 @@ export default function IndicadoresPage() {
   const cfg = getOnboardingConfig('indicadores')!
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-10">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 pb-10">
 
       <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
 
@@ -286,13 +286,10 @@ export default function IndicadoresPage() {
           className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
           <ArrowLeft size={18} />
         </button>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <BarChart2 size={20} className="text-orange-500" />Indicadores
+        <div className="flex-1 min-w-0">
+          <h1 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center gap-2">
+            <BarChart2 size={20} className="text-orange-500 flex-shrink-0" />Indicadores
           </h1>
-          <p className="text-sm text-gray-400 mt-0.5">
-            Reincidência e desempenho{unidadeAtiva ? ` · ${unidadeAtiva.nome}` : ''}
-          </p>
         </div>
         {/* Período */}
         <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">

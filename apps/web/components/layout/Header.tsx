@@ -149,7 +149,7 @@ export function Header() {
         </button>
 
         {dropUnidade && (
-          <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 max-h-80 overflow-y-auto">
+          <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-52 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 max-h-80 overflow-y-auto">
             <p className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">Unidades</p>
             {unidades.length === 0 ? (
               <p className="px-4 py-3 text-sm text-gray-400">Nenhuma unidade</p>
