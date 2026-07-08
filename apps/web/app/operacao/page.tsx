@@ -237,6 +237,9 @@ function AbaChecklists({ grupos, semGrupo, itensWorkflow, agendadas, naoFinaliza
     .filter(g => g.subgrupos.length > 0)
   const semGrupoFiltrado = filtrar(semGrupo)
   const semResultado = busca && gruposFiltrados.length === 0 && semGrupoFiltrado.length === 0
+  // Campo de busca só faz sentido com muitos modelos — com poucos, é ruído.
+  const totalChecklists =
+    grupos.reduce((n, g) => n + g.subgrupos.reduce((m, s) => m + s.checklists.length, 0), 0) + semGrupo.length
 
   return (
     <div className="space-y-6">
@@ -384,12 +387,14 @@ function AbaChecklists({ grupos, semGrupo, itensWorkflow, agendadas, naoFinaliza
         </section>
       )}
 
-      {/* Busca */}
-      <div className="relative">
-        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar checklist..."
-          className="w-full pl-10 pr-4 py-3 text-sm bg-white border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-200" />
-      </div>
+      {/* Busca — só aparece a partir de 6 modelos de checklist */}
+      {totalChecklists >= 6 && (
+        <div className="relative">
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar checklist..."
+            className="w-full pl-10 pr-4 py-3 text-sm bg-white border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-200" />
+        </div>
+      )}
 
       {semResultado && <div className="text-center py-12"><p className="text-gray-400 text-sm">Nenhum resultado para "{busca}"</p></div>}
 
@@ -1117,7 +1122,7 @@ function ChecklistCard({ checklist, onClick }: { checklist: Checklist; onClick: 
         <CheckSquare size={18} className="text-orange-500" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-gray-800 text-sm leading-snug">{checklist.nome}</p>
+        <p className="font-semibold text-gray-800 text-sm leading-snug truncate">{checklist.nome}</p>
         <p className="text-xs text-gray-400 mt-0.5">
           {checklist.total_atividades} {checklist.total_atividades === 1 ? 'atividade' : 'atividades'}
         </p>
