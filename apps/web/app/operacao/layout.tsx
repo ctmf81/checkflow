@@ -94,11 +94,11 @@ function OperacaoHeader() {
           {/* Instalar app (PWA) */}
           <InstallAppButton />
 
-          {/* Botão voltar para gestão */}
+          {/* Botão voltar para gestão — só no desktop; no mobile vai pro menu */}
           {temGestao && (
             <button
               onClick={() => router.push('/gestao')}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-orange-500 hover:bg-orange-50 border border-gray-200 hover:border-orange-200 rounded-lg transition-colors">
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-orange-500 hover:bg-orange-50 border border-gray-200 hover:border-orange-200 rounded-lg transition-colors">
               <LayoutDashboard size={14} />
               Gestão
             </button>
@@ -119,6 +119,14 @@ function OperacaoHeader() {
               <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
                 {nome && (
                   <p className="px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-100 truncate">{nome}</p>
+                )}
+                {/* Gestão dentro do menu — só no mobile (no desktop é botão à parte) */}
+                {temGestao && (
+                  <button onClick={() => { setDropUsuario(false); router.push('/gestao') }}
+                    className="sm:hidden w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors border-b border-gray-100">
+                    <LayoutDashboard size={16} className="text-orange-400" />
+                    Gestão
+                  </button>
                 )}
                 <button onClick={handleLogout}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors">

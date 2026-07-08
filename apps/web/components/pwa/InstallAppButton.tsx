@@ -32,7 +32,7 @@ export function InstallAppButton({ className }: { className?: string }) {
         }
       >
         <Download size={14} />
-        Instalar
+        App
       </button>
       <DownloadAppModal isOpen={open} onClose={() => setOpen(false)} />
     </>
