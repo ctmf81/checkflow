@@ -81,13 +81,14 @@ export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empres
     // Listas publicadas da unidade + atribuições + contagem de respostas
     const { data } = await supabase
       .from('tarefa_listas')
-      .select('id, titulo, descricao, abertura_data_limite, abertura_max_respostas, edicao_janela_horas, grupos:tarefa_lista_grupos(grupo_id), subgrupos:tarefa_lista_subgrupos(subgrupo_id), respostas:tarefa_execucoes(id)')
+      .select('id, titulo, descricao, liberacao_em, abertura_data_limite, abertura_max_respostas, edicao_janela_horas, grupos:tarefa_lista_grupos(grupo_id), subgrupos:tarefa_lista_subgrupos(subgrupo_id), respostas:tarefa_execucoes(id)')
       .eq('unidade_id', unidadeId)
       .eq('status', 'publicada')
 
     const agora = Date.now()
     const disponiveis = (data ?? []).filter((l: any) => listaDisponivel(
       {
+        liberacao_em: l.liberacao_em,
         abertura_data_limite: l.abertura_data_limite,
         abertura_max_respostas: l.abertura_max_respostas,
         total_respostas: (l.respostas ?? []).length,

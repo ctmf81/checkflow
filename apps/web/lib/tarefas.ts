@@ -10,11 +10,17 @@
 // e a visibilidade por grupos/subgrupos.
 
 export interface ListaVisibilidade {
+  liberacao_em?: string | null   // quando passa a aparecer (null/ausente = imediata)
   abertura_data_limite: string | null
   abertura_max_respostas: number | null
   total_respostas: number
   grupos: string[]      // grupo_ids atribuídos à lista
   subgrupos: string[]   // subgrupo_ids atribuídos à lista
+}
+
+/** A lista já foi liberada? (antes da data de liberação = "agendada", oculta) */
+export function liberada(l: Pick<ListaVisibilidade, 'liberacao_em'>, agoraMs: number): boolean {
+  return !l.liberacao_em || new Date(l.liberacao_em).getTime() <= agoraMs
 }
 
 /** A janela de abertura ainda está aberta? (data limite e nº de respostas) */
@@ -41,7 +47,7 @@ export function visivelPara(
   return l.grupos.some(g => meusGrupos.has(g))
 }
 
-/** Disponível para responder = janela de abertura aberta E visível ao usuário. */
+/** Disponível para responder = já liberada E janela de abertura aberta E visível. */
 export function listaDisponivel(
   l: ListaVisibilidade,
   agoraMs: number,
@@ -49,7 +55,23 @@ export function listaDisponivel(
   meusSubgrupos: Set<string>,
   isAdmin = false,
 ): boolean {
-  return aberturaAberta(l, agoraMs) && visivelPara(l, meusGrupos, meusSubgrupos, isAdmin)
+  return liberada(l, agoraMs) && aberturaAberta(l, agoraMs) && visivelPara(l, meusGrupos, meusSubgrupos, isAdmin)
+}
+
+/**
+ * Status de ciclo de vida para a listagem da gestão (derivado do estado real).
+ * rascunho → 'rascunho'; encerrada → 'finalizada'; publicada → agendada (antes
+ * da liberação) | em_execucao (aberta) | finalizada (abertura encerrada).
+ */
+export type StatusTarefa = 'rascunho' | 'agendada' | 'em_execucao' | 'finalizada'
+export function statusTarefa(
+  l: ListaVisibilidade & { status: 'rascunho' | 'publicada' | 'encerrada' },
+  agoraMs: number,
+): StatusTarefa {
+  if (l.status === 'rascunho') return 'rascunho'
+  if (l.status === 'encerrada') return 'finalizada'
+  if (!liberada(l, agoraMs)) return 'agendada'
+  return aberturaAberta(l, agoraMs) ? 'em_execucao' : 'finalizada'
 }
 
 /** Calcula até quando a instância pode ser editada (null = sem limite próprio). */

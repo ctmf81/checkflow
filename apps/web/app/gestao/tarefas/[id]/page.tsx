@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, Plus, Trash2, Save, Send, Loader2, Check, Lock } from 'lucide-react'
+import { ChevronLeft, Plus, Trash2, Save, Send, Loader2, Check, Lock, Info } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { apiFetch } from '@/lib/apiClient'
 import { createClient } from '@/lib/supabase'
@@ -30,6 +30,7 @@ export default function MontadorTarefaPage({ params }: { params: Promise<{ id: s
   const [titulo, setTitulo] = useState('')
   const [descricao, setDescricao] = useState('')
   const [status, setStatus] = useState<'rascunho' | 'publicada' | 'encerrada'>('rascunho')
+  const [liberacaoEm, setLiberacaoEm] = useState('')
   const [dataLimite, setDataLimite] = useState('')
   const [maxRespostas, setMaxRespostas] = useState('')
   const [edicaoHoras, setEdicaoHoras] = useState('')
@@ -53,6 +54,7 @@ export default function MontadorTarefaPage({ params }: { params: Promise<{ id: s
         setTitulo(lista.titulo)
         setDescricao(lista.descricao ?? '')
         setStatus(lista.status)
+        setLiberacaoEm(lista.liberacao_em ? lista.liberacao_em.slice(0, 16) : '')
         setDataLimite(lista.abertura_data_limite ? lista.abertura_data_limite.slice(0, 16) : '')
         setMaxRespostas(lista.abertura_max_respostas != null ? String(lista.abertura_max_respostas) : '')
         setEdicaoHoras(lista.edicao_janela_horas != null ? String(lista.edicao_janela_horas) : '')
@@ -109,6 +111,7 @@ export default function MontadorTarefaPage({ params }: { params: Promise<{ id: s
     const { error } = await supabase.from('tarefa_listas').update({
       titulo: titulo.trim() || 'Nova lista de tarefas',
       descricao: descricao.trim() || null,
+      liberacao_em: liberacaoEm ? new Date(liberacaoEm).toISOString() : null,
       abertura_data_limite: dataLimite ? new Date(dataLimite).toISOString() : null,
       abertura_max_respostas: maxRespostas ? Number(maxRespostas) : null,
       edicao_janela_horas: edicaoHoras ? Number(edicaoHoras) : null,
@@ -216,6 +219,14 @@ export default function MontadorTarefaPage({ params }: { params: Promise<{ id: s
             className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
         </div>
 
+        {/* Liberação (agendamento) */}
+        <div className="border-t border-gray-100 pt-3">
+          <label className="block text-xs font-medium text-gray-600 mb-1">Data de liberação <span className="text-gray-400 font-normal">(opcional)</span></label>
+          <input type="datetime-local" value={liberacaoEm} onChange={e => setLiberacaoEm(e.target.value)} disabled={bloqueado} placeholder="liberar ao publicar"
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
+          <p className="text-xs text-gray-400 mt-1">Quando a lista passa a aparecer na Operação. Vazio = ao publicar. No futuro, a lista fica <span className="font-medium">agendada</span> até essa data.</p>
+        </div>
+
         {/* Encerramento */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-gray-100 pt-3">
           <div>
@@ -224,7 +235,14 @@ export default function MontadorTarefaPage({ params }: { params: Promise<{ id: s
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Nº máximo de respostas</label>
+            <label className="flex items-center gap-1 text-xs font-medium text-gray-600 mb-1">
+              Nº máximo de respostas
+              <span
+                title="Limita o TOTAL de respostas somando todos os operadores (cada pessoa responde 1 vez). Ao atingir esse número, a lista fecha para novas aberturas — quem já abriu continua podendo editar dentro do prazo."
+                className="text-gray-400 cursor-help">
+                <Info size={13} />
+              </span>
+            </label>
             <input type="number" min={1} value={maxRespostas} onChange={e => setMaxRespostas(e.target.value)} disabled={bloqueado} placeholder="sem limite"
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
           </div>
