@@ -1158,6 +1158,7 @@ export default function OperacaoPage() {
   const [temTickets, setTemTickets] = useState(false)
   const [temDocumentos, setTemDocumentos] = useState(false)
   const [temHistorico, setTemHistorico] = useState(false)
+  const [abasProntas, setAbasProntas] = useState(false)  // disponibilidade das abas já carregada?
 
   useEffect(() => {
     if (!unidadeAtiva?.id) { setLoading(false); return }
@@ -1182,10 +1183,11 @@ export default function OperacaoPage() {
 
       // Tarefas (mesma regra do AbaTarefas)
       const { data: listas } = await sb.from('tarefa_listas')
-        .select('id, abertura_data_limite, abertura_max_respostas, grupos:tarefa_lista_grupos(grupo_id), subgrupos:tarefa_lista_subgrupos(subgrupo_id), respostas:tarefa_execucoes(id)')
+        .select('id, liberacao_em, abertura_data_limite, abertura_max_respostas, grupos:tarefa_lista_grupos(grupo_id), subgrupos:tarefa_lista_subgrupos(subgrupo_id), respostas:tarefa_execucoes(id)')
         .eq('unidade_id', unidadeAtiva!.id).eq('status', 'publicada')
       const agora = Date.now()
       const temTar = (listas ?? []).some((l: any) => listaDisponivel({
+        liberacao_em: l.liberacao_em,
         abertura_data_limite: l.abertura_data_limite, abertura_max_respostas: l.abertura_max_respostas,
         total_respostas: (l.respostas ?? []).length,
         grupos: (l.grupos ?? []).map((g: any) => g.grupo_id),
@@ -1213,6 +1215,7 @@ export default function OperacaoPage() {
       setTemTickets((countTickets ?? 0) > 0)
       setTemDocumentos(temDoc)
       setTemHistorico((count ?? 0) > 0)
+      setAbasProntas(true)
     })()
     return () => { cancel = true }
   }, [unidadeAtiva?.id, empresaAtiva?.id])
@@ -1232,8 +1235,12 @@ export default function OperacaoPage() {
     window.history.replaceState(null, '', url)
   }, [aba])
 
-  // Se a aba ativa ficou indisponível (sem itens), pula p/ a primeira disponível
+  // Se a aba ativa ficou indisponível (sem itens), pula p/ a primeira disponível.
+  // ⚠️ Só age quando a disponibilidade JÁ carregou (checklists + demais abas):
+  // antes disso, tem* começam `false` e trocariam a aba lida da URL (?aba=...)
+  // de volta pro Checklists — o bug de "não preserva a aba".
   useEffect(() => {
+    if (loading || !abasProntas) return
     const disp: Record<Aba, boolean> = {
       checklists: grupos.length > 0 || semGrupo.length > 0 || agendadas.length > 0
         || itensWorkflow.length > 0 || naoFinalizadas.length > 0,
@@ -1243,7 +1250,7 @@ export default function OperacaoPage() {
       const primeira = (['checklists', 'historico', 'tarefas', 'tickets', 'documentos'] as Aba[]).find(id => disp[id])
       if (primeira) setAba(primeira)
     }
-  }, [grupos, semGrupo, agendadas, itensWorkflow, naoFinalizadas, temTarefas, temTickets, temHistorico, temDocumentos, aba])
+  }, [loading, abasProntas, grupos, semGrupo, agendadas, itensWorkflow, naoFinalizadas, temTarefas, temTickets, temHistorico, temDocumentos, aba])
 
   async function carregarChecklists() {
     setLoading(true)
