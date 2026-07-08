@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import {
   CheckCircle2, XCircle, Clock, ClipboardList,
-  ChevronRight, Loader2, RefreshCw, FileText, BarChart2,
+  ChevronRight, Loader2, RefreshCw, BarChart2,
   Filter, TrendingDown,
 } from 'lucide-react'
 import { Onboarding } from '@/components/onboarding/Onboarding'
@@ -341,20 +341,13 @@ export default function GestaoHomePage() {
                         pa?.cor === 'red'    ? 'bg-red-50 text-red-600 border-red-200' :
                         'bg-red-50 text-red-500 border-red-200'
                       }`}>
-                        {pa ? `Reprovado · ${pa.label}` : 'Reprovado'}
+                        {pa ? (pa.cor === 'amber' ? pa.label : `Reprovado · ${pa.label}`) : 'Reprovado'}
                       </span>
                     )}
                   </div>
 
-                  {/* Ações */}
+                  {/* Ações — PDF fica dentro da página de visualização da execução */}
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    {e.pdf_url && (
-                      <a href={e.pdf_url} target="_blank" rel="noopener noreferrer"
-                        title="Baixar PDF"
-                        className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors">
-                        <FileText size={14} />
-                      </a>
-                    )}
                     {e.planos_abertos > 0 && (
                       <button
                         onClick={() => router.push(`/gestao/planos-acao?exec=${e.id}`)}
