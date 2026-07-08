@@ -542,9 +542,9 @@ function AbaHistorico({ unidadeId }: { unidadeId: string }) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-800 truncate">{exec.checklist_nome}</p>
-                {/* Data + badges quebram abaixo do nome (não espremem o título no mobile) */}
+                {/* Título, tempo e status cada um em sua própria linha */}
+                <p className="text-xs text-gray-400 mt-1">{dataRelativa(exec.data_execucao)}</p>
                 <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                  <span className="text-xs text-gray-400">{dataRelativa(exec.data_execucao)}</span>
                   {exec.resultado === 'reprovado' && (
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full border whitespace-nowrap ${
                       pa?.cor === 'green'  ? 'bg-green-50 text-green-600 border-green-200' :
