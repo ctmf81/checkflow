@@ -2329,6 +2329,19 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
           const respondHere = secao.atividades.filter(a => {
             const r = respostas[a.id]; return r !== undefined && r !== null && r !== ''
           }).length
+          const todaRespondida = respondHere === secao.atividades.length && secao.atividades.length > 0
+
+          // Plano de ação pendente: atividade não conforme, que gera plano e ainda
+          // não foi registrado. Percorre dependentes visíveis (respeita gatilhos).
+          const temPlanoPendente = (atvs: Atividade[]): boolean => atvs.some(a => {
+            const proprio = calcularValidacao(a) === false && a.gera_plano_acao && !planosCapturados[a.id]
+            const visiveis = (a.dependentes ?? []).filter(dep => {
+              if (!dep.valor_gatilho) return true
+              return Array.isArray(a.resposta) ? a.resposta.includes(dep.valor_gatilho) : String(a.resposta ?? '') === dep.valor_gatilho
+            })
+            return proprio || temPlanoPendente(visiveis)
+          })
+          const planoPendente = todaRespondida && temPlanoPendente(atvsComResp)
 
           return (
             <div key={secao.id} id={`secao-${secao.id}`} className="bg-gray-50 rounded-2xl overflow-hidden border border-gray-200 scroll-mt-4">
@@ -2336,11 +2349,10 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
                 className="w-full flex items-center justify-between px-4 py-3.5 text-left">
                 <div className="flex items-center gap-2">
                   <div className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center ${
-                    respondHere === secao.atividades.length && secao.atividades.length > 0
-                      ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'
+                    planoPendente ? 'bg-amber-400 text-white'
+                      : todaRespondida ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'
                   }`}>
-                    {respondHere === secao.atividades.length && secao.atividades.length > 0
-                      ? <CheckCircle2 size={14} /> : idx + 1}
+                    {todaRespondida && !planoPendente ? <CheckCircle2 size={14} /> : idx + 1}
                   </div>
                   <span className="font-semibold text-sm text-gray-800">{secao.nome}</span>
                   <span className="text-xs text-gray-400">({respondHere}/{secao.atividades.length})</span>
