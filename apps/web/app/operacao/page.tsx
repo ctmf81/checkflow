@@ -552,7 +552,7 @@ function AbaHistorico({ unidadeId }: { unidadeId: string }) {
                       pa?.cor === 'red'    ? 'bg-red-50 text-red-600 border-red-200' :
                       'bg-red-50 text-red-500 border-red-200'
                     }`}>
-                      {pa ? `Reprovado · ${pa.label}` : 'Reprovado'}
+                      {pa ? (pa.cor === 'amber' ? pa.label : `Reprovado · ${pa.label}`) : 'Reprovado'}
                     </span>
                   )}
                   {mostrarStatus && (
