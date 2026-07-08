@@ -17,7 +17,12 @@ type Tipo =
   | 'ticket_movimentado'
   | 'plano_aberto'
   | 'plano_enviado_n2'
+  | 'plano_devolvido_n1'
+  | 'tarefa_publicada'
   | 'reset_senha'
+
+// Tipos que só têm canal WhatsApp (sem email)
+const SO_WHATSAPP = new Set<Tipo>(['tarefa_publicada'])
 
 interface Template {
   id?: string
@@ -90,6 +95,28 @@ const TIPO_META: Record<Tipo, { label: string; desc: string; vars: { chave: stri
       { chave: 'link',         desc: 'Link direto para o plano' },
     ],
   },
+  plano_devolvido_n1: {
+    label: 'Plano devolvido para N1',
+    desc: 'Enviado aos moderadores N1 quando o N2 devolve o plano de ação.',
+    vars: [
+      { chave: 'destinatario', desc: 'Nome do destinatário' },
+      { chave: 'atividade',    desc: 'Nome da atividade' },
+      { chave: 'checklist',    desc: 'Nome do checklist' },
+      { chave: 'subgrupo',     desc: 'Nome do subgrupo' },
+      { chave: 'ator',         desc: 'Nome do moderador N2 que devolveu' },
+      { chave: 'observacao',   desc: 'Observação do N2' },
+      { chave: 'link',         desc: 'Link direto para o plano' },
+    ],
+  },
+  tarefa_publicada: {
+    label: 'Nova lista de tarefas',
+    desc: 'Enviado por WhatsApp aos membros do grupo/subgrupo quando uma lista de tarefas é publicada com aviso ativado.',
+    vars: [
+      { chave: 'destinatario', desc: 'Nome do destinatário' },
+      { chave: 'titulo',       desc: 'Título da lista de tarefas' },
+      { chave: 'link',         desc: 'Link para a operação (aba Tarefas)' },
+    ],
+  },
   reset_senha: {
     label: 'Recuperação de senha / Primeiro acesso',
     desc: 'Enviado ao usuário com um código de verificação de 6 dígitos (recuperação de senha, reset feito por um gestor, ou primeiro acesso).',
@@ -102,7 +129,9 @@ const TIPO_META: Record<Tipo, { label: string; desc: string; vars: { chave: stri
 }
 
 const TIPOS_ORDEM: Tipo[] = [
-  'ticket_aberto', 'ticket_movimentado', 'plano_aberto', 'plano_enviado_n2', 'reset_senha',
+  'ticket_aberto', 'ticket_movimentado',
+  'plano_aberto', 'plano_enviado_n2', 'plano_devolvido_n1',
+  'tarefa_publicada', 'reset_senha',
 ]
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -217,7 +246,7 @@ export default function NotificacoesPage() {
                 <div className="flex items-center gap-3 shrink-0 ml-4">
                   {/* Indicadores de status */}
                   <div className="flex gap-1.5">
-                    {(['whatsapp', 'email'] as Canal[]).map(canal => {
+                    {(['whatsapp', 'email'] as Canal[]).filter(c => !(SO_WHATSAPP.has(tipo) && c === 'email')).map(canal => {
                       const t = templates[chave(tipo, canal)]
                       return (
                         <span key={canal}
@@ -264,16 +293,18 @@ export default function NotificacoesPage() {
                     onSalvar={() => salvar(tipo, 'whatsapp')}
                   />
 
-                  {/* Email */}
-                  <CanalEditor
-                    canal="email"
-                    tipo={tipo}
-                    template={tmplEmail}
-                    temAssunto
-                    salvando={salvando === chave(tipo, 'email')}
-                    onChange={(campo, val) => atualizar(tipo, 'email', campo as any, val)}
-                    onSalvar={() => salvar(tipo, 'email')}
-                  />
+                  {/* Email — oculto para tipos só-WhatsApp */}
+                  {!SO_WHATSAPP.has(tipo) && (
+                    <CanalEditor
+                      canal="email"
+                      tipo={tipo}
+                      template={tmplEmail}
+                      temAssunto
+                      salvando={salvando === chave(tipo, 'email')}
+                      onChange={(campo, val) => atualizar(tipo, 'email', campo as any, val)}
+                      onSalvar={() => salvar(tipo, 'email')}
+                    />
+                  )}
                 </div>
               )}
             </div>
