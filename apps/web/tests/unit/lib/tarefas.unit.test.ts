@@ -3,7 +3,7 @@
 // grupos/subgrupos e janela de edição da instância.
 import { describe, it, expect } from 'vitest'
 import {
-  aberturaAberta, visivelPara, listaDisponivel,
+  aberturaAberta, visivelPara, listaDisponivel, liberada, statusTarefa,
   calcularEditavelAte, edicaoExpirada, type ListaVisibilidade,
 } from '@/lib/tarefas'
 
@@ -104,6 +104,49 @@ describe('listaDisponivel', () => {
     const vazio = new Set<string>()
     expect(listaDisponivel(lista({ subgrupos: ['s9'], abertura_data_limite: FUTURO }), AGORA, vazio, vazio, true)).toBe(true)
     expect(listaDisponivel(lista({ subgrupos: ['s9'], abertura_data_limite: PASSADO }), AGORA, vazio, vazio, true)).toBe(false)
+  })
+})
+
+describe('liberada (data de liberação / agendamento)', () => {
+  it('liberada quando não há data de liberação (imediata)', () => {
+    expect(liberada({ liberacao_em: null }, AGORA)).toBe(true)
+    expect(liberada({}, AGORA)).toBe(true)
+  })
+  it('liberada quando a data de liberação já passou', () => {
+    expect(liberada({ liberacao_em: PASSADO }, AGORA)).toBe(true)
+  })
+  it('agendada (não liberada) quando a data de liberação está no futuro', () => {
+    expect(liberada({ liberacao_em: FUTURO }, AGORA)).toBe(false)
+  })
+})
+
+describe('listaDisponivel + liberação', () => {
+  const meusGrupos = new Set(['g1'])
+  const meusSubgrupos = new Set(['s1'])
+  it('indisponível enquanto agendada (liberação no futuro), mesmo visível e aberta', () => {
+    expect(listaDisponivel(lista({ subgrupos: ['s1'], liberacao_em: FUTURO }), AGORA, meusGrupos, meusSubgrupos)).toBe(false)
+  })
+  it('disponível depois da liberação', () => {
+    expect(listaDisponivel(lista({ subgrupos: ['s1'], liberacao_em: PASSADO }), AGORA, meusGrupos, meusSubgrupos)).toBe(true)
+  })
+})
+
+describe('statusTarefa (status derivado p/ a gestão)', () => {
+  const base = { status: 'publicada' as const }
+  it('rascunho → rascunho', () => {
+    expect(statusTarefa({ ...lista(), status: 'rascunho' }, AGORA)).toBe('rascunho')
+  })
+  it('encerrada → finalizada', () => {
+    expect(statusTarefa({ ...lista(), status: 'encerrada' }, AGORA)).toBe('finalizada')
+  })
+  it('publicada com liberação futura → agendada', () => {
+    expect(statusTarefa({ ...lista({ liberacao_em: FUTURO }), ...base }, AGORA)).toBe('agendada')
+  })
+  it('publicada e liberada com janela aberta → em_execucao', () => {
+    expect(statusTarefa({ ...lista({ liberacao_em: PASSADO }), ...base }, AGORA)).toBe('em_execucao')
+  })
+  it('publicada mas janela de abertura fechada → finalizada', () => {
+    expect(statusTarefa({ ...lista({ abertura_data_limite: PASSADO }), ...base }, AGORA)).toBe('finalizada')
   })
 })
 
