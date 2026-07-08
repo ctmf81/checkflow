@@ -149,6 +149,10 @@ Correções do fluxo de ticket descobertas nos testes manuais (Tela 11). **Preci
 - **Já aplicadas nesta leva**: `20260702020000` (buscar_email_por_cpf normaliza `\D`), `20260703000000` (`usuarios_leitura_scoped` via função `partilha_empresa(uuid)` SECURITY DEFINER — operador lê nome de colega; a subquery direta em `usuario_empresa` era barrada pelo RLS aninhado).
 - **UPDATE de dados** (backfill de evidência órfã da abertura): `update ticket_evidencias set evento_id = (select id from ticket_eventos e where e.ticket_id=ticket_evidencias.ticket_id and e.tipo='abertura' order by criado_em limit 1) where evento_id is null`.
 
+### Migrations 2026-07-08 — NOTIFICAÇÕES (novos tipos)
+- `20260708120000_notif_tipos_add.sql` (✅ aplicada) — `alter type notificacao_tipo add value if not exists 'plano_devolvido_n1' / 'tarefa_publicada'`. **Rodar sozinha** (enum add value não pode ser usado na mesma transação do seed).
+- `20260708120001_notif_templates_novos.sql` (✅ aplicada) — `seed_notificacao_templates_extra()` (defaults dos 2 tipos: plano_devolvido_n1 wa+email, tarefa_publicada só wa) + trigger `trg_seed_notif_empresa` passa a chamar as duas funções + backfill das empresas existentes.
+
 ### Migrations 2026-07-05/06 — PLANOS DE AÇÃO
 - `20260703050000_subgrupo_tem_n2.sql` (✅ aplicada) — função `subgrupo_tem_n2(uuid)` SECURITY DEFINER (devolve booleano). Corrige "Enviar para N2" desabilitado p/ N1 não-admin: o count `usuario_subgrupo funcao='nivel_2'` roda sob RLS (só a própria linha via `usuario_subgrupo_propria`) → N1 não via o N2. Usada em `gestao/planos-acao/[id]`.
 - **⚠️ Gotcha `usuario_subgrupo.funcao`**: valores REAIS em prod são **minúsculos** (`operacao`/`nivel_1`/`nivel_2`/null), como o código usa. A migration `20260624000000` (CHECK capitalizado `'Operação'/'Nível 1'/'Nível 2'`) **NÃO foi aplicada** — não usar os valores capitalizados. RLS de SELECT: só `usuario_subgrupo_propria` (própria linha) + admin/admin_empresa; contagens de peers precisam de função SECURITY DEFINER.
@@ -249,11 +253,13 @@ Rota `/api/documentos/consultar` lê `ia_provedores` (ativo, por ordem) como fon
 |-------|-------------|
 | `notificacao_templates` | Um registro por `(empresa_id, tipo, canal)`. Unique em trio. `corpo` usa `{{variavel}}` para interpolação. `assunto` só para email. `ativo` permite desabilitar canal por tipo |
 
-**Enums:** `notificacao_tipo` (ticket_aberto/ticket_movimentado/plano_aberto/plano_enviado_n2/reset_senha), `notificacao_canal` (whatsapp/email)
+**Enums:** `notificacao_tipo` (ticket_aberto/ticket_movimentado/plano_aberto/plano_enviado_n2/**plano_devolvido_n1**/**tarefa_publicada**/reset_senha), `notificacao_canal` (whatsapp/email)
 
 ⚠️ `reset_senha` agora envia **código de 6 dígitos** (`{{codigo}}`), não link — atualizado em `seed_notificacao_templates` na migration 20260610070000 (também faz `update` nos templates existentes que ainda tinham `{{link}}`).
 
 **Função `seed_notificacao_templates(empresa_id)`** — insere 10 templates padrão (5 tipos × 2 canais) com `on conflict do nothing`. Dollar-quoting correto: `$tpl$...$tpl$` dentro de função `$$...$$`.
+
+**Novos tipos (2026-07-08, migrations `20260708120000` + `20260708120001`, ✅ aplicadas):** `plano_devolvido_n1` (WhatsApp+email; N2 devolve o plano ao N1) e `tarefa_publicada` (**só WhatsApp**; nova lista de tarefas). ⚠️ **Gotcha do enum**: `alter type ... add value` foi numa migration **separada** do seed — Postgres não deixa usar um valor de enum recém-criado na mesma transação. Os defaults ficam em `seed_notificacao_templates_extra(empresa_id)` (função nova, chamada junto da original no trigger `trg_seed_notif_empresa` + backfill das empresas existentes). API: `NotificacaoTipo` estendido; `planos-acao.ts` mapeia `devolvido_n1`→`plano_devolvido_n1` (removeu o fallback-only); `tarefas.ts` usa `buscarTemplate('tarefa_publicada')` (desativado → não dispara). Total: **13 registros/empresa**.
 
 ### Perfil "Gestão do Grupo" por empresa (migration `20260630130000`, ✅ aplicada 2026-06-30 — 8/8 empresas com 28 permissões)
 `seed_perfil_gestao_grupo(p_empresa_id)` (security definer) cria — se ainda não existir — um perfil **PER-EMPRESA** "Gestão do Grupo" (`is_system=false`, `publico=false`, `empresa_id`), **editável/excluível** pelo admin da empresa, com **28 permissões** (grupos/subgrupos, agendamentos, catálogos, documentos, causa_raiz, nao_execucao, ticket). Trigger `trg_empresa_gestao_grupo_seed` (after insert on `empresas`) + backfill das existentes (guard por nome não duplica). Mesmo padrão do `seed_notificacao_templates`. Diferente dos perfis de **sistema** (`…001/002/003`, `empresa_id null`, `is_system=true`).

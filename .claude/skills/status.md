@@ -34,6 +34,16 @@ Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste ·
 12. Plano ❌ (analisada, NÃO corrigida — ver pendências)  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ✅ · Formatação ✅ · Causa raiz ✅ (feature completa) · Notificações ✅ · Relatórios ❌ · Dashboards ❌
 + Ambiente **Sistema** (admin plataforma: empresas, planos/preços, templates, parceiros, integrações IA, onboarding) — revisar ao final/à parte.
 
+## 🗓️ SESSÃO 2026-07-08 — polimento UI operação/gestão + notificações faltantes
+Sequência de ajustes finos (commits `f684a8c`→`159816f` + `ce1331e`→`df2e656`):
+- **Header/operação**: botão PWA "Instalar"→**"App"**; **Gestão** entra no menu do usuário no mobile; card de checklist **não finalizado** responsivo.
+- **Aba Checklists**: card do modelo só **título + qtd** (sem descrição), altura uniforme (título 1 linha), **busca só com ≥6 modelos**.
+- **Execução**: removido bloco de descrição; badge "crítica" vira só **asterisco vermelho**; **indicador da seção fica amarelo** quando toda respondida mas com plano de ação pendente.
+- **Histórico**: card em 3 linhas (título/tempo/status); **"Concluído" só em execução aprovada** (reprovada mostra só o tratamento).
+- **Tarefas (feat)**: botão **Concluir** (status `encerrada`, editável na janela) + seção **Concluídas** na aba. Sem migration (coluna já existia).
+- **Home (gestão)**: funil divide **Reprovados → Corrigidos + Não corrigidos**. **Indicadores**: Top categorias vira **card próprio** (fora do de Tickets).
+- **Notificações (2 templates faltantes)**: `plano_devolvido_n1` (wa+email) e `tarefa_publicada` (só wa) — antes hardcoded. Migrations `20260708120000` (enum) + `20260708120001` (seed) **✅ aplicadas**. API (`planos-acao.ts`/`tarefas.ts`/`notificacao-templates.ts`) + tela de config. +2 testes (385 total). Ver `/biz`, `/db`, `/qa`.
+
 ## 🗓️ SESSÃO 2026-07-02 — Tela 9.4 (Turnos) completa ✅
 
 **9.4.1–9.4.11 — todos passaram.** Bug root-cause: turno `12x36` da QA Smoke estava com `ativo = false` → `usuario_esta_no_turno()` retornava `true` por NOT FOUND (sem turno = sem restrição). Fix: ativado via SQL direto no prod.

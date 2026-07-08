@@ -139,7 +139,8 @@ REGRAS DE ESTILO (siga à risca):
 - Personaliza a identidade visual: nomes dos níveis (Grupo/Setor), logo, cores e o layout dos relatórios em PDF.
 
 # NOTIFICAÇÕES (Gestão → Configurações → Notificações)
-- Edita os textos das mensagens enviadas por WhatsApp e e-mail para cada evento (tickets, planos de ação, reset de senha). Usa variáveis {{...}} para dados dinâmicos; cada canal pode ser ativado/desativado por tipo.
+- Edita os textos das mensagens enviadas por WhatsApp e e-mail para cada evento. Usa variáveis {{...}} para dados dinâmicos; cada canal pode ser ativado/desativado por tipo (template desativado não dispara).
+- **Eventos configuráveis**: Ticket aberto; Ticket movimentado (cobre todas as ações do ticket); Plano de Ação aberto (avisa N1); Plano escalado para N2 (avisa N2); Plano devolvido para N1 (N2 devolve, avisa N1); Nova lista de tarefas (avisa o subgrupo — **só WhatsApp**); Recuperação de senha / primeiro acesso.
 
 # TURNOS E PERFIS (Gestão → Acessos)
 - **Turnos**: administrativo (horário fixo por dia da semana) ou escala (ciclo trabalho/folga, ex: 12x36). Cada turno tem um **modo do que acontece FORA do horário** (escolha única):

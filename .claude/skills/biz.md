@@ -16,6 +16,8 @@ O sistema é grande e pode confundir empresas pequenas. Ideia: cada empresa **ha
 ## Listas de Tarefas — IMPLEMENTADO 2026-06-18 (migration `20260618120000_tarefas.sql` ✅ aplicada)
 Feature **separada do Checklist** (leve, pontual, broadcast). Tabelas: `tarefa_listas`, `tarefa_lista_grupos`, `tarefa_lista_subgrupos`, `tarefa_itens`, `tarefa_execucoes`, `tarefa_respostas`. Permissão `tarefas` (ver/criar/editar/deletar). UI: Gestão `/gestao/tarefas` (listagem + indicadores) e `/gestao/tarefas/[id]` (montador); Operação 4ª aba "Tarefas" (`operacao/AbaTarefas.tsx`).
 **Decisões fechadas na implementação**: janela de edição = `edicao_janela_horas` a partir da abertura da instância (null = até encerrar), com countdown na execução; 1 instância por pessoa por lista (`unique(lista_id,usuario_id)`); flags **por tarefa** (observação/evidência/checkin); mídia no bucket `execucoes` sob `tarefas/{execId}/` (conta na cota: `registrarUsoArmazenamento(..., 'tarefa', ...)` + bloqueio por `billing_armazenamento_disponivel` antes do upload — migration `20260618160000`); **check-in tolerante** (se GPS indisponível/negado, conclui mesmo assim como "sem localização", lat/lng null); notificar WhatsApp = flag `notificar_whatsapp` (toggle, default off) — **wired 2026-06-18**: ao publicar com a flag, o web chama `POST /tarefas/notificar` (apps/api, `routes/tarefas.ts`) que envia WhatsApp aos membros dos subgrupos atribuídos (ou dos grupos, se não houver subgrupo), respeitando o turno (`usuario_esta_no_turno`). Fire-and-forget, não bloqueia a publicação. Quota de armazenamento das mídias de tarefa **ainda não contabilizada** (pendência).
+**Concluir + listagem de concluídas (2026-07-08)**: a execução da lista ganhou um botão **"Concluir tarefas"** (verde, fim da lista) que marca `tarefa_execucoes.status = 'encerrada'`. **Continua editável enquanto a janela de edição não expira** — reabrir uma concluída mostra "Salvar alterações" + aviso; só registra o término, não trava. Some quando o prazo de edição já encerrou. A aba Tarefas passou a ter **duas seções**: **A fazer** (listas disponíveis, já excluindo as encerradas do usuário) e **Concluídas** (as `encerrada` do usuário, com data, ordenadas da mais recente; vêm via join, então aparecem mesmo se a janela de abertura já fechou). `status` (`em_andamento`/`encerrada`) já existia no schema — sem migration.
+
 Espec original abaixo (mantida como referência):
 - **Conceito**: existe um **modelo de lista** (título + N tarefas/itens "to-do") distribuído a **1+ grupos e 1+ subgrupos**. Enquanto o modelo está liberado, **vários usuários executam** — **cada um gera sua própria instância** de resposta.
 - **DUAS janelas de tempo distintas** (parte da configuração da lista):
@@ -108,7 +110,7 @@ Rule: **never mutate a published checklist structure** — create a new version 
 ## Home / Visão Geral (`/gestao`) — revisado 2026-06-20
 - **A Home é, por enquanto, dashboard de CHECKLIST** — só reflete informações de checklist. Dashboard da **unidade ativa** (escopado por `unidadeAtiva.id`; antes agregava todas as unidades).
 - **Guia de implantação ("Primeiros passos")** (`components/onboarding/PrimeirosPassos.tsx`, revisado 2026-06-30): card no topo da Home **só para o admin da empresa** (gate `ehAdminDaEmpresa`) — guia de setup na ordem certa antes de operar: **estrutura (grupos/subgrupos) → equipe + funções (Operação/N1/N2) → criar checklist (modelo/zero/IA) → executar na Operação**. Conclusão detectada do banco (grupos/usuarios/checklists/execucoes), barra de progresso, "dispensar" por empresa (localStorage), some quando 100%. Nota dos **opcionais** (perfis, turnos, catálogos, documentos). Operador/gestor de área não veem.
-- **Funil de Execuções** (período 1h/6h/12h/24h/15d/30d): tudo em **EXECUÇÕES concluídas** → Executados / Aprovados / Reprovados / **Em moderação** (execuções com ≥1 plano em moderação). Abaixo, **indicador de moderação por nível** (contagem de PLANOS): Aguardando N1 (em_moderacao_n1 + reaberto) / Aguardando N2 (em_moderacao_n2). **Últimas Execuções** (filtros Todos/Reprovados/Com PA, link PDF/planos) + Primeiros Passos.
+- **Funil de Execuções** (período 1h/6h/12h/24h/15d/30d): tudo em **EXECUÇÕES concluídas** → Executados / Aprovados / **Corrigidos** / **Não corrigidos** / **Em moderação**. **Mudança 2026-07-08**: o tile único "Reprovados" foi **dividido em Corrigidos e Não corrigidos** — cada reprovada é classificada pelo desfecho do tratamento via `resumoPlanos` (todos os planos `corrigido` → Corrigidos; algum `nao_corrigido` → Não corrigidos; ainda em N1/N2 → conta só em "Em moderação"). Abaixo, **indicador de moderação por nível** (contagem de PLANOS): Aguardando N1 (em_moderacao_n1 + reaberto) / Aguardando N2 (em_moderacao_n2). **Últimas Execuções** (filtros Todos/Reprovados/Com PA, link PDF/planos) + Primeiros Passos.
 - **Bloco "Planos com SLA crítico" REMOVIDO da Home (2026-06-20)** — Home é só checklist; SLA segue arquivado na UI. O campo `plano_acao_sla_horas` (SLA por atividade no montador) permanece no banco; `sla_prazo` do plano continua sendo calculado na abertura (`abertura + horas`), apenas não é exibido.
 
 ## Indicadores (`/gestao/indicadores`) — revisado 2026-06-22
@@ -123,7 +125,12 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - Acesso restrito a usuários com **perfil de Operação** (ou perfil que permita a tela). Sem seletor de unidade na tela (unidade vem da sessão).
 - **Visibilidade**: o operador vê só os checklists publicados dos **subgrupos aos quais está associado** (`usuario_subgrupo`). Associação feita em **Gestão → Grupos** (UsuariosGrupoModal/AdicionarUsuarioModal nas telas de grupos/subgrupos).
 - Tocar num checklist = escolher um **modelo publicado** → cria uma **instância** de execução.
-- **3 abas**: (1) **Checklists** (lista por grupo/subgrupo + Não finalizados / Agendados / Workflows em andamento — workflows só dos subgrupos do usuário); (2) **Histórico** (execuções do usuário: status, planos abertos, PDF); (3) **Documentos** (docs da unidade/subgrupos + Consulta Inteligente).
+- **3 abas** (mais Tarefas/Tickets quando há): (1) **Checklists** (lista por grupo/subgrupo + Não finalizados / Agendados / Workflows em andamento — workflows só dos subgrupos do usuário); (2) **Histórico** (execuções do usuário: status, planos abertos, PDF); (3) **Documentos** (docs da unidade/subgrupos + Consulta Inteligente).
+- **Regras de exibição da aba Checklists / Histórico (2026-07-08)**:
+  - **Modelo de checklist**: card mostra só **título + qtd de atividades** (sem descrição); título em 1 linha (altura uniforme). **Campo de busca** só aparece com **≥6 modelos**.
+  - **Não finalizados**: card responsivo no mobile (botões Continuar/Não executar vão pra linha de baixo).
+  - **Histórico**: card em 3 linhas (título / tempo / status). Badge **"Concluído" só em execução aprovada** — reprovada mostra só o badge de tratamento ("Reprovado · Aguarda N1/N2 / Corrigido / Não corrigido"); "Não executado" e "Em andamento" seguem exibidos.
+- **Execução (tela do checklist)**: sem bloco de descrição do checklist. Atividade obrigatória **ou** crítica indica só com **asterisco vermelho** (sem badge "crítica"). Indicador numérico da seção fica **amarelo** quando a seção está toda respondida mas tem plano de ação pendente (não conforme + `gera_plano_acao` sem plano registrado); verde só quando não há pendência.
 - **Abrir Ticket** (FAB): chamado avulso para não conformidades **fora do roteiro** dos checklists (ex: máquina quebrou → ticket p/ Manutenção). Checklist = roteiro fixo; ticket = a qualquer momento.
 - **Sair (logout)** (2026-06-30, commit `8427336`): menu de usuário no header (ícone + nome ▾ → **Sair**), disponível para **todo papel** — inclusive operador puro. Antes o header só tinha "Instalar" + "Gestão" (admin), e o operador ficava preso sem logout. O botão "Gestão" continua, só para quem tem acesso.
 - **Não funciona offline** — requer conexão.
@@ -444,13 +451,14 @@ aberto → em_tratamento (aceite) → aguardando_informacao ↔ em_tratamento
 - **Fallback sem N2**: o gestor do grupo deveria ser N2; se o subgrupo **não tem nenhum** `nivel_2`, o botão "Enviar para N2" fica **desabilitado** com aviso ("Não existe um moderador N2 configurado para o subgrupo X"). Contagem via `usuario_subgrupo` count `funcao='nivel_2'`.
 - Cada movimentação exige **observação obrigatória** + evidências opcionais (fotos/vídeos em `plano_acao_movimentacao_evidencias`).
 - **Causa raiz é análise da MODERAÇÃO, não da abertura** (2026-07-05): o plano nasce automático (operador só reporta — sem campo de causa na abertura). Quem escolhe/cria a causa raiz é o moderador (N1/N2) **enquanto o plano está em moderação**. Depois de **concluído** (corrigido/nao_corrigido) o editor de causa raiz é **omitido** (só mostra a causa registrada, read-only) — `podeEditar` gateado por status em `gestao/planos-acao/[id]`. Corrigido também no texto da ajuda (`app/api/ajuda/route.ts`).
-- **Notificações (WhatsApp/Email, respeita turno)**: abertura → **N1** do subgrupo; `enviado_n2` → **N2**; `devolvido_n1` → **N1** (devolução adicionada 2026-06-20; usa mensagem hardcoded, sem template dedicado). Ver tabela de destinatários abaixo.
+- **Notificações (WhatsApp/Email, respeita turno)**: abertura → **N1** do subgrupo; `enviado_n2` → **N2**; `devolvido_n1` → **N1**. Todos têm **template configurável** desde 2026-07-08 (`plano_devolvido_n1` adicionado; antes era hardcoded). Ver tabela de destinatários abaixo.
 
 ## Templates de Notificação
 
-- Cada empresa tem **10 templates** padrão (5 tipos × 2 canais: whatsapp/email)
-- Seed automático ao criar nova empresa (trigger `trg_empresa_notif_seed`)
-- Admin pode editar corpo, assunto (email), e desabilitar canal por tipo
+- Cada empresa tem **13 templates** padrão (2026-07-08): 6 tipos × 2 canais + `tarefa_publicada` só WhatsApp.
+  - **Tipos**: `ticket_aberto`, `ticket_movimentado`, `plano_aberto`, `plano_enviado_n2`, `plano_devolvido_n1` (N2→N1), `reset_senha` — todos WhatsApp+email; **`tarefa_publicada`** (nova lista de tarefas) — **só WhatsApp** (sem canal email; a UI oculta o editor de email via `SO_WHATSAPP`).
+- Seed automático ao criar nova empresa (trigger `trg_empresa_notif_seed` chama `seed_notificacao_templates` + `seed_notificacao_templates_extra`)
+- Admin pode editar corpo, assunto (email), e desabilitar canal por tipo. Template **desativado não dispara** (nem plano nem tarefa).
 - Interpolação com `{{variavel}}` — variáveis disponíveis por tipo documentadas na UI
 - Fallback: se template não encontrado no banco → usa mensagem hardcoded na API
 - Gerenciado em `/gestao/configuracoes/notificacoes`
@@ -462,6 +470,8 @@ aberto → em_tratamento (aceite) → aguardando_informacao ↔ em_tratamento
 | `ticket_movimentado` | Abridor + assignee |
 | `plano_aberto` | **Apenas N1** do subgrupo |
 | `plano_enviado_n2` | **Apenas N2** do subgrupo |
+| `plano_devolvido_n1` | **Apenas N1** do subgrupo (N2 devolveu) |
+| `tarefa_publicada` | Membros dos subgrupos (ou grupos) da lista — **só WhatsApp**, respeita turno |
 | `reset_senha` | O próprio usuário (WA + email) |
 
 ## Provisionamento de Usuários (sem autocadastro)
