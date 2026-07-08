@@ -527,9 +527,10 @@ function AbaHistorico({ unidadeId }: { unidadeId: string }) {
       {execucoes.map(exec => {
         const st = STATUS_EXEC[exec.status] ?? STATUS_EXEC.concluido
         const pa = exec.resultado === 'reprovado' ? resumoPlanos(exec.planos) : null
-        // "Concluído" só nas aprovadas. Na reprovada, o que importa é o status de
-        // tratamento do plano (badge "Reprovado · …"), então o "Concluído" não aparece.
-        const mostrarStatus = !(exec.status === 'concluido' && exec.resultado === 'reprovado')
+        // "Concluído" é redundante no histórico (toda execução aqui já terminou):
+        // aprovada mostra só a data, reprovada mostra o badge de tratamento. Os
+        // demais status (Em andamento, Não executado) continuam aparecendo.
+        const mostrarStatus = exec.status !== 'concluido'
         const aberto = expandido === exec.id
         return (
           <div key={exec.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
