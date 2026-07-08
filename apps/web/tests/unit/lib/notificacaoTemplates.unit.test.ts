@@ -184,6 +184,56 @@ describe('renderizar() — interpolação de templates', () => {
     expect(resultado).toContain('Fernanda')
   })
 
+  it('template plano_devolvido_n1/whatsapp renderiza sem chaves residuais', () => {
+    const corpo = [
+      '🟡 *Plano de Ação devolvido para N1*',
+      '',
+      '*Área:* {{subgrupo}}',
+      '*Atividade:* {{atividade}}',
+      '*Checklist:* {{checklist}}',
+      '*Devolvido por (N2):* {{ator}}',
+      '*Observação:* {{observacao}}',
+      '',
+      '🔗 {{link}}',
+    ].join('\n')
+
+    const vars = {
+      subgrupo: 'Elétrica',
+      atividade: 'Medir tensão',
+      checklist: 'Start Operacional',
+      ator: 'Marina (N2)',
+      observacao: 'Faltou foto da medição.',
+      link: 'https://app.checkflow.digital/gestao/planos-acao/abc',
+    }
+
+    const resultado = renderizar(corpo, vars)
+    expect(resultado).not.toContain('{{')
+    expect(resultado).toContain('*Devolvido por (N2):* Marina (N2)')
+    expect(resultado).toContain('Faltou foto da medição.')
+  })
+
+  it('template tarefa_publicada/whatsapp usa destinatario, titulo e link', () => {
+    const corpo = [
+      '📋 *Nova lista de tarefas*',
+      '',
+      'Olá, {{destinatario}}! Você tem uma nova lista para responder: *{{titulo}}*.',
+      '',
+      'Abra o app na aba *Tarefas* para responder.',
+      '🔗 {{link}}',
+    ].join('\n')
+
+    const vars = {
+      destinatario: 'João',
+      titulo: 'Abertura da Lavanderia',
+      link: 'https://app.checkflow.digital/operacao',
+    }
+
+    const resultado = renderizar(corpo, vars)
+    expect(resultado).not.toContain('{{')
+    expect(resultado).toContain('Olá, João!')
+    expect(resultado).toContain('*Abertura da Lavanderia*')
+  })
+
   it('template reset_senha sem nome — link é o único conteúdo variável', () => {
     const corpo = [
       'Olá{{linha_nome}}! 👋',
