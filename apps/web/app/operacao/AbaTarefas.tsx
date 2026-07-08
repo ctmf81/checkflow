@@ -15,6 +15,7 @@ interface Lista {
   abertura_max_respostas: number | null
   edicao_janela_horas: number | null
   total_respostas: number
+  concluida_em?: string | null   // preenchido só nas listas já encerradas pelo usuário
 }
 
 interface Item {
@@ -36,6 +37,7 @@ interface Resposta {
 
 export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empresaId?: string }) {
   const [listas, setListas] = useState<Lista[]>([])
+  const [concluidas, setConcluidas] = useState<Lista[]>([])
   const [loading, setLoading] = useState(true)
   const [aberta, setAberta] = useState<Lista | null>(null)
 
@@ -54,6 +56,28 @@ export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empres
     const meusGrupos = new Set((ug ?? []).map((r: any) => r.grupo_id))
     const meusSubgrupos = new Set((us ?? []).map((r: any) => r.subgrupo_id))
 
+    // Execuções do próprio usuário — separa concluídas (encerradas) das demais.
+    // A lista vem no join, então concluídas aparecem mesmo se a janela de abertura
+    // já fechou (não dependem do filtro de disponibilidade).
+    const { data: execs } = await supabase.from('tarefa_execucoes')
+      .select('lista_id, status, atualizado_em, tarefa_listas(id, titulo, descricao, abertura_data_limite, abertura_max_respostas, edicao_janela_horas)')
+      .eq('usuario_id', user.id).eq('unidade_id', unidadeId)
+
+    const statusPorLista = new Map<string, string>()
+    const concluidasList: Lista[] = []
+    for (const e of (execs ?? []) as any[]) {
+      statusPorLista.set(e.lista_id, e.status)
+      const l = e.tarefa_listas
+      if (e.status === 'encerrada' && l) {
+        concluidasList.push({
+          id: l.id, titulo: l.titulo, descricao: l.descricao,
+          abertura_data_limite: l.abertura_data_limite, abertura_max_respostas: l.abertura_max_respostas,
+          edicao_janela_horas: l.edicao_janela_horas, total_respostas: 0, concluida_em: e.atualizado_em,
+        })
+      }
+    }
+    concluidasList.sort((a, b) => new Date(b.concluida_em!).getTime() - new Date(a.concluida_em!).getTime())
+
     // Listas publicadas da unidade + atribuições + contagem de respostas
     const { data } = await supabase
       .from('tarefa_listas')
@@ -62,7 +86,7 @@ export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empres
       .eq('status', 'publicada')
 
     const agora = Date.now()
-    const visiveis = (data ?? []).filter((l: any) => listaDisponivel(
+    const disponiveis = (data ?? []).filter((l: any) => listaDisponivel(
       {
         abertura_data_limite: l.abertura_data_limite,
         abertura_max_respostas: l.abertura_max_respostas,
@@ -71,13 +95,17 @@ export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empres
         subgrupos: (l.subgrupos ?? []).map((s: any) => s.subgrupo_id),
       },
       agora, meusGrupos, meusSubgrupos, isAdmin,
-    )).map((l: any) => ({
-      id: l.id, titulo: l.titulo, descricao: l.descricao,
-      abertura_data_limite: l.abertura_data_limite, abertura_max_respostas: l.abertura_max_respostas,
-      edicao_janela_horas: l.edicao_janela_horas, total_respostas: (l.respostas ?? []).length,
-    }))
+    ))
+      // Já concluídas saem da lista "a fazer" (aparecem só na seção Concluídas)
+      .filter((l: any) => statusPorLista.get(l.id) !== 'encerrada')
+      .map((l: any) => ({
+        id: l.id, titulo: l.titulo, descricao: l.descricao,
+        abertura_data_limite: l.abertura_data_limite, abertura_max_respostas: l.abertura_max_respostas,
+        edicao_janela_horas: l.edicao_janela_horas, total_respostas: (l.respostas ?? []).length,
+      }))
 
-    setListas(visiveis)
+    setListas(disponiveis)
+    setConcluidas(concluidasList)
     setLoading(false)
   }, [unidadeId, empresaId])
 
@@ -88,7 +116,7 @@ export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empres
   }
 
   if (loading) return <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
-  if (listas.length === 0) return (
+  if (listas.length === 0 && concluidas.length === 0) return (
     <div className="py-16 text-center">
       <ListChecks size={40} className="text-gray-200 mx-auto mb-3" />
       <p className="text-sm text-gray-500">Nenhuma lista de tarefas disponível.</p>
@@ -96,24 +124,56 @@ export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empres
   )
 
   return (
-    <div className="space-y-3">
-      {listas.map(l => (
-        <button key={l.id} onClick={() => setAberta(l)}
-          className="w-full text-left bg-white rounded-xl border border-gray-200 p-4 hover:border-orange-300 hover:shadow-sm transition-all">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
-              <ListChecks size={18} className="text-orange-500" />
-            </div>
-            <div className="min-w-0">
-              <p className="font-medium text-sm text-gray-800 truncate">{l.titulo}</p>
-              {l.descricao && <p className="text-xs text-gray-400 truncate">{l.descricao}</p>}
-              {l.abertura_data_limite && (
-                <p className="text-xs text-gray-400 mt-0.5">Aberta até {new Date(l.abertura_data_limite).toLocaleString('pt-BR')}</p>
-              )}
-            </div>
+    <div className="space-y-6">
+      {/* A fazer */}
+      {listas.length > 0 && (
+        <div className="space-y-3">
+          {listas.map(l => (
+            <button key={l.id} onClick={() => setAberta(l)}
+              className="w-full text-left bg-white rounded-xl border border-gray-200 p-4 hover:border-orange-300 hover:shadow-sm transition-all">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <ListChecks size={18} className="text-orange-500" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-sm text-gray-800 truncate">{l.titulo}</p>
+                  {l.descricao && <p className="text-xs text-gray-400 truncate">{l.descricao}</p>}
+                  {l.abertura_data_limite && (
+                    <p className="text-xs text-gray-400 mt-0.5">Aberta até {new Date(l.abertura_data_limite).toLocaleString('pt-BR')}</p>
+                  )}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Concluídas — execuções que o usuário encerrou (editáveis enquanto a janela permitir) */}
+      {concluidas.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Check size={16} className="text-green-500" />
+            <h2 className="text-sm font-bold text-gray-700">Concluídas</h2>
+            <span className="text-xs bg-green-100 text-green-600 font-semibold px-2 py-0.5 rounded-full">{concluidas.length}</span>
           </div>
-        </button>
-      ))}
+          <div className="space-y-3">
+            {concluidas.map(l => (
+              <button key={l.id} onClick={() => setAberta(l)}
+                className="w-full text-left bg-white rounded-xl border border-green-200 p-4 hover:border-green-300 hover:shadow-sm transition-all">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Check size={18} className="text-green-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm text-gray-800 truncate">{l.titulo}</p>
+                    <p className="text-xs text-green-600 mt-0.5">Concluída em {new Date(l.concluida_em!).toLocaleString('pt-BR')}</p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -124,8 +184,10 @@ function ExecutarLista({ lista, unidadeId, empresaId, onVoltar }: { lista: Lista
   const [respostas, setRespostas] = useState<Record<string, Resposta>>({})
   const [execucaoId, setExecucaoId] = useState<string | null>(null)
   const [editavelAte, setEditavelAte] = useState<string | null>(null)
+  const [status, setStatus] = useState<string>('em_andamento')
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState<string | null>(null)
+  const [concluindo, setConcluindo] = useState(false)
   const [erro, setErro] = useState('')
 
   const expirado = edicaoExpirada(editavelAte, Date.now())
@@ -142,18 +204,19 @@ function ExecutarLista({ lista, unidadeId, empresaId, onVoltar }: { lista: Lista
 
       // Garante a instância do usuário (1 por lista)
       let { data: exec } = await supabase.from('tarefa_execucoes')
-        .select('id, editavel_ate').eq('lista_id', lista.id).eq('usuario_id', user.id).maybeSingle()
+        .select('id, editavel_ate, status').eq('lista_id', lista.id).eq('usuario_id', user.id).maybeSingle()
 
       if (!exec) {
         const editavel = calcularEditavelAte(new Date().toISOString(), lista.edicao_janela_horas)
         const { data: nova, error } = await supabase.from('tarefa_execucoes').insert({
           lista_id: lista.id, unidade_id: unidadeId, usuario_id: user.id, editavel_ate: editavel,
-        }).select('id, editavel_ate').single()
+        }).select('id, editavel_ate, status').single()
         if (error || !nova) { setErro('Não foi possível abrir a lista.'); setLoading(false); return }
         exec = nova
       }
       setExecucaoId(exec.id)
       setEditavelAte(exec.editavel_ate)
+      setStatus(exec.status ?? 'em_andamento')
 
       const { data: resp } = await supabase.from('tarefa_respostas').select('*').eq('execucao_id', exec.id)
       const map: Record<string, Resposta> = {}
@@ -231,6 +294,22 @@ function ExecutarLista({ lista, unidadeId, empresaId, onVoltar }: { lista: Lista
     registrarUsoArmazenamento(empresaId, 'tarefa', file.size)
     const { data: pub } = supabase.storage.from('execucoes').getPublicUrl(path)
     salvarResposta(item, { evidencia_url: pub.publicUrl, evidencia_tipo: tipo })
+  }
+
+  // Marca a instância como concluída. Continua editável enquanto a janela de
+  // edição não expirar — é só um registro de que o operador terminou.
+  async function concluir() {
+    if (!execucaoId || bloqueado) return
+    setConcluindo(true)
+    setErro('')
+    const supabase = createClient()
+    const { error } = await supabase.from('tarefa_execucoes')
+      .update({ status: 'encerrada', atualizado_em: new Date().toISOString() })
+      .eq('id', execucaoId)
+    setConcluindo(false)
+    if (error) { setErro('Não foi possível concluir. Tente novamente.'); return }
+    setStatus('encerrada')
+    onVoltar()
   }
 
   if (loading) return <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
@@ -312,6 +391,23 @@ function ExecutarLista({ lista, unidadeId, empresaId, onVoltar }: { lista: Lista
           )
         })}
       </div>
+
+      {/* Concluir — registra o término. Continua editável enquanto a janela permitir. */}
+      {!bloqueado && itens.length > 0 && (
+        <div className="mt-5">
+          {status === 'encerrada' && (
+            <p className="flex items-center justify-center gap-1.5 text-xs text-green-600 mb-2">
+              <Check size={13} />Concluída — você ainda pode editar até o fim do prazo.
+            </p>
+          )}
+          <button onClick={concluir} disabled={concluindo}
+            className="w-full py-3.5 bg-green-500 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-green-600 disabled:opacity-60 transition-colors active:scale-[0.99]">
+            {concluindo
+              ? <><Loader2 size={16} className="animate-spin" />Salvando...</>
+              : <><Check size={16} />{status === 'encerrada' ? 'Salvar alterações' : 'Concluir tarefas'}</>}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
