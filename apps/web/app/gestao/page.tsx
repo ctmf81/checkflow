@@ -21,6 +21,8 @@ interface Funil {
   executados: number
   aprovados: number
   reprovados: number
+  corrigidos: number     // EXECUÇÕES reprovadas cujos planos foram todos corrigidos
+  nao_corrigidos: number // EXECUÇÕES reprovadas com algum plano não corrigido
   em_moderacao: number   // EXECUÇÕES com ao menos um plano em moderação
   aguardando_n1: number  // PLANOS aguardando N1 (em_moderacao_n1 + reaberto)
   aguardando_n2: number  // PLANOS aguardando N2 (em_moderacao_n2)
@@ -97,7 +99,7 @@ export default function GestaoHomePage() {
   const { unidadeAtiva } = useSession()
   const [periodo, setPeriodo] = useState<Periodo>('24h')
   const [filtroExec, setFiltroExec] = useState<'todos' | 'reprovado' | 'pa_aberto'>('todos')
-  const [funil, setFunil] = useState<Funil>({ executados: 0, aprovados: 0, reprovados: 0, em_moderacao: 0, aguardando_n1: 0, aguardando_n2: 0 })
+  const [funil, setFunil] = useState<Funil>({ executados: 0, aprovados: 0, reprovados: 0, corrigidos: 0, nao_corrigidos: 0, em_moderacao: 0, aguardando_n1: 0, aguardando_n2: 0 })
   const [execucoes, setExecucoes] = useState<ExecucaoItem[]>([])
   const [loadingFunil, setLoadingFunil] = useState(true)
   const [loadingExec, setLoadingExec]   = useState(true)
@@ -123,10 +125,15 @@ export default function GestaoHomePage() {
     const rows = (data ?? []) as any[]
 
     const emMod = (p: any) => p.status === 'em_moderacao_n1' || p.status === 'em_moderacao_n2'
+    const reprovadas = rows.filter(r => r.resultado === 'reprovado')
+    // Classifica cada reprovada pelo desfecho do tratamento (mesma regra do badge)
+    const labelReprovada = (r: any) => resumoPlanos((r.planos_acao ?? []).map((p: any) => ({ status: p.status })))?.label
     setFunil({
       executados:    rows.length,
       aprovados:     rows.filter(r => r.resultado === 'aprovado').length,
-      reprovados:    rows.filter(r => r.resultado === 'reprovado').length,
+      reprovados:    reprovadas.length,
+      corrigidos:    reprovadas.filter(r => labelReprovada(r) === 'Corrigido').length,
+      nao_corrigidos: reprovadas.filter(r => labelReprovada(r) === 'Não corrigido').length,
       // EXECUÇÕES que têm ao menos um plano em moderação (nível de execução)
       em_moderacao:  rows.filter(r => (r.planos_acao ?? []).some(emMod)).length,
       // PLANOS aguardando cada nível (nível de plano) — para o indicador de moderação
@@ -238,12 +245,13 @@ export default function GestaoHomePage() {
             <Loader2 size={20} className="animate-spin text-gray-300" />
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
             {[
-              { label: 'Executados',   valor: funil.executados,   cor: 'text-gray-700',   barCor: 'bg-gray-400',   icon: <ClipboardList size={14} /> },
-              { label: 'Aprovados',    valor: funil.aprovados,    cor: 'text-green-700',  barCor: 'bg-green-500',  icon: <CheckCircle2  size={14} /> },
-              { label: 'Reprovados',   valor: funil.reprovados,   cor: 'text-red-700',    barCor: 'bg-red-500',    icon: <XCircle       size={14} /> },
-              { label: 'Em moderação', valor: funil.em_moderacao, cor: 'text-amber-700',  barCor: 'bg-amber-500',  icon: <Clock         size={14} /> },
+              { label: 'Executados',     valor: funil.executados,     cor: 'text-gray-700',   barCor: 'bg-gray-400',   icon: <ClipboardList size={14} /> },
+              { label: 'Aprovados',      valor: funil.aprovados,      cor: 'text-green-700',  barCor: 'bg-green-500',   icon: <CheckCircle2  size={14} /> },
+              { label: 'Corrigidos',     valor: funil.corrigidos,     cor: 'text-emerald-700', barCor: 'bg-emerald-500', icon: <CheckCircle2  size={14} /> },
+              { label: 'Não corrigidos', valor: funil.nao_corrigidos, cor: 'text-red-700',    barCor: 'bg-red-500',     icon: <XCircle       size={14} /> },
+              { label: 'Em moderação',   valor: funil.em_moderacao,   cor: 'text-amber-700',  barCor: 'bg-amber-500',   icon: <Clock         size={14} /> },
             ].map(item => (
               <div key={item.label} className="bg-gray-50 rounded-xl p-3">
                 <div className={`flex items-center gap-1.5 text-xs font-medium mb-1 truncate ${item.cor}`}>
