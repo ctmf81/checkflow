@@ -1118,7 +1118,6 @@ function ChecklistCard({ checklist, onClick }: { checklist: Checklist; onClick: 
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-gray-800 text-sm leading-snug">{checklist.nome}</p>
-        {checklist.descricao && <p className="text-xs text-gray-400 mt-0.5 truncate">{checklist.descricao}</p>}
         <p className="text-xs text-gray-400 mt-0.5">
           {checklist.total_atividades} {checklist.total_atividades === 1 ? 'atividade' : 'atividades'}
         </p>
