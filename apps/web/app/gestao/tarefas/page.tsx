@@ -26,14 +26,14 @@ const STATUS_DERIV: Record<StatusTarefa, { label: string; cor: string }> = {
   rascunho:    { label: 'Rascunho',    cor: 'bg-yellow-100 text-yellow-700' },
   agendada:    { label: 'Agendada',    cor: 'bg-indigo-100 text-indigo-700' },
   em_execucao: { label: 'Em execução', cor: 'bg-green-100 text-green-700' },
-  finalizada:  { label: 'Finalizada',  cor: 'bg-gray-100 text-gray-500' },
+  finalizada:  { label: 'Concluída',   cor: 'bg-gray-100 text-gray-500' },
 }
 const FILTROS: { valor: StatusTarefa | 'todas'; label: string }[] = [
   { valor: 'todas', label: 'Todas' },
   { valor: 'rascunho', label: 'Rascunho' },
   { valor: 'agendada', label: 'Agendada' },
   { valor: 'em_execucao', label: 'Em execução' },
-  { valor: 'finalizada', label: 'Finalizada' },
+  { valor: 'finalizada', label: 'Concluída' },
 ]
 
 function derivar(l: Lista): StatusTarefa {

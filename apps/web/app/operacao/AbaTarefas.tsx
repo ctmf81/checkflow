@@ -15,8 +15,20 @@ interface Lista {
   abertura_max_respostas: number | null
   edicao_janela_horas: number | null
   total_respostas: number
-  concluida_em?: string | null   // preenchido só nas listas já encerradas pelo usuário
+  // Preenchidos só na seção "Concluídas" (execução do usuário encerrada ou com prazo expirado)
+  concluida_em?: string | null
+  encerrada?: boolean            // true = o operador concluiu; false = prazo expirou sem concluir
+  cor?: 'verde' | 'amarelo' | 'vermelho'  // completude: tudo/parcial/nada respondido
+  feitos?: number
+  total?: number
 }
+
+// Cores por completude na seção Concluídas
+const CORES = {
+  verde:    { bg: 'bg-green-100', ic: 'text-green-600', border: 'border-green-200', txt: 'text-green-600' },
+  amarelo:  { bg: 'bg-amber-100', ic: 'text-amber-600', border: 'border-amber-200', txt: 'text-amber-700' },
+  vermelho: { bg: 'bg-red-100',   ic: 'text-red-600',   border: 'border-red-200',   txt: 'text-red-600' },
+} as const
 
 interface Item {
   id: string
@@ -56,25 +68,32 @@ export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empres
     const meusGrupos = new Set((ug ?? []).map((r: any) => r.grupo_id))
     const meusSubgrupos = new Set((us ?? []).map((r: any) => r.subgrupo_id))
 
-    // Execuções do próprio usuário — separa concluídas (encerradas) das demais.
-    // A lista vem no join, então concluídas aparecem mesmo se a janela de abertura
-    // já fechou (não dependem do filtro de disponibilidade).
+    // Execuções do próprio usuário. "Concluídas" = encerradas pelo operador OU
+    // com o prazo de edição expirado (finalizadas sem concluir). A lista + itens
+    // + respostas vêm no join → dá para colorir por completude sem query extra.
+    const agora = Date.now()
     const { data: execs } = await supabase.from('tarefa_execucoes')
-      .select('lista_id, status, atualizado_em, tarefa_listas(id, titulo, descricao, abertura_data_limite, abertura_max_respostas, edicao_janela_horas)')
+      .select('lista_id, status, atualizado_em, editavel_ate, respostas:tarefa_respostas(feito), tarefa_listas(id, titulo, descricao, abertura_data_limite, abertura_max_respostas, edicao_janela_horas, itens:tarefa_itens(id))')
       .eq('usuario_id', user.id).eq('unidade_id', unidadeId)
 
-    const statusPorLista = new Map<string, string>()
+    const finalizadaPorLista = new Set<string>()  // encerrada OU prazo expirado (sai das Liberadas)
     const concluidasList: Lista[] = []
     for (const e of (execs ?? []) as any[]) {
-      statusPorLista.set(e.lista_id, e.status)
       const l = e.tarefa_listas
-      if (e.status === 'encerrada' && l) {
-        concluidasList.push({
-          id: l.id, titulo: l.titulo, descricao: l.descricao,
-          abertura_data_limite: l.abertura_data_limite, abertura_max_respostas: l.abertura_max_respostas,
-          edicao_janela_horas: l.edicao_janela_horas, total_respostas: 0, concluida_em: e.atualizado_em,
-        })
-      }
+      if (!l) continue
+      const encerrada = e.status === 'encerrada'
+      const expirada = edicaoExpirada(e.editavel_ate, agora)
+      if (!encerrada && !expirada) continue
+      finalizadaPorLista.add(e.lista_id)
+      const total = (l.itens ?? []).length
+      const feitos = (e.respostas ?? []).filter((r: any) => r.feito).length
+      const cor: 'verde' | 'amarelo' | 'vermelho' = total > 0 && feitos >= total ? 'verde' : feitos > 0 ? 'amarelo' : 'vermelho'
+      concluidasList.push({
+        id: l.id, titulo: l.titulo, descricao: l.descricao,
+        abertura_data_limite: l.abertura_data_limite, abertura_max_respostas: l.abertura_max_respostas,
+        edicao_janela_horas: l.edicao_janela_horas, total_respostas: 0,
+        concluida_em: e.atualizado_em, encerrada, cor, feitos, total,
+      })
     }
     concluidasList.sort((a, b) => new Date(b.concluida_em!).getTime() - new Date(a.concluida_em!).getTime())
 
@@ -85,7 +104,6 @@ export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empres
       .eq('unidade_id', unidadeId)
       .eq('status', 'publicada')
 
-    const agora = Date.now()
     const disponiveis = (data ?? []).filter((l: any) => listaDisponivel(
       {
         liberacao_em: l.liberacao_em,
@@ -97,8 +115,8 @@ export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empres
       },
       agora, meusGrupos, meusSubgrupos, isAdmin,
     ))
-      // Já concluídas saem da lista "a fazer" (aparecem só na seção Concluídas)
-      .filter((l: any) => statusPorLista.get(l.id) !== 'encerrada')
+      // Encerradas/expiradas pelo operador saem das Liberadas (vão p/ Concluídas)
+      .filter((l: any) => !finalizadaPorLista.has(l.id))
       .map((l: any) => ({
         id: l.id, titulo: l.titulo, descricao: l.descricao,
         abertura_data_limite: l.abertura_data_limite, abertura_max_respostas: l.abertura_max_respostas,
@@ -126,52 +144,68 @@ export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empres
 
   return (
     <div className="space-y-6">
-      {/* A fazer */}
+      {/* Liberadas — disponíveis para responder agora */}
       {listas.length > 0 && (
-        <div className="space-y-3">
-          {listas.map(l => (
-            <button key={l.id} onClick={() => setAberta(l)}
-              className="w-full text-left bg-white rounded-xl border border-gray-200 p-4 hover:border-orange-300 hover:shadow-sm transition-all">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <ListChecks size={18} className="text-orange-500" />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-medium text-sm text-gray-800 truncate">{l.titulo}</p>
-                  {l.descricao && <p className="text-xs text-gray-400 truncate">{l.descricao}</p>}
-                  {l.abertura_data_limite && (
-                    <p className="text-xs text-gray-400 mt-0.5">Aberta até {new Date(l.abertura_data_limite).toLocaleString('pt-BR')}</p>
-                  )}
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Concluídas — execuções que o usuário encerrou (editáveis enquanto a janela permitir) */}
-      {concluidas.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <Check size={16} className="text-green-500" />
-            <h2 className="text-sm font-bold text-gray-700">Concluídas</h2>
-            <span className="text-xs bg-green-100 text-green-600 font-semibold px-2 py-0.5 rounded-full">{concluidas.length}</span>
+            <ListChecks size={16} className="text-orange-500" />
+            <h2 className="text-sm font-bold text-gray-700">Liberadas</h2>
+            <span className="text-xs bg-orange-100 text-orange-600 font-semibold px-2 py-0.5 rounded-full">{listas.length}</span>
           </div>
           <div className="space-y-3">
-            {concluidas.map(l => (
+            {listas.map(l => (
               <button key={l.id} onClick={() => setAberta(l)}
-                className="w-full text-left bg-white rounded-xl border border-green-200 p-4 hover:border-green-300 hover:shadow-sm transition-all">
+                className="w-full text-left bg-white rounded-xl border border-gray-200 p-4 hover:border-orange-300 hover:shadow-sm transition-all">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Check size={18} className="text-green-600" />
+                  <div className="w-9 h-9 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <ListChecks size={18} className="text-orange-500" />
                   </div>
                   <div className="min-w-0">
                     <p className="font-medium text-sm text-gray-800 truncate">{l.titulo}</p>
-                    <p className="text-xs text-green-600 mt-0.5">Concluída em {new Date(l.concluida_em!).toLocaleString('pt-BR')}</p>
+                    {l.descricao && <p className="text-xs text-gray-400 truncate">{l.descricao}</p>}
+                    {l.abertura_data_limite && (
+                      <p className="flex items-center gap-1 text-xs text-gray-400 mt-0.5">
+                        <Clock size={11} />Prazo: {new Date(l.abertura_data_limite).toLocaleString('pt-BR')}
+                      </p>
+                    )}
                   </div>
                 </div>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Concluídas — encerradas pelo operador OU com prazo expirado; cor = completude */}
+      {concluidas.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Check size={16} className="text-gray-500" />
+            <h2 className="text-sm font-bold text-gray-700">Concluídas</h2>
+            <span className="text-xs bg-gray-100 text-gray-600 font-semibold px-2 py-0.5 rounded-full">{concluidas.length}</span>
+          </div>
+          <div className="space-y-3">
+            {concluidas.map(l => {
+              const c = CORES[l.cor ?? 'vermelho']
+              return (
+                <button key={l.id} onClick={() => setAberta(l)}
+                  className={`w-full text-left bg-white rounded-xl border ${c.border} p-4 hover:shadow-sm transition-all`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 ${c.bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                      {l.cor === 'verde' ? <Check size={18} className={c.ic} /> : <AlertTriangle size={16} className={c.ic} />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm text-gray-800 truncate">{l.titulo}</p>
+                      <p className={`text-xs mt-0.5 ${c.txt}`}>
+                        {l.encerrada ? 'Concluída' : 'Finalizada (prazo encerrado)'}
+                        {typeof l.total === 'number' && l.total > 0 ? ` · ${l.feitos}/${l.total} feitas` : ''}
+                        {' · '}{new Date(l.concluida_em!).toLocaleString('pt-BR')}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}

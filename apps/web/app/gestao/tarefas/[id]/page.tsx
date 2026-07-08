@@ -19,6 +19,11 @@ interface Item {
 }
 
 function novoKey() { return Math.random().toString(36).slice(2) }
+// "agora" no formato datetime-local (YYYY-MM-DDTHH:mm), em horário local
+function agoraLocal() {
+  const d = new Date()
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+}
 
 export default function MontadorTarefaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -54,7 +59,8 @@ export default function MontadorTarefaPage({ params }: { params: Promise<{ id: s
         setTitulo(lista.titulo)
         setDescricao(lista.descricao ?? '')
         setStatus(lista.status)
-        setLiberacaoEm(lista.liberacao_em ? lista.liberacao_em.slice(0, 16) : '')
+        // Liberação é obrigatória; se ainda não tem, pré-preenche com agora.
+        setLiberacaoEm(lista.liberacao_em ? lista.liberacao_em.slice(0, 16) : agoraLocal())
         setDataLimite(lista.abertura_data_limite ? lista.abertura_data_limite.slice(0, 16) : '')
         setMaxRespostas(lista.abertura_max_respostas != null ? String(lista.abertura_max_respostas) : '')
         setEdicaoHoras(lista.edicao_janela_horas != null ? String(lista.edicao_janela_horas) : '')
@@ -111,7 +117,7 @@ export default function MontadorTarefaPage({ params }: { params: Promise<{ id: s
     const { error } = await supabase.from('tarefa_listas').update({
       titulo: titulo.trim() || 'Nova lista de tarefas',
       descricao: descricao.trim() || null,
-      liberacao_em: liberacaoEm ? new Date(liberacaoEm).toISOString() : null,
+      liberacao_em: new Date(liberacaoEm || agoraLocal()).toISOString(),
       abertura_data_limite: dataLimite ? new Date(dataLimite).toISOString() : null,
       abertura_max_respostas: maxRespostas ? Number(maxRespostas) : null,
       edicao_janela_horas: edicaoHoras ? Number(edicaoHoras) : null,
@@ -221,10 +227,10 @@ export default function MontadorTarefaPage({ params }: { params: Promise<{ id: s
 
         {/* Liberação (agendamento) */}
         <div className="border-t border-gray-100 pt-3">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Data de liberação <span className="text-gray-400 font-normal">(opcional)</span></label>
-          <input type="datetime-local" value={liberacaoEm} onChange={e => setLiberacaoEm(e.target.value)} disabled={bloqueado} placeholder="liberar ao publicar"
+          <label className="block text-xs font-medium text-gray-600 mb-1">Data de liberação <span className="text-red-400">*</span></label>
+          <input type="datetime-local" value={liberacaoEm} onChange={e => setLiberacaoEm(e.target.value)} disabled={bloqueado} required
             className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
-          <p className="text-xs text-gray-400 mt-1">Quando a lista passa a aparecer na Operação. Vazio = ao publicar. No futuro, a lista fica <span className="font-medium">agendada</span> até essa data.</p>
+          <p className="text-xs text-gray-400 mt-1">Quando a lista passa a aparecer na Operação. Já vem com a data/hora atual (libera ao publicar); no futuro, a lista fica <span className="font-medium">agendada</span> até essa data.</p>
         </div>
 
         {/* Encerramento */}
