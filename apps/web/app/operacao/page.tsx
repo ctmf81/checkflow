@@ -251,25 +251,29 @@ function AbaChecklists({ grupos, semGrupo, itensWorkflow, agendadas, naoFinaliza
           <div className="space-y-2">
             {naoFinalizadas.map(nf => (
               <div key={nf.execucao_id}
-                className="w-full bg-red-50 border border-red-200 rounded-xl px-4 py-3.5 flex items-center gap-3">
-                <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <AlertCircle size={16} className="text-red-600" />
+                className="w-full bg-red-50 border border-red-200 rounded-xl px-4 py-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <AlertCircle size={16} className="text-red-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-800 text-sm">{nf.checklist_nome}</p>
+                    <p className="text-xs text-red-600 mt-0.5">Iniciado e não finalizado · {dataRelativa(nf.iniciado_em)}</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-800 text-sm">{nf.checklist_nome}</p>
-                  <p className="text-xs text-red-600 mt-0.5">Iniciado e não finalizado · {dataRelativa(nf.iniciado_em)}</p>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => router.push(`/operacao/${nf.checklist_id}?exec=${nf.execucao_id}`)}
+                    className="flex-1 sm:flex-none text-xs font-semibold bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors">
+                    Continuar
+                  </button>
+                  <button
+                    onClick={() => abrirNaoExec(nf)}
+                    title="Registrar não execução com motivo"
+                    className="flex-1 sm:flex-none text-xs font-medium text-red-600 border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-100 transition-colors">
+                    Não executar
+                  </button>
                 </div>
-                <button
-                  onClick={() => router.push(`/operacao/${nf.checklist_id}?exec=${nf.execucao_id}`)}
-                  className="flex-shrink-0 text-xs font-semibold bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors">
-                  Continuar
-                </button>
-                <button
-                  onClick={() => abrirNaoExec(nf)}
-                  title="Registrar não execução com motivo"
-                  className="flex-shrink-0 text-xs font-medium text-red-600 border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-100 transition-colors">
-                  Não executar
-                </button>
               </div>
             ))}
           </div>
