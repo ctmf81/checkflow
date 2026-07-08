@@ -527,6 +527,9 @@ function AbaHistorico({ unidadeId }: { unidadeId: string }) {
       {execucoes.map(exec => {
         const st = STATUS_EXEC[exec.status] ?? STATUS_EXEC.concluido
         const pa = exec.resultado === 'reprovado' ? resumoPlanos(exec.planos) : null
+        // "Concluído" só nas aprovadas. Na reprovada, o que importa é o status de
+        // tratamento do plano (badge "Reprovado · …"), então o "Concluído" não aparece.
+        const mostrarStatus = !(exec.status === 'concluido' && exec.resultado === 'reprovado')
         const aberto = expandido === exec.id
         return (
           <div key={exec.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -551,9 +554,11 @@ function AbaHistorico({ unidadeId }: { unidadeId: string }) {
                       {pa ? `Reprovado · ${pa.label}` : 'Reprovado'}
                     </span>
                   )}
-                  <span className={`flex items-center gap-1 text-xs border font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${st.cor}`}>
-                    {st.icon}{st.label}
-                  </span>
+                  {mostrarStatus && (
+                    <span className={`flex items-center gap-1 text-xs border font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${st.cor}`}>
+                      {st.icon}{st.label}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
