@@ -1295,11 +1295,8 @@ function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturad
             <div className="flex items-center gap-1.5 flex-wrap">
               <p className="text-sm font-semibold text-gray-800 leading-snug">
                 {atividade.nome}
-                {atividade.obrigatoria && <span className="text-red-400 ml-1">*</span>}
+                {(atividade.obrigatoria || atividade.critica) && <span className="text-red-400 ml-1">*</span>}
               </p>
-              {atividade.critica && (
-                <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium flex-shrink-0">crítica</span>
-              )}
             </div>
             {respondida && <ValidacaoTag valido={validacao} />}
           </div>
