@@ -34,6 +34,10 @@ Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste ·
 12. Plano ❌ (analisada, NÃO corrigida — ver pendências)  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ✅ · Formatação ✅ · Causa raiz ✅ (feature completa) · Notificações ✅ · Relatórios ❌ · Dashboards ❌
 + Ambiente **Sistema** (admin plataforma: empresas, planos/preços, templates, parceiros, integrações IA, onboarding) — revisar ao final/à parte.
 
+## 🗓️ SESSÃO 2026-07-08 (parte 3) — persistência de aba + Consulta Inteligente em markdown
+- **Operação**: aba ativa vai pra URL (`?aba=`) — refresh mantém a aba; voltar de uma execução aberta pelo Histórico retorna ao Histórico (commit `0d4c536`).
+- **Consulta Inteligente — markdown** (migration `20260708150000` ⏳ aplicar): PDF convertido **1× via IA** p/ markdown (`documentos.conteudo_markdown`); consulta manda só o texto → menos tokens/pergunta, mais rápido, funciona com todos os provedores. PDF segue p/ download. Geração no upload (`POST /api/documentos/extrair-markdown`) + lazy na 1ª consulta (`lib/documentoMarkdown.ts`). Fallback anexa o arquivo se faltar/falhar. Ver `/biz`, `/db`.
+
 ## 🗓️ SESSÃO 2026-07-08 (parte 2) — Tarefas: agendamento, status, duplicar
 - **Data de liberação** (`tarefa_listas.liberacao_em`, migration `20260708140000` ✅ aplicada): agenda quando a lista aparece na Operação; antes disso fica **agendada** (oculta). Campo no montador.
 - **Status derivado + filtro** na listagem `/gestao/tarefas`: rascunho/agendada/em_execucao/finalizada (`statusTarefa()` em `lib/tarefas.ts`), chips de filtro + badge.
