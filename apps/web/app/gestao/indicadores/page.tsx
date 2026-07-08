@@ -429,37 +429,42 @@ export default function IndicadoresPage() {
           {loadingTickets ? (
             <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
           ) : (
-            <>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                {[
-                  { label: 'Em aberto', valor: tickets.naoAceitos, cor: 'text-blue-700', status: 'aberto' },
-                  { label: 'Em tratamento', valor: tickets.emTratamento, cor: 'text-purple-700', status: 'tratamento' },
-                  { label: 'Críticos em andamento', valor: tickets.criticos, cor: 'text-red-600', status: 'todos' },
-                  { label: 'Finalizados', valor: tickets.finalizados, cor: 'text-gray-700', status: 'finalizados' },
-                ].map(c => (
-                  <button key={c.label} onClick={() => router.push(`/gestao/tickets?status=${c.status}`)}
-                    className="bg-gray-50 rounded-xl p-3 text-left hover:bg-gray-100 transition-colors">
-                    <p className={`text-lg sm:text-2xl font-bold ${c.cor}`}>{c.valor}</p>
-                    <p className="text-xs text-gray-500 mt-0.5 truncate">{c.label}</p>
-                  </button>
-                ))}
-              </div>
-              {tickets.topCategorias.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <p className="text-xs font-medium text-gray-500 mb-2">Top categorias</p>
-                  <div className="space-y-2">
-                    {tickets.topCategorias.map(c => (
-                      <div key={c.nome} className="flex items-center gap-3">
-                        <span className="text-sm text-gray-700 flex-1 truncate">{c.nome}</span>
-                        <BarHorizontal valor={c.total} max={tickets.topCategorias[0].total} cor="bg-blue-400" />
-                        <span className="text-xs text-gray-500 flex-shrink-0 w-8 text-right">{c.total}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+              {[
+                { label: 'Em aberto', valor: tickets.naoAceitos, cor: 'text-blue-700', status: 'aberto' },
+                { label: 'Em tratamento', valor: tickets.emTratamento, cor: 'text-purple-700', status: 'tratamento' },
+                { label: 'Críticos em andamento', valor: tickets.criticos, cor: 'text-red-600', status: 'todos' },
+                { label: 'Finalizados', valor: tickets.finalizados, cor: 'text-gray-700', status: 'finalizados' },
+              ].map(c => (
+                <button key={c.label} onClick={() => router.push(`/gestao/tickets?status=${c.status}`)}
+                  className="bg-gray-50 rounded-xl p-3 text-left hover:bg-gray-100 transition-colors">
+                  <p className={`text-lg sm:text-2xl font-bold ${c.cor}`}>{c.valor}</p>
+                  <p className="text-xs text-gray-500 mt-0.5 truncate">{c.label}</p>
+                </button>
+              ))}
+            </div>
           )}
+        </div>
+      )}
+
+      {/* ── Top categorias de tickets ── (card próprio; oculto se vazio) */}
+      {!loadingTickets && tickets.topCategorias.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 bg-blue-50 rounded-xl flex items-center justify-center">
+              <Ticket size={15} className="text-blue-500" />
+            </div>
+            <p className="text-sm font-semibold text-gray-800">Top categorias de tickets</p>
+          </div>
+          <div className="space-y-2">
+            {tickets.topCategorias.map(c => (
+              <div key={c.nome} className="flex items-center gap-3">
+                <span className="text-sm text-gray-700 flex-1 truncate">{c.nome}</span>
+                <BarHorizontal valor={c.total} max={tickets.topCategorias[0].total} cor="bg-blue-400" />
+                <span className="text-xs text-gray-500 flex-shrink-0 w-8 text-right">{c.total}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
