@@ -64,12 +64,31 @@ export function ConsultaInteligenteModal({
       arquivo_url = data.publicUrl
     }
 
-    const { error } = await supabase.from('documentos').update({
-      nome, descricao: descricao || null, arquivo_url, atualizado_em: new Date().toISOString()
-    }).eq('id', documentoId)
+    const payload: Record<string, any> = {
+      nome, descricao: descricao || null, arquivo_url, atualizado_em: new Date().toISOString(),
+    }
+    // Arquivo novo → o markdown em cache fica obsoleto: zera para ser regerado.
+    if (arquivo) { payload.conteudo_markdown = null; payload.markdown_gerado_em = null }
+
+    const { error } = await supabase.from('documentos').update(payload).eq('id', documentoId)
 
     setSalvando(false)
     if (error) { setErro('Erro ao salvar.'); return }
+
+    // Gera o markdown do PDF em background (1x) — deixa a 1ª consulta já barata.
+    // Se falhar, a consulta gera sob demanda (lazy). Fire-and-forget.
+    if (arquivo_url && arquivo_url.toLowerCase().includes('.pdf')) {
+      const { data: { session } } = await supabase.auth.getSession()
+      const tk = session?.access_token
+      if (tk) {
+        fetch('/api/documentos/extrair-markdown', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${tk}` },
+          body: JSON.stringify({ documento_id: documentoId }),
+        }).catch(() => { /* lazy na consulta cobre */ })
+      }
+    }
+
     onSalvo?.()
     onClose()
   }

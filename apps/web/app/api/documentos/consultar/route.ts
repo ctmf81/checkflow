@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient } from '@supabase/supabase-js'
+import { gerarMarkdownDocumento } from '@/lib/documentoMarkdown'
 
 // ─── Clientes ─────────────────────────────────────────────────────────────────
 
@@ -31,11 +32,10 @@ function runGemini(apiKey: string | undefined, model: string) {
   return async function (ctx: ProviderCtx, c: StreamController) {
     const genAI = new GoogleGenerativeAI(apiKey!)
     const gen = genAI.getGenerativeModel({ model })
-    const result = await gen.generateContentStream([
-      { text: ctx.systemPrompt },
-      { inlineData: { mimeType: ctx.mimeType, data: ctx.fileBase64 } },
-      { text: ctx.pergunta },
-    ])
+    const partes: any[] = [{ text: ctx.systemPrompt }]
+    if (ctx.fileBase64) partes.push({ inlineData: { mimeType: ctx.mimeType, data: ctx.fileBase64 } })
+    partes.push({ text: ctx.pergunta })
+    const result = await gen.generateContentStream(partes)
     for await (const chunk of result.stream) {
       const text = chunk.text()
       if (text) c.enqueue(text)
@@ -48,10 +48,14 @@ function runGemini(apiKey: string | undefined, model: string) {
 // Anthropic Claude — multimodal nativo (PDF via document block + imagem)
 function runAnthropic(apiKey: string | undefined, model: string) {
   return async function (ctx: ProviderCtx, c: StreamController) {
-    const ehPdf = ctx.mimeType === 'application/pdf'
-    const bloco = ehPdf
-      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: ctx.fileBase64 } }
-      : { type: 'image', source: { type: 'base64', media_type: ctx.mimeType, data: ctx.fileBase64 } }
+    const content: any[] = []
+    if (ctx.fileBase64) {
+      const ehPdf = ctx.mimeType === 'application/pdf'
+      content.push(ehPdf
+        ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: ctx.fileBase64 } }
+        : { type: 'image', source: { type: 'base64', media_type: ctx.mimeType, data: ctx.fileBase64 } })
+    }
+    content.push({ type: 'text', text: ctx.pergunta })
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -65,7 +69,7 @@ function runAnthropic(apiKey: string | undefined, model: string) {
         max_tokens: 1024,
         system: ctx.systemPrompt,
         stream: true,
-        messages: [{ role: 'user', content: [bloco, { type: 'text', text: ctx.pergunta }] }],
+        messages: [{ role: 'user', content }],
       }),
     })
     if (!res.ok || !res.body) throw new Error(`Anthropic HTTP ${res.status}`)
@@ -96,7 +100,7 @@ function runOpenAICompat(baseUrl: string, apiKey: string | undefined, model: str
           { role: 'system', content: ctx.systemPrompt },
           { role: 'user', content: [
             { type: 'text', text: ctx.pergunta },
-            { type: 'image_url', image_url: { url: `data:${ctx.mimeType};base64,${ctx.fileBase64}` } },
+            ...(ctx.fileBase64 ? [{ type: 'image_url', image_url: { url: `data:${ctx.mimeType};base64,${ctx.fileBase64}` } }] : []),
           ] },
         ],
       }),
@@ -174,7 +178,7 @@ export async function POST(req: NextRequest) {
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SECRET)
   const { data: doc, error: docError } = await supabaseAdmin
     .from('documentos')
-    .select('id, nome, descricao, arquivo_url, tipo, unidade_id')
+    .select('id, nome, descricao, arquivo_url, tipo, unidade_id, conteudo_markdown')
     .eq('id', documento_id)
     .eq('tipo', 'consulta_inteligente')
     .eq('status', 'ativo')
@@ -205,34 +209,35 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 4. Baixa o arquivo e converte para base64
-  let fileBase64: string
-  let mimeType: string
+  // 4. Resolve o conteúdo do documento.
+  // Preferência: markdown já salvo (barato, texto). Se for PDF sem markdown,
+  // gera 1x agora (lazy) e salva — as próximas consultas já usam o texto.
+  // Só cai para ANEXAR o arquivo (imagem, ou PDF cuja conversão falhou).
+  const urlLower = doc.arquivo_url.toLowerCase()
+  const arquivoEhPdf = urlLower.includes('.pdf')
+  let markdown: string | null = (doc as any).conteudo_markdown ?? null
+  if (!markdown && arquivoEhPdf) {
+    markdown = await gerarMarkdownDocumento(documento_id)
+  }
 
-  try {
-    const fileRes = await fetch(doc.arquivo_url)
-    if (!fileRes.ok) throw new Error(`HTTP ${fileRes.status}`)
-
-    const buffer = await fileRes.arrayBuffer()
-    fileBase64 = Buffer.from(buffer).toString('base64')
-
-    const ct = fileRes.headers.get('content-type') ?? ''
-    const url = doc.arquivo_url.toLowerCase()
-
-    if (ct.includes('pdf') || url.includes('.pdf')) {
-      mimeType = 'application/pdf'
-    } else if (ct.includes('png') || url.includes('.png')) {
-      mimeType = 'image/png'
-    } else if (ct.includes('webp') || url.includes('.webp')) {
-      mimeType = 'image/webp'
-    } else if (ct.includes('jpeg') || ct.includes('jpg') || url.includes('.jpg') || url.includes('.jpeg')) {
-      mimeType = 'image/jpeg'
-    } else {
-      mimeType = 'application/pdf'
+  let fileBase64 = ''
+  let mimeType = ''
+  if (!markdown) {
+    // Fallback: anexa o arquivo original (imagem, ou PDF quando a conversão falhou)
+    try {
+      const fileRes = await fetch(doc.arquivo_url)
+      if (!fileRes.ok) throw new Error(`HTTP ${fileRes.status}`)
+      fileBase64 = Buffer.from(await fileRes.arrayBuffer()).toString('base64')
+      const ct = fileRes.headers.get('content-type') ?? ''
+      if (ct.includes('pdf') || urlLower.includes('.pdf')) mimeType = 'application/pdf'
+      else if (ct.includes('png') || urlLower.includes('.png')) mimeType = 'image/png'
+      else if (ct.includes('webp') || urlLower.includes('.webp')) mimeType = 'image/webp'
+      else if (ct.includes('jpeg') || ct.includes('jpg') || urlLower.includes('.jpg') || urlLower.includes('.jpeg')) mimeType = 'image/jpeg'
+      else mimeType = 'application/pdf'
+    } catch (err: any) {
+      console.error('[consultar] erro ao baixar arquivo:', err?.message)
+      return Response.json({ error: 'Não foi possível carregar o arquivo do documento' }, { status: 500 })
     }
-  } catch (err: any) {
-    console.error('[consultar] erro ao baixar arquivo:', err?.message)
-    return Response.json({ error: 'Não foi possível carregar o arquivo do documento' }, { status: 500 })
   }
 
   // 5. Streaming com failover entre provedores de IA
@@ -244,10 +249,12 @@ export async function POST(req: NextRequest) {
     'Se a informação não estiver no documento, informe isso claramente ao usuário.',
     `Documento: "${doc.nome}"`,
     doc.descricao ? `Descrição: ${doc.descricao}` : '',
+    markdown ? `\n--- CONTEÚDO DO DOCUMENTO (markdown) ---\n${markdown}` : '',
   ].filter(Boolean).join('\n')
 
   const ctx: ProviderCtx = { systemPrompt, pergunta, fileBase64, mimeType }
-  const isPdf = mimeType === 'application/pdf'
+  // Só precisa de provedor com PDF quando vamos anexar um PDF (sem markdown).
+  const isPdf = !markdown && mimeType === 'application/pdf'
 
   // Config dos provedores vem do banco (gerenciada em /sistema/integracoes-ia);
   // a env var é fallback quando não há chave cadastrada para o provedor.
