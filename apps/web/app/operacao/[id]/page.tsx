@@ -2305,12 +2305,6 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
           <p className="text-xs text-violet-700 font-medium">Execução vinculada a um workflow</p>
         </div>
       )}
-      {checklist.descricao && (
-        <div className="px-4 sm:px-6 py-3 bg-blue-50 border-b border-blue-100">
-          <p className="text-xs text-blue-700">{checklist.descricao}</p>
-        </div>
-      )}
-
       {/* Não foi possível executar este checklist */}
       {motivosChecklist.length > 0 && (
         <div className="px-4 sm:px-6 pt-3 flex justify-end">
