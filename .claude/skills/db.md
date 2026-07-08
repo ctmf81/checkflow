@@ -183,6 +183,9 @@ Correções do fluxo de ticket descobertas nos testes manuais (Tela 11). **Preci
 - **UI**: `SessionContext.carregarUnidades` lista todas as unidades da empresa p/ o admin; `lib/admin.ts ehAdminDaEmpresa()` no bypass de subgrupo das telas.
 - ⚠️ **Gap de SEED corrigido** (migration `20260629000000_admin_empresa_permissoes_acessos.sql`, ✅ aplicada via service role 2026-06-29): o perfil seed **Admin da empresa** (`…002`) tinha só ~50/66 permissões — faltavam as de **Acessos** (`usuarios`, `unidades`, `perfis` + `empresas.ver/editar`), então o admin não conseguia aprovar pré-cadastro nem gerir usuários ("Você não tem permissão"). O `insert ... select` concede essas a `…002` com `on conflict do nothing` (NÃO concede `empresas.criar/deletar` — isso é de plataforma). Descoberto testando como admin da empresa real. As policies RLS já existiam; o que faltava era a **linha em `perfil_permissoes`** (RLS libera a ação, mas `usuario_tem_permissao` ainda checa o vínculo perfil→permissão).
 
+### Listas de Tarefas — data de liberação (migration `20260708140000_tarefa_liberacao.sql`, ✅ aplicada 2026-07-08)
+- `tarefa_listas.liberacao_em timestamptz null` — quando a lista publicada passa a aparecer na Operação (null = imediata). Futuro = lista "agendada", oculta pro operador. Independe da janela de abertura (que rege o encerramento). Lógica derivada em `lib/tarefas.ts` (`liberada()`, `statusTarefa()`). Sem mudança de RLS.
+
 ### Listas de Tarefas — cota de mídia (migration `20260618160000_uso_armazenamento_tarefa.sql`, ✅ aplicada 2026-06-18)
 - `uso_armazenamento.origem` aceita `'tarefa'`; policy de insert ganhou bypass `is_admin_sistema()`. Mídia de tarefa contabilizada via `lib/uso.ts` + bloqueio `billing_armazenamento_disponivel`.
 

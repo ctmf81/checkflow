@@ -34,6 +34,13 @@ Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste ·
 12. Plano ❌ (analisada, NÃO corrigida — ver pendências)  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ✅ · Formatação ✅ · Causa raiz ✅ (feature completa) · Notificações ✅ · Relatórios ❌ · Dashboards ❌
 + Ambiente **Sistema** (admin plataforma: empresas, planos/preços, templates, parceiros, integrações IA, onboarding) — revisar ao final/à parte.
 
+## 🗓️ SESSÃO 2026-07-08 (parte 2) — Tarefas: agendamento, status, duplicar
+- **Data de liberação** (`tarefa_listas.liberacao_em`, migration `20260708140000` ✅ aplicada): agenda quando a lista aparece na Operação; antes disso fica **agendada** (oculta). Campo no montador.
+- **Status derivado + filtro** na listagem `/gestao/tarefas`: rascunho/agendada/em_execucao/finalizada (`statusTarefa()` em `lib/tarefas.ts`), chips de filtro + badge.
+- **Duplicar** lista (menu ⋮): copia config+itens+atribuições como rascunho. **Excluir** também foi pro ⋮.
+- **Tooltip ⓘ** no "nº máximo de respostas" (é o total entre todos os operadores).
+- +10 testes (`tarefas.unit.test.ts` 33/33; suíte 385 ✅). ⏳ **PENDENTE do usuário**: apagar do histórico uma execução específica (item 4 — não feito, aguarda o usuário indicar o registro). Ver `/biz`, `/db`, `/qa`.
+
 ## 🗓️ SESSÃO 2026-07-08 — polimento UI operação/gestão + notificações faltantes
 Sequência de ajustes finos (commits `f684a8c`→`159816f` + `ce1331e`→`df2e656`):
 - **Header/operação**: botão PWA "Instalar"→**"App"**; **Gestão** entra no menu do usuário no mobile; card de checklist **não finalizado** responsivo.
