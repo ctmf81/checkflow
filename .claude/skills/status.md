@@ -34,6 +34,11 @@ Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste ·
 12. Plano ❌ (analisada, NÃO corrigida — ver pendências)  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ✅ · Formatação ✅ · Causa raiz ✅ (feature completa) · Notificações ✅ · Relatórios ❌ · Dashboards ❌
 + Ambiente **Sistema** (admin plataforma: empresas, planos/preços, templates, parceiros, integrações IA, onboarding) — revisar ao final/à parte.
 
+## 🗓️ SESSÃO 2026-07-08 (parte 4) — refino do ciclo de vida das Tarefas
+- **Liberação obrigatória** (montador) pré-preenchida com agora (nunca null).
+- **Gestão**: status "Finalizada" → exibido como **"Concluída"** (encerra por data/quantidade).
+- **Operação**: seções **Liberadas** (com "Prazo: …") + **Concluídas** (encerradas OU prazo expirado) com **cor por completude** 🟢/🟡/🔴 (verde=tudo, amarelo=parcial, vermelho=nada). **Sem status novo** — derivado. Ver `/biz`.
+
 ## 🗓️ SESSÃO 2026-07-08 (parte 3) — persistência de aba + Consulta Inteligente em markdown
 - **Operação**: aba ativa vai pra URL (`?aba=`) — refresh mantém a aba; voltar de uma execução aberta pelo Histórico retorna ao Histórico (commit `0d4c536`).
 - **Consulta Inteligente — markdown** (migration `20260708150000` ⏳ aplicar): PDF convertido **1× via IA** p/ markdown (`documentos.conteudo_markdown`); consulta manda só o texto → menos tokens/pergunta, mais rápido, funciona com todos os provedores. PDF segue p/ download. Geração no upload (`POST /api/documentos/extrair-markdown`) + lazy na 1ª consulta (`lib/documentoMarkdown.ts`). Fallback anexa o arquivo se faltar/falhar. Ver `/biz`, `/db`.
