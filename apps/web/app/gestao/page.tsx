@@ -269,7 +269,7 @@ export default function GestaoHomePage() {
 
         {/* Moderação de planos (nível de plano): quantos aguardam N1 e N2 */}
         {!loadingFunil && (funil.aguardando_n1 > 0 || funil.aguardando_n2 > 0) && (
-          <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-3">
+          <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap items-center gap-x-3 gap-y-2">
             <span className="text-xs font-medium text-gray-500">Planos em moderação:</span>
             <button onClick={() => router.push('/gestao/planos-acao')}
               className="flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1 hover:bg-amber-100 transition-colors">
@@ -332,19 +332,18 @@ export default function GestaoHomePage() {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">{e.checklist_nome}</p>
-                    <div className="flex items-center gap-2 mt-0.5 min-w-0">
-                      <p className="text-xs text-gray-400 flex-shrink-0">{dataRelativa(e.data_execucao)}</p>
-                      {e.resultado === 'reprovado' && (
-                        <span className={`min-w-0 truncate text-xs px-1.5 py-0 rounded-full font-medium border ${
-                          pa?.cor === 'green'  ? 'bg-green-50 text-green-600 border-green-200' :
-                          pa?.cor === 'amber'  ? 'bg-amber-50 text-amber-600 border-amber-200' :
-                          pa?.cor === 'red'    ? 'bg-red-50 text-red-600 border-red-200' :
-                          'bg-red-50 text-red-500 border-red-200'
-                        }`}>
-                          {pa ? `Reprovado · ${pa.label}` : 'Reprovado'}
-                        </span>
-                      )}
-                    </div>
+                    {/* Tempo e status cada um em sua própria linha */}
+                    <p className="text-xs text-gray-400 mt-0.5">{dataRelativa(e.data_execucao)}</p>
+                    {e.resultado === 'reprovado' && (
+                      <span className={`inline-block mt-1 text-xs px-1.5 py-0.5 rounded-full font-medium border ${
+                        pa?.cor === 'green'  ? 'bg-green-50 text-green-600 border-green-200' :
+                        pa?.cor === 'amber'  ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                        pa?.cor === 'red'    ? 'bg-red-50 text-red-600 border-red-200' :
+                        'bg-red-50 text-red-500 border-red-200'
+                      }`}>
+                        {pa ? `Reprovado · ${pa.label}` : 'Reprovado'}
+                      </span>
+                    )}
                   </div>
 
                   {/* Ações */}
