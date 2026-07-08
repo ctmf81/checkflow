@@ -1217,6 +1217,21 @@ export default function OperacaoPage() {
     return () => { cancel = true }
   }, [unidadeAtiva?.id, empresaAtiva?.id])
 
+  // Restaura a aba a partir da URL (?aba=...) no mount — mantém a aba ao dar
+  // refresh e ao voltar de uma tela de detalhe (ex.: execução aberta do Histórico).
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get('aba') as Aba | null
+    if (p && p !== aba) setAba(p)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Espelha a aba ativa na URL (sem recarregar) — o "voltar" do navegador cai
+  // de volta nesta aba, e o refresh a preserva.
+  useEffect(() => {
+    const url = aba === 'checklists' ? '/operacao' : `/operacao?aba=${aba}`
+    window.history.replaceState(null, '', url)
+  }, [aba])
+
   // Se a aba ativa ficou indisponível (sem itens), pula p/ a primeira disponível
   useEffect(() => {
     const disp: Record<Aba, boolean> = {
