@@ -1459,16 +1459,25 @@ export default function OperacaoPage() {
       {/* Abas */}
       <div className="sticky top-14 z-20 bg-gray-50 pt-4 pb-3">
         <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
-          {ABAS.map(a => (
-            <button key={a.id} onClick={() => setAba(a.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium rounded-lg transition-all ${
-                aba === a.id
-                  ? 'bg-orange-500 text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}>
-              {a.icon}{a.label}
-            </button>
-          ))}
+          {ABAS.map(a => {
+            const ativa = aba === a.id
+            return (
+              <button key={a.id} onClick={() => setAba(a.id)}
+                title={a.label} aria-label={a.label}
+                className={`flex items-center justify-center gap-1.5 py-2 text-sm font-medium rounded-lg transition-all ${
+                  // Mobile: ativa cresce com o texto, inativas só ícone (compacto).
+                  // Desktop (sm+): todas iguais com texto.
+                  ativa ? 'flex-1' : 'flex-none px-3 sm:flex-1 sm:px-0'
+                } ${
+                  ativa
+                    ? 'bg-orange-500 text-white shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}>
+                {a.icon}
+                <span className={ativa ? '' : 'hidden sm:inline'}>{a.label}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
