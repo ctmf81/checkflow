@@ -10,6 +10,8 @@ export type NotificacaoTipo =
   | 'ticket_movimentado'
   | 'plano_aberto'
   | 'plano_enviado_n2'
+  | 'plano_devolvido_n1'
+  | 'tarefa_publicada'
   | 'reset_senha'
 
 export type NotificacaoCanal = 'whatsapp' | 'email'

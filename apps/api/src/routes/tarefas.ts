@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import { exigirAutorizacao } from '../lib/apiAuth'
 import { enviarWhatsApp } from '../lib/whatsapp'
+import { buscarTemplate, renderizar, empresaDeUnidade } from '../lib/notificacao-templates'
 
 // ─── Rota ────────────────────────────────────────────────────────────────────
 
@@ -29,11 +30,19 @@ export async function tarefasRoutes(app: FastifyInstance) {
 
     // 1. Lista (precisa estar publicada e querer notificar)
     const { data: lista } = await sb.from('tarefa_listas')
-      .select('id, titulo, status, notificar_whatsapp')
+      .select('id, titulo, status, notificar_whatsapp, unidade_id')
       .eq('id', lista_id).single()
     if (!lista) return reply.status(404).send({ error: 'Lista não encontrada' })
     if (lista.status !== 'publicada' || !lista.notificar_whatsapp) {
       return reply.send({ enviados: 0, motivo: 'Lista não publicada ou sem notificação' })
+    }
+
+    // Template configurável da empresa (fallback hardcoded se não houver).
+    // Se existir e estiver desativado, não dispara.
+    const empresaId = await empresaDeUnidade(sb, (lista as any).unidade_id)
+    const tmplWa = empresaId ? await buscarTemplate(sb, empresaId, 'tarefa_publicada', 'whatsapp') : null
+    if (tmplWa && !tmplWa.ativo) {
+      return reply.send({ enviados: 0, motivo: 'Template desativado' })
     }
 
     // 2. Atribuições
@@ -88,10 +97,11 @@ export async function tarefasRoutes(app: FastifyInstance) {
       if (!telefone) return
       const numero = telefone.replace(/\D/g, '').replace(/^0/, '')
       const numeroFinal = numero.startsWith('55') ? numero : `55${numero}`
-      const mensagem =
-        `📋 *Nova lista de tarefas*\n\n` +
-        `Olá, ${nome}! Você tem uma nova lista para responder: *${lista.titulo}*.\n\n` +
-        `Abra o app na aba *Tarefas* para responder.\n🔗 ${link}`
+      const mensagem = tmplWa
+        ? renderizar(tmplWa.corpo, { destinatario: nome, titulo: lista.titulo, link })
+        : `📋 *Nova lista de tarefas*\n\n` +
+          `Olá, ${nome}! Você tem uma nova lista para responder: *${lista.titulo}*.\n\n` +
+          `Abra o app na aba *Tarefas* para responder.\n🔗 ${link}`
       const { ok, erro } = await enviarWhatsApp({ numero: numeroFinal, mensagem })
       if (ok) enviados++
       else erros.push(`${nome}: ${erro}`)

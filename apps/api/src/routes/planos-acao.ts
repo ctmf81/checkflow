@@ -155,10 +155,12 @@ async function dispararNotificacaoPlano(
   const baseUrl = process.env.APP_URL ?? 'https://app.checkflow.digital'
   const link = `${baseUrl}/gestao/planos-acao/${plano_id}`
 
-  // 3. Busca templates da empresa (devolvido_n1 não tem template → hardcoded)
+  // 3. Busca templates da empresa (fallback hardcoded se não houver)
   const empresaId = await empresaDeSubgrupo(sb, plano.subgrupo_id)
-  const tipoNotif = evento === 'aberto' ? 'plano_aberto' as const : 'plano_enviado_n2' as const
-  const [tmplWa, tmplEmail] = empresaId && evento !== 'devolvido_n1'
+  const tipoNotif = evento === 'aberto' ? 'plano_aberto' as const
+    : evento === 'enviado_n2' ? 'plano_enviado_n2' as const
+    : 'plano_devolvido_n1' as const
+  const [tmplWa, tmplEmail] = empresaId
     ? await Promise.all([
         buscarTemplate(sb, empresaId, tipoNotif, 'whatsapp'),
         buscarTemplate(sb, empresaId, tipoNotif, 'email'),
@@ -172,6 +174,7 @@ async function dispararNotificacaoPlano(
     subgrupo: nomeSubgrupo,
     ator: ator_nome,
     n1: ator_nome,
+    n2: ator_nome,
     observacao,
     sla: slaFormatado ?? '',
     linha_sla: slaFormatado ? `\nSLA: ${slaFormatado}` : '',
