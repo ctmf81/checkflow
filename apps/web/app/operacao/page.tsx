@@ -1225,7 +1225,7 @@ export default function OperacaoPage() {
       tarefas: temTarefas, tickets: temTickets, historico: temHistorico, documentos: temDocumentos,
     }
     if (!disp[aba]) {
-      const primeira = (['checklists', 'tarefas', 'tickets', 'historico', 'documentos'] as Aba[]).find(id => disp[id])
+      const primeira = (['checklists', 'historico', 'tarefas', 'tickets', 'documentos'] as Aba[]).find(id => disp[id])
       if (primeira) setAba(primeira)
     }
   }, [grupos, semGrupo, agendadas, itensWorkflow, naoFinalizadas, temTarefas, temTickets, temHistorico, temDocumentos, aba])
@@ -1440,9 +1440,9 @@ export default function OperacaoPage() {
   }
   const ABAS = ([
     { id: 'checklists', label: 'Checklists',  icon: <CheckSquare size={15} /> },
+    { id: 'historico',  label: 'Histórico',   icon: <History size={15} /> },
     { id: 'tarefas',    label: 'Tarefas',     icon: <ListChecks size={15} /> },
     { id: 'tickets',    label: 'Tickets',     icon: <Ticket size={15} /> },
-    { id: 'historico',  label: 'Histórico',   icon: <History size={15} /> },
     { id: 'documentos', label: 'Documentos',  icon: <FileText size={15} /> },
   ] as { id: Aba; label: string; icon: React.ReactNode }[]).filter(a => dispMap[a.id])
 
