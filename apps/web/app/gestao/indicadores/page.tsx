@@ -14,7 +14,7 @@ import {
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-type Periodo = '24h' | '15d' | '30d'
+type Periodo = '24h' | '7d' | '15d' | '30d'
 
 interface TopChecklist {
   checklist_id: string
@@ -37,6 +37,7 @@ interface TopAtividade {
 
 const PERIODOS: { valor: Periodo; label: string }[] = [
   { valor: '24h', label: '24h' },
+  { valor: '7d', label: '7d' },
   { valor: '15d', label: '15d' },
   { valor: '30d', label: '30d' },
 ]
@@ -44,6 +45,7 @@ const PERIODOS: { valor: Periodo; label: string }[] = [
 function periodoParaISO(p: Periodo): string {
   const mapa: Record<Periodo, number> = {
     '24h': 24 * 60 * 60 * 1000,
+    '7d': 7 * 24 * 60 * 60 * 1000,
     '15d': 15 * 24 * 60 * 60 * 1000,
     '30d': 30 * 24 * 60 * 60 * 1000,
   }
@@ -280,32 +282,34 @@ export default function IndicadoresPage() {
 
       <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
 
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <button onClick={() => router.push('/gestao')}
-          className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
-          <ArrowLeft size={18} />
-        </button>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center gap-2">
+      {/* Header — no mobile título e período ficam em linhas separadas */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-3 sm:flex-1 min-w-0">
+          <button onClick={() => router.push('/gestao')}
+            className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 flex-shrink-0">
+            <ArrowLeft size={18} />
+          </button>
+          <h1 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center gap-2 min-w-0">
             <BarChart2 size={20} className="text-orange-500 flex-shrink-0" />Indicadores
           </h1>
         </div>
-        {/* Período */}
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-          {PERIODOS.map(p => (
-            <button key={p.valor} onClick={() => setPeriodo(p.valor)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                periodo === p.valor ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}>
-              {p.label}
-            </button>
-          ))}
+        {/* Período + atualizar */}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+            {PERIODOS.map(p => (
+              <button key={p.valor} onClick={() => setPeriodo(p.valor)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  periodo === p.valor ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <button onClick={recarregarTudo}
+            className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-xl transition-colors flex-shrink-0">
+            <RefreshCw size={15} />
+          </button>
         </div>
-        <button onClick={recarregarTudo}
-          className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-xl transition-colors">
-          <RefreshCw size={15} />
-        </button>
       </div>
 
       {/* ── Top 5 Checklists ── (oculto se vazio) */}
