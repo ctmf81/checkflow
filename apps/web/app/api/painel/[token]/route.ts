@@ -12,6 +12,12 @@ const SUPABASE_SECRET = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_
 
 const MAX_PONTOS = 500
 
+// Cache curto por token (em memória, por instância). Colapsa várias TVs do mesmo
+// dashboard num único hit ao banco dentro da janela e protege contra abuso do
+// link público. Dado de monitoramento tolera alguns segundos de atraso.
+const CACHE_TTL_MS = 15_000
+const cache = new Map<string, { expira: number; body: string }>()
+
 function num(v: any): number | null {
   if (v === null || v === undefined || v === '') return null
   const n = Number(typeof v === 'object' ? v.numero : v)
@@ -35,6 +41,15 @@ function tendencia(pontos: { t: number; nc: boolean }[], agora: number, janelaMs
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
   if (!token || !SUPABASE_SECRET) return Response.json({ error: 'Indisponível' }, { status: 500 })
+
+  // Cache-hit: devolve o corpo já calculado se ainda fresco
+  const agoraCache = Date.now()
+  const hit = cache.get(token)
+  if (hit && hit.expira > agoraCache) {
+    return new Response(hit.body, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Cache': 'HIT' } })
+  }
+  // Poda entradas expiradas (poucos dashboards; barato)
+  if (cache.size > 200) for (const [k, v] of cache) if (v.expira <= agoraCache) cache.delete(k)
 
   const sb = createClient(SUPABASE_URL, SUPABASE_SECRET)
 
@@ -120,8 +135,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
     }
   }))
 
-  return Response.json(
+  const body = JSON.stringify(
     { dashboard: { nome: dash.nome, transicao_segundos: dash.transicao_segundos, refresh_segundos: dash.refresh_segundos }, paineis },
-    { headers: { 'Cache-Control': 'no-store' } },
   )
+  cache.set(token, { expira: Date.now() + CACHE_TTL_MS, body })
+  return new Response(body, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Cache': 'MISS' } })
 }
