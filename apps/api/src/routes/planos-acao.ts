@@ -227,7 +227,7 @@ async function dispararNotificacaoPlano(
         assunto = renderizar(tmplEmail.assunto ?? `Plano de Ação — ${nomeAtividade}`, vars)
         const corpoHtml = renderizar(tmplEmail.corpo, vars)
           .split('\n').map(l => `<p style="margin:0 0 8px;font-size:14px;color:#374151;line-height:1.6">${l || '&nbsp;'}</p>`).join('')
-        html = buildEmailHtml(assunto, corpoHtml, link)
+        html = buildEmailHtml(assunto, corpoHtml, link, primeiraFoto)
       } else if (!tmplEmail && evento === 'devolvido_n1') {
         // Sem template dedicado — monta e-mail simples inline.
         assunto = `Plano de Ação devolvido para N1 — ${nomeAtividade}`
@@ -389,7 +389,10 @@ export async function planosAcaoRoutes(app: FastifyInstance) {
   })
 }
 
-function buildEmailHtml(assunto: string, corpoHtml: string, link: string): string {
+function buildEmailHtml(assunto: string, corpoHtml: string, link: string, fotoUrl?: string | null): string {
+  const foto = fotoUrl
+    ? `<img src="${fotoUrl}" alt="Evidência" style="display:block;width:100%;max-width:504px;border-radius:10px;margin-top:16px;border:1px solid #e5e7eb" />`
+    : ''
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -401,7 +404,7 @@ function buildEmailHtml(assunto: string, corpoHtml: string, link: string): strin
           <p style="margin:0;color:#fff;font-size:20px;font-weight:700;letter-spacing:-0.5px">CheckFlow</p>
         </td></tr>
         <tr><td style="padding:28px">
-          ${corpoHtml}
+          ${corpoHtml}${foto}
           <a href="${link}" style="display:inline-block;margin-top:20px;padding:12px 24px;background:#f97316;color:#fff;font-size:14px;font-weight:600;text-decoration:none;border-radius:10px">Ver no CheckFlow →</a>
         </td></tr>
         <tr><td style="padding:16px 28px;border-top:1px solid #f3f4f6;background:#fafafa">

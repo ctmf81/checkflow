@@ -216,7 +216,7 @@ export async function ticketsRoutes(app: FastifyInstance) {
           // Monta email com o template base existente
           const { emailTicketAberto: _ea, emailTicketMovimentado: _em, ..._ } = await import('../lib/email-templates')
           // Usa template genérico da empresa — constrói o html inline
-          htmlBody = buildEmailHtml(assunto, corpoHtml, link, cor)
+          htmlBody = buildEmailHtml(assunto, corpoHtml, link, cor, evento === 'aberto' ? primeiraFoto : null)
         } else if (!tmplEmail) {
           // fallback hardcoded
           const tpl = evento === 'aberto'
@@ -253,7 +253,10 @@ export async function ticketsRoutes(app: FastifyInstance) {
 
 // ─── Wrapper HTML genérico para templates editados pela empresa ───────────────
 
-function buildEmailHtml(assunto: string, corpoHtml: string, link: string, cor: string): string {
+function buildEmailHtml(assunto: string, corpoHtml: string, link: string, cor: string, fotoUrl?: string | null): string {
+  const foto = fotoUrl
+    ? `<img src="${fotoUrl}" alt="Evidência" style="display:block;width:100%;max-width:504px;border-radius:10px;margin-top:16px;border:1px solid #e5e7eb" />`
+    : ''
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -265,7 +268,7 @@ function buildEmailHtml(assunto: string, corpoHtml: string, link: string, cor: s
           <p style="margin:0;color:#fff;font-size:20px;font-weight:700;letter-spacing:-0.5px">CheckFlow</p>
         </td></tr>
         <tr><td style="padding:28px">
-          ${corpoHtml}
+          ${corpoHtml}${foto}
           <a href="${link}" style="display:inline-block;margin-top:20px;padding:12px 24px;background:${cor};color:#fff;font-size:14px;font-weight:600;text-decoration:none;border-radius:10px">Ver no CheckFlow →</a>
         </td></tr>
         <tr><td style="padding:16px 28px;border-top:1px solid #f3f4f6;background:#fafafa">
