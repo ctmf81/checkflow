@@ -118,6 +118,15 @@ const recursosTodos: Recurso[] = [
     ],
   },
   {
+    key: 'dashboards',
+    label: 'Dashboards',
+    acoes: [
+      { key: 'ver',     label: 'Visualizar dashboards' },
+      { key: 'criar',   label: 'Criar/editar dashboards' },
+      { key: 'deletar', label: 'Excluir dashboards' },
+    ],
+  },
+  {
     key: 'ticket',
     label: 'Tickets / Chamados',
     acoes: [
