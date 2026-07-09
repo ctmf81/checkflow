@@ -85,7 +85,9 @@ export default function EditorDashboardPage({ params }: { params: Promise<{ id: 
   useEffect(() => {
     setClSel(''); setAtvSel(''); setChecklists([]); setAtividades([])
     if (!sgSel) return
-    createClient().from('checklists').select('id, nome').eq('subgrupo_id', sgSel).eq('status', 'ativo').order('nome')
+    // checklists.status = rascunho|publicado|inativo (NÃO 'ativo'). Traz os que
+    // têm/tiveram dados (publicado + inativo), fora rascunhos.
+    createClient().from('checklists').select('id, nome').eq('subgrupo_id', sgSel).neq('status', 'rascunho').order('nome')
       .then(({ data }) => setChecklists(data ?? []))
   }, [sgSel])
   useEffect(() => {
