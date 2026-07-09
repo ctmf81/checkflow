@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { montarLinha, montarBarras, opcoesSimNao, type OpcaoRaw } from '@/lib/painelDados'
 
 // GET /api/painel/[token] — dados PÚBLICOS de um dashboard (sem login).
 // Escopado ao token: só devolve os painéis daquele dashboard e a série de cada
@@ -17,26 +18,6 @@ const MAX_PONTOS = 500
 // link público. Dado de monitoramento tolera alguns segundos de atraso.
 const CACHE_TTL_MS = 15_000
 const cache = new Map<string, { expira: number; body: string }>()
-
-function num(v: any): number | null {
-  if (v === null || v === undefined || v === '') return null
-  const n = Number(typeof v === 'object' ? v.numero : v)
-  return isNaN(n) ? null : n
-}
-
-// Tendência da NÃO-CONFORMIDADE: compara a 1ª metade vs a 2ª metade da janela.
-// 'alta' = piorando (mais não-conforme); 'queda' = melhorando.
-function tendencia(pontos: { t: number; nc: boolean }[], agora: number, janelaMs: number): 'alta' | 'queda' | 'estavel' {
-  const meio = agora - janelaMs / 2
-  const p1 = pontos.filter(p => p.t < meio)
-  const p2 = pontos.filter(p => p.t >= meio)
-  if (p1.length === 0 || p2.length === 0) return 'estavel'
-  const taxa = (arr: typeof pontos) => arr.filter(p => p.nc).length / arr.length
-  const d = taxa(p2) - taxa(p1)
-  if (d > 0.05) return 'alta'
-  if (d < -0.05) return 'queda'
-  return 'estavel'
-}
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
@@ -79,60 +60,23 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
       .limit(MAX_PONTOS)
 
     const base = { id: p.id, titulo, tipo, janela_horas: p.janela_horas }
-    const rs = respostas ?? []
+    const rs = (respostas ?? []) as { resposta: any; criado_em: string }[]
 
     // ── Número / Padrão → série temporal + linha(s) de referência ──
     if (tipo === 'numero' || tipo === 'padrao') {
-      const serie = rs.map((r: any) => ({ t: r.criado_em, v: num(r.resposta) })).filter(p => p.v !== null)
-      let refMin: number | null = null, refMax: number | null = null
-      if (tipo === 'numero') {
-        refMin = cfg.min ?? null; refMax = cfg.max ?? null
-      } else {
-        // padrão: usa a faixa da resposta mais recente com instância resolvida
-        for (let i = rs.length - 1; i >= 0; i--) {
-          const rr: any = rs[i].resposta
-          if (rr && typeof rr === 'object' && (rr.valor_min != null || rr.valor_max != null)) {
-            refMin = rr.valor_min != null ? Number(rr.valor_min) : null
-            refMax = rr.valor_max != null ? Number(rr.valor_max) : null
-            break
-          }
-        }
-      }
-      return { ...base, grafico: 'linha', unidade: cfg.unidade ?? '', serie, ref: { min: refMin, max: refMax }, total: serie.length }
+      return { ...base, grafico: 'linha', ...montarLinha(rs, tipo, cfg) }
     }
 
     // ── Sim/Não e Única escolha → barras por opção + tendência ──
-    let opcoes: { valor: string; label: string; e_valido: boolean }[]
+    let opcoes: OpcaoRaw[]
     if (tipo === 'sim_nao') {
-      const esperado = cfg.esperado ?? null
-      opcoes = [
-        { valor: 'sim', label: 'Sim', e_valido: esperado ? esperado === 'sim' : true },
-        { valor: 'nao', label: 'Não', e_valido: esperado ? esperado === 'nao' : true },
-      ]
+      opcoes = opcoesSimNao(cfg.esperado)
     } else {
       const { data: ops } = await sb.from('checklist_atividade_opcoes')
         .select('valor, label, e_valido').eq('atividade_id', p.atividade_id).order('ordem')
       opcoes = (ops ?? []).map((o: any) => ({ valor: o.valor, label: o.label, e_valido: o.e_valido }))
     }
-
-    const validoPorValor = new Map(opcoes.map(o => [o.valor, o.e_valido]))
-    const contagem = new Map<string, number>()
-    const pontos: { t: number; nc: boolean }[] = []
-    for (const r of rs as any[]) {
-      const val = Array.isArray(r.resposta) ? r.resposta[0] : r.resposta
-      if (val === null || val === undefined || typeof val === 'object') continue
-      const key = String(val)
-      contagem.set(key, (contagem.get(key) ?? 0) + 1)
-      const valido = validoPorValor.get(key)
-      pontos.push({ t: new Date(r.criado_em).getTime(), nc: valido === false })
-    }
-    const barras = opcoes.map(o => ({ label: o.label, count: contagem.get(o.valor) ?? 0, conforme: o.e_valido }))
-    const naoConformes = pontos.filter(p => p.nc).length
-    return {
-      ...base, grafico: 'barras', barras,
-      total: pontos.length, naoConformes,
-      tendencia: tendencia(pontos, agora, janelaMs),
-    }
+    return { ...base, grafico: 'barras', ...montarBarras(rs, opcoes, agora, janelaMs) }
   }))
 
   const body = JSON.stringify(
