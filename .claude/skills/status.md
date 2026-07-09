@@ -34,6 +34,12 @@ Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste ·
 12. Plano ❌ (analisada, NÃO corrigida — ver pendências)  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ✅ · Formatação ✅ · Causa raiz ✅ (feature completa) · Notificações ✅ · Relatórios ❌ · Dashboards ❌
 + Ambiente **Sistema** (admin plataforma: empresas, planos/preços, templates, parceiros, integrações IA, onboarding) — revisar ao final/à parte.
 
+## ▶️ FECHAMENTO 2026-07-09 (working tree limpo, tudo pushado na main)
+Sessão longa. Entregue e no ar: **Dashboards** (módulo TV completo + testes), **serviços/entitlements por plano** (v1 UI + fase-2 RLS piloto no Dashboards + `/sistema/servicos`), **evidência foto no email** (plano/ticket), consulta inteligente em markdown, ajustes de UI mobile, e vários fixes.
+- **Migrations que o usuário APLICOU nesta leva** (todas ✅): `20260708120000/120001` (notif tipos), `20260708140000` (tarefa liberacao), `20260708150000` (documento markdown), `20260709000000/010000/020000` (storage empresas: pdf/update/documentos), `20260709030000/040000` (dashboards + índice), `20260709050000` (servicos), `20260709060000` (RLS plano dashboards).
+- **Redis/WhatsApp**: ✅ verificado — chaves `checkflow:baileys:*` no Redis (Railway) → sessão persiste. Ver [[whatsapp-confiabilidade]] e `/biz`.
+- **Backlog aberto**: rolar RLS-por-plano para os demais módulos (tickets/tarefas/documentos/catalogos/padrao/agendamentos), tabela a tabela com teste. Comparação de planos/serviços já pronta.
+
 ## 🗓️ SESSÃO 2026-07-09 (parte 3) — SERVIÇOS / ENTITLEMENTS POR PLANO (v1)
 - **Módulo novo** (migration `20260709050000` ⏳ aplicar): `servicos` + `plano_servicos`. Serviço = módulo (→ recursos de permissão) ou característica (IA). Plano marca serviços incluídos (multiselect em `/sistema/planos`).
 - **Gating v1 (UI)**: `SessionContext.recursosHabilitados` (null = sem restrição). Construtor de perfil + menu escondem módulos fora do plano (admin de sistema ignora; admin da empresa limitado ao plano).

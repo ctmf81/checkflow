@@ -324,7 +324,7 @@ Atividade tipo `padrao`: validação **complexa** cujo valor de referência NÃO
 - Status verificado a cada 5s via `POST /whatsapp/status`
 - QR gerado via `POST /whatsapp/conectar` (proxy no Fastify)
 - ⚠️ Histórico: v2.2.3 tinha bug de loop infinito de reconexão que impedia o QR de ser gerado (issue #2430 do EvolutionAPI, corrigido na v2.3.7) — NÃO fazer downgrade da imagem
-- Env vars relevantes no serviço Evolution: `CONFIG_SESSION_PHONE_VERSION`, `CACHE_REDIS_ENABLED=false`, `CACHE_LOCAL_ENABLED=true`
+- Env vars relevantes no serviço Evolution: `CONFIG_SESSION_PHONE_VERSION`; **Redis ATIVO** (`CACHE_REDIS_ENABLED=true`, `CACHE_REDIS_URI` = interna `redis.railway.internal:6379`, `CACHE_REDIS_PREFIX_KEY=checkflow`, `CACHE_REDIS_SAVE_INSTANCES=true`). ✅ **Verificado 2026-07-09**: chaves `checkflow:baileys:*` presentes no Redis (Database→Data) → sessão do WhatsApp **persiste** entre restarts (sem "sessão zumbi"/reler QR). Serviço Redis próprio no Railway (redis:8.2.1). Ver [[whatsapp-confiabilidade]].
 - **Troca de número**: botão "Trocar número / Desconectar" em `/sistema/whatsapp` (com confirmação) faz logout da instância — sistema para de enviar até novo QR ser escaneado pelo número novo. Não mexe em env vars nem no banco
 - Failover com 2 números: NÃO suportado hoje (instância única `EVO_INSTANCE`); avaliado em 2026-06-11, ficou para depois — exigiria `EVO_INSTANCE_BACKUP` + fallback em `lib/whatsapp.ts`
 
