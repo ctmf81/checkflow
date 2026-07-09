@@ -5,7 +5,11 @@ import { X, Plus, Minus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { recursos } from './permissoes'
 import { createClient } from '@/lib/supabase'
+import { useSession } from '@/contexts/SessionContext'
 import { useToast } from '@/components/ui/feedback'
+
+// Recursos sempre disponíveis (independente do plano): administração básica.
+const RECURSOS_CORE = new Set(['home', 'usuarios', 'perfis'])
 import {
   permKey, recursoChecked, recursoIndeterminate, toggleRecurso, toggleAcao,
   permsFromRows, permissaoIdsToInsert,
@@ -25,6 +29,11 @@ interface Props {
 export function PerfilModal({ perfil, empresaId, onClose }: Props) {
   const isEdicao = !!perfil
   const toast = useToast()
+  const { recursosHabilitados } = useSession()
+  // Só mostra recursos liberados pelo plano (+ core). null = sem restrição.
+  const recursosVisiveis = recursosHabilitados
+    ? recursos.filter(r => RECURSOS_CORE.has(r.key) || recursosHabilitados.has(r.key))
+    : recursos
   const [nome, setNome] = useState(perfil?.nome ?? '')
   const [publico, setPublico] = useState(false)
   const [perms, setPerms] = useState<Set<string>>(new Set())
@@ -162,7 +171,7 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
             {carregando && (
               <p className="text-sm text-gray-400 py-4 text-center">Carregando permissões...</p>
             )}
-            {!carregando && recursos.map(r => {
+            {!carregando && recursosVisiveis.map(r => {
               const checked = recursoChecked(r, perms)
               const indeterminate = recursoIndeterminate(r, perms)
               const expanded = expandidos.has(r.key)

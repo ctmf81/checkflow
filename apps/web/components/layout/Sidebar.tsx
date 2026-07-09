@@ -86,7 +86,7 @@ const nav: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname()
-  const { empresaAtiva } = useSession()
+  const { empresaAtiva, recursosHabilitados } = useSession()
   const { aberta, fechar } = useSidebar()
   const [open, setOpen] = useState<string[]>([])
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
@@ -95,7 +95,8 @@ export function Sidebar() {
   // se é admin (vê tudo). Enquanto não carrega, itens com `perm`/`admin` ficam
   // ocultos e aparecem depois (nunca o contrário — não pisca item restrito).
   const [recursos, setRecursos] = useState<Set<string>>(new Set())
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [isAdminSistema, setIsAdminSistema] = useState(false)  // plataforma: ignora plano
+  const [isAdminEmpresa, setIsAdminEmpresa] = useState(false)  // vê tudo, mas limitado ao plano
   const [carregado, setCarregado] = useState(false)
 
   useEffect(() => {
@@ -112,9 +113,11 @@ export function Sidebar() {
     ;(async () => {
       const { data: { user } } = await sb.auth.getUser()
       if (!user) return
-      const admin = user.user_metadata?.role === 'admin_sistema' || await ehAdminDaEmpresa(sb, empresaAtiva.id)
+      const adminSis = user.user_metadata?.role === 'admin_sistema'
+      const adminEmp = adminSis ? false : await ehAdminDaEmpresa(sb, empresaAtiva.id)
       if (cancelado) return
-      if (admin) { setIsAdmin(true); setCarregado(true); return }
+      setIsAdminSistema(adminSis); setIsAdminEmpresa(adminEmp)
+      if (adminSis || adminEmp) { setCarregado(true); return }
 
       // Recursos liberados pelo perfil do usuário nesta empresa.
       const { data: ue } = await sb.from('usuario_empresa')
@@ -126,15 +129,25 @@ export function Sidebar() {
         set = new Set((pp ?? []).map((r: any) => (Array.isArray(r.permissao) ? r.permissao[0] : r.permissao)?.recurso).filter(Boolean))
       }
       if (cancelado) return
-      setIsAdmin(false); setRecursos(set); setCarregado(true)
+      setRecursos(set); setCarregado(true)
     })()
     return () => { cancelado = true }
   }, [empresaAtiva?.id])
 
-  // Um item folha é visível? (admin vê tudo; admin-only só p/ admin; item com
-  // `perm` só se o recurso está liberado; sem gate = sempre.)
+  // O plano da empresa libera esse recurso? null = sem restrição (trial/dev).
+  function planoLibera(recurso?: string): boolean {
+    if (!recurso) return true
+    if (recursosHabilitados === null) return true
+    return recursosHabilitados.has(recurso)
+  }
+
+  // Um item folha é visível? Admin de SISTEMA vê tudo (plataforma). O plano
+  // barra o módulo (vale até p/ admin da empresa). Admin da empresa vê tudo que
+  // o plano libera; usuário comum precisa da permissão no perfil.
   function folhaVisivel(it: { perm?: string; admin?: boolean }): boolean {
-    if (isAdmin) return true
+    if (isAdminSistema) return true
+    if (!planoLibera(it.perm)) return false
+    if (isAdminEmpresa) return true
     if (it.admin) return false
     if (it.perm) return carregado && recursos.has(it.perm)
     return true

@@ -23,6 +23,9 @@ interface SessionState {
   modoEmpresa: boolean
   grupoLabel: string    // ex: "Grupo", "Setor", "Departamento"
   subgrupoLabel: string // ex: "Subgrupo", "Área", "Loja"
+  // Recursos de permissão liberados pelo plano da empresa (entitlements).
+  // null = SEM restrição (trial / plano sem serviços configurados / dev).
+  recursosHabilitados: Set<string> | null
   setAmbiente: (a: Ambiente) => void
   setEmpresaAtiva: (e: Empresa | null) => void
   setUnidadeAtiva: (u: Unidade | null) => void
@@ -38,6 +41,7 @@ const SessionContext = createContext<SessionState>({
   modoEmpresa: false,
   grupoLabel: 'Grupo',
   subgrupoLabel: 'Subgrupo',
+  recursosHabilitados: null,
   setAmbiente: () => {},
   setEmpresaAtiva: () => {},
   setUnidadeAtiva: () => {},
@@ -53,6 +57,31 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [modoEmpresa, setModoEmpresa] = useState(false)
   const [grupoLabel, setGrupoLabel] = useState('Grupo')
   const [subgrupoLabel, setSubgrupoLabel] = useState('Subgrupo')
+  const [recursosHabilitados, setRecursosHabilitados] = useState<Set<string> | null>(null)
+
+  // Entitlements: recursos liberados pelo plano ativo da empresa. Regra segura
+  // (opt-in): sem plano OU plano sem serviços configurados → null (não restringe).
+  useEffect(() => {
+    const empId = empresaAtiva?.id
+    if (!empId) { setRecursosHabilitados(null); return }
+    let cancel = false
+    ;(async () => {
+      const sb = createClient()
+      const { data: assin } = await sb.from('empresa_assinaturas').select('plano_id').eq('empresa_id', empId).maybeSingle()
+      const planoId = assin?.plano_id
+      if (!planoId) { if (!cancel) setRecursosHabilitados(null); return }
+      const { data: ps } = await sb.from('plano_servicos')
+        .select('servico:servico_id(recursos, tipo, ativo)').eq('plano_id', planoId)
+      if (!ps || ps.length === 0) { if (!cancel) setRecursosHabilitados(null); return }
+      const set = new Set<string>()
+      for (const row of ps as any[]) {
+        const s = Array.isArray(row.servico) ? row.servico[0] : row.servico
+        if (s?.tipo === 'modulo' && s.ativo) (s.recursos ?? []).forEach((r: string) => set.add(r))
+      }
+      if (!cancel) setRecursosHabilitados(set)
+    })()
+    return () => { cancel = true }
+  }, [empresaAtiva?.id])
 
   useEffect(() => {
     const supabase = createClient()
@@ -288,6 +317,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     <SessionContext.Provider value={{
       ambiente, empresaAtiva, unidadeAtiva, unidades, empresas,
       precisaEscolherEmpresa, modoEmpresa, grupoLabel, subgrupoLabel,
+      recursosHabilitados,
       setAmbiente, setEmpresaAtiva, setUnidadeAtiva,
     }}>
       {children}
