@@ -50,13 +50,17 @@ export function ConsultaInteligenteModal({
     let arquivo_url = urlAtual
 
     if (arquivo) {
-      const ext = arquivo.name.split('.').pop()
+      const ext = (arquivo.name.split('.').pop() || 'pdf').toLowerCase()
       const path = `documentos/${documentoId}/${Date.now()}.${ext}`
       const { error: upErr } = await supabase.storage
-        .from('empresas').upload(path, arquivo, { upsert: true })
+        .from('empresas').upload(path, arquivo, {
+          upsert: true,
+          contentType: arquivo.type || 'application/pdf',
+        })
 
       if (upErr) {
-        setErro('Erro ao enviar arquivo.')
+        console.error('[consulta-inteligente] falha no upload:', upErr)
+        setErro(`Erro ao enviar arquivo: ${upErr.message || 'tente novamente.'}`)
         setSalvando(false)
         return
       }
