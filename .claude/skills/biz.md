@@ -161,7 +161,21 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - **Cotas** (execuções/armazenamento/tokens) já enforçadas por `billing_*`; IA por quota de tokens.
 - **Comparação** (fim do trial, `/gestao/plano`): **matriz serviços × planos** (✓/—) + linhas de limites, pra comparar antes de assinar.
 - **Catálogo**: CRUD em **`/sistema/servicos`** (nome, descrição, tipo, recursos, flag, ordem, ativo). O editor de plano assinala quais serviços o plano inclui.
-- **RLS por plano (fase 2, iniciada 2026-07-09)**: função `empresa_libera_recurso(empresa_id, recurso)` (SECURITY DEFINER, espelha a regra opt-in). **Piloto**: escrita de **Dashboards** já exige que o plano libere `dashboards` (migration `20260709060000`). Rolar para os demais módulos é incremental (por tabela). Gating de UI **não** é barreira de tenant (RLS por unidade/empresa continua). Ver `/security`, `/db`.
+- **RLS por plano (fase 2, iniciada 2026-07-09)**: função `empresa_libera_recurso(empresa_id, recurso)` (SECURITY DEFINER, espelha a regra opt-in **incluindo os serviços `padrao`** — migration `20260709080000`). Gating de UI **não** é barreira de tenant (RLS por unidade/empresa continua). Ver `/security`, `/db`.
+  - **⚠️ Regra de rollout (por que gatear TODAS as write policies)**: RLS permissiva combina por **OR** → gatear um módulo exige o gate em toda write policy da tabela, **inclusive a `*_admin_empresa`** (senão o admin da empresa fura). Padrão: `is_admin_sistema() OR (empresa_libera_recurso(...) AND <regra atual>)`; admin_empresa vira `is_admin_empresa_unidade(...) AND empresa_libera_recurso(...)`.
+  - **Módulos com gate aplicado**: Dashboards (`...060000`), Documentos (`...090000`), Tarefas (`...100000`), Tickets (`...110000`). Faltam: agendamentos, planos de ação, padrões, turnos.
+
+### Comportamento de contratação / upgrade / downgrade por módulo (fonte única)
+- **Princípio geral (opt-in)**: empresa **sem plano** OU com **plano sem nenhum serviço** configurado = **SEM restrição** (nada muda). O gating só "liga" quando o plano tem serviços marcados. Isso protege as empresas atuais.
+- **Serviços `padrao`** (checklists, estrutura/grupos-áreas, catálogos): **sempre disponíveis**, em qualquer plano ou downgrade. Nunca bloqueados por contratação. Gatear esses recursos é inócuo (a função retorna `true`).
+- **Contratar / Upgrade** (plano passa a incluir o módulo): recurso liberado imediatamente na próxima leitura de sessão — aparece no menu, no construtor de perfil, e a **escrita** deixa de ser barrada pela RLS. Sem migração de dados.
+- **Downgrade** (plano deixa de incluir o módulo): a regra é **preservar dado, barrar autoria nova** — nunca destrutivo, nunca estrangula operação viva:
+  - **Leitura**: sempre preservada (dados já criados continuam visíveis; downgrade não esconde/apaga).
+  - **Documentos**: bloqueia **criar/editar** documento/etapa/imagem (autoria). Delete continua livre (limpeza).
+  - **Tarefas**: bloqueia **criar/editar lista** e suas filhas (autoria). **Não** bloqueia o operador **executar/responder** lista já publicada, nem **excluir** lista.
+  - **Tickets** (operacional): bloqueia **abrir ticket novo** (policy restrictive de insert, cobre operador + admin_empresa) e a **config** (categorias/SLA). **Não** bloqueia **tratar/concluir/comentar/anexar evidência** em tickets já abertos (senão tickets em aberto ficariam presos).
+  - **admin de SISTEMA** (plataforma) ignora todo gate; **admin da EMPRESA** é limitado ao plano.
+- **Cotas vs. entitlements**: cotas (execuções/armazenamento/tokens) seguem em `billing_*` — independentes do gate de módulo. Um módulo liberado ainda respeita a cota.
 
 ## Dashboards (painéis públicos de TV) — IMPLEMENTADO 2026-07-09 (migration `20260709030000_dashboards.sql`)
 - **Objetivo**: monitorar em tempo quase real (TV/tela) o **histórico de uma atividade** de checklist. Caso de uso: acompanhar pontos de produção de etapas anteriores e agir preventivamente em desvios.
