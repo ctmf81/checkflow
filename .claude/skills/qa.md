@@ -9,7 +9,7 @@ description: Quality Assurance for CheckFlow — test strategy, suites por tela/
 
 | Camada | Ferramenta | Status |
 |--------|-----------|--------|
-| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **385 testes / 26 arquivos** (2026-07-08, `npx vitest run`) |
+| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **400 testes / 27 arquivos** (2026-07-09, `npx vitest run`) |
 | Smoke Tests | Manual UI/navegação | ✅ 9/10 PASSED (2026-06-24) — checklist exec, auth, perms, billing, tickets |
 | Risk Assessment | Custom scripts | ✅ 6/8 PASSED (2026-06-24) — routes auth, WhatsApp OTP, data calc, mascara |
 | Quota Enforcement | Node.js + Supabase | ✅ 6/6 PASSED (2026-06-24) — billing enforcement, assinatura, reset |
@@ -148,6 +148,9 @@ Rodando a suíte completa (`npx vitest run`), 2 testes que já existiam (escrito
 
 ### ✅ Unit — Engine de checklist — `tests/unit/lib/checklistEngine.unit.test.ts` (13 testes)
 Criado `lib/checklistEngine.ts`: espelho TS de 3 closures de `operacao/[id]/page.tsx` (`calcularProgresso`, `listarAtividadesVisiveis`, cálculo de `resultado` em `finalizar()`) extraídas como funções puras. Cobre: visibilidade de dependentes por gatilho (resposta string e array/múltipla-escolha, cadeias aninhadas), contagem de progresso só de visíveis, resultado global aprovado/reprovado (qualquer não-conforme reprova; indeterminados não reprovam; ocultos não entram na conta). **Mantenha em sincronia com o componente** — aviso no topo do arquivo.
+
+### ✅ Unit — Painéis de Dashboard — `tests/unit/lib/painelDados.unit.test.ts` (15 testes, 2026-07-09)
+Lógica pura extraída da rota `/api/painel/[token]` para `lib/painelDados.ts` (fonte única, importada pela rota). Cobre: `num` (número/string/objeto-padrão/nulos/não-numérico), `tendencia` (não-conformidade 1ª vs 2ª metade: alta/queda/estável + limiar 5pp + metade vazia), `opcoesSimNao` (conformidade pelo `esperado`), `montarLinha` (série filtra não-numéricos; ref do config p/ número e da resposta mais recente p/ padrão), `montarBarras` (contagem por opção, não-conformes por `e_valido`, ignora nulo/objeto/array).
 
 ### ✅ Unit — Templates de Notificação — `tests/unit/lib/notificacaoTemplates.unit.test.ts` (23 testes)
 Espelho de `renderizar()` de `apps/api/src/lib/notificacao-templates.ts`. Cobre: substituição simples/múltipla/repetida, variável ausente/null/undefined → string vazia (nunca expõe `{{chave}}`), padrão `{{linha_X}}` (aparece/some), templates reais completos (ticket_aberto, ticket_movimentado, **plano_devolvido_n1**, **tarefa_publicada**, reset_senha), caracteres especiais no valor (`$`, `\`). **Mantenha em sincronia** com a função original se a regex mudar. ⚠️ **2026-07-08**: +2 testes dos novos tipos `plano_devolvido_n1` (N2→N1, wa) e `tarefa_publicada` (só wa).

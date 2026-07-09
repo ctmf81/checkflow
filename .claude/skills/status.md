@@ -34,6 +34,11 @@ Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste ·
 12. Plano ❌ (analisada, NÃO corrigida — ver pendências)  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ✅ · Formatação ✅ · Causa raiz ✅ (feature completa) · Notificações ✅ · Relatórios ❌ · Dashboards ❌
 + Ambiente **Sistema** (admin plataforma: empresas, planos/preços, templates, parceiros, integrações IA, onboarding) — revisar ao final/à parte.
 
+## 🗓️ SESSÃO 2026-07-09 (parte 2) — ajustes + evidência no email + testes
+- **Dashboards**: refresh mínimo 60s (input+clamp+polling), plural "painéis" corrigido, lógica pura extraída p/ `lib/painelDados.ts` + **15 testes** (suíte 400). Fixes de UI mobile (editor + painel público responsivos, swipe manual).
+- **Foto de evidência na abertura** (plano de ação + ticket): a 1ª foto vai na mensagem de **email** também (WhatsApp já ia). `buildEmailHtml` renderiza `<img>` no caminho com template. Ver `/biz`.
+- ⏳ **PENDENTE**: planos (sistema) com **serviços comparáveis** por plano (feature nova, ainda não iniciada — schema `servicos`/`plano_servicos` + UI de comparação p/ trial escolher).
+
 ## 🗓️ SESSÃO 2026-07-09 — MÓDULO DASHBOARDS (painéis públicos de TV)
 - **Novo módulo** (migration `20260709030000` ⏳ aplicar): `dashboards`+`dashboard_paineis`, permissão `dashboards`, RLS. Construtor em **Gestão → Configurações → Dashboards** (lista + editor); painel = histórico de 1 atividade (sim_não/única/número/padrão) via grupo>subgrupo>checklist>atividade (cruza qualquer grupo/subgrupo da unidade).
 - **Link público de TV** `/painel/[token]` (sem login) → `GET /api/painel/[token]` (service-role, escopo token), carrossel + polling. Gráficos SVG: linha (número/padrão, com refs) e barras + tendência de não-conformidade (sim_não/única).

@@ -480,6 +480,7 @@ aberto → em_tratamento (aceite) → aguardando_informacao ↔ em_tratamento
 - Interpolação com `{{variavel}}` — variáveis disponíveis por tipo documentadas na UI
 - Fallback: se template não encontrado no banco → usa mensagem hardcoded na API
 - Gerenciado em `/gestao/configuracoes/notificacoes`
+- **Foto de evidência na abertura (2026-07-09)**: quando um **plano de ação** ou **ticket** é aberto com evidência fotográfica, a **1ª foto** vai **na própria mensagem** — WhatsApp via `enviarWhatsAppMidia` (já existia) e **email** via `buildEmailHtml` (agora inclui `<img>` no caminho com template — antes só o fallback tinha). O destinatário (N1/assignee) já tem contexto antes de abrir o link. Só na abertura (`aberto`); movimentações não reanexam.
 
 ### Regra de destinatários por evento
 | Evento | Destinatários |
