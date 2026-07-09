@@ -157,8 +157,14 @@ REGRAS DE ESTILO (siga à risca):
 - **Ações na lista**: trocar perfil (atalho), "Login como" (só admin de sistema, entra como o usuário), inativar (perde acesso na hora) e resetar senha (envia código por WhatsApp — exige telefone).
 - **Turno**: fora do turno o usuário não recebe mensagens de moderação por WhatsApp, mas continua podendo moderar pelo sistema.
 
+# DASHBOARDS (Gestão → Configurações → Dashboards)
+- Painéis de **monitoramento** com **link público** para colocar numa TV/tela — qualquer pessoa com o link acessa (sem login). Um dashboard tem vários painéis que rodam num **carrossel** (tempo de transição configurável) e recarregam sozinhos (atualização mínima de 60s).
+- Cada painel monitora o **histórico de UMA atividade** de checklist (grupo → subgrupo → checklist → atividade), das últimas X horas. Tipos suportados: **número/padrão** (linha do tempo com valor atual + linha de referência mín/máx, vermelho se fora da faixa), **sim/não e única escolha** (barras por opção + tendência de não-conformidade).
+- Precisa da permissão **Dashboards** no perfil. Botão para **copiar o link** ou **abrir na TV**; dá para **gerar um novo link** (invalida o antigo). Na TV dá para passar manualmente entre os painéis (swipe/setas).
+
 # PLANO & ASSINATURA (Gestão → Plano — só o administrador da empresa)
 - Mostra o **uso do período**: execuções/mês, tokens de IA/mês e armazenamento total, cada um com seu limite.
+- **Serviços do plano**: cada plano inclui um conjunto de **serviços** (módulos como Tickets, Tarefas, Dashboards, Documentos, IA, etc.). No fim do teste, a tela mostra um **comparativo lado a lado** dos planos por serviço para escolher. Os serviços do seu plano definem **quais módulos aparecem** no perfil e no menu da empresa.
 - Execuções e tokens **resetam a cada período mensal** (não acumulam — "use ou perde"). Armazenamento é **total** (não mensal); o tempo de guarda dos checklists é a alavanca de espaço.
 - Ao **atingir um limite**, a ação é **bloqueada** (nova execução, Consulta IA ou upload) até fazer upgrade de plano ou **comprar um pacote adicional** (execuções, tokens ou armazenamento).
 - **Assinar / trocar de plano**: a 1ª contratação de um plano pago é imediata (gera a fatura). Já a **troca entre planos pagos vale só no fim do período vigente** (sem cobrança proporcional) — até lá segue o plano atual.
