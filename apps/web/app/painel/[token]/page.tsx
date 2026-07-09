@@ -116,8 +116,8 @@ function Painel({ p }: { p: PainelData }) {
   return (
     <div className="h-full flex flex-col">
       <div className="mb-2">
-        <p className="text-3xl font-bold">{p.titulo}</p>
-        <p className="text-sm text-gray-500">Últimas {p.janela_horas}h</p>
+        <p className="text-xl sm:text-3xl font-bold leading-tight">{p.titulo}</p>
+        <p className="text-xs sm:text-sm text-gray-500">Últimas {p.janela_horas}h</p>
       </div>
       <div className="flex-1 min-h-0">
         {p.grafico === 'linha' ? <GraficoLinha p={p} /> : <GraficoBarras p={p} />}
@@ -146,8 +146,8 @@ function GraficoLinha({ p }: { p: PainelData }) {
   const ultimoFora = fora(ultimo.v)
 
   return (
-    <div className="h-full flex gap-6">
-      <div className="flex-1 min-w-0">
+    <div className="h-full flex flex-col sm:flex-row gap-3 sm:gap-6">
+      <div className="flex-1 min-w-0 min-h-0">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
           {/* linhas de referência */}
           {p.ref?.max != null && <RefLine y={y(p.ref.max)} W={W} padX={padX} label={`máx ${p.ref.max}`} />}
@@ -161,10 +161,10 @@ function GraficoLinha({ p }: { p: PainelData }) {
         </svg>
       </div>
       {/* valor atual */}
-      <div className="w-56 flex flex-col justify-center items-center border-l border-gray-800 pl-6">
-        <p className="text-sm text-gray-500">Valor atual</p>
-        <p className={`text-6xl font-bold ${ultimoFora ? 'text-red-500' : 'text-orange-400'}`}>
-          {ultimo.v}<span className="text-2xl text-gray-500 ml-1">{p.unidade}</span>
+      <div className="w-full sm:w-56 flex-shrink-0 flex flex-col justify-center items-center border-t sm:border-t-0 sm:border-l border-gray-800 pt-2 sm:pt-0 sm:pl-6">
+        <p className="text-xs sm:text-sm text-gray-500">Valor atual</p>
+        <p className={`text-4xl sm:text-6xl font-bold leading-tight ${ultimoFora ? 'text-red-500' : 'text-orange-400'}`}>
+          {ultimo.v}<span className="text-lg sm:text-2xl text-gray-500 ml-1">{p.unidade}</span>
         </p>
         {(p.ref?.min != null || p.ref?.max != null) && (
           <p className="text-sm text-gray-500 mt-2">
@@ -201,27 +201,27 @@ function GraficoBarras({ p }: { p: PainelData }) {
   }[trend]
 
   return (
-    <div className="h-full flex gap-6">
-      <div className="flex-1 min-w-0 flex items-end justify-around gap-4 pb-10 pt-4">
+    <div className="h-full flex flex-col sm:flex-row gap-3 sm:gap-6">
+      <div className="flex-1 min-h-0 flex items-end justify-around gap-3 sm:gap-4 pb-8 sm:pb-10 pt-4">
         {barras.map(b => (
-          <div key={b.label} className="flex-1 flex flex-col items-center justify-end h-full">
-            <p className="text-3xl font-bold mb-1">{b.count}</p>
+          <div key={b.label} className="flex-1 flex flex-col items-center justify-end h-full min-w-0">
+            <p className="text-2xl sm:text-3xl font-bold mb-1">{b.count}</p>
             <div className="w-full rounded-t-lg transition-all"
               style={{ height: `${(b.count / max) * 100}%`, minHeight: b.count > 0 ? 8 : 0,
                 backgroundColor: b.conforme ? '#22c55e' : '#ef4444' }} />
-            <p className="text-lg text-gray-300 mt-2 text-center truncate w-full">{b.label}</p>
+            <p className="text-sm sm:text-lg text-gray-300 mt-2 text-center truncate w-full">{b.label}</p>
           </div>
         ))}
       </div>
-      <div className="w-56 flex flex-col justify-center items-center border-l border-gray-800 pl-6">
-        <p className="text-sm text-gray-500">Tendência</p>
-        <p className={`text-2xl font-bold mt-1 ${trendMap.cor}`}>{trendMap.seta}</p>
-        <p className={`text-sm font-medium text-center mt-1 ${trendMap.cor}`}>{trendMap.txt}</p>
-        <div className="mt-6 text-center">
-          <p className="text-5xl font-bold text-red-500">{p.naoConformes ?? 0}</p>
-          <p className="text-sm text-gray-500">não conformes</p>
+      <div className="w-full sm:w-56 flex-shrink-0 flex sm:flex-col items-center justify-center gap-4 sm:gap-0 border-t sm:border-t-0 sm:border-l border-gray-800 pt-3 sm:pt-0 sm:pl-6">
+        <div className="text-center">
+          <p className={`text-xl sm:text-2xl font-bold ${trendMap.cor}`}>{trendMap.seta}</p>
+          <p className={`text-xs sm:text-sm font-medium ${trendMap.cor}`}>{trendMap.txt}</p>
         </div>
-        <p className="text-xs text-gray-600 mt-4">{total} registros</p>
+        <div className="text-center sm:mt-6">
+          <p className="text-4xl sm:text-5xl font-bold text-red-500">{p.naoConformes ?? 0}</p>
+          <p className="text-xs sm:text-sm text-gray-500">não conformes</p>
+        </div>
       </div>
     </div>
   )
