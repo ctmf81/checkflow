@@ -92,11 +92,15 @@ export function NovoDocumentoModal({ onClose, onCriado }: Props) {
           {/* Setor */}
           <div>
             <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1">
-              {grupoLabel} principal <Info size={13} className="text-gray-400" />
+              {grupoLabel} principal
+              <span className="text-gray-400 cursor-help"
+                title={`Opcional. Sem ${grupoLabel.toLowerCase()}, o documento fica disponível para todos da unidade.`}>
+                <Info size={13} />
+              </span>
             </label>
             <select value={grupoId} onChange={e => setGrupoId(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
-              <option value="">Escolha aqui</option>
+              <option value="">Todos da unidade</option>
               {grupos.map(g => <option key={g.id} value={g.id}>{g.display_name || g.nome}</option>)}
             </select>
           </div>
@@ -105,11 +109,15 @@ export function NovoDocumentoModal({ onClose, onCriado }: Props) {
           {grupoId && (
             <div>
               <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1">
-                {subgrupoLabel} principal <Info size={13} className="text-gray-400" />
+                {subgrupoLabel} principal
+                <span className="text-gray-400 cursor-help"
+                  title={`Opcional. Sem ${subgrupoLabel.toLowerCase()}, o documento fica disponível para todos do ${grupoLabel.toLowerCase()} escolhido.`}>
+                  <Info size={13} />
+                </span>
               </label>
               <select value={subgrupoId} onChange={e => setSubgrupoId(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
-                <option value="">Escolha aqui</option>
+                <option value="">Todos do {grupoLabel.toLowerCase()}</option>
                 {subgrupos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
               </select>
             </div>
