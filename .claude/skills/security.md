@@ -134,6 +134,9 @@ Cobre: headers de segurança (HSTS/X-Frame-Options/nosniff), CORS, cookies de se
 ### OTP — visibilidade de falha de envio (2026-06-27)
 `enviarCodigoUsuario` (lib/passwordReset.ts) agora **retorna `{enviado, erro}`** (antes `.catch` silencioso → UI dizia "enviado" falso). `/api/usuarios/criar` propaga `codigoEnviado`/`envioErro`; a moderação avisa quando o código NÃO saiu. E-mail é **fallback paralelo** (enviado = whatsapp.ok OU email.ok). Healthcheck do WhatsApp em `/ops`.
 
+### Dashboards públicos — leitura por token (2026-07-09)
+`/painel/[token]` é **público (sem login)** e `/api/painel/[token]` usa **service-role** (o público não tem sessão). A barreira é o **token não-adivinhável** (`gen_random_bytes(16)` hex) + a rota **só devolve os painéis daquele dashboard** (nunca outros dados/tenants). Token **revogável** (regenerar no editor invalida o antigo). Exceção consciente ao padrão "toda rota service-role autentica o chamador": aqui o token É a credencial. Escrita (criar/editar dashboards) segue autenticada por RLS (`usuario_tem_permissao('dashboards','criar')` + unidade).
+
 ⚠️ **Padrão para Route Handlers Next.js (`apps/web/app/api`) que usam service-role**: SEMPRE autenticar o chamador com `autorizarPermissao(req, recurso, acao)` de `lib/apiAuth.ts` no topo. **Rotas Fastify "internas"** (apps/api): proteger com `exigirAutorizacao(req, reply)` de `apps/api/src/lib/apiAuth.ts`. Service-role bypassa RLS — sem essa checagem a rota fica aberta. Exceções: rotas de auth pré-login (`solicitar/verificar-codigo`, `definir-senha`) que têm seu próprio anti-abuso.
 
 ## RPCs Sensíveis (Security Definer)

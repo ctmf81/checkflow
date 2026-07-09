@@ -34,6 +34,12 @@ Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste ·
 12. Plano ❌ (analisada, NÃO corrigida — ver pendências)  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ✅ · Formatação ✅ · Causa raiz ✅ (feature completa) · Notificações ✅ · Relatórios ❌ · Dashboards ❌
 + Ambiente **Sistema** (admin plataforma: empresas, planos/preços, templates, parceiros, integrações IA, onboarding) — revisar ao final/à parte.
 
+## 🗓️ SESSÃO 2026-07-09 — MÓDULO DASHBOARDS (painéis públicos de TV)
+- **Novo módulo** (migration `20260709030000` ⏳ aplicar): `dashboards`+`dashboard_paineis`, permissão `dashboards`, RLS. Construtor em **Gestão → Configurações → Dashboards** (lista + editor); painel = histórico de 1 atividade (sim_não/única/número/padrão) via grupo>subgrupo>checklist>atividade (cruza qualquer grupo/subgrupo da unidade).
+- **Link público de TV** `/painel/[token]` (sem login) → `GET /api/painel/[token]` (service-role, escopo token), carrossel + polling. Gráficos SVG: linha (número/padrão, com refs) e barras + tendência de não-conformidade (sim_não/única).
+- ⚠️ `conforme` não é gravado → conformidade recalculada na rota. Ver `/biz`, `/db`, `/security`.
+- ⏳ **PENDENTE do usuário**: aplicar a migration + testar (criar dashboard, painel, abrir link).
+
 ## 🗓️ SESSÃO 2026-07-08 (parte 4) — refino do ciclo de vida das Tarefas
 - **Liberação obrigatória** (montador) pré-preenchida com agora (nunca null).
 - **Gestão**: status "Finalizada" → exibido como **"Concluída"** (encerra por data/quantidade).
