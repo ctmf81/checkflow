@@ -79,7 +79,7 @@ const nav: NavItem[] = [
       { label: 'Formatação',    href: '/gestao/configuracoes/formatacao',   admin: true },
       { label: 'Notificações',  href: '/gestao/configuracoes/notificacoes', admin: true },
       { label: 'Relatórios',    href: '/gestao/configuracoes/relatorios',   admin: true },
-      { label: 'Dashboards',    href: '/gestao/configuracoes/dashboards',   admin: true },
+      { label: 'Dashboards',    href: '/gestao/configuracoes/dashboards',   perm: 'dashboards' },
     ],
   },
 ]
