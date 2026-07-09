@@ -52,9 +52,10 @@ export function ConsultaInteligenteModal({
     if (arquivo) {
       const ext = (arquivo.name.split('.').pop() || 'pdf').toLowerCase()
       const path = `documentos/${documentoId}/${Date.now()}.${ext}`
+      // Caminho único por timestamp → não precisa de upsert (que exigiria policy
+      // de UPDATE no bucket). INSERT puro basta.
       const { error: upErr } = await supabase.storage
         .from('empresas').upload(path, arquivo, {
-          upsert: true,
           contentType: arquivo.type || 'application/pdf',
         })
 
