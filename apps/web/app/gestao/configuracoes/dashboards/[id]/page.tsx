@@ -163,8 +163,8 @@ export default function EditorDashboardPage({ params }: { params: Promise<{ id: 
           <h1 className="text-xl font-semibold text-gray-800">Editar dashboard</h1>
         </div>
         <div className="flex gap-2">
-          <a href={linkPublico} target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="sm"><Tv size={14} />Abrir TV</Button>
+          <a href={linkPublico} target="_blank" rel="noopener noreferrer" title="Abrir na TV">
+            <Button variant="outline" size="sm"><Tv size={14} /><span className="hidden sm:inline">Abrir TV</span></Button>
           </a>
           <Button size="sm" onClick={salvarDados} disabled={salvando}>
             {salvando ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}Salvar
@@ -194,14 +194,16 @@ export default function EditorDashboardPage({ params }: { params: Promise<{ id: 
         {/* Link público */}
         <div className="border-t border-gray-100 pt-3">
           <label className="block text-xs font-medium text-gray-600 mb-1">Link público (TV) — qualquer pessoa com o link acessa</label>
-          <div className="flex items-center gap-2">
-            <input readOnly value={linkPublico} className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-50 text-gray-500" />
-            <button onClick={copiar} className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
-              {copiado ? <><Check size={13} className="text-green-500" />Copiado</> : <><Link2 size={13} />Copiar</>}
-            </button>
-            <button onClick={regenerarToken} title="Gerar novo link (invalida o atual)" className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">
-              <RefreshCw size={13} />
-            </button>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <input readOnly value={linkPublico} className="flex-1 min-w-0 px-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-50 text-gray-500" />
+            <div className="flex gap-2">
+              <button onClick={copiar} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 text-xs font-medium px-2.5 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+                {copiado ? <><Check size={13} className="text-green-500" />Copiado</> : <><Link2 size={13} />Copiar</>}
+              </button>
+              <button onClick={regenerarToken} title="Gerar novo link (invalida o atual)" className="flex-shrink-0 p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">
+                <RefreshCw size={13} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
