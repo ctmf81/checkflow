@@ -153,6 +153,14 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - **Quem gerencia** (revisado 2026-06-20): quem tem a **permissão `documentos`** (criar/excluir) + admin de sistema/empresa. RLS de escrita por permissão em `documentos`/`documento_etapas`/`etapa_imagens` + **storage** das imagens (bucket `empresas`, prefixo `etapas/`) — migration `20260620160000`. Antes era só `is_admin_sistema` (gestor tomava erro).
 - **Vídeo da etapa**: link do **YouTube OU Google Drive público** (helper `lib/videoEmbed.ts` resolve a URL de embed; Drive → `/preview`; aceita ID legado de 11 chars do YT). Sem upload de vídeo — só link.
 
+## Serviços / Entitlements por plano — IMPLEMENTADO v1 2026-07-09 (migration `20260709050000_servicos.sql`)
+- **Serviço** = **módulo** (mapeia a 1+ `recursos` de permissão) ou **característica** (ex.: IA, flag). Tabelas `servicos` (chave, nome, descricao, tipo, `recursos text[]`, flag, ordem, ativo) + `plano_servicos` (plano_id × servico_id). Catálogo semeado (checklists, estrutura, tarefas, tickets, dashboards, documentos, catálogos, padrões, turnos, agendamentos, planos_acao + IA).
+- **Cada plano marca quais serviços inclui** (multiselect no editor `/sistema/planos`). A empresa **herda do plano ativo** (via `empresa_assinaturas.plano_id` → `plano_servicos` → recursos).
+- **Gating v1 (UI)**: `SessionContext.recursosHabilitados` (Set | **null = sem restrição**; regra opt-in: sem plano OU plano sem serviços = null). **Construtor de perfil** (`PerfilModal`) só mostra recursos liberados + core (`home/usuarios/perfis`). **Menu** (`Sidebar`) esconde módulos fora do plano — **admin de sistema ignora** (plataforma); **admin da empresa é limitado ao plano**.
+- **Cotas** (execuções/armazenamento/tokens) já enforçadas por `billing_*`; IA por quota de tokens.
+- **Comparação** (fim do trial, `/gestao/plano`): **matriz serviços × planos** (✓/—) + linhas de limites, pra comparar antes de assinar.
+- ⚠️ **Fase 2 (pendente)**: enforcement forte no banco (RLS por plano) + página `/sistema/servicos` p/ CRUD do catálogo (hoje o catálogo vem do seed; editar via editor de plano só assinala). Gating de UI **não** é barreira de tenant (RLS por unidade/empresa continua). Ver `/security`.
+
 ## Dashboards (painéis públicos de TV) — IMPLEMENTADO 2026-07-09 (migration `20260709030000_dashboards.sql`)
 - **Objetivo**: monitorar em tempo quase real (TV/tela) o **histórico de uma atividade** de checklist. Caso de uso: acompanhar pontos de produção de etapas anteriores e agir preventivamente em desvios.
 - **Estrutura**: `dashboards` (nome, `token` único, `transicao_segundos` = rotação entre painéis, `refresh_segundos` = polling dos dados) + `dashboard_paineis` (ordem, `atividade_id`, `janela_horas`, título opcional). Gerenciado em **Gestão → Configurações → Dashboards** (lista + editor `[id]`).

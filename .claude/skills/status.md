@@ -34,6 +34,12 @@ Revisar na ordem do Sidebar. ✅=feita · 🟡=ajustes feitos, pendente teste ·
 12. Plano ❌ (analisada, NÃO corrigida — ver pendências)  13. Config→Catálogos ✅ · Documentos ✅ · Não execução ✅ · Formatação ✅ · Causa raiz ✅ (feature completa) · Notificações ✅ · Relatórios ❌ · Dashboards ❌
 + Ambiente **Sistema** (admin plataforma: empresas, planos/preços, templates, parceiros, integrações IA, onboarding) — revisar ao final/à parte.
 
+## 🗓️ SESSÃO 2026-07-09 (parte 3) — SERVIÇOS / ENTITLEMENTS POR PLANO (v1)
+- **Módulo novo** (migration `20260709050000` ⏳ aplicar): `servicos` + `plano_servicos`. Serviço = módulo (→ recursos de permissão) ou característica (IA). Plano marca serviços incluídos (multiselect em `/sistema/planos`).
+- **Gating v1 (UI)**: `SessionContext.recursosHabilitados` (null = sem restrição). Construtor de perfil + menu escondem módulos fora do plano (admin de sistema ignora; admin da empresa limitado ao plano).
+- **Comparação** `/gestao/plano`: matriz serviços × planos + limites.
+- ⏳ **Fase 2**: RLS por plano + página `/sistema/servicos` (CRUD do catálogo). Ver `/biz`, `/db`.
+
 ## 🗓️ SESSÃO 2026-07-09 (parte 2) — ajustes + evidência no email + testes
 - **Dashboards**: refresh mínimo 60s (input+clamp+polling), plural "painéis" corrigido, lógica pura extraída p/ `lib/painelDados.ts` + **15 testes** (suíte 400). Fixes de UI mobile (editor + painel público responsivos, swipe manual).
 - **Foto de evidência na abertura** (plano de ação + ticket): a 1ª foto vai na mensagem de **email** também (WhatsApp já ia). `buildEmailHtml` renderiza `<img>` no caminho com template. Ver `/biz`.
