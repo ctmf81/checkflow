@@ -103,7 +103,7 @@ export default function EditorDashboardPage({ params }: { params: Promise<{ id: 
     const { error } = await createClient().from('dashboards').update({
       nome: nome.trim() || 'Novo dashboard',
       transicao_segundos: Math.max(3, Number(transicao) || 15),
-      refresh_segundos: Math.max(10, Number(refresh) || 60),
+      refresh_segundos: Math.max(60, Number(refresh) || 60),
       atualizado_em: new Date().toISOString(),
     }).eq('id', id)
     setSalvando(false)
@@ -186,8 +186,8 @@ export default function EditorDashboardPage({ params }: { params: Promise<{ id: 
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Atualizar dados a cada (seg)</label>
-            <input type="number" min={10} value={refresh} onChange={e => setRefresh(e.target.value)}
+            <label className="block text-xs font-medium text-gray-600 mb-1">Atualizar dados a cada (seg) <span className="text-gray-400">— mín 60</span></label>
+            <input type="number" min={60} value={refresh} onChange={e => setRefresh(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
           </div>
         </div>

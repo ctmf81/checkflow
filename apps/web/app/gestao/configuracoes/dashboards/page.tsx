@@ -112,7 +112,7 @@ export default function DashboardsPage() {
                 <Link href={`/gestao/configuracoes/dashboards/${d.id}`} className="font-medium text-sm text-gray-800 hover:text-orange-500 transition-colors">
                   {d.nome}
                 </Link>
-                <p className="text-xs text-gray-400 mt-0.5">{d.total_paineis} painel{d.total_paineis !== 1 ? 'is' : ''}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{d.total_paineis} {d.total_paineis === 1 ? 'painel' : 'painéis'}</p>
               </div>
               <button onClick={() => copiarLink(d)} title="Copiar link público"
                 className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">

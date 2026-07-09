@@ -47,7 +47,7 @@ export default function PainelPublicoPage({ params }: { params: Promise<{ token:
   useEffect(() => {
     carregar()
     const seg = data?.dashboard.refresh_segundos ?? 60
-    const t = setInterval(carregar, Math.max(10, seg) * 1000)
+    const t = setInterval(carregar, Math.max(60, seg) * 1000)
     return () => clearInterval(t)
   }, [carregar, data?.dashboard.refresh_segundos])
 
