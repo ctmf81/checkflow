@@ -65,6 +65,8 @@ export default function PlanoPage() {
   const [assinaturaAtual, setAssinaturaAtual] = useState<{ plano_id: string | null; status: string } | null>(null)
   const [planos, setPlanos] = useState<Plano[]>([])
   const [pacotes, setPacotes] = useState<Pacote[]>([])
+  const [servicos, setServicos] = useState<{ id: string; nome: string; descricao: string | null }[]>([])
+  const [planoServicos, setPlanoServicos] = useState<Map<string, Set<string>>>(new Map())
   const [cobrancas, setCobrancas] = useState<Cobranca[]>([])
   const [billingType, setBillingType] = useState<BillingType>('PIX')
   const [acaoEmProgresso, setAcaoEmProgresso] = useState<string | null>(null)
@@ -105,6 +107,22 @@ export default function PlanoPage() {
     setAssinaturaAtual((assin as any) ?? null)
     setPlanos((ps ?? []) as Plano[])
     setPacotes((pks ?? []) as Pacote[])
+
+    // Comparação de serviços por plano
+    const planoIds = (ps ?? []).map((p: any) => p.id)
+    if (planoIds.length) {
+      const [{ data: svc }, { data: psv }] = await Promise.all([
+        sb.from('servicos').select('id, nome, descricao').eq('ativo', true).order('ordem'),
+        sb.from('plano_servicos').select('plano_id, servico_id').in('plano_id', planoIds),
+      ])
+      setServicos(svc ?? [])
+      const m = new Map<string, Set<string>>()
+      for (const r of (psv ?? []) as any[]) {
+        if (!m.has(r.plano_id)) m.set(r.plano_id, new Set())
+        m.get(r.plano_id)!.add(r.servico_id)
+      }
+      setPlanoServicos(m)
+    }
     setCobrancas((cbs ?? []) as Cobranca[])
     setLoading(false)
   }
@@ -285,6 +303,52 @@ export default function PlanoPage() {
               </div>
             ))}
           </div>
+
+          {/* Comparativo de serviços lado a lado */}
+          {servicos.length > 0 && (
+            <div className="mt-6 overflow-x-auto">
+              <p className="text-sm font-semibold text-gray-700 mb-2">Comparativo de serviços</p>
+              <table className="w-full text-sm border border-gray-200 rounded-xl overflow-hidden bg-white">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="text-left px-3 py-2 font-medium text-gray-500 min-w-[180px]">Serviço</th>
+                    {planos.map(p => (
+                      <th key={p.id} className="px-3 py-2 text-center font-semibold text-gray-800 whitespace-nowrap">
+                        {p.nome}<div className="text-xs font-normal text-gray-400">{moeda(p.valor)}</div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {servicos.map(s => (
+                    <tr key={s.id} className="border-t border-gray-100">
+                      <td className="px-3 py-2 text-gray-700">
+                        <span className="font-medium">{s.nome}</span>
+                        {s.descricao && <span className="block text-xs text-gray-400">{s.descricao}</span>}
+                      </td>
+                      {planos.map(p => (
+                        <td key={p.id} className="px-3 py-2 text-center">
+                          {planoServicos.get(p.id)?.has(s.id)
+                            ? <Check className="inline text-green-500" size={16} />
+                            : <span className="text-gray-300">—</span>}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                  {[
+                    { label: 'Execuções/mês', val: (p: Plano) => p.limite_execucoes_mes == null ? '∞' : p.limite_execucoes_mes.toLocaleString('pt-BR') },
+                    { label: 'Armazenamento', val: (p: Plano) => p.limite_armazenamento_bytes == null ? '∞' : `${+(p.limite_armazenamento_bytes / GB).toFixed(0)} GB` },
+                    { label: 'Tokens IA/mês', val: (p: Plano) => p.limite_tokens_ia_mes == null ? '∞' : p.limite_tokens_ia_mes.toLocaleString('pt-BR') },
+                  ].map(row => (
+                    <tr key={row.label} className="border-t border-gray-100 bg-gray-50/60">
+                      <td className="px-3 py-2 font-medium text-gray-700">{row.label}</td>
+                      {planos.map(p => <td key={p.id} className="px-3 py-2 text-center text-gray-600">{row.val(p)}</td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

@@ -163,6 +163,18 @@ function PlanoModal({ plano, onClose, onSaved }: { plano: Plano | null; onClose:
   const [tokens, setTokens] = useState(plano?.limite_tokens_ia_mes != null ? String(plano.limite_tokens_ia_mes) : '')
   const [ativo, setAtivo] = useState(plano?.ativo ?? true)
   const [ordem, setOrdem] = useState(plano?.ordem != null ? String(plano.ordem) : '0')
+  const [servicos, setServicos] = useState<{ id: string; nome: string; tipo: string; descricao: string | null }[]>([])
+  const [servicosSel, setServicosSel] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    const sb = createClient()
+    sb.from('servicos').select('id, nome, tipo, descricao').eq('ativo', true).order('ordem')
+      .then(({ data }) => setServicos(data ?? []))
+    if (plano) {
+      sb.from('plano_servicos').select('servico_id').eq('plano_id', plano.id)
+        .then(({ data }) => setServicosSel(new Set((data ?? []).map((r: any) => r.servico_id))))
+    }
+  }, [plano])
 
   // null = ilimitado (campo vazio); inteiro >= 0 caso contrário
   function numOuNull(s: string): number | null {
@@ -194,12 +206,18 @@ function PlanoModal({ plano, onClose, onSaved }: { plano: Plano | null; onClose:
     }
 
     const sb = createClient()
-    const { error } = plano
-      ? await sb.from('planos').update(payload).eq('id', plano.id)
-      : await sb.from('planos').insert(payload)
+    const { data: saved, error } = plano
+      ? await sb.from('planos').update(payload).eq('id', plano.id).select('id').single()
+      : await sb.from('planos').insert(payload).select('id').single()
+
+    if (error || !saved) { setSalvando(false); toast.error('Erro ao salvar plano. Tente novamente.'); return }
+
+    // Sincroniza os serviços do plano (delete + insert)
+    await sb.from('plano_servicos').delete().eq('plano_id', saved.id)
+    const ids = Array.from(servicosSel)
+    if (ids.length) await sb.from('plano_servicos').insert(ids.map(sid => ({ plano_id: saved.id, servico_id: sid })))
 
     setSalvando(false)
-    if (error) { toast.error('Erro ao salvar plano. Tente novamente.'); return }
     toast.success(plano ? 'Plano atualizado.' : 'Plano criado.')
     onSaved()
   }
@@ -278,6 +296,27 @@ function PlanoModal({ plano, onClose, onSaved }: { plano: Plano | null; onClose:
                 <input type="number" value={tokens} onChange={e => setTokens(e.target.value)} className={inputCls} placeholder="∞" />
               </div>
             </div>
+          </div>
+
+          <div className="pt-2 border-t border-gray-100">
+            <p className="text-xs font-medium text-gray-500 mb-2">Serviços incluídos <span className="font-normal text-gray-400">(aparecem na comparação e liberam os módulos no perfil/menu)</span></p>
+            {servicos.length === 0 ? (
+              <p className="text-xs text-gray-400">Nenhum serviço cadastrado.</p>
+            ) : (
+              <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                {servicos.map(s => (
+                  <label key={s.id} className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input type="checkbox" checked={servicosSel.has(s.id)}
+                      onChange={e => setServicosSel(prev => { const n = new Set(prev); e.target.checked ? n.add(s.id) : n.delete(s.id); return n })}
+                      className="accent-orange-500 mt-0.5 flex-shrink-0" />
+                    <span className="min-w-0">
+                      <span className="font-medium">{s.nome}</span>
+                      {s.descricao && <span className="text-xs text-gray-400"> — {s.descricao}</span>}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
 
           <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
