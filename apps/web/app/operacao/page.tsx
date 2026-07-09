@@ -692,15 +692,18 @@ function AbaDocumentos({ unidadeId, empresaId }: { unidadeId: string; empresaId?
 
         const { data: docs } = await query
 
-        setDocumentos((docs ?? []).map((d: any) => ({
-          id: d.id,
-          nome: d.nome,
-          descricao: d.descricao,
-          tipo: d.tipo,
-          arquivo_url: d.arquivo_url,
-          subgrupo_nome: (d.subgrupos as any)?.nome ?? null,
-          grupo_nome: (d.grupos as any)?.nome ?? null,
-        })))
+        setDocumentos((docs ?? [])
+          // Consulta Inteligente sem arquivo não fica disponível na Operação
+          .filter((d: any) => !(d.tipo === 'consulta_inteligente' && !d.arquivo_url))
+          .map((d: any) => ({
+            id: d.id,
+            nome: d.nome,
+            descricao: d.descricao,
+            tipo: d.tipo,
+            arquivo_url: d.arquivo_url,
+            subgrupo_nome: (d.subgrupos as any)?.nome ?? null,
+            grupo_nome: (d.grupos as any)?.nome ?? null,
+          })))
       } finally {
         setLoading(false)
       }
@@ -1194,11 +1197,13 @@ export default function OperacaoPage() {
         subgrupos: (l.subgrupos ?? []).map((s: any) => s.subgrupo_id),
       }, agora, meusGrupos, meusSubgrupos, isAdmin))
 
-      // Documentos (visível por subgrupo/grupo/geral; admin vê todos)
+      // Documentos (visível por subgrupo/grupo/geral; admin vê todos).
+      // Consulta Inteligente sem arquivo não conta (não aparece na Operação).
       const { data: docs } = await sb.from('documentos')
-        .select('id, subgrupo_id, grupo_id').eq('unidade_id', unidadeAtiva!.id)
-      const temDoc = (docs ?? []).some((d: any) =>
-        documentoVisivelOperador(d, { isAdmin, meusGrupos, meusSubgrupos }))
+        .select('id, tipo, arquivo_url, subgrupo_id, grupo_id').eq('unidade_id', unidadeAtiva!.id)
+      const temDoc = (docs ?? [])
+        .filter((d: any) => !(d.tipo === 'consulta_inteligente' && !d.arquivo_url))
+        .some((d: any) => documentoVisivelOperador(d, { isAdmin, meusGrupos, meusSubgrupos }))
 
       // Histórico (execuções do próprio usuário nesta unidade)
       const { count } = await sb.from('checklist_execucoes')

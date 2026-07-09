@@ -239,6 +239,12 @@ export default function DocumentosPage() {
                 <p className="font-medium text-sm text-gray-800 truncate">{doc.nome}</p>
                 {doc.descricao && <p className="text-xs text-gray-400 truncate mt-0.5">{doc.descricao}</p>}
               </div>
+              {doc.tipo === 'consulta_inteligente' && !doc.arquivo_url && (
+                <span title="Adicione o arquivo para o documento ficar disponível na Operação"
+                  className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 bg-amber-50 text-amber-700 border border-amber-200">
+                  <AlertCircle size={12} />Falta arquivo
+                </span>
+              )}
               <span className={`text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 ${TIPO_COR[doc.tipo] ?? 'bg-gray-100 text-gray-600'}`}>
                 {TIPO_LABEL[doc.tipo] ?? doc.tipo}
               </span>
