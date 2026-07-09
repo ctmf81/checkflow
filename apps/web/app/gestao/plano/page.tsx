@@ -65,7 +65,7 @@ export default function PlanoPage() {
   const [assinaturaAtual, setAssinaturaAtual] = useState<{ plano_id: string | null; status: string } | null>(null)
   const [planos, setPlanos] = useState<Plano[]>([])
   const [pacotes, setPacotes] = useState<Pacote[]>([])
-  const [servicos, setServicos] = useState<{ id: string; nome: string; descricao: string | null }[]>([])
+  const [servicos, setServicos] = useState<{ id: string; nome: string; descricao: string | null; padrao: boolean }[]>([])
   const [planoServicos, setPlanoServicos] = useState<Map<string, Set<string>>>(new Map())
   const [cobrancas, setCobrancas] = useState<Cobranca[]>([])
   const [billingType, setBillingType] = useState<BillingType>('PIX')
@@ -112,7 +112,7 @@ export default function PlanoPage() {
     const planoIds = (ps ?? []).map((p: any) => p.id)
     if (planoIds.length) {
       const [{ data: svc }, { data: psv }] = await Promise.all([
-        sb.from('servicos').select('id, nome, descricao').eq('ativo', true).order('ordem'),
+        sb.from('servicos').select('id, nome, descricao, padrao').eq('ativo', true).order('ordem'),
         sb.from('plano_servicos').select('plano_id, servico_id').in('plano_id', planoIds),
       ])
       setServicos(svc ?? [])
@@ -324,11 +324,12 @@ export default function PlanoPage() {
                     <tr key={s.id} className="border-t border-gray-100">
                       <td className="px-3 py-2 text-gray-700">
                         <span className="font-medium">{s.nome}</span>
+                        {s.padrao && <span className="ml-1 text-xs text-green-600">(incluído)</span>}
                         {s.descricao && <span className="block text-xs text-gray-400">{s.descricao}</span>}
                       </td>
                       {planos.map(p => (
                         <td key={p.id} className="px-3 py-2 text-center">
-                          {planoServicos.get(p.id)?.has(s.id)
+                          {s.padrao || planoServicos.get(p.id)?.has(s.id)
                             ? <Check className="inline text-green-500" size={16} />
                             : <span className="text-gray-300">—</span>}
                         </td>

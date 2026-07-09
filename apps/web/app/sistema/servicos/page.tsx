@@ -19,6 +19,7 @@ interface Servico {
   flag: string | null
   ordem: number
   ativo: boolean
+  padrao: boolean
 }
 
 // Recursos disponíveis p/ mapear (do construtor de perfil), fora core.
@@ -77,6 +78,7 @@ export default function ServicosPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-medium text-sm text-gray-800">{s.nome}</span>
                   <span className={`text-xs px-1.5 py-0.5 rounded-full ${s.tipo === 'modulo' ? 'bg-blue-50 text-blue-600' : 'bg-violet-50 text-violet-600'}`}>{s.tipo === 'modulo' ? 'Módulo' : 'Característica'}</span>
+                  {s.padrao && <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-50 text-green-600">Padrão</span>}
                   {!s.ativo && <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-50 text-red-600">Inativo</span>}
                 </div>
                 {s.descricao && <p className="text-xs text-gray-400 mt-0.5">{s.descricao}</p>}
@@ -108,6 +110,7 @@ function ServicoModal({ servico, onClose, onSaved }: { servico: Servico | null; 
   const [flag, setFlag] = useState(servico?.flag ?? '')
   const [ordem, setOrdem] = useState(servico?.ordem != null ? String(servico.ordem) : '0')
   const [ativo, setAtivo] = useState(servico?.ativo ?? true)
+  const [padrao, setPadrao] = useState(servico?.padrao ?? false)
 
   async function salvar() {
     if (!nome.trim()) { toast.error('Informe o nome.'); return }
@@ -118,7 +121,7 @@ function ServicoModal({ servico, onClose, onSaved }: { servico: Servico | null; 
       chave: chaveFinal, nome: nome.trim(), descricao: descricao.trim() || null, tipo,
       recursos: tipo === 'modulo' ? Array.from(recursosSel) : [],
       flag: tipo === 'caracteristica' ? (flag.trim() || null) : null,
-      ordem: Number(ordem || 0), ativo,
+      ordem: Number(ordem || 0), ativo, padrao,
     }
     const sb = createClient()
     const { error } = servico
@@ -190,6 +193,12 @@ function ServicoModal({ servico, onClose, onSaved }: { servico: Servico | null; 
             </div>
           )}
 
+          {tipo === 'modulo' && (
+            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <input type="checkbox" checked={padrao} onChange={e => setPadrao(e.target.checked)} className="accent-orange-500" />
+              Padrão (sempre disponível, independe do plano)
+            </label>
+          )}
           <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
             <input type="checkbox" checked={ativo} onChange={e => setAtivo(e.target.checked)} className="accent-orange-500" />
             Serviço ativo

@@ -78,6 +78,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         const s = Array.isArray(row.servico) ? row.servico[0] : row.servico
         if (s?.tipo === 'modulo' && s.ativo) (s.recursos ?? []).forEach((r: string) => set.add(r))
       }
+      // Serviços "padrão" (base) ficam sempre liberados, independem do plano.
+      const { data: padr } = await sb.from('servicos').select('recursos').eq('ativo', true).eq('padrao', true).eq('tipo', 'modulo')
+      for (const s of (padr ?? []) as any[]) (s.recursos ?? []).forEach((r: string) => set.add(r))
       if (!cancel) setRecursosHabilitados(set)
     })()
     return () => { cancel = true }
