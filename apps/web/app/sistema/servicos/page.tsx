@@ -128,7 +128,7 @@ function ServicoModal({ servico, onClose, onSaved }: { servico: Servico | null; 
       ? await sb.from('servicos').update(payload).eq('id', servico.id)
       : await sb.from('servicos').insert(payload)
     setSalvando(false)
-    if (error) { toast.error('Erro ao salvar (chave duplicada?).'); return }
+    if (error) { toast.error(`Erro ao salvar: ${error.message}`); return }
     toast.success(servico ? 'Serviço atualizado.' : 'Serviço criado.')
     onSaved()
   }
