@@ -25,6 +25,14 @@ export default function PainelPublicoPage({ params }: { params: Promise<{ token:
   const [erro, setErro] = useState('')
   const [idx, setIdx] = useState(0)
   const idxRef = useRef(0)
+  const [nonce, setNonce] = useState(0)      // muda ao navegar manualmente → reinicia o timer
+  const touchX = useRef<number | null>(null)
+
+  const irPara = useCallback((i: number, total: number) => {
+    if (total <= 0) return
+    const x = ((i % total) + total) % total
+    idxRef.current = x; setIdx(x); setNonce(v => v + 1)
+  }, [])
 
   const carregar = useCallback(async () => {
     try {
@@ -53,27 +61,49 @@ export default function PainelPublicoPage({ params }: { params: Promise<{ token:
       setIdx(idxRef.current)
     }, Math.max(3, seg) * 1000)
     return () => clearInterval(t)
-  }, [data?.paineis.length, data?.dashboard.transicao_segundos])
+    // `nonce` reinicia o timer após uma navegação manual (não pula logo em seguida)
+  }, [data?.paineis.length, data?.dashboard.transicao_segundos, nonce])
 
   if (erro) return <Tela><p className="text-2xl text-gray-400">{erro}</p></Tela>
   if (!data) return <Tela><p className="text-2xl text-gray-500 animate-pulse">Carregando…</p></Tela>
   if (data.paineis.length === 0) return <Tela><p className="text-2xl text-gray-400">Nenhum painel configurado.</p></Tela>
 
-  const p = data.paineis[Math.min(idx, data.paineis.length - 1)]
+  const total = data.paineis.length
+  const p = data.paineis[Math.min(idx, total - 1)]
 
   return (
-    <div className="fixed inset-0 bg-gray-950 text-white flex flex-col">
-      <div className="flex items-center justify-between px-8 pt-6">
-        <h1 className="text-2xl font-bold text-gray-200">{data.dashboard.nome}</h1>
-        <div className="flex gap-1.5">
-          {data.paineis.map((_, i) => (
-            <span key={i} className={`w-2.5 h-2.5 rounded-full ${i === idx ? 'bg-orange-500' : 'bg-gray-700'}`} />
-          ))}
-        </div>
+    <div className="fixed inset-0 bg-gray-950 text-white flex flex-col select-none"
+      onTouchStart={e => { touchX.current = e.touches[0].clientX }}
+      onTouchEnd={e => {
+        if (touchX.current == null) return
+        const dx = e.changedTouches[0].clientX - touchX.current
+        touchX.current = null
+        if (Math.abs(dx) > 50) irPara(idxRef.current + (dx < 0 ? 1 : -1), total)
+      }}>
+      <div className="flex items-center justify-between px-6 sm:px-8 pt-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-200 truncate">{data.dashboard.nome}</h1>
+        {total > 1 && (
+          <div className="flex gap-2">
+            {data.paineis.map((_, i) => (
+              <button key={i} onClick={() => irPara(i, total)} aria-label={`Painel ${i + 1}`}
+                className={`w-3 h-3 rounded-full transition-colors ${i === idx ? 'bg-orange-500' : 'bg-gray-700 hover:bg-gray-500'}`} />
+            ))}
+          </div>
+        )}
       </div>
-      <div className="flex-1 min-h-0 px-8 py-4">
+      <div className="flex-1 min-h-0 px-6 sm:px-8 py-4">
         <Painel p={p} />
       </div>
+
+      {/* Navegação manual (swipe já funciona; setas ajudam no toque/desktop) */}
+      {total > 1 && (
+        <>
+          <button onClick={() => irPara(idxRef.current - 1, total)} aria-label="Anterior"
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-11 h-16 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 text-3xl">‹</button>
+          <button onClick={() => irPara(idxRef.current + 1, total)} aria-label="Próximo"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-11 h-16 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 text-3xl">›</button>
+        </>
+      )}
     </div>
   )
 }
