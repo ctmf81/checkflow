@@ -163,7 +163,7 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - **Catálogo**: CRUD em **`/sistema/servicos`** (nome, descrição, tipo, recursos, flag, ordem, ativo). O editor de plano assinala quais serviços o plano inclui.
 - **RLS por plano (fase 2, iniciada 2026-07-09)**: função `empresa_libera_recurso(empresa_id, recurso)` (SECURITY DEFINER, espelha a regra opt-in **incluindo os serviços `padrao`** — migration `20260709080000`). Gating de UI **não** é barreira de tenant (RLS por unidade/empresa continua). Ver `/security`, `/db`.
   - **⚠️ Regra de rollout (por que gatear TODAS as write policies)**: RLS permissiva combina por **OR** → gatear um módulo exige o gate em toda write policy da tabela, **inclusive a `*_admin_empresa`** (senão o admin da empresa fura). Padrão: `is_admin_sistema() OR (empresa_libera_recurso(...) AND <regra atual>)`; admin_empresa vira `is_admin_empresa_unidade(...) AND empresa_libera_recurso(...)`.
-  - **Módulos com gate aplicado**: Dashboards (`...060000`), Documentos (`...090000`), Tarefas (`...100000`), Tickets (`...110000`). Faltam: agendamentos, planos de ação, padrões, turnos.
+  - **Módulos com gate (rollout completo 2026-07-09)**: Dashboards (`...060000`), Documentos (`...090000`), Tarefas (`...100000`), Tickets (`...110000`), Agendamentos (`...120000`), Turnos (`...130000`), Padrões (`...140000`), Planos de Ação (`...150000`). Catálogos/estrutura/checklists = `padrao` (sempre liberado, não precisa gate).
 
 ### Comportamento de contratação / upgrade / downgrade por módulo (fonte única)
 - **Princípio geral (opt-in)**: empresa **sem plano** OU com **plano sem nenhum serviço** configurado = **SEM restrição** (nada muda). O gating só "liga" quando o plano tem serviços marcados. Isso protege as empresas atuais.
@@ -174,6 +174,10 @@ Rule: **never mutate a published checklist structure** — create a new version 
   - **Documentos**: bloqueia **criar/editar** documento/etapa/imagem (autoria). Delete continua livre (limpeza).
   - **Tarefas**: bloqueia **criar/editar lista** e suas filhas (autoria). **Não** bloqueia o operador **executar/responder** lista já publicada, nem **excluir** lista.
   - **Tickets** (operacional): bloqueia **abrir ticket novo** (policy restrictive de insert, cobre operador + admin_empresa) e a **config** (categorias/SLA). **Não** bloqueia **tratar/concluir/comentar/anexar evidência** em tickets já abertos (senão tickets em aberto ficariam presos).
+  - **Agendamentos**: bloqueia criar/editar agendamento (autoria). ⚠️ o cron de disparo usa service role (ignora RLS) → agendamentos já existentes seguem disparando; pausar no downgrade é regra de produto do cron, não coberta pela RLS.
+  - **Turnos**: bloqueia criar/editar turno (config). Turnos já configurados seguem valendo (leitura em `usuario_esta_no_turno`).
+  - **Padrões**: bloqueia criar/editar variáveis/padrões/instâncias. Templates globais (`unidade_id` null) sempre liberados.
+  - **Planos de Ação** (recurso `causa_raiz`): bloqueia só a **autoria do catálogo de causa raiz**. O plano em si é **operacional** (nasce no finalizar da execução, moderação N1/N2) e **nunca é gateado** — senão quebraria a finalização de checklist. Registrar ocorrência e N1/N2 adicionar causa durante a moderação também seguem livres.
   - **admin de SISTEMA** (plataforma) ignora todo gate; **admin da EMPRESA** é limitado ao plano.
 - **Cotas vs. entitlements**: cotas (execuções/armazenamento/tokens) seguem em `billing_*` — independentes do gate de módulo. Um módulo liberado ainda respeita a cota.
 
