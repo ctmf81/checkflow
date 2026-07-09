@@ -159,7 +159,8 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - **Gating v1 (UI)**: `SessionContext.recursosHabilitados` (Set | **null = sem restrição**; regra opt-in: sem plano OU plano sem serviços = null). **Construtor de perfil** (`PerfilModal`) só mostra recursos liberados + core (`home/usuarios/perfis`). **Menu** (`Sidebar`) esconde módulos fora do plano — **admin de sistema ignora** (plataforma); **admin da empresa é limitado ao plano**.
 - **Cotas** (execuções/armazenamento/tokens) já enforçadas por `billing_*`; IA por quota de tokens.
 - **Comparação** (fim do trial, `/gestao/plano`): **matriz serviços × planos** (✓/—) + linhas de limites, pra comparar antes de assinar.
-- ⚠️ **Fase 2 (pendente)**: enforcement forte no banco (RLS por plano) + página `/sistema/servicos` p/ CRUD do catálogo (hoje o catálogo vem do seed; editar via editor de plano só assinala). Gating de UI **não** é barreira de tenant (RLS por unidade/empresa continua). Ver `/security`.
+- **Catálogo**: CRUD em **`/sistema/servicos`** (nome, descrição, tipo, recursos, flag, ordem, ativo). O editor de plano assinala quais serviços o plano inclui.
+- **RLS por plano (fase 2, iniciada 2026-07-09)**: função `empresa_libera_recurso(empresa_id, recurso)` (SECURITY DEFINER, espelha a regra opt-in). **Piloto**: escrita de **Dashboards** já exige que o plano libere `dashboards` (migration `20260709060000`). Rolar para os demais módulos é incremental (por tabela). Gating de UI **não** é barreira de tenant (RLS por unidade/empresa continua). Ver `/security`, `/db`.
 
 ## Dashboards (painéis públicos de TV) — IMPLEMENTADO 2026-07-09 (migration `20260709030000_dashboards.sql`)
 - **Objetivo**: monitorar em tempo quase real (TV/tela) o **histórico de uma atividade** de checklist. Caso de uso: acompanhar pontos de produção de etapas anteriores e agir preventivamente em desvios.
