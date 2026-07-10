@@ -167,7 +167,7 @@ Rule: **never mutate a published checklist structure** — create a new version 
 
 ### Comportamento de contratação / upgrade / downgrade por módulo (fonte única)
 - **Princípio geral (opt-in)**: empresa **sem plano** OU com **plano sem nenhum serviço** configurado = **SEM restrição** (nada muda). O gating só "liga" quando o plano tem serviços marcados. Isso protege as empresas atuais.
-- **Serviços `padrao`** (checklists, estrutura/grupos-áreas, catálogos): **sempre disponíveis**, em qualquer plano ou downgrade. Nunca bloqueados por contratação. Gatear esses recursos é inócuo (a função retorna `true`).
+- **Serviços `padrao`** (checklists, estrutura/grupos-áreas, catálogos **e Planos de Ação** — decisão 2026-07-09, toggle em prod): **sempre disponíveis**, em qualquer plano ou downgrade. Nunca bloqueados por contratação. Gatear esses recursos é inócuo (a função retorna `true`). ⚠️ Por isso o gate de **Planos de Ação** (recurso `causa_raiz`, migration `...150000`) fica **inerte** enquanto `planos_acao.padrao=true` — está aplicado e pronto, mas só passa a valer se desligarem o toggle "padrão" em `/sistema/servicos`.
 - **Contratar / Upgrade** (plano passa a incluir o módulo): recurso liberado imediatamente na próxima leitura de sessão — aparece no menu, no construtor de perfil, e a **escrita** deixa de ser barrada pela RLS. Sem migração de dados.
 - **Downgrade** (plano deixa de incluir o módulo): a regra é **preservar dado, barrar autoria nova** — nunca destrutivo, nunca estrangula operação viva:
   - **Leitura**: sempre preservada (dados já criados continuam visíveis; downgrade não esconde/apaga).
