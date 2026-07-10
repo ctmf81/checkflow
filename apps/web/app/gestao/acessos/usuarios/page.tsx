@@ -262,7 +262,7 @@ export default function UsuariosPage() {
               </button>
             )}
             <Button onClick={() => { setUsuarioEditando(undefined); setModalAberto(true) }}>
-              <Plus size={16} />Adicionar usuário
+              <Plus size={16} />Novo
             </Button>
           </div>
         </div>
