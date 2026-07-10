@@ -133,25 +133,30 @@ export function NovaEmpresaModal({ onClose, onCriada }: Props) {
       }
     }
 
-    // Atribui automaticamente o plano de teste (trial), se houver um ativo no catálogo
-    const { data: trial } = await supabase.from('planos')
-      .select('id, nome, valor, ciclo, dias_trial, limite_execucoes_mes, limite_armazenamento_bytes, limite_tokens_ia_mes')
-      .eq('tipo', 'trial').eq('ativo', true).order('ordem').limit(1).maybeSingle()
-    if (trial) {
+    // Plano inicial da empresa: o marcado como PADRÃO; senão, o primeiro trial ativo.
+    const campos = 'id, nome, tipo, valor, ciclo, dias_trial, limite_execucoes_mes, limite_armazenamento_bytes, limite_tokens_ia_mes'
+    let { data: planoInicial } = await supabase.from('planos')
+      .select(campos).eq('padrao', true).eq('ativo', true).limit(1).maybeSingle()
+    if (!planoInicial) {
+      ({ data: planoInicial } = await supabase.from('planos')
+        .select(campos).eq('tipo', 'trial').eq('ativo', true).order('ordem').limit(1).maybeSingle())
+    }
+    if (planoInicial) {
       const hoje = new Date()
       const periodoFim = new Date(hoje); periodoFim.setMonth(periodoFim.getMonth() + 1)
-      const trialFim = new Date(hoje); trialFim.setDate(trialFim.getDate() + (trial.dias_trial ?? 30))
       const ymd = (d: Date) => d.toISOString().slice(0, 10)
+      const ehTrial = planoInicial.tipo === 'trial'
+      const trialFim = new Date(hoje); trialFim.setDate(trialFim.getDate() + (planoInicial.dias_trial ?? 30))
       await supabase.from('empresa_assinaturas').insert({
         empresa_id: novaEmpresa.id,
-        plano_id: trial.id, plano_nome: trial.nome, plano_tipo: 'trial',
-        valor: trial.valor, ciclo: trial.ciclo,
-        limite_execucoes_mes: trial.limite_execucoes_mes,
-        limite_armazenamento_bytes: trial.limite_armazenamento_bytes,
-        limite_tokens_ia_mes: trial.limite_tokens_ia_mes,
-        status: 'trial',
+        plano_id: planoInicial.id, plano_nome: planoInicial.nome, plano_tipo: planoInicial.tipo,
+        valor: planoInicial.valor, ciclo: planoInicial.ciclo,
+        limite_execucoes_mes: planoInicial.limite_execucoes_mes,
+        limite_armazenamento_bytes: planoInicial.limite_armazenamento_bytes,
+        limite_tokens_ia_mes: planoInicial.limite_tokens_ia_mes,
+        status: ehTrial ? 'trial' : 'ativo',
         periodo_inicio: ymd(hoje), periodo_fim: ymd(periodoFim),
-        trial_fim: ymd(trialFim), ja_usou_trial: true,
+        trial_fim: ehTrial ? ymd(trialFim) : null, ja_usou_trial: ehTrial,
       })
     }
 

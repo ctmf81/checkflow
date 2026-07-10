@@ -24,6 +24,7 @@ interface Plano {
   limite_tokens_ia_mes: number | null
   ativo: boolean
   ordem: number
+  padrao: boolean
 }
 
 const GB = 1024 * 1024 * 1024
@@ -162,6 +163,7 @@ function PlanoModal({ plano, onClose, onSaved }: { plano: Plano | null; onClose:
   const [armazenamentoGb, setArmazenamentoGb] = useState(bytesParaGb(plano?.limite_armazenamento_bytes ?? null))
   const [tokens, setTokens] = useState(plano?.limite_tokens_ia_mes != null ? String(plano.limite_tokens_ia_mes) : '')
   const [ativo, setAtivo] = useState(plano?.ativo ?? true)
+  const [padrao, setPadrao] = useState(plano?.padrao ?? false)
   const [ordem, setOrdem] = useState(plano?.ordem != null ? String(plano.ordem) : '0')
   const [servicos, setServicos] = useState<{ id: string; nome: string; tipo: string; descricao: string | null }[]>([])
   const [servicosSel, setServicosSel] = useState<Set<string>>(new Set())
@@ -201,11 +203,15 @@ function PlanoModal({ plano, onClose, onSaved }: { plano: Plano | null; onClose:
       limite_armazenamento_bytes: gb == null ? null : Math.round(gb * GB),
       limite_tokens_ia_mes: numOuNull(tokens),
       ativo,
+      padrao,
       ordem: Number(ordem || 0),
       atualizado_em: new Date().toISOString(),
     }
 
     const sb = createClient()
+    // Só um plano padrão: se este vira padrão, desmarca os demais antes de salvar
+    // (evita violar o índice único parcial planos_padrao_unico).
+    if (padrao) await sb.from('planos').update({ padrao: false }).eq('padrao', true)
     const { data: saved, error } = plano
       ? await sb.from('planos').update(payload).eq('id', plano.id).select('id').single()
       : await sb.from('planos').insert(payload).select('id').single()
@@ -322,6 +328,11 @@ function PlanoModal({ plano, onClose, onSaved }: { plano: Plano | null; onClose:
           <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
             <input type="checkbox" checked={ativo} onChange={e => setAtivo(e.target.checked)} className="accent-orange-500" />
             Plano ativo (disponível para contratação)
+          </label>
+
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input type="checkbox" checked={padrao} onChange={e => setPadrao(e.target.checked)} className="accent-orange-500" />
+            Plano padrão <span className="text-xs text-gray-400">(toda empresa nova começa com ele — só um)</span>
           </label>
         </div>
 

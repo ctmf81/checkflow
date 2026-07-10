@@ -67,7 +67,7 @@ export function AssinaturaGate() {
       <span className="min-w-0">
         {bloqueada
           ? 'Acesso da empresa bloqueado — o período gratuito e a carência terminaram. '
-          : 'Seu período de uso gratuito terminou. A criação de novos itens está bloqueada. '}
+          : 'O sistema se encontra com funcionalidades reduzidas. Procure o administrador do sistema da sua empresa para mais informações. '}
         {isAdmin && (
           <a href="/gestao/plano" className="font-medium underline underline-offset-2">Ver plano</a>
         )}
