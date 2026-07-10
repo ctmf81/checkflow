@@ -8,7 +8,7 @@ import { useToast, useConfirm } from '@/components/ui/feedback'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 
-type TipoPlano = 'gratuito' | 'trial' | 'pago'
+type TipoPlano = 'gratuito' | 'trial' | 'pago' | 'cortesia'
 type Ciclo = 'mensal' | 'anual'
 
 interface Plano {
@@ -33,6 +33,7 @@ const TIPO_LABEL: Record<TipoPlano, string> = {
   gratuito: 'Gratuito',
   trial: 'Teste (trial)',
   pago: 'Pago',
+  cortesia: 'Cortesia',
 }
 
 function moeda(v: number) {
@@ -121,7 +122,9 @@ export default function PlanosPage() {
                       ? <span className="font-medium text-gray-700">{moeda(Number(p.valor))} / {p.ciclo === 'anual' ? 'ano' : 'mês'}</span>
                       : p.tipo === 'trial'
                         ? <span className="font-medium text-gray-700">{p.dias_trial ?? '—'} dias de teste</span>
-                        : <span className="font-medium text-gray-700">Grátis</span>}
+                        : p.tipo === 'cortesia'
+                          ? <span className="font-medium text-gray-700">Cortesia (sem cobrança)</span>
+                          : <span className="font-medium text-gray-700">Grátis</span>}
                     <span>Execuções/mês: <b className="text-gray-700">{limiteLabel(p.limite_execucoes_mes)}</b></span>
                     <span>Armazenamento: <b className="text-gray-700">{p.limite_armazenamento_bytes == null ? 'Ilimitado' : `${bytesParaGb(p.limite_armazenamento_bytes)} GB`}</b></span>
                     <span>Tokens IA/mês: <b className="text-gray-700">{limiteLabel(p.limite_tokens_ia_mes)}</b></span>
@@ -255,6 +258,7 @@ function PlanoModal({ plano, onClose, onSaved }: { plano: Plano | null; onClose:
                 <option value="gratuito">Gratuito</option>
                 <option value="trial">Teste (trial)</option>
                 <option value="pago">Pago</option>
+                <option value="cortesia">Cortesia (beneficente)</option>
               </select>
             </div>
             <div>
