@@ -169,10 +169,10 @@ function PlanosAcaoContent() {
 
       {/* Filtros (ordenados pela última movimentação, mais recente primeiro) */}
       {!execId && (
-        <div className="flex gap-1.5 mb-5 bg-gray-100 p-1 rounded-xl w-fit">
+        <div className="flex gap-1.5 mb-5 bg-gray-100 p-1 rounded-xl w-fit max-w-full overflow-x-auto">
           {FILTROS.map(f => (
             <button key={f.valor} onClick={() => setFiltro(f.valor)}
-              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors whitespace-nowrap shrink-0 ${
                 filtro === f.valor
                   ? 'bg-white text-gray-800 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'

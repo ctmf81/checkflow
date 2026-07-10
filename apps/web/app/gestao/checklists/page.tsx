@@ -217,7 +217,7 @@ function ChecklistsContent() {
   return (
     <>
       <Onboarding pageId="checklists" titulo="Checklists" cards={ONBOARDING_CHECKLISTS} />
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-2">
           {filtroSubgrupoId && (
             <button onClick={() => router.push('/gestao/checklists')}
@@ -237,7 +237,7 @@ function ChecklistsContent() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {faseAssinatura !== 'ativa' ? (
             <Button disabled title="Criação bloqueada — período gratuito encerrado"><Plus size={16} />Novo</Button>
           ) : (

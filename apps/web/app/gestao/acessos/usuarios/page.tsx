@@ -234,10 +234,10 @@ export default function UsuariosPage() {
     <>
       <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <div className="bg-white rounded-xl border border-gray-200">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-gray-100">
           <div>
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Usuários</span>
-            <p className="text-xs text-gray-400 mt-0.5">Empresa: <span className="text-orange-500 font-medium">{empresaAtiva.nome}</span></p>
+            <p className="hidden sm:block text-xs text-gray-400 mt-0.5">Empresa: <span className="text-orange-500 font-medium">{empresaAtiva.nome}</span></p>
           </div>
           <div className="flex flex-wrap gap-2 justify-end">
             {(isAdminSistema || podeAprovarPre) && (
@@ -267,11 +267,11 @@ export default function UsuariosPage() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100">
-          <div className="relative">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-6 py-3 border-b border-gray-100">
+          <div className="relative w-full sm:w-auto">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Nome ou CPF"
-              className="pl-8 pr-4 py-1.5 text-sm border-b border-gray-200 bg-transparent focus:outline-none focus:border-orange-400 w-56 transition-colors" />
+              className="pl-8 pr-4 py-1.5 text-sm border-b border-gray-200 bg-transparent focus:outline-none focus:border-orange-400 w-full sm:w-56 transition-colors" />
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => setMostrarInativos(!mostrarInativos)}
