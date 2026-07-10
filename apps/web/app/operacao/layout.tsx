@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { LayoutDashboard, LogOut, UserCircle, ChevronDown } from 'lucide-react'
 import { EscolherEmpresaModal } from '@/components/layout/EscolherEmpresaModal'
 import { TermosGate } from '@/components/layout/TermosGate'
+import { AssinaturaGate } from '@/components/layout/AssinaturaGate'
 import { AvisoTurno } from '@/components/layout/AvisoTurno'
 import { InstallAppButton } from '@/components/pwa/InstallAppButton'
 import { PendingSync } from '@/components/pwa/PendingSync'
@@ -149,6 +150,7 @@ export default function OperacaoLayout({ children }: { children: React.ReactNode
         <TermosGate />
         <EscolherEmpresaModal />
         <OperacaoHeader />
+        <AssinaturaGate />
         <PendingSync />
         <AvisoTurno />
         <main className="flex-1">

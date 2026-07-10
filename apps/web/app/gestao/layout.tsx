@@ -7,6 +7,7 @@ import { TermosGate } from '@/components/layout/TermosGate'
 import { AvisoTurno } from '@/components/layout/AvisoTurno'
 import { AssistenteAjuda } from '@/components/ajuda/AssistenteAjuda'
 import { GestaoGuard } from '@/components/layout/GestaoGuard'
+import { AssinaturaGate } from '@/components/layout/AssinaturaGate'
 
 export default function GestaoLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -19,6 +20,7 @@ export default function GestaoLayout({ children }: { children: React.ReactNode }
           <Sidebar />
           <div className="flex-1 flex flex-col min-w-0">
             <Header />
+            <AssinaturaGate />
             <AvisoTurno />
             <main className="flex-1 p-4 sm:p-6 lg:p-8">
               {children}
