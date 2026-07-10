@@ -191,7 +191,7 @@ export default function MontadorTarefaPage({ params }: { params: Promise<{ id: s
           <button onClick={() => router.push('/gestao/tarefas')} className="text-gray-400 hover:text-orange-500"><ChevronLeft size={20} /></button>
           <div>
             <h1 className="text-xl font-semibold text-gray-800">{status === 'rascunho' ? 'Editar lista' : 'Lista de tarefas'}</h1>
-            <p className="text-xs text-gray-400">{status === 'publicada' ? '✅ Publicada' : status === 'encerrada' ? '🔒 Encerrada' : '📝 Rascunho'}</p>
+            <p className="hidden sm:block text-xs text-gray-400">{status === 'publicada' ? '✅ Publicada' : status === 'encerrada' ? '🔒 Encerrada' : '📝 Rascunho'}</p>
           </div>
         </div>
         {!bloqueado && (

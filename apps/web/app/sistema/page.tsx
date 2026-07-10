@@ -72,7 +72,7 @@ export default function SistemaPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Painel de sistema</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Gestão global de empresas na plataforma</p>
+          <p className="hidden sm:block text-sm text-gray-500 mt-0.5">Gestão global de empresas na plataforma</p>
         </div>
         <Button onClick={() => setModal(true)}>
           <Plus size={16} />

@@ -112,7 +112,7 @@ export default function IntegracoesIAPage() {
       {cfg && <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />}
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-800">Integrações de IA</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
+        <p className="hidden sm:block text-sm text-gray-500 mt-0.5">
           Provedores usados na Consulta Inteligente. São tentados na ordem abaixo (failover):
           se um falhar ou atingir o limite, o próximo ativo assume automaticamente.
         </p>

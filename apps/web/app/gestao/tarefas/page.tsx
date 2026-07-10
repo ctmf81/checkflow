@@ -151,7 +151,7 @@ export default function TarefasPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-800">Tarefas</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Listas de tarefas pontuais distribuídas a grupos/subgrupos · Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
+          <p className="hidden sm:block text-xs text-gray-400 mt-0.5">Listas de tarefas pontuais distribuídas a grupos/subgrupos · Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
         <Button onClick={novaLista} disabled={criando || faseAssinatura !== 'ativa'}
           title={faseAssinatura !== 'ativa' ? 'Criação bloqueada — período gratuito encerrado' : undefined}>

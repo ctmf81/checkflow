@@ -73,7 +73,7 @@ export default function TicketCategoriasPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-800">Categorias de Tickets</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Árvore de categorias para classificar os chamados</p>
+          <p className="hidden sm:block text-sm text-gray-500 mt-0.5">Árvore de categorias para classificar os chamados</p>
         </div>
         <button onClick={() => iniciarNova(null)}
           className="flex items-center gap-2 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700">

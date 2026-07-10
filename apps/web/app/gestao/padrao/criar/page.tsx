@@ -185,7 +185,7 @@ function CriarPadraoInner() {
       </button>
 
       <h1 className="text-xl font-semibold text-gray-900 mb-1">{isEdicao ? 'Editar padrão' : 'Novo padrão'}</h1>
-      <p className="text-sm text-gray-500 mb-6">
+      <p className="hidden sm:block text-sm text-gray-500 mb-6">
         Um padrão valida uma resposta numérica com base na combinação de variáveis escolhida na execução.
       </p>
 

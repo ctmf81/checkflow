@@ -60,7 +60,7 @@ export default function PadroesPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Padrões</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Padrões de validação numérica baseados em combinações de variáveis</p>
+          <p className="hidden sm:block text-sm text-gray-500 mt-0.5">Padrões de validação numérica baseados em combinações de variáveis</p>
         </div>
         <Link href="/gestao/padrao/criar"><Button><Plus size={16} />Novo</Button></Link>
       </div>

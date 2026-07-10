@@ -229,7 +229,7 @@ function ChecklistsContent() {
             <h1 className="text-xl font-semibold text-gray-800">
               {filtroSubgrupoId ? filtroSubgrupoNome : 'Checklists'}
             </h1>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="hidden sm:block text-xs text-gray-400 mt-0.5">
               {filtroSubgrupoId
                 ? <><span className="text-orange-500 cursor-pointer hover:underline" onClick={() => router.push('/gestao/checklists')}>Checklists</span> · {subgrupoLabel}: {filtroSubgrupoNome}</>
                 : <>Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></>

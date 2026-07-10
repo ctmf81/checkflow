@@ -140,7 +140,7 @@ export default function CatalogosPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-800">Catálogos</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Campos dinâmicos com atributos vinculados a um código</p>
+          <p className="hidden sm:block text-sm text-gray-500 mt-0.5">Campos dinâmicos com atributos vinculados a um código</p>
           <p className="text-xs text-gray-400 mt-0.5">Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
         <Button onClick={() => { setEditando(undefined); setModalNovo(true) }}>

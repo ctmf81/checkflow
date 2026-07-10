@@ -54,7 +54,7 @@ export default function VariaveisPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Variáveis</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Cadastre as variáveis usadas para compor padrões de validação (ex: tipo de caminhão, tipo de container)</p>
+          <p className="hidden sm:block text-sm text-gray-500 mt-0.5">Cadastre as variáveis usadas para compor padrões de validação (ex: tipo de caminhão, tipo de container)</p>
         </div>
         <Button onClick={() => { setEditando(undefined); setModal(true) }}>
           <Plus size={16} />Nova

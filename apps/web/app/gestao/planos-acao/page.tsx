@@ -146,7 +146,7 @@ function PlanosAcaoContent() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Planos de Ação</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Acompanhe e modere os planos abertos na sua área</p>
+          <p className="hidden sm:block text-sm text-gray-400 mt-0.5">Acompanhe e modere os planos abertos na sua área</p>
         </div>
         <button onClick={() => carregar(filtro)}
           className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors">

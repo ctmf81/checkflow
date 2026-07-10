@@ -88,7 +88,7 @@ export default function DashboardsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-800">Dashboards</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Painéis de monitoramento com link público (TV) · Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
+          <p className="hidden sm:block text-xs text-gray-400 mt-0.5">Painéis de monitoramento com link público (TV) · Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
         <Button onClick={novo} disabled={criando}>
           {criando ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}Novo

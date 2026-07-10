@@ -109,7 +109,7 @@ export default function SlaConfigPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-800">Configuração de SLA</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p className="hidden sm:block text-sm text-gray-500 mt-0.5">
             Prazos de aceite e resolução por prioridade. Linhas com categoria específica sobrepõem o padrão.
           </p>
         </div>

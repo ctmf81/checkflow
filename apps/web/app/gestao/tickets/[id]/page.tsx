@@ -341,7 +341,7 @@ export default function TicketDetalhe() {
           <span className="text-xs text-gray-400">{formatarTempo(ticket.criado_em)}</span>
         </div>
         <h1 className="text-base font-semibold text-gray-800 mt-2">{ticket.titulo}</h1>
-        <p className="text-sm text-gray-600 mt-1">{ticket.descricao}</p>
+        <p className="hidden sm:block text-sm text-gray-600 mt-1">{ticket.descricao}</p>
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
           <span>Destino: <strong>{ticket.grupo.nome} / {ticket.subgrupo.nome}</strong></span>
           {ticket.categoria && <span>Categoria: <strong>{ticket.categoria.nome}</strong></span>}

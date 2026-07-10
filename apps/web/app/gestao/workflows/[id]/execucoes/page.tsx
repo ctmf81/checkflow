@@ -214,7 +214,7 @@ function WorkflowExecucoesInner({ params }: { params: Promise<{ id: string }> })
           </button>
           <div>
             <h1 className="text-lg font-semibold text-gray-800">{nomeWorkflow}</h1>
-            <p className="text-xs text-gray-400">
+            <p className="hidden sm:block text-xs text-gray-400">
               Iniciado em {formatDate(selecionada.iniciado_em)}
               {selecionada.concluido_em && ` · Concluído em ${formatDate(selecionada.concluido_em)}`}
             </p>

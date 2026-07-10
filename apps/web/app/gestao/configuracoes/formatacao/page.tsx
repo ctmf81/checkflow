@@ -64,7 +64,7 @@ export default function FormatacaoPage() {
     <div className="max-w-lg">
       <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <h1 className="text-xl font-semibold text-gray-800 mb-1">Formatação</h1>
-      <p className="text-sm text-gray-500 mb-6">
+      <p className="hidden sm:block text-sm text-gray-500 mb-6">
         Defina como grupos e subgrupos são chamados na unidade <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span>.
       </p>
 

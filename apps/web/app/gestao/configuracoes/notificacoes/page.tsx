@@ -240,7 +240,7 @@ export default function NotificacoesPage() {
       <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-gray-800">Templates de Notificação</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
+        <p className="hidden sm:block text-sm text-gray-500 mt-0.5">
           Personalize o conteúdo das mensagens enviadas por WhatsApp e email. Use <code className="bg-gray-100 px-1 rounded text-xs">{'{{variavel}}'}</code> para inserir dados dinâmicos.
         </p>
       </div>

@@ -78,7 +78,7 @@ export default function PacotesPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Pacotes adicionais</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p className="hidden sm:block text-sm text-gray-500 mt-0.5">
             Pacotes avulsos que a empresa pode comprar além do plano. Execuções e tokens entram como saldo de consumo do período (use ou perde); armazenamento é capacidade permanente.
           </p>
         </div>

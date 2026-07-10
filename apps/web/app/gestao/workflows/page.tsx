@@ -116,7 +116,7 @@ function WorkflowsConteudo() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-800">Workflows</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Pipelines de checklists com estágios e dependências</p>
+          <p className="hidden sm:block text-xs text-gray-400 mt-0.5">Pipelines de checklists com estágios e dependências</p>
         </div>
         <Link href="/gestao/workflows/novo">
           <Button><Plus size={16} />Novo workflow</Button>

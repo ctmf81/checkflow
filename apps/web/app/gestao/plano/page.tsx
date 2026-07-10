@@ -216,7 +216,7 @@ export default function PlanoPage() {
       {cfg && <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />}
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-800">Plano & Assinatura</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Acompanhe seu uso, troque de plano e compre pacotes adicionais.</p>
+        <p className="hidden sm:block text-sm text-gray-500 mt-0.5">Acompanhe seu uso, troque de plano e compre pacotes adicionais.</p>
       </div>
 
       {/* Fatura gerada — fallback caso o popup tenha sido bloqueado */}
