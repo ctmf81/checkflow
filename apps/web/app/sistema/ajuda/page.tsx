@@ -49,7 +49,7 @@ export default function SistemaAjudaPage() {
           <h1 className="text-xl font-bold text-gray-800">Central de ajuda</h1>
           <p className="text-sm text-gray-500 mt-0.5">Artigos e vídeos que aparecem para as empresas em Gestão → Ajuda.</p>
         </div>
-        <Button size="sm" onClick={() => { setEditando(null); setAberto(true) }}><Plus size={14} /> Novo artigo</Button>
+        <Button size="sm" onClick={() => { setEditando(null); setAberto(true) }}><Plus size={14} /> Novo</Button>
       </div>
 
       {loading ? (

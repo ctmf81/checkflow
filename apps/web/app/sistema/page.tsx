@@ -76,7 +76,7 @@ export default function SistemaPage() {
         </div>
         <Button onClick={() => setModal(true)}>
           <Plus size={16} />
-          Nova empresa
+          Nova
         </Button>
       </div>
 

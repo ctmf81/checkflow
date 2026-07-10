@@ -91,7 +91,7 @@ export default function DashboardsPage() {
           <p className="text-xs text-gray-400 mt-0.5">Painéis de monitoramento com link público (TV) · Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
         <Button onClick={novo} disabled={criando}>
-          {criando ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}Novo dashboard
+          {criando ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}Novo
         </Button>
       </div>
 

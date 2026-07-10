@@ -355,7 +355,7 @@ export default function AgendamentosPage() {
           <p className="text-xs text-gray-400 mt-0.5">Início programado e recorrente de workflows e checklists</p>
         </div>
         <Button onClick={() => unidadeAtiva ? setModalAberto(true) : toast.info('Selecione uma unidade para criar um agendamento.')}>
-          <Plus size={16} />Novo agendamento
+          <Plus size={16} />Novo
         </Button>
       </div>
 

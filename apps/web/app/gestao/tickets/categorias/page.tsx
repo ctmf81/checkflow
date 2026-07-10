@@ -77,7 +77,7 @@ export default function TicketCategoriasPage() {
         </div>
         <button onClick={() => iniciarNova(null)}
           className="flex items-center gap-2 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700">
-          <Plus size={15} /> Nova categoria
+          <Plus size={15} /> Nova
         </button>
       </div>
 

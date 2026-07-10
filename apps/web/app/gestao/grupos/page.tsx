@@ -96,7 +96,7 @@ export default function GruposPage() {
           <p className="text-xs text-gray-400 mt-0.5">Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
         <Button onClick={() => setModal(true)}>
-          <Plus size={16} />Criar novo {grupoLabel.toLowerCase()}
+          <Plus size={16} />Novo
         </Button>
       </div>
 

@@ -60,7 +60,7 @@ export default function ServicosPage() {
             Catálogo de serviços (módulos e características). Cada plano marca quais inclui; o módulo libera os recursos de permissão no perfil/menu da empresa.
           </p>
         </div>
-        <Button size="sm" onClick={() => { setEditando(null); setModalAberto(true) }}><Plus size={14} /> Novo serviço</Button>
+        <Button size="sm" onClick={() => { setEditando(null); setModalAberto(true) }}><Plus size={14} /> Novo</Button>
       </div>
 
       {loading ? (

@@ -112,7 +112,7 @@ export default function TurnosPage() {
           </p>
         </div>
         <Button onClick={() => { setEditando(undefined); setModal(true) }}>
-          <Plus size={16} />Novo turno
+          <Plus size={16} />Novo
         </Button>
       </div>
 

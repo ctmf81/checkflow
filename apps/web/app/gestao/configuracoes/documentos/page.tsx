@@ -184,7 +184,7 @@ export default function DocumentosPage() {
           <h1 className="text-xl font-semibold text-gray-800">Documentos</h1>
           <p className="text-xs text-gray-400 mt-0.5">Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
-        <Button onClick={() => setModalNovo(true)}><Plus size={16} />Novo documento</Button>
+        <Button onClick={() => setModalNovo(true)}><Plus size={16} />Novo</Button>
       </div>
 
       <div className="flex items-center gap-3 mb-5 flex-wrap">

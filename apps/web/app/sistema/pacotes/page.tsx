@@ -82,7 +82,7 @@ export default function PacotesPage() {
             Pacotes avulsos que a empresa pode comprar além do plano. Execuções e tokens entram como saldo de consumo do período (use ou perde); armazenamento é capacidade permanente.
           </p>
         </div>
-        <Button size="sm" onClick={() => { setEditando(null); setModalAberto(true) }}><Plus size={14} /> Novo pacote</Button>
+        <Button size="sm" onClick={() => { setEditando(null); setModalAberto(true) }}><Plus size={14} /> Novo</Button>
       </div>
 
       {loading ? (

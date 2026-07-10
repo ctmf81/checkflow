@@ -155,7 +155,7 @@ export default function TarefasPage() {
         </div>
         <Button onClick={novaLista} disabled={criando || faseAssinatura !== 'ativa'}
           title={faseAssinatura !== 'ativa' ? 'Criação bloqueada — período gratuito encerrado' : undefined}>
-          {criando ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}Nova lista
+          {criando ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}Nova
         </Button>
       </div>
 

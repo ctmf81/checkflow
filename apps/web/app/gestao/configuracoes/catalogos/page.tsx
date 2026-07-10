@@ -144,7 +144,7 @@ export default function CatalogosPage() {
           <p className="text-xs text-gray-400 mt-0.5">Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
         <Button onClick={() => { setEditando(undefined); setModalNovo(true) }}>
-          <Plus size={16} />Novo catálogo
+          <Plus size={16} />Novo
         </Button>
       </div>
 

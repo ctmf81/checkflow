@@ -96,7 +96,7 @@ export default function PerfisPage() {
             <p className="text-xs text-gray-400 mt-0.5">Empresa: <span className="text-orange-500 font-medium">{empresaAtiva.nome}</span></p>
           </div>
           <Button onClick={() => { setPerfilEditando(undefined); setModalAberto(true) }}>
-            <Plus size={16} />Criar novo perfil
+            <Plus size={16} />Novo
           </Button>
         </div>
 

@@ -64,7 +64,7 @@ export default function SistemaTemplatesPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => setGerarAberto(true)}><Sparkles size={14} /> Gerar com IA</Button>
-          <Button size="sm" onClick={() => router.push('/sistema/templates/novo/montar')}><Plus size={14} /> Novo modelo</Button>
+          <Button size="sm" onClick={() => router.push('/sistema/templates/novo/montar')}><Plus size={14} /> Novo</Button>
         </div>
       </div>
 

@@ -62,7 +62,7 @@ export default function PadroesPage() {
           <h1 className="text-xl font-semibold text-gray-900">Padrões</h1>
           <p className="text-sm text-gray-500 mt-0.5">Padrões de validação numérica baseados em combinações de variáveis</p>
         </div>
-        <Link href="/gestao/padrao/criar"><Button><Plus size={16} />Novo padrão</Button></Link>
+        <Link href="/gestao/padrao/criar"><Button><Plus size={16} />Novo</Button></Link>
       </div>
 
       {loading ? (

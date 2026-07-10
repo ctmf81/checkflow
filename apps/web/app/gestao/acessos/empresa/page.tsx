@@ -178,7 +178,7 @@ export default function EmpresaPage() {
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Unidades</span>
             <Button size="sm" onClick={() => { setUnidadeEditando(undefined); setModalUnidade(true) }}>
-              <Plus size={14} />Nova unidade
+              <Plus size={14} />Nova
             </Button>
           </div>
 

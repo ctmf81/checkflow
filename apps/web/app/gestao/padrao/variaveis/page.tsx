@@ -57,7 +57,7 @@ export default function VariaveisPage() {
           <p className="text-sm text-gray-500 mt-0.5">Cadastre as variáveis usadas para compor padrões de validação (ex: tipo de caminhão, tipo de container)</p>
         </div>
         <Button onClick={() => { setEditando(undefined); setModal(true) }}>
-          <Plus size={16} />Nova variável
+          <Plus size={16} />Nova
         </Button>
       </div>
 

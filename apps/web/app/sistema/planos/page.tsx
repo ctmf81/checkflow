@@ -94,7 +94,7 @@ export default function PlanosPage() {
             Catálogo de planos da plataforma. Cada plano define ciclo de cobrança e limites de uso (execuções/mês, armazenamento total e tokens de IA/mês).
           </p>
         </div>
-        <Button size="sm" onClick={abrirNovo}><Plus size={14} /> Novo plano</Button>
+        <Button size="sm" onClick={abrirNovo}><Plus size={14} /> Novo</Button>
       </div>
 
       {loading ? (

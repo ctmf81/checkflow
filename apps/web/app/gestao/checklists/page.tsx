@@ -239,7 +239,7 @@ function ChecklistsContent() {
         </div>
         <div className="flex items-center gap-2">
           {faseAssinatura !== 'ativa' ? (
-            <Button disabled title="Criação bloqueada — período gratuito encerrado"><Plus size={16} />Novo checklist</Button>
+            <Button disabled title="Criação bloqueada — período gratuito encerrado"><Plus size={16} />Novo</Button>
           ) : (
             <>
               <Button variant="outline" onClick={() => setGerandoIA(true)}><Sparkles size={16} />Gerar com IA</Button>
@@ -247,7 +247,7 @@ function ChecklistsContent() {
                 <Button variant="outline"><LayoutGrid size={16} />Usar um modelo</Button>
               </Link>
               <Link href={filtroSubgrupoId ? `/gestao/checklists/novo/montar?subgrupo=${filtroSubgrupoId}` : '/gestao/checklists/novo'}>
-                <Button><Plus size={16} />Novo checklist</Button>
+                <Button><Plus size={16} />Novo</Button>
               </Link>
             </>
           )}
