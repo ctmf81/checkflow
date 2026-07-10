@@ -45,7 +45,7 @@ function derivar(l: Lista): StatusTarefa {
 }
 
 export default function TarefasPage() {
-  const { unidadeAtiva } = useSession()
+  const { unidadeAtiva, faseAssinatura } = useSession()
   const router = useRouter()
   const toast = useToast()
   const confirm = useConfirm()
@@ -153,7 +153,8 @@ export default function TarefasPage() {
           <h1 className="text-xl font-semibold text-gray-800">Tarefas</h1>
           <p className="text-xs text-gray-400 mt-0.5">Listas de tarefas pontuais distribuídas a grupos/subgrupos · Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
-        <Button onClick={novaLista} disabled={criando}>
+        <Button onClick={novaLista} disabled={criando || faseAssinatura !== 'ativa'}
+          title={faseAssinatura !== 'ativa' ? 'Criação bloqueada — período gratuito encerrado' : undefined}>
           {criando ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}Nova lista
         </Button>
       </div>

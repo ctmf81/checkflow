@@ -26,6 +26,9 @@ interface SessionState {
   // Recursos de permissão liberados pelo plano da empresa (entitlements).
   // null = SEM restrição (trial / plano sem serviços configurados / dev).
   recursosHabilitados: Set<string> | null
+  // Fase do ciclo de vida da assinatura: 'ativa' (normal), 'carencia' (uso livre
+  // acabou → criação bloqueada) ou 'bloqueada' (acesso cortado). Default 'ativa'.
+  faseAssinatura: 'ativa' | 'carencia' | 'bloqueada'
   setAmbiente: (a: Ambiente) => void
   setEmpresaAtiva: (e: Empresa | null) => void
   setUnidadeAtiva: (u: Unidade | null) => void
@@ -42,6 +45,7 @@ const SessionContext = createContext<SessionState>({
   grupoLabel: 'Grupo',
   subgrupoLabel: 'Subgrupo',
   recursosHabilitados: null,
+  faseAssinatura: 'ativa',
   setAmbiente: () => {},
   setEmpresaAtiva: () => {},
   setUnidadeAtiva: () => {},
@@ -58,6 +62,20 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [grupoLabel, setGrupoLabel] = useState('Grupo')
   const [subgrupoLabel, setSubgrupoLabel] = useState('Subgrupo')
   const [recursosHabilitados, setRecursosHabilitados] = useState<Set<string> | null>(null)
+  const [faseAssinatura, setFaseAssinatura] = useState<'ativa' | 'carencia' | 'bloqueada'>('ativa')
+
+  // Fase do ciclo de vida da assinatura da empresa ativa (uso livre → carência
+  // → bloqueio). Vem da função empresa_fase_assinatura. Falha/offline → 'ativa'.
+  useEffect(() => {
+    const empId = empresaAtiva?.id
+    if (!empId) { setFaseAssinatura('ativa'); return }
+    let cancel = false
+    ;(async () => {
+      const { data } = await createClient().rpc('empresa_fase_assinatura', { p_empresa_id: empId })
+      if (!cancel) setFaseAssinatura((data as 'ativa' | 'carencia' | 'bloqueada') ?? 'ativa')
+    })()
+    return () => { cancel = true }
+  }, [empresaAtiva?.id])
 
   // Entitlements: recursos liberados pelo plano ativo da empresa. Regra segura
   // (opt-in): sem plano OU plano sem serviços configurados → null (não restringe).
@@ -320,7 +338,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     <SessionContext.Provider value={{
       ambiente, empresaAtiva, unidadeAtiva, unidades, empresas,
       precisaEscolherEmpresa, modoEmpresa, grupoLabel, subgrupoLabel,
-      recursosHabilitados,
+      recursosHabilitados, faseAssinatura,
       setAmbiente, setEmpresaAtiva, setUnidadeAtiva,
     }}>
       {children}

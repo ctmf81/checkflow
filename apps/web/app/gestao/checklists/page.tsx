@@ -40,7 +40,7 @@ export default function ChecklistsPage() {
 }
 
 function ChecklistsContent() {
-  const { unidadeAtiva, subgrupoLabel, empresaAtiva } = useSession()
+  const { unidadeAtiva, subgrupoLabel, empresaAtiva, faseAssinatura } = useSession()
   const toast = useToast()
   const confirm = useConfirm()
   const searchParams = useSearchParams()
@@ -238,13 +238,19 @@ function ChecklistsContent() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setGerandoIA(true)}><Sparkles size={16} />Gerar com IA</Button>
-          <Link href="/gestao/checklists/modelos">
-            <Button variant="outline"><LayoutGrid size={16} />Usar um modelo</Button>
-          </Link>
-          <Link href={filtroSubgrupoId ? `/gestao/checklists/novo/montar?subgrupo=${filtroSubgrupoId}` : '/gestao/checklists/novo'}>
-            <Button><Plus size={16} />Novo checklist</Button>
-          </Link>
+          {faseAssinatura !== 'ativa' ? (
+            <Button disabled title="Criação bloqueada — período gratuito encerrado"><Plus size={16} />Novo checklist</Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => setGerandoIA(true)}><Sparkles size={16} />Gerar com IA</Button>
+              <Link href="/gestao/checklists/modelos">
+                <Button variant="outline"><LayoutGrid size={16} />Usar um modelo</Button>
+              </Link>
+              <Link href={filtroSubgrupoId ? `/gestao/checklists/novo/montar?subgrupo=${filtroSubgrupoId}` : '/gestao/checklists/novo'}>
+                <Button><Plus size={16} />Novo checklist</Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
 

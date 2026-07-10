@@ -6,8 +6,6 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { ehAdminDaEmpresa } from '@/lib/admin'
 
-type Fase = 'ativa' | 'carencia' | 'bloqueada'
-
 /**
  * Gate do ciclo de vida da assinatura (uso livre → carência → bloqueio).
  * - bloqueada + usuário comum → tela cheia de bloqueio (admin da empresa/sistema
@@ -17,8 +15,7 @@ type Fase = 'ativa' | 'carencia' | 'bloqueada'
  * = 'ativa' (nada aparece).
  */
 export function AssinaturaGate() {
-  const { empresaAtiva } = useSession()
-  const [fase, setFase] = useState<Fase>('ativa')
+  const { empresaAtiva, faseAssinatura: fase } = useSession()
   const [isAdmin, setIsAdmin] = useState(false) // admin da empresa OU de sistema
   const [pronto, setPronto] = useState(false)
 
@@ -30,10 +27,8 @@ export function AssinaturaGate() {
       const { data: { user } } = await sb.auth.getUser()
       const adminSis = user?.user_metadata?.role === 'admin_sistema'
       const adminEmp = adminSis ? true : (user ? await ehAdminDaEmpresa(sb, empresaAtiva.id) : false)
-      const { data } = await sb.rpc('empresa_fase_assinatura', { p_empresa_id: empresaAtiva.id })
       if (cancel) return
       setIsAdmin(adminSis || adminEmp)
-      setFase(((data as Fase) ?? 'ativa'))
       setPronto(true)
     })()
     return () => { cancel = true }
