@@ -23,9 +23,7 @@ export function Header() {
   const { unidades, unidadeAtiva, setUnidadeAtiva, setAmbiente, setEmpresaAtiva, empresaAtiva } = useSession()
   const [nome, setNome] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
-  const [dropUnidade, setDropUnidade] = useState(false)
   const [dropUsuario, setDropUsuario] = useState(false)
-  const refUnidade = useRef<HTMLDivElement>(null)
   const refUsuario = useRef<HTMLDivElement>(null)
   const [minhaContaAberta, setMinhaContaAberta] = useState(false)
   const [minhaContaDados, setMinhaContaDados] = useState<UsuarioParaModal | null>(null)
@@ -53,7 +51,6 @@ export function Header() {
     })
 
     function handleClick(e: MouseEvent) {
-      if (refUnidade.current && !refUnidade.current.contains(e.target as Node)) setDropUnidade(false)
       if (refUsuario.current && !refUsuario.current.contains(e.target as Node)) setDropUsuario(false)
     }
     document.addEventListener('mousedown', handleClick)
@@ -138,33 +135,24 @@ export function Header() {
 
       <div className="flex-1" />
 
-      {/* Seletor de unidade — oculto no painel de sistema */}
-      {!isSistema && <div ref={refUnidade} className="relative shrink-0">
-        <button
-          onClick={() => setDropUnidade(!dropUnidade)}
-          className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900 max-w-[90px] sm:max-w-none"
-        >
-          <span className="font-medium truncate">{unidadeAtiva?.nome ?? 'Unidade'}</span>
-          <ChevronDown size={14} className="text-orange-500 shrink-0" />
-        </button>
-
-        {dropUnidade && (
-          <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-52 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 max-h-80 overflow-y-auto">
-            <p className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">Unidades</p>
-            {unidades.length === 0 ? (
-              <p className="px-4 py-3 text-sm text-gray-400">Nenhuma unidade</p>
-            ) : unidades.map(u => (
-              <button
-                key={u.id}
-                onClick={() => { setUnidadeAtiva(u); setDropUnidade(false) }}
-                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${unidadeAtiva?.id === u.id ? 'text-orange-500 font-medium bg-orange-50' : 'text-gray-700 hover:bg-gray-50'}`}
-              >
-                {u.nome}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>}
+      {/* Seletor de unidade — <select> nativo: no mobile abre o picker do
+          aparelho, que respeita a largura da tela (não estoura como um dropdown). */}
+      {!isSistema && (
+        <div className="relative shrink-0 flex items-center">
+          <select
+            value={unidadeAtiva?.id ?? ''}
+            onChange={e => { const u = unidades.find(x => x.id === e.target.value); if (u) setUnidadeAtiva(u) }}
+            aria-label="Selecionar unidade"
+            className="appearance-none bg-transparent text-sm font-medium text-gray-700 hover:text-gray-900 pr-5 max-w-[110px] sm:max-w-[220px] truncate focus:outline-none cursor-pointer"
+          >
+            {!unidadeAtiva && <option value="">Unidade</option>}
+            {unidades.length === 0
+              ? <option value="" disabled>Nenhuma unidade</option>
+              : unidades.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
+          </select>
+          <ChevronDown size={14} className="text-orange-500 absolute right-0 pointer-events-none" />
+        </div>
+      )}
 
       {!isSistema && <div className="w-px h-6 bg-gray-200" />}
 
