@@ -29,6 +29,16 @@ const recursosTodos: Recurso[] = [
     ],
   },
   {
+    key: 'tarefas',
+    label: 'Listas de Tarefas',
+    acoes: [
+      { key: 'ver',     label: 'Visualizar listas de tarefas' },
+      { key: 'criar',   label: 'Criar listas de tarefas' },
+      { key: 'editar',  label: 'Editar listas de tarefas' },
+      { key: 'deletar', label: 'Excluir listas de tarefas' },
+    ],
+  },
+  {
     key: 'grupos',
     label: 'Grupos',
     acoes: [
