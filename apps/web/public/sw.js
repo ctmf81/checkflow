@@ -4,7 +4,7 @@
 //  - Estáticos (_next/static, ícones, fontes) → cache-first.
 //  - Navegação (HTML) → network-first com fallback para cache (carrega offline).
 //  - Tudo que for API/Supabase/cross-origin passa direto pela rede (sem cache).
-const CACHE = 'checkflow-v1'
+const CACHE = 'checkflow-v2'
 const APP_SHELL = ['/operacao', '/icon-192.png', '/icon-512.png', '/manifest.webmanifest']
 
 self.addEventListener('install', (event) => {
