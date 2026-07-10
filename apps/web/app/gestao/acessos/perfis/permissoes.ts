@@ -160,9 +160,11 @@ const recursosTodos: Recurso[] = [
     key: 'usuarios',
     label: 'Usuários',
     acoes: [
-      { key: 'criar',  label: 'Criar usuário' },
-      { key: 'editar', label: 'Editar usuário' },
-      { key: 'excluir',label: 'Excluir usuário' },
+      { key: 'criar',               label: 'Criar usuário' },
+      { key: 'editar',              label: 'Editar usuário' },
+      { key: 'excluir',             label: 'Excluir usuário' },
+      { key: 'importar',            label: 'Importar usuários (planilha)' },
+      { key: 'aprovar_precadastro', label: 'Aprovar pré-cadastros' },
     ],
   },
   {

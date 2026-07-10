@@ -48,12 +48,20 @@ export default function UsuariosPage() {
   const [pendentesCount, setPendentesCount] = useState(0)
   const [mostrarInativos, setMostrarInativos] = useState(false)
   const [reativandoId, setReativandoId] = useState<string | null>(null)
+  const [podeImportar, setPodeImportar] = useState(false)
+  const [podeAprovarPre, setPodeAprovarPre] = useState(false)
 
-  // Verifica se usuário logado é admin_sistema
+  // Verifica se usuário logado é admin_sistema + permissões granulares dos botões
   useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => {
-      setIsAdminSistema(data?.user?.user_metadata?.role === 'admin_sistema')
+    const sb = createClient()
+    sb.auth.getUser().then(({ data }) => {
+      const admin = data?.user?.user_metadata?.role === 'admin_sistema'
+      setIsAdminSistema(admin)
     })
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'usuarios', p_acao: 'importar' })
+      .then(({ data }) => setPodeImportar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'usuarios', p_acao: 'aprovar_precadastro' })
+      .then(({ data }) => setPodeAprovarPre(!!data))
   }, [])
 
   async function loginComo(email: string, usuarioId: string) {
@@ -232,21 +240,27 @@ export default function UsuariosPage() {
             <p className="text-xs text-gray-400 mt-0.5">Empresa: <span className="text-orange-500 font-medium">{empresaAtiva.nome}</span></p>
           </div>
           <div className="flex flex-wrap gap-2 justify-end">
-            <button onClick={() => setQrAberto(true)}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
-              <QrCode size={14} />QR pré-cadastro
-            </button>
-            <button onClick={() => setModeracaoAberto(true)}
-              className="relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
-              <UserCheck size={14} />Pré-cadastros
-              {pendentesCount > 0 && (
-                <span className="ml-0.5 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center text-[11px] font-bold text-white bg-orange-500 rounded-full">{pendentesCount}</span>
-              )}
-            </button>
-            <button onClick={() => setImportarAberto(true)}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
-              <Upload size={14} />Importar
-            </button>
+            {(isAdminSistema || podeAprovarPre) && (
+              <button onClick={() => setQrAberto(true)}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
+                <QrCode size={14} />QR pré-cadastro
+              </button>
+            )}
+            {(isAdminSistema || podeAprovarPre) && (
+              <button onClick={() => setModeracaoAberto(true)}
+                className="relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
+                <UserCheck size={14} />Pré-cadastros
+                {pendentesCount > 0 && (
+                  <span className="ml-0.5 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center text-[11px] font-bold text-white bg-orange-500 rounded-full">{pendentesCount}</span>
+                )}
+              </button>
+            )}
+            {(isAdminSistema || podeImportar) && (
+              <button onClick={() => setImportarAberto(true)}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
+                <Upload size={14} />Importar
+              </button>
+            )}
             <Button onClick={() => { setUsuarioEditando(undefined); setModalAberto(true) }}>
               <Plus size={16} />Adicionar usuário
             </Button>

@@ -5,7 +5,7 @@ import { autorizarPermissao } from '@/lib/apiAuth'
 
 export async function POST(req: NextRequest) {
   try {
-    const authz = await autorizarPermissao(req, 'usuarios', 'criar')
+    const authz = await autorizarPermissao(req, 'usuarios', 'importar')
     if (!authz.ok) return NextResponse.json({ message: authz.message }, { status: authz.status })
 
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL

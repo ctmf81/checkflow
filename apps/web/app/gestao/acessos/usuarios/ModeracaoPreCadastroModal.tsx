@@ -72,7 +72,7 @@ export function ModeracaoPreCadastroModal({ empresaId, onClose, onChange }: {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
         body: JSON.stringify({
           email: pc.email ?? '', nome: pc.nome, cpf: pc.cpf, telefone: pc.telefone ?? '',
-          empresaId, perfilId: perfilSel, unidades: unidadesSel,
+          empresaId, perfilId: perfilSel, unidades: unidadesSel, viaPreCadastro: true,
         }),
       })
       const json = await res.json().catch(() => ({}))

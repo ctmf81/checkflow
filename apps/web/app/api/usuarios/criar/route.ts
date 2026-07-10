@@ -12,10 +12,14 @@ function makeAdmin() {
 
 export async function POST(req: NextRequest) {
   try {
-    const authz = await autorizarPermissao(req, 'usuarios', 'criar')
+    const body = await req.json()
+    // Aprovar pré-cadastro é uma capacidade separada de "criar usuário": quando a
+    // chamada vem da moderação (viaPreCadastro), exige 'aprovar_precadastro'.
+    const acaoExigida = body?.viaPreCadastro ? 'aprovar_precadastro' : 'criar'
+    const authz = await autorizarPermissao(req, 'usuarios', acaoExigida)
     if (!authz.ok) return NextResponse.json({ message: authz.message }, { status: authz.status })
 
-    const { email, nome, cpf, telefone, senhaTemp, empresaId, perfilId, unidades } = await req.json()
+    const { email, nome, cpf, telefone, senhaTemp, empresaId, perfilId, unidades } = body
 
     const cpfDigits = (cpf ?? '').replace(/\D/g, '')
     const telDigits = (telefone ?? '').replace(/\D/g, '')
