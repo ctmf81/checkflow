@@ -134,12 +134,31 @@ const TIPOS_ORDEM: Tipo[] = [
   'tarefa_publicada', 'reset_senha',
 ]
 
+// Recurso de entitlement por tipo de notificação. Só mostra o template se o
+// plano da empresa libera o módulo. `null` = sempre visível (auth/core, não é
+// módulo gateável). Planos de Ação (causa_raiz) é serviço "padrão" → sempre libera.
+const TIPO_RECURSO: Record<Tipo, string | null> = {
+  ticket_aberto:      'ticket',
+  ticket_movimentado: 'ticket',
+  plano_aberto:       'causa_raiz',
+  plano_enviado_n2:   'causa_raiz',
+  plano_devolvido_n1: 'causa_raiz',
+  tarefa_publicada:   'tarefas',
+  reset_senha:        null,
+}
+
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 export default function NotificacoesPage() {
-  const { empresaAtiva } = useSession()
+  const { empresaAtiva, recursosHabilitados } = useSession()
   const supabase = createClient()
   const toast = useToast()
+
+  // Só mostra templates dos módulos liberados pelo plano. null = sem restrição.
+  const tiposVisiveis = TIPOS_ORDEM.filter(tipo => {
+    const rec = TIPO_RECURSO[tipo]
+    return !rec || recursosHabilitados === null || recursosHabilitados.has(rec)
+  })
 
   const [templates, setTemplates] = useState<Record<string, Template>>({})
   const [loading,   setLoading]   = useState(true)
@@ -227,7 +246,7 @@ export default function NotificacoesPage() {
       </div>
 
       <div className="space-y-3">
-        {TIPOS_ORDEM.map(tipo => {
+        {tiposVisiveis.map(tipo => {
           const meta     = TIPO_META[tipo]
           const aberto   = abertos.has(tipo)
           const tmplWa   = templates[chave(tipo, 'whatsapp')]
