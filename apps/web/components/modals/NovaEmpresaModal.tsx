@@ -155,6 +155,21 @@ export function NovaEmpresaModal({ onClose, onCriada }: Props) {
       })
     }
 
+    // Checklist MODELO fixo (SEMPRE): "Checagem de início de trabalho" (2 seções
+    // × 4 atividades, um tipo em cada). Determinístico, best-effort — não bloqueia.
+    let modeloOk = false
+    if (unidadePadrao && subgrupoPadraoId) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const res = await fetch('/api/empresas/checklist-modelo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+          body: JSON.stringify({ unidade_id: unidadePadrao.id, subgrupo_id: subgrupoPadraoId }),
+        })
+        modeloOk = res.ok
+      } catch { modeloOk = false }
+    }
+
     // Checklist inicial por IA (opcional, best-effort): não bloqueia a criação.
     // Empresa e estrutura já estão criadas; a IA é informada por toast (sucesso/
     // rascunho/falha) para o admin não achar que gerou quando não gerou.
@@ -181,6 +196,10 @@ export function NovaEmpresaModal({ onClose, onCriada }: Props) {
       } catch {
         toast.error('Empresa criada, mas o checklist não pôde ser gerado (sem conexão com a IA). Crie depois no montador.')
       }
+    } else if (modeloOk) {
+      toast.success('Empresa criada com o checklist modelo "Checagem de início de trabalho".')
+    } else {
+      toast.info('Empresa criada. O checklist modelo não pôde ser criado — crie um no montador.')
     }
 
     setSalvando(false)
