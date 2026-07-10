@@ -106,23 +106,25 @@ export default function DashboardsPage() {
       ) : (
         <div className="bg-white rounded-xl border border-gray-200">
           {dashboards.map(d => (
-            <div key={d.id} className="flex items-center gap-4 px-6 py-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-              <LayoutDashboard size={18} className="text-gray-300 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <Link href={`/gestao/configuracoes/dashboards/${d.id}`} className="font-medium text-sm text-gray-800 hover:text-orange-500 transition-colors">
-                  {d.nome}
-                </Link>
-                <p className="text-xs text-gray-400 mt-0.5">{d.total_paineis} {d.total_paineis === 1 ? 'painel' : 'painéis'}</p>
+            <div key={d.id} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 sm:px-6 py-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <LayoutDashboard size={18} className="text-gray-300 flex-shrink-0" />
+                <div className="min-w-0">
+                  <Link href={`/gestao/configuracoes/dashboards/${d.id}`} className="font-medium text-sm text-gray-800 hover:text-orange-500 transition-colors line-clamp-1">
+                    {d.nome}
+                  </Link>
+                  <p className="text-xs text-gray-400 mt-0.5">{d.total_paineis} {d.total_paineis === 1 ? 'painel' : 'painéis'}</p>
+                </div>
               </div>
-              <button onClick={() => copiarLink(d)} title="Copiar link público"
-                className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
-                {copiado === d.id ? <><Check size={13} className="text-green-500" />Copiado</> : <><Link2 size={13} />Link</>}
-              </button>
-              <a href={linkPublico(d.token)} target="_blank" rel="noopener noreferrer" title="Abrir na TV"
-                className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
-                <Tv size={13} />Abrir
-              </a>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button onClick={() => copiarLink(d)} title="Copiar link público"
+                  className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
+                  {copiado === d.id ? <><Check size={13} className="text-green-500" />Copiado</> : <><Link2 size={13} />Link</>}
+                </button>
+                <a href={linkPublico(d.token)} target="_blank" rel="noopener noreferrer" title="Abrir na TV"
+                  className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
+                  <Tv size={13} />Abrir
+                </a>
                 <Link href={`/gestao/configuracoes/dashboards/${d.id}`} title="Editar"
                   className="p-1.5 text-gray-400 hover:text-orange-500 rounded-lg hover:bg-orange-50 transition-colors">
                   <Pencil size={15} />
