@@ -18,6 +18,7 @@ import {
 interface Perfil {
   id: string
   nome: string
+  is_system?: boolean
 }
 
 interface Props {
@@ -28,6 +29,7 @@ interface Props {
 
 export function PerfilModal({ perfil, empresaId, onClose }: Props) {
   const isEdicao = !!perfil
+  const soLeitura = !!perfil?.is_system // perfil de sistema não é editável
   const toast = useToast()
   const { recursosHabilitados, grupoLabel, subgrupoLabel } = useSession()
   // Só mostra recursos liberados pelo plano (+ core). null = sem restrição.
@@ -91,6 +93,7 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (soLeitura) return // perfil de sistema: não salva
     setErro('')
     const nomeOk = nome.trim()
     if (!nomeOk) { setErro('Informe o nome do perfil.'); return }
@@ -141,7 +144,7 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
       <div className="bg-white rounded-xl w-full max-w-md shadow-xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
           <h2 className="font-semibold text-gray-800">
-            {isEdicao ? 'Editar perfil' : 'Criar novo perfil'}
+            {soLeitura ? 'Perfil de sistema' : isEdicao ? 'Editar perfil' : 'Criar novo perfil'}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X size={18} />
@@ -157,7 +160,8 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
                   value={nome}
                   onChange={e => setNome(e.target.value)}
                   placeholder="Nome do perfil"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                  disabled={soLeitura}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 disabled:opacity-60 disabled:cursor-not-allowed"
                   required
                 />
               </div>
@@ -165,8 +169,9 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
                 <span className="text-xs text-gray-500 whitespace-nowrap">Perfil público</span>
                 <button
                   type="button"
-                  onClick={() => setPublico(!publico)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${publico ? 'bg-orange-500' : 'bg-gray-200'}`}
+                  onClick={() => !soLeitura && setPublico(!publico)}
+                  disabled={soLeitura}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${publico ? 'bg-orange-500' : 'bg-gray-200'}`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow ${publico ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
@@ -179,6 +184,12 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
               administrador da empresa.
             </p>
           </div>
+
+          {soLeitura && (
+            <div className="mx-6 mt-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-100 text-xs text-amber-700">
+              Perfil de sistema — suas funções são fixas e não podem ser editadas. Visualização apenas.
+            </div>
+          )}
 
           {/* Árvore de permissões */}
           <div className="flex-1 overflow-y-auto px-6 py-2">
@@ -209,8 +220,9 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
                     {/* Checkbox do recurso */}
                     <button
                       type="button"
-                      onClick={() => setPerms(p => toggleRecurso(r, p))}
-                      className={`w-4 h-4 rounded flex items-center justify-center border-2 flex-shrink-0 transition-colors ${
+                      onClick={() => !soLeitura && setPerms(p => toggleRecurso(r, p))}
+                      disabled={soLeitura}
+                      className={`w-4 h-4 rounded flex items-center justify-center border-2 flex-shrink-0 transition-colors ${soLeitura ? 'cursor-not-allowed' : ''} ${
                         checked
                           ? 'bg-orange-500 border-orange-500'
                           : indeterminate
@@ -244,8 +256,9 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
                           <div key={a.key} className="flex items-center gap-2">
                             <button
                               type="button"
-                              onClick={() => setPerms(p => toggleAcao(r.key, a.key, p))}
-                              className={`w-4 h-4 rounded flex items-center justify-center border-2 flex-shrink-0 transition-colors ${
+                              onClick={() => !soLeitura && setPerms(p => toggleAcao(r.key, a.key, p))}
+                              disabled={soLeitura}
+                              className={`w-4 h-4 rounded flex items-center justify-center border-2 flex-shrink-0 transition-colors ${soLeitura ? 'cursor-not-allowed' : ''} ${
                                 acaoChecked
                                   ? 'bg-orange-500 border-orange-500'
                                   : 'border-gray-300 hover:border-orange-400'
@@ -270,12 +283,18 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
 
           {erro && <p className="px-6 pb-2 text-xs text-red-500">{erro}</p>}
           <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
-            <button type="button" onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">
-              Cancelar
-            </button>
-            <Button type="submit" disabled={salvando || carregando || falhaCarga}>
-              {salvando ? 'Salvando...' : isEdicao ? 'Salvar alterações' : 'Criar perfil'}
-            </Button>
+            {soLeitura ? (
+              <Button type="button" onClick={onClose}>Fechar</Button>
+            ) : (
+              <>
+                <button type="button" onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">
+                  Cancelar
+                </button>
+                <Button type="submit" disabled={salvando || carregando || falhaCarga}>
+                  {salvando ? 'Salvando...' : isEdicao ? 'Salvar alterações' : 'Criar perfil'}
+                </Button>
+              </>
+            )}
           </div>
         </form>
       </div>
