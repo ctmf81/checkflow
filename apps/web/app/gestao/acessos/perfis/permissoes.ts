@@ -50,12 +50,14 @@ const recursosTodos: Recurso[] = [
     ],
   },
   {
+    // Rótulo NEUTRO (default). A UI (PerfilModal) troca por grupoLabel/subgrupoLabel
+    // configurado da empresa (Subgrupo/Área/Loja...). "Área" é só uma das escolhas.
     key: 'subgrupos',
-    label: 'Áreas',
+    label: 'Subgrupos',
     acoes: [
-      { key: 'criar',              label: 'Criar área' },
-      { key: 'editar',             label: 'Editar área' },
-      { key: 'excluir',            label: 'Excluir área' },
+      { key: 'criar',              label: 'Criar subgrupo' },
+      { key: 'editar',             label: 'Editar subgrupo' },
+      { key: 'excluir',            label: 'Excluir subgrupo' },
       { key: 'gerenciar_funcoes',  label: 'Gerenciar funções (N1 / N2 / Executor)' },
     ],
   },

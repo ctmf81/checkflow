@@ -29,11 +29,25 @@ interface Props {
 export function PerfilModal({ perfil, empresaId, onClose }: Props) {
   const isEdicao = !!perfil
   const toast = useToast()
-  const { recursosHabilitados } = useSession()
+  const { recursosHabilitados, grupoLabel, subgrupoLabel } = useSession()
   // Só mostra recursos liberados pelo plano (+ core). null = sem restrição.
   const recursosVisiveis = recursosHabilitados
     ? recursos.filter(r => RECURSOS_CORE.has(r.key) || recursosHabilitados.has(r.key))
     : recursos
+
+  // Grupos/Áreas usam o rótulo configurado da empresa (Subgrupo/Área/Loja...),
+  // não o texto fixo do registro. Ex.: sem label "Área" definido → "Subgrupo".
+  const plural = (s: string) => (/s$/i.test(s) ? s : s + 's')
+  const trocarTermo = (texto: string, de: RegExp, termo: string) =>
+    texto.replace(de, m => (m[0] === m[0].toUpperCase() ? termo : termo.toLowerCase()))
+  const rotuloRecurso = (r: { key: string; label: string }) =>
+    r.key === 'grupos' ? plural(grupoLabel)
+      : r.key === 'subgrupos' ? plural(subgrupoLabel)
+      : r.label
+  const rotuloAcao = (rKey: string, label: string) =>
+    rKey === 'grupos' ? trocarTermo(label, /grupos?/gi, grupoLabel)
+      : rKey === 'subgrupos' ? trocarTermo(label, /subgrupos?/gi, subgrupoLabel)
+      : label
   const [nome, setNome] = useState(perfil?.nome ?? '')
   const [publico, setPublico] = useState(false)
   const [perms, setPerms] = useState<Set<string>>(new Set())
@@ -216,7 +230,7 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
                       className="text-sm text-gray-700 cursor-pointer select-none"
                       onClick={() => r.acoes.length > 0 && toggleExpand(r.key)}
                     >
-                      {r.label}
+                      {rotuloRecurso(r)}
                     </span>
                   </div>
 
@@ -243,7 +257,7 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
                                 </svg>
                               )}
                             </button>
-                            <span className="text-sm text-gray-500">{a.label}</span>
+                            <span className="text-sm text-gray-500">{rotuloAcao(r.key, a.label)}</span>
                           </div>
                         )
                       })}
