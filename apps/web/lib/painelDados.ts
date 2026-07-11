@@ -176,3 +176,79 @@ export function montarBarras(rs: RespostaRaw[], opcoes: OpcaoRaw[], agoraMs: num
   const barras = opcoes.map(o => ({ label: o.label, count: contagem.get(o.valor) ?? 0, conforme: o.e_valido }))
   return { barras, total: pontos.length, naoConformes: pontos.filter(p => p.nc).length, tendencia: tendencia(pontos, agoraMs, janelaMs) }
 }
+
+// ── Painel de CHECKLIST (monitora o checklist inteiro, não uma atividade) ──────
+
+export interface ExecChecklistRaw {
+  status: string
+  resultado: string | null
+  motivo: string | null
+  data_execucao: string
+  iniciado_em: string | null
+}
+export interface RespostaConformeRaw { atividade_id: string; nome: string; conforme: boolean | null }
+
+/** Placar da janela: concluídas (aprovadas/reprovadas), não executadas e % de aprovação. */
+export function placarChecklist(execs: ExecChecklistRaw[]) {
+  let aprovados = 0, reprovados = 0, naoExecutados = 0
+  for (const e of execs) {
+    if (e.status === 'nao_executado') naoExecutados++
+    else if (e.status === 'concluido') {
+      if (e.resultado === 'reprovado') reprovados++
+      else aprovados++ // aprovado ou null (sem resultado) → conta como aprovado
+    }
+  }
+  const executados = aprovados + reprovados
+  const pctAprovacao = executados ? Math.round((aprovados / executados) * 100) : null
+  return { executados, aprovados, reprovados, naoExecutados, pctAprovacao }
+}
+
+/** Conformidade por dia (aprovado × reprovado) das execuções concluídas — barras empilhadas. */
+export function conformidadePorDiaExec(execs: ExecChecklistRaw[]) {
+  const rs = execs
+    .filter(e => e.status === 'concluido')
+    .map(e => ({ resposta: e.resultado, criado_em: e.data_execucao }))
+  return agruparPorDia(rs).map(({ dia, itens }) => {
+    let aprovados = 0, reprovados = 0
+    for (const it of itens) { if (it.resposta === 'reprovado') reprovados++; else aprovados++ }
+    return { dia, aprovados, reprovados, total: aprovados + reprovados }
+  })
+}
+
+/**
+ * Tempo médio de execução (segundos) das concluídas COM `iniciado_em` (execução
+ * "de uma vez"). null se não há amostra — execuções antigas/pausadas ficam de fora.
+ */
+export function tempoMedioExecucao(execs: ExecChecklistRaw[]) {
+  const durs: number[] = []
+  for (const e of execs) {
+    if (e.status !== 'concluido' || !e.iniciado_em) continue
+    const ms = new Date(e.data_execucao).getTime() - new Date(e.iniciado_em).getTime()
+    if (ms > 0) durs.push(ms)
+  }
+  if (durs.length === 0) return null
+  const media = durs.reduce((a, b) => a + b, 0) / durs.length
+  return { segundos: Math.round(media / 1000), amostras: durs.length }
+}
+
+/** Top atividades não conformes da janela (usa `conforme` já gravado na resposta). */
+export function topNaoConformes(rs: RespostaConformeRaw[], limite = 5) {
+  const mapa = new Map<string, { nome: string; total: number; naoConformes: number }>()
+  for (const r of rs) {
+    if (r.conforme == null) continue
+    const m = mapa.get(r.atividade_id) ?? { nome: r.nome, total: 0, naoConformes: 0 }
+    m.total++; if (r.conforme === false) m.naoConformes++
+    mapa.set(r.atividade_id, m)
+  }
+  return [...mapa.values()]
+    .filter(v => v.naoConformes > 0)
+    .map(v => ({ atividade: v.nome, naoConformes: v.naoConformes, total: v.total, taxa: Math.round((v.naoConformes / v.total) * 100) }))
+    .sort((a, b) => b.naoConformes - a.naoConformes)
+    .slice(0, limite)
+}
+
+/** Resumo dos planos de ação (tratamento das reprovações) por status. */
+export function resumoPlanos(status: string[]) {
+  const c = (s: string) => status.filter(x => x === s).length
+  return { corrigidos: c('corrigido'), naoCorrigidos: c('nao_corrigido'), aguardN1: c('em_moderacao_n1'), aguardN2: c('em_moderacao_n2') }
+}

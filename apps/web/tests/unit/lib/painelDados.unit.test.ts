@@ -2,7 +2,7 @@
 // parsing de valor, série + referência (número/padrão), barras por opção e
 // tendência da não-conformidade (sim/não e única escolha).
 import { describe, it, expect } from 'vitest'
-import { num, tendencia, opcoesSimNao, montarLinha, montarBarras, agruparPorDia, serieConformidade, composicaoDiaria, montarPadrao, resumoExecucao } from '@/lib/painelDados'
+import { num, tendencia, opcoesSimNao, montarLinha, montarBarras, agruparPorDia, serieConformidade, composicaoDiaria, montarPadrao, resumoExecucao, placarChecklist, conformidadePorDiaExec, tempoMedioExecucao, topNaoConformes, resumoPlanos, type ExecChecklistRaw } from '@/lib/painelDados'
 
 const H = 3600_000
 const AGORA = Date.parse('2026-07-09T12:00:00.000Z')
@@ -211,5 +211,79 @@ describe('resumoExecucao (rodapé: execução vs não execução)', () => {
   })
   it('lista vazia → tudo zero', () => {
     expect(resumoExecucao([])).toEqual({ concluidas: 0, naoExecutadas: 0, porMotivo: [] })
+  })
+})
+
+describe('painel de checklist', () => {
+  const mk = (o: Partial<ExecChecklistRaw>): ExecChecklistRaw =>
+    ({ status: 'concluido', resultado: 'aprovado', motivo: null, data_execucao: tAtras(1), iniciado_em: null, ...o })
+
+  describe('placarChecklist', () => {
+    it('conta aprovados/reprovados/não executados e % aprovação', () => {
+      const r = placarChecklist([
+        mk({ resultado: 'aprovado' }), mk({ resultado: 'aprovado' }), mk({ resultado: 'aprovado' }),
+        mk({ resultado: 'reprovado' }),
+        mk({ status: 'nao_executado', resultado: null }),
+      ])
+      expect(r).toEqual({ executados: 4, aprovados: 3, reprovados: 1, naoExecutados: 1, pctAprovacao: 75 })
+    })
+    it('resultado null conta como aprovado; sem execução → pct null', () => {
+      expect(placarChecklist([mk({ resultado: null })]).pctAprovacao).toBe(100)
+      expect(placarChecklist([]).pctAprovacao).toBeNull()
+    })
+  })
+
+  describe('conformidadePorDiaExec', () => {
+    it('agrupa aprovado × reprovado por dia (só concluídas)', () => {
+      const r = conformidadePorDiaExec([
+        mk({ resultado: 'aprovado', data_execucao: '2026-07-08T08:00:00Z' }),
+        mk({ resultado: 'reprovado', data_execucao: '2026-07-08T12:00:00Z' }),
+        mk({ status: 'nao_executado', resultado: null, data_execucao: '2026-07-08T13:00:00Z' }), // ignorada
+        mk({ resultado: 'aprovado', data_execucao: '2026-07-09T09:00:00Z' }),
+      ])
+      expect(r).toEqual([
+        { dia: '2026-07-08', aprovados: 1, reprovados: 1, total: 2 },
+        { dia: '2026-07-09', aprovados: 1, reprovados: 0, total: 1 },
+      ])
+    })
+  })
+
+  describe('tempoMedioExecucao', () => {
+    it('média das concluídas com iniciado_em (ignora sem início e não concluídas)', () => {
+      const r = tempoMedioExecucao([
+        mk({ iniciado_em: '2026-07-09T10:00:00Z', data_execucao: '2026-07-09T10:05:00Z' }), // 300s
+        mk({ iniciado_em: '2026-07-09T11:00:00Z', data_execucao: '2026-07-09T11:07:00Z' }), // 420s
+        mk({ iniciado_em: null, data_execucao: '2026-07-09T12:00:00Z' }),                    // sem início
+        mk({ status: 'nao_executado', iniciado_em: '2026-07-09T09:00:00Z' }),                // não concluída
+      ])
+      expect(r).toEqual({ segundos: 360, amostras: 2 })
+    })
+    it('sem amostra → null', () => {
+      expect(tempoMedioExecucao([mk({ iniciado_em: null })])).toBeNull()
+    })
+  })
+
+  describe('topNaoConformes', () => {
+    it('agrupa por atividade, filtra as sem não-conformidade e ordena desc', () => {
+      const r = topNaoConformes([
+        { atividade_id: 'a', nome: 'Torque', conforme: false },
+        { atividade_id: 'a', nome: 'Torque', conforme: false },
+        { atividade_id: 'a', nome: 'Torque', conforme: true },
+        { atividade_id: 'b', nome: 'Óleo', conforme: false },
+        { atividade_id: 'c', nome: 'EPI', conforme: true },   // sempre conforme → fora
+        { atividade_id: 'd', nome: 'X', conforme: null },      // sem validação → ignora
+      ])
+      expect(r).toEqual([
+        { atividade: 'Torque', naoConformes: 2, total: 3, taxa: 67 },
+        { atividade: 'Óleo', naoConformes: 1, total: 1, taxa: 100 },
+      ])
+    })
+  })
+
+  describe('resumoPlanos', () => {
+    it('conta por status', () => {
+      expect(resumoPlanos(['corrigido', 'corrigido', 'nao_corrigido', 'em_moderacao_n1', 'em_moderacao_n2', 'em_moderacao_n2']))
+        .toEqual({ corrigidos: 2, naoCorrigidos: 1, aguardN1: 1, aguardN2: 2 })
+    })
   })
 })

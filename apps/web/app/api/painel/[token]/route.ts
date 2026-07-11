@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { montarLinha, montarBarras, montarPadrao, serieConformidade, composicaoDiaria, opcoesSimNao, resumoExecucao, type OpcaoRaw } from '@/lib/painelDados'
+import { montarLinha, montarBarras, montarPadrao, serieConformidade, composicaoDiaria, opcoesSimNao, resumoExecucao, placarChecklist, conformidadePorDiaExec, tempoMedioExecucao, topNaoConformes, resumoPlanos, type OpcaoRaw, type ExecChecklistRaw } from '@/lib/painelDados'
 
 // GET /api/painel/[token] — dados PÚBLICOS de um dashboard (sem login).
 // Escopado ao token: só devolve os painéis daquele dashboard e a série de cada
@@ -18,6 +18,69 @@ const MAX_PONTOS = 500
 // link público. Dado de monitoramento tolera alguns segundos de atraso.
 const CACHE_TTL_MS = 15_000
 const cache = new Map<string, { expira: number; body: string }>()
+
+// Monta o payload de um painel de CHECKLIST: placar, conformidade por dia, top
+// atividades não conformes, tratamento (planos), não execução, tempo médio e
+// frescor (última execução). Tudo escopado ao checklist na janela.
+async function montarPainelChecklist(sb: any, p: any, agora: number, corte: string) {
+  const ck = Array.isArray(p.checklist) ? p.checklist[0] : p.checklist
+  const titulo = p.titulo || ck?.nome || 'Checklist'
+  const base = {
+    id: p.id, titulo, tipo: 'checklist', grafico: 'checklist', janela_horas: p.janela_horas,
+    alerta_silencio_horas: p.alerta_silencio_horas ?? null,
+  }
+
+  // Execuções do checklist na janela (concluídas + não executadas)
+  const { data: execsRaw } = await sb.from('checklist_execucoes')
+    .select('id, status, resultado, data_execucao, iniciado_em, motivo:motivo_nao_execucao_id(descricao)')
+    .eq('checklist_id', p.checklist_id)
+    .gte('data_execucao', corte)
+    .in('status', ['concluido', 'nao_executado'])
+    .order('data_execucao', { ascending: true })
+    .limit(3000)
+
+  const execs: (ExecChecklistRaw & { id: string })[] = (execsRaw ?? []).map((e: any) => {
+    const m = Array.isArray(e.motivo) ? e.motivo[0] : e.motivo
+    return { id: e.id, status: e.status, resultado: e.resultado ?? null, motivo: m?.descricao ?? null, data_execucao: e.data_execucao, iniciado_em: e.iniciado_em ?? null }
+  })
+
+  const concluidas = execs.filter(e => e.status === 'concluido')
+  const ultimoEm = execs.length ? execs[execs.length - 1].data_execucao : null
+  const resumo = resumoExecucao(execs.map(e => ({ status: e.status, motivo: e.motivo })))
+
+  // Top atividades não conformes — respostas das execuções concluídas (conforme já gravado)
+  const execIds = concluidas.map(e => e.id).slice(0, 500)
+  let top: ReturnType<typeof topNaoConformes> = []
+  if (execIds.length) {
+    const { data: resp } = await sb.from('checklist_execucao_respostas')
+      .select('atividade_id, conforme, checklist_atividades(nome)')
+      .in('execucao_id', execIds)
+      .not('conforme', 'is', null)
+    top = topNaoConformes((resp ?? []).map((r: any) => {
+      const a = Array.isArray(r.checklist_atividades) ? r.checklist_atividades[0] : r.checklist_atividades
+      return { atividade_id: r.atividade_id, nome: a?.nome ?? '—', conforme: r.conforme }
+    }))
+  }
+
+  // Tratamento — planos de ação das execuções concluídas na janela
+  let tratamento = { corrigidos: 0, naoCorrigidos: 0, aguardN1: 0, aguardN2: 0 }
+  if (execIds.length) {
+    const { data: planos } = await sb.from('planos_acao')
+      .select('status').in('checklist_execucao_id', execIds).limit(3000)
+    tratamento = resumoPlanos((planos ?? []).map((x: any) => x.status))
+  }
+
+  return {
+    ...base,
+    ultimo_em: ultimoEm,
+    placar: placarChecklist(execs),
+    conformidade_dias: conformidadePorDiaExec(execs),
+    top_nao_conformes: top,
+    tratamento,
+    tempo_medio: tempoMedioExecucao(execs),
+    motivos: resumo.porMotivo,
+  }
+}
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
@@ -40,17 +103,23 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   if (!dash) return Response.json({ error: 'Dashboard não encontrado' }, { status: 404 })
 
   const { data: paineisRaw } = await sb.from('dashboard_paineis')
-    .select('id, ordem, titulo, atividade_id, janela_horas, alerta_silencio_horas, atividade:atividade_id(nome, tipo, config, checklist_id)')
+    .select('id, ordem, titulo, tipo, atividade_id, checklist_id, janela_horas, alerta_silencio_horas, atividade:atividade_id(nome, tipo, config, checklist_id), checklist:checklist_id(nome)')
     .eq('dashboard_id', dash.id).order('ordem')
 
   const agora = Date.now()
   const paineis = await Promise.all((paineisRaw ?? []).map(async (p: any) => {
+    const janelaMs = p.janela_horas * 3600_000
+    const corte = new Date(agora - janelaMs).toISOString()
+
+    // ── Painel de CHECKLIST (monitora o checklist inteiro) ──
+    if (p.tipo === 'checklist') {
+      return montarPainelChecklist(sb, p, agora, corte)
+    }
+
     const atv = Array.isArray(p.atividade) ? p.atividade[0] : p.atividade
     const tipo: string = atv?.tipo ?? 'texto'
     const cfg = atv?.config ?? {}
     const titulo = p.titulo || atv?.nome || 'Painel'
-    const janelaMs = p.janela_horas * 3600_000
-    const corte = new Date(agora - janelaMs).toISOString()
 
     const { data: respostas } = await sb.from('checklist_execucao_respostas')
       .select('resposta, criado_em')
