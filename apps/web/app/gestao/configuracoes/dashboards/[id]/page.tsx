@@ -16,12 +16,15 @@ const TIPO_LABEL: Record<string, string> = {
 interface Painel {
   id: string
   ordem: number
+  tipo: 'atividade' | 'checklist'
   titulo: string | null
-  atividade_id: string
+  atividade_id: string | null
+  checklist_id: string | null
   janela_horas: number
   alerta_silencio_horas: number | null
   atividade_nome: string
   atividade_tipo: string
+  checklist_nome: string
 }
 
 export default function EditorDashboardPage({ params }: { params: Promise<{ id: string }> }) {
@@ -49,6 +52,7 @@ export default function EditorDashboardPage({ params }: { params: Promise<{ id: 
   const [clSel, setClSel] = useState(''); const [atvSel, setAtvSel] = useState('')
   const [janela, setJanela] = useState('24'); const [tituloPainel, setTituloPainel] = useState('')
   const [alertaSilencio, setAlertaSilencio] = useState('')
+  const [tipoNovo, setTipoNovo] = useState<'atividade' | 'checklist'>('atividade')
   const [addOpen, setAddOpen] = useState(false)
 
   async function carregar() {
@@ -61,13 +65,15 @@ export default function EditorDashboardPage({ params }: { params: Promise<{ id: 
   async function carregarPaineis() {
     const sb = createClient()
     const { data } = await sb.from('dashboard_paineis')
-      .select('id, ordem, titulo, atividade_id, janela_horas, alerta_silencio_horas, atividade:atividade_id(nome, tipo)')
+      .select('id, ordem, tipo, titulo, atividade_id, checklist_id, janela_horas, alerta_silencio_horas, atividade:atividade_id(nome, tipo), checklist:checklist_id(nome)')
       .eq('dashboard_id', id).order('ordem')
     setPaineis((data ?? []).map((p: any) => {
       const a = Array.isArray(p.atividade) ? p.atividade[0] : p.atividade
-      return { id: p.id, ordem: p.ordem, titulo: p.titulo, atividade_id: p.atividade_id, janela_horas: p.janela_horas,
+      const c = Array.isArray(p.checklist) ? p.checklist[0] : p.checklist
+      return { id: p.id, ordem: p.ordem, tipo: p.tipo ?? 'atividade', titulo: p.titulo,
+        atividade_id: p.atividade_id, checklist_id: p.checklist_id, janela_horas: p.janela_horas,
         alerta_silencio_horas: p.alerta_silencio_horas ?? null,
-        atividade_nome: a?.nome ?? '—', atividade_tipo: a?.tipo ?? '' }
+        atividade_nome: a?.nome ?? '—', atividade_tipo: a?.tipo ?? '', checklist_nome: c?.nome ?? '—' }
     }))
   }
 
@@ -115,10 +121,13 @@ export default function EditorDashboardPage({ params }: { params: Promise<{ id: 
   }
 
   async function addPainel() {
-    if (!atvSel) { toast.error('Escolha a atividade.'); return }
+    if (tipoNovo === 'atividade' && !atvSel) { toast.error('Escolha a atividade.'); return }
+    if (tipoNovo === 'checklist' && !clSel) { toast.error('Escolha o checklist.'); return }
     const alerta = Number(alertaSilencio)
     const { error } = await createClient().from('dashboard_paineis').insert({
-      dashboard_id: id, atividade_id: atvSel, ordem: paineis.length,
+      dashboard_id: id, ordem: paineis.length, tipo: tipoNovo,
+      atividade_id: tipoNovo === 'atividade' ? atvSel : null,
+      checklist_id: tipoNovo === 'checklist' ? clSel : null,
       janela_horas: Math.max(1, Number(janela) || 24), titulo: tituloPainel.trim() || null,
       alerta_silencio_horas: alerta > 0 ? Math.round(alerta) : null,
     })
@@ -235,8 +244,12 @@ export default function EditorDashboardPage({ params }: { params: Promise<{ id: 
               <button onClick={() => mover(p, 1)} disabled={idx === paineis.length - 1} className="text-gray-300 hover:text-gray-600 disabled:opacity-30"><ArrowDown size={14} /></button>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-800 truncate">{p.titulo || p.atividade_nome}</p>
-              <p className="text-xs text-gray-400">{TIPO_LABEL[p.atividade_tipo] ?? p.atividade_tipo} · últimas {p.janela_horas}h</p>
+              <p className="text-sm font-medium text-gray-800 truncate">{p.titulo || (p.tipo === 'checklist' ? p.checklist_nome : p.atividade_nome)}</p>
+              <p className="text-xs text-gray-400">
+                {p.tipo === 'checklist'
+                  ? <><span className="inline-block px-1.5 py-0.5 mr-1 rounded bg-orange-100 text-orange-700 text-[10px] font-medium">Checklist</span>{p.checklist_nome}</>
+                  : <>{TIPO_LABEL[p.atividade_tipo] ?? p.atividade_tipo}</>} · últimas {p.janela_horas}h
+              </p>
             </div>
             <div className="flex-shrink-0 flex items-center gap-1.5" title="Avisa na TV quando a atividade fica este tempo sem nova leitura. Vazio = sem alerta.">
               <span className="text-xs text-gray-400 hidden sm:inline">Alerta se parar</span>
@@ -252,6 +265,20 @@ export default function EditorDashboardPage({ params }: { params: Promise<{ id: 
         {/* Form de adicionar painel */}
         {addOpen && (
           <div className="border border-dashed border-orange-200 rounded-lg p-3 space-y-2 bg-orange-50/30">
+            {/* Tipo do painel */}
+            <div className="flex gap-1.5">
+              {(['atividade', 'checklist'] as const).map(t => (
+                <button key={t} onClick={() => setTipoNovo(t)}
+                  className={`flex-1 text-xs font-medium px-2 py-1.5 rounded-lg border ${tipoNovo === t ? 'border-orange-400 bg-orange-100 text-orange-700' : 'border-gray-200 bg-white text-gray-500'}`}>
+                  {t === 'atividade' ? 'Uma atividade' : 'Checklist inteiro'}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-gray-400">
+              {tipoNovo === 'atividade'
+                ? 'Monitora o histórico de uma atividade (número, sim/não, única escolha, padrão).'
+                : 'Monitora a execução do checklist: placar, conformidade, top não conformes, tratamento e tempo médio.'}
+            </p>
             <div className="grid grid-cols-2 gap-2">
               <select value={gSel} onChange={e => setGSel(e.target.value)} className="px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white">
                 <option value="">{grupoLabel}...</option>
@@ -265,12 +292,14 @@ export default function EditorDashboardPage({ params }: { params: Promise<{ id: 
                 <option value="">Checklist...</option>
                 {checklists.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
-              <select value={atvSel} onChange={e => setAtvSel(e.target.value)} disabled={!clSel} className="px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white disabled:opacity-50">
-                <option value="">Atividade...</option>
-                {atividades.map(a => <option key={a.id} value={a.id}>{a.nome} ({TIPO_LABEL[a.tipo]})</option>)}
-              </select>
+              {tipoNovo === 'atividade' && (
+                <select value={atvSel} onChange={e => setAtvSel(e.target.value)} disabled={!clSel} className="px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white disabled:opacity-50">
+                  <option value="">Atividade...</option>
+                  {atividades.map(a => <option key={a.id} value={a.id}>{a.nome} ({TIPO_LABEL[a.tipo]})</option>)}
+                </select>
+              )}
             </div>
-            {clSel && atividades.length === 0 && (
+            {tipoNovo === 'atividade' && clSel && atividades.length === 0 && (
               <p className="text-xs text-amber-600">Este checklist não tem atividades dos tipos suportados (sim/não, única escolha, número, padrão).</p>
             )}
             <div className="grid grid-cols-2 gap-2">
@@ -289,7 +318,7 @@ export default function EditorDashboardPage({ params }: { params: Promise<{ id: 
             </div>
             <div className="flex justify-end gap-2">
               <button onClick={() => setAddOpen(false)} className="text-xs text-gray-500 px-3 py-1.5">Cancelar</button>
-              <button onClick={addPainel} disabled={!atvSel} className="text-xs font-medium text-white bg-orange-500 px-3 py-1.5 rounded-lg disabled:opacity-40">Adicionar</button>
+              <button onClick={addPainel} disabled={tipoNovo === 'atividade' ? !atvSel : !clSel} className="text-xs font-medium text-white bg-orange-500 px-3 py-1.5 rounded-lg disabled:opacity-40">Adicionar</button>
             </div>
           </div>
         )}

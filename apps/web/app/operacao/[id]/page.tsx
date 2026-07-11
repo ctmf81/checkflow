@@ -1398,6 +1398,10 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   // ID de uma execução agendada pendente (vem via ?exec=) — completa a
   // execução existente em vez de criar uma nova
   const [execAgendadaId, setExecAgendadaId] = useState<string | null>(null)
+  // Início desta sessão de execução (abertura da tela) — usado só na execução
+  // "de uma vez" (fresh insert) para medir o tempo médio nos painéis. Retomada,
+  // agendada e workflow não usam (a média fica sobre execuções contínuas).
+  const iniciadoEmRef = useRef(new Date().toISOString())
   // Motivos de não execução associados ao checklist (separados por tipo)
   const [motivosChecklist, setMotivosChecklist] = useState<Motivo[]>([])
   const [motivosAtividade, setMotivosAtividade] = useState<Motivo[]>([])
@@ -1914,6 +1918,9 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
         data_expiracao: dataExpiracao,
         status: statusInicial,
         resultado: wfItemId ? null : resultado,
+        // Só na execução "de uma vez" (sem workflow): marca o início da sessão
+        // p/ o tempo médio dos painéis. Workflow começa em_andamento e não conta.
+        iniciado_em: wfItemId ? null : iniciadoEmRef.current,
       }).select('id').single()
 
       if (execErr || !execucao) {

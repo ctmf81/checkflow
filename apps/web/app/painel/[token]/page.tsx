@@ -7,9 +7,12 @@ import { use, useCallback, useEffect, useRef, useState } from 'react'
 
 interface DiaPct { dia: string; total: number; conformes?: number; pct?: number | null }
 interface DiaSeg { dia: string; total: number; seg: { valor: string; label: string; conforme: boolean; count: number }[] }
+interface Placar { executados: number; aprovados: number; reprovados: number; naoExecutados: number; pctAprovacao: number | null }
+interface DiaConf { dia: string; aprovados: number; reprovados: number; total: number }
+interface TopNC { atividade: string; naoConformes: number; total: number; taxa: number }
 interface PainelData {
   id: string; titulo: string; tipo: string; janela_horas: number
-  grafico?: 'linha' | 'padrao' | 'conformidade' | 'composicao'
+  grafico?: 'linha' | 'padrao' | 'conformidade' | 'composicao' | 'checklist'
   unidade?: string
   serie?: { t: string; v?: number; idx?: number | null; min?: number | null; max?: number | null }[]
   ref?: { min: number | null; max: number | null }; total?: number; fora?: number; modo?: 'ribbon' | 'indice'
@@ -22,6 +25,12 @@ interface PainelData {
   execucoes?: number
   nao_executadas?: number
   motivos?: { motivo: string; count: number }[]
+  // Painel de checklist
+  placar?: Placar
+  conformidade_dias?: DiaConf[]
+  top_nao_conformes?: TopNC[]
+  tratamento?: { corrigidos: number; naoCorrigidos: number; aguardN1: number; aguardN2: number }
+  tempo_medio?: { segundos: number; amostras: number } | null
 }
 interface DashData {
   dashboard: { nome: string; transicao_segundos: number; refresh_segundos: number }
@@ -146,22 +155,30 @@ function frescor(ultimoEm?: string | null, horas?: number | null) {
   return { texto: ha, cor: 'bg-green-500/15 text-green-400', alerta: false }
 }
 
-function Painel({ p }: { p: PainelData }) {
-  const porDia = p.grafico === 'conformidade' || p.grafico === 'composicao'
+// Cabeçalho comum: título + subtítulo + selo de frescor.
+function CabecalhoPainel({ p, subtitulo }: { p: PainelData; subtitulo: string }) {
   const f = frescor(p.ultimo_em, p.alerta_silencio_horas)
+  return (
+    <div className="mb-2 flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-xl sm:text-3xl font-bold leading-tight">{p.titulo}</p>
+        <p className="text-xs sm:text-sm text-gray-500">{subtitulo}</p>
+      </div>
+      <span className={`flex-shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs sm:text-sm font-medium ${f.cor} ${f.alerta ? 'animate-pulse' : ''}`}>
+        <span className="text-[10px] leading-none">●</span>{f.texto}
+      </span>
+    </div>
+  )
+}
+
+function Painel({ p }: { p: PainelData }) {
+  if (p.grafico === 'checklist') return <ChecklistPainel p={p} />
+  const porDia = p.grafico === 'conformidade' || p.grafico === 'composicao'
   const naoExec = p.nao_executadas ?? 0
   const motivos = (p.motivos ?? []).slice(0, 2).map(m => `${m.motivo} (${m.count})`).join(', ')
   return (
     <div className="h-full flex flex-col">
-      <div className="mb-2 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xl sm:text-3xl font-bold leading-tight">{p.titulo}</p>
-          <p className="text-xs sm:text-sm text-gray-500">Últimas {p.janela_horas}h{porDia ? ' · por dia' : ''}</p>
-        </div>
-        <span className={`flex-shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs sm:text-sm font-medium ${f.cor} ${f.alerta ? 'animate-pulse' : ''}`}>
-          <span className="text-[10px] leading-none">●</span>{f.texto}
-        </span>
-      </div>
+      <CabecalhoPainel p={p} subtitulo={`Últimas ${p.janela_horas}h${porDia ? ' · por dia' : ''}`} />
       <div className="flex-1 min-h-0">
         {p.grafico === 'linha' && <GraficoLinhaFaixa serie={(p.serie ?? []) as SerieV[]} band={p.ref ?? { min: null, max: null }} unidade={p.unidade} />}
         {p.grafico === 'padrao' && <GraficoPadrao p={p} />}
@@ -176,6 +193,113 @@ function Painel({ p }: { p: PainelData }) {
         </span>
       </div>
     </div>
+  )
+}
+
+function fmtDuracao(seg: number): string {
+  const m = Math.floor(seg / 60), s = seg % 60
+  if (m < 1) return `${s}s`
+  return s ? `${m}m ${s}s` : `${m}m`
+}
+
+// ── Painel de CHECKLIST: placar + conformidade/dia + top não conformes + rodapé ──
+function ChecklistPainel({ p }: { p: PainelData }) {
+  const pl = p.placar ?? { executados: 0, aprovados: 0, reprovados: 0, naoExecutados: 0, pctAprovacao: null }
+  const dias = (p.conformidade_dias ?? []).filter(d => d.total > 0)
+  const top = p.top_nao_conformes ?? []
+  const trat = p.tratamento ?? { corrigidos: 0, naoCorrigidos: 0, aguardN1: 0, aguardN2: 0 }
+  const motivos = (p.motivos ?? []).slice(0, 2).map(m => `${m.motivo} (${m.count})`).join(', ')
+  const temTrat = trat.corrigidos + trat.naoCorrigidos + trat.aguardN1 + trat.aguardN2 > 0
+  return (
+    <div className="h-full flex flex-col">
+      <CabecalhoPainel p={p} subtitulo={`Checklist · Últimas ${p.janela_horas}h`} />
+
+      {/* Placar */}
+      <div className="grid grid-cols-5 gap-2 sm:gap-3">
+        <Tile label="Executados" valor={pl.executados} />
+        <Tile label="Aprovação" valor={pl.pctAprovacao == null ? '–' : `${pl.pctAprovacao}%`} cor="text-green-400" fundo="bg-green-500/10" />
+        <Tile label="Reprovados" valor={pl.reprovados} cor="text-red-400" fundo="bg-red-500/10" />
+        <Tile label="Não executados" valor={pl.naoExecutados} cor="text-amber-400" fundo="bg-amber-500/10" />
+        <Tile label="Tempo médio" valor={p.tempo_medio ? fmtDuracao(p.tempo_medio.segundos) : 'n/d'} cor="text-orange-400" />
+      </div>
+
+      {/* Conformidade por dia + Top não conformes */}
+      <div className="flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-[1.35fr_1fr] gap-4 mt-3">
+        <div className="min-h-0 flex flex-col">
+          <p className="text-xs sm:text-sm text-gray-400 mb-1">Conformidade por dia</p>
+          <div className="flex-1 min-h-0"><BarrasConformidade dias={dias} /></div>
+        </div>
+        <div className="min-h-0 flex flex-col">
+          <p className="text-xs sm:text-sm text-gray-400 mb-1">Top atividades não conformes</p>
+          {top.length === 0
+            ? <div className="flex-1 flex items-center justify-center"><p className="text-sm text-green-500">Sem não conformidades 🎉</p></div>
+            : <div className="flex flex-col gap-2">
+                {top.map((t, i) => {
+                  const max = top[0].naoConformes || 1
+                  return (
+                    <div key={i}>
+                      <div className="flex justify-between text-xs sm:text-sm mb-0.5">
+                        <span className="text-gray-300 truncate pr-2">{t.atividade}</span>
+                        <span className="text-red-400 font-semibold flex-shrink-0">{t.naoConformes}</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-800 rounded-full"><div className="h-1.5 bg-red-500 rounded-full" style={{ width: `${Math.round((t.naoConformes / max) * 100)}%` }} /></div>
+                    </div>
+                  )
+                })}
+              </div>}
+        </div>
+      </div>
+
+      {/* Rodapé: tratamento + não execução */}
+      <div className="mt-3 pt-2 border-t border-gray-800 flex items-center gap-x-4 gap-y-1 flex-wrap text-xs sm:text-sm">
+        <span className="text-gray-500 font-medium">Tratamento</span>
+        <span className="text-green-400">● {trat.corrigidos} corrigidos</span>
+        <span className="text-red-400">● {trat.naoCorrigidos} não corrigidos</span>
+        <span className="text-amber-400">● {trat.aguardN1 + trat.aguardN2} aguardando N1/N2</span>
+        {!temTrat && <span className="text-gray-600">sem reprovações a tratar</span>}
+        {(p.nao_executadas ?? 0) > 0 && (
+          <>
+            <span className="text-gray-700">|</span>
+            <span className="text-gray-400">não exec.: {motivos}</span>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function Tile({ label, valor, cor = 'text-white', fundo = 'bg-white/5' }: { label: string; valor: React.ReactNode; cor?: string; fundo?: string }) {
+  return (
+    <div className={`${fundo} rounded-lg px-2 py-2 sm:px-3`}>
+      <p className="text-[10px] sm:text-xs text-gray-500 leading-tight">{label}</p>
+      <p className={`text-xl sm:text-3xl font-bold leading-none mt-1 ${cor}`}>{valor}</p>
+    </div>
+  )
+}
+
+// Barras empilhadas aprovado (verde) × reprovado (vermelho) por dia.
+function BarrasConformidade({ dias }: { dias: DiaConf[] }) {
+  if (dias.length === 0) return <SemDados />
+  const W = 1000, H = 420, padX = 24, padY = 20
+  const n = dias.length
+  const bw = Math.min(90, ((W - 2 * padX) / n) * 0.6)
+  const cx = (i: number) => padX + (n === 1 ? 0.5 : (i + 0.5) / n) * (W - 2 * padX)
+  const areaH = H - 2 * padY
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+      {dias.map((d, i) => {
+        const hRep = (d.reprovados / d.total) * areaH
+        const hApr = (d.aprovados / d.total) * areaH
+        const x = cx(i) - bw / 2
+        return (
+          <g key={i}>
+            <rect x={x} y={padY} width={bw} height={Math.max(0, hApr - 1.5)} fill="#22c55e" rx={2} />
+            <rect x={x} y={padY + hApr} width={bw} height={Math.max(0, hRep - 1.5)} fill="#ef4444" rx={2} />
+            <text x={cx(i)} y={H - 4} textAnchor="middle" className="fill-gray-600" fontSize={15}>{rotDia(d.dia)}</text>
+          </g>
+        )
+      })}
+    </svg>
   )
 }
 
