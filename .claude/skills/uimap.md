@@ -159,7 +159,7 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 | `lib/supabase.ts` | Supabase client singleton |
 | `lib/apiClient.ts` | `apiFetch(path, init)` — chamadas do navegador à API Fastify com Bearer do usuário (rotas internas autenticadas) |
 | `lib/padrao.ts` · `lib/perfis.ts` · `lib/turnos.ts` · `lib/tarefas.ts` · `lib/tickets.ts` · `lib/visibilidade.ts` · `lib/midia.ts` | Lógica pura (validação/permissões/visibilidade/limites de mídia) — fonte única importada pelas telas + testes unit. `lib/tickets` = ações por status/papel (sem "corrigido parcial"/"improcedente" desde 2026-07-05) |
-| `lib/painelDados.ts` | Lógica pura dos painéis de TV (sem I/O), importada por `/api/painel/[token]` + testes. Atividade: `montarLinha`/`montarPadrao`/`serieConformidade`/`composicaoDiaria`/`resumoExecucao`. Checklist: `placarChecklist`/`conformidadePorDiaExec`/`tempoMedioExecucao`/`topNaoConformes`/`resumoPlanos` |
+| `lib/painelDados.ts` | Lógica pura dos painéis de TV (sem I/O), importada por `/api/painel/[token]` + testes. Atividade: `montarLinha`/`montarPadrao`/`serieConformidade`/`composicaoDiaria`/`resumoExecucao`. Checklist: `placarChecklist`/`conformidadePorDiaExec`/`tempoMedioExecucao`/`topNaoConformes` |
 | `components/layout/AvisoTurno.tsx` | Banner "fora do turno" (modo aviso) nos layouts gestão/operação |
 | `components/planos-acao/CausaRaizModeracao.tsx` | Bloco de causa raiz + recorrência na moderação do plano (`/gestao/planos-acao/[id]`) |
 
