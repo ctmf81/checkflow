@@ -19,6 +19,7 @@ interface Painel {
   titulo: string | null
   atividade_id: string
   janela_horas: number
+  alerta_silencio_horas: number | null
   atividade_nome: string
   atividade_tipo: string
 }
@@ -47,6 +48,7 @@ export default function EditorDashboardPage({ params }: { params: Promise<{ id: 
   const [gSel, setGSel] = useState(''); const [sgSel, setSgSel] = useState('')
   const [clSel, setClSel] = useState(''); const [atvSel, setAtvSel] = useState('')
   const [janela, setJanela] = useState('24'); const [tituloPainel, setTituloPainel] = useState('')
+  const [alertaSilencio, setAlertaSilencio] = useState('')
   const [addOpen, setAddOpen] = useState(false)
 
   async function carregar() {
@@ -59,11 +61,12 @@ export default function EditorDashboardPage({ params }: { params: Promise<{ id: 
   async function carregarPaineis() {
     const sb = createClient()
     const { data } = await sb.from('dashboard_paineis')
-      .select('id, ordem, titulo, atividade_id, janela_horas, atividade:atividade_id(nome, tipo)')
+      .select('id, ordem, titulo, atividade_id, janela_horas, alerta_silencio_horas, atividade:atividade_id(nome, tipo)')
       .eq('dashboard_id', id).order('ordem')
     setPaineis((data ?? []).map((p: any) => {
       const a = Array.isArray(p.atividade) ? p.atividade[0] : p.atividade
       return { id: p.id, ordem: p.ordem, titulo: p.titulo, atividade_id: p.atividade_id, janela_horas: p.janela_horas,
+        alerta_silencio_horas: p.alerta_silencio_horas ?? null,
         atividade_nome: a?.nome ?? '—', atividade_tipo: a?.tipo ?? '' }
     }))
   }
@@ -113,13 +116,21 @@ export default function EditorDashboardPage({ params }: { params: Promise<{ id: 
 
   async function addPainel() {
     if (!atvSel) { toast.error('Escolha a atividade.'); return }
+    const alerta = Number(alertaSilencio)
     const { error } = await createClient().from('dashboard_paineis').insert({
       dashboard_id: id, atividade_id: atvSel, ordem: paineis.length,
       janela_horas: Math.max(1, Number(janela) || 24), titulo: tituloPainel.trim() || null,
+      alerta_silencio_horas: alerta > 0 ? Math.round(alerta) : null,
     })
     if (error) { toast.error('Não foi possível adicionar o painel.'); return }
-    setAtvSel(''); setTituloPainel(''); setAddOpen(false)
+    setAtvSel(''); setTituloPainel(''); setAlertaSilencio(''); setAddOpen(false)
     carregarPaineis()
+  }
+  async function setAlerta(p: Painel, valor: string) {
+    const n = Number(valor)
+    const alerta = n > 0 ? Math.round(n) : null
+    setPaineis(ps => ps.map(x => x.id === p.id ? { ...x, alerta_silencio_horas: alerta } : x))
+    await createClient().from('dashboard_paineis').update({ alerta_silencio_horas: alerta }).eq('id', p.id)
   }
   async function delPainel(p: Painel) {
     if (!await confirm({ titulo: 'Remover este painel?', confirmarLabel: 'Remover', perigo: true })) return
@@ -227,6 +238,13 @@ export default function EditorDashboardPage({ params }: { params: Promise<{ id: 
               <p className="text-sm font-medium text-gray-800 truncate">{p.titulo || p.atividade_nome}</p>
               <p className="text-xs text-gray-400">{TIPO_LABEL[p.atividade_tipo] ?? p.atividade_tipo} · últimas {p.janela_horas}h</p>
             </div>
+            <div className="flex-shrink-0 flex items-center gap-1.5" title="Avisa na TV quando a atividade fica este tempo sem nova leitura. Vazio = sem alerta.">
+              <span className="text-xs text-gray-400 hidden sm:inline">Alerta se parar</span>
+              <input type="number" min={0} placeholder="—" defaultValue={p.alerta_silencio_horas ?? ''}
+                onBlur={e => { if (String(p.alerta_silencio_horas ?? '') !== e.target.value) setAlerta(p, e.target.value) }}
+                className="w-14 px-2 py-1 text-xs border border-gray-200 rounded-lg bg-gray-50 text-center focus:outline-none focus:ring-2 focus:ring-orange-200" />
+              <span className="text-xs text-gray-400">h</span>
+            </div>
             <button onClick={() => delPainel(p)} className="p-1.5 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
           </div>
         ))}
@@ -263,6 +281,11 @@ export default function EditorDashboardPage({ params }: { params: Promise<{ id: 
                   className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white" />
                 <span className="text-xs text-gray-400 whitespace-nowrap">últimas h</span>
               </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <input type="number" min={0} value={alertaSilencio} onChange={e => setAlertaSilencio(e.target.value)} placeholder="—"
+                className="w-16 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white text-center" />
+              <span className="text-xs text-gray-400">h sem leitura → alerta de silêncio na TV (opcional)</span>
             </div>
             <div className="flex justify-end gap-2">
               <button onClick={() => setAddOpen(false)} className="text-xs text-gray-500 px-3 py-1.5">Cancelar</button>

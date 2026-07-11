@@ -16,6 +16,12 @@ interface PainelData {
   dias?: (DiaPct | DiaSeg)[]
   barras?: { label: string; count: number; conforme: boolean }[]; naoConformes?: number
   tendencia?: 'alta' | 'queda' | 'estavel'
+  // Frescor + não execução (nível checklist)
+  alerta_silencio_horas?: number | null
+  ultimo_em?: string | null
+  execucoes?: number
+  nao_executadas?: number
+  motivos?: { motivo: string; count: number }[]
 }
 interface DashData {
   dashboard: { nome: string; transicao_segundos: number; refresh_segundos: number }
@@ -117,13 +123,44 @@ function Tela({ children }: { children: React.ReactNode }) {
 
 type SerieV = { t: string; v: number }
 
+// "há X" a partir de um instante ISO; null se ausente.
+function haQuanto(iso: string): string {
+  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
+  if (min < 1) return 'agora'
+  if (min < 60) return `há ${min} min`
+  const h = Math.floor(min / 60), m = min % 60
+  return m ? `há ${h}h${String(m).padStart(2, '0')}` : `há ${h}h`
+}
+
+// Selo de frescor: verde/amarelo/vermelho pelo tempo sem nova leitura vs
+// alerta_silencio_horas (amarelo na metade do prazo, vermelho ao estourar).
+// Sem limite configurado → selo neutro só com "há X" (sem alarme).
+function frescor(ultimoEm?: string | null, horas?: number | null) {
+  if (!ultimoEm) return { texto: 'sem leituras', cor: 'bg-white/5 text-gray-400', alerta: false }
+  const ms = Date.now() - new Date(ultimoEm).getTime()
+  const ha = haQuanto(ultimoEm)
+  if (!horas) return { texto: ha, cor: 'bg-white/5 text-gray-400', alerta: false }
+  const lim = horas * 3600_000
+  if (ms > lim) return { texto: `sem registro ${ha}`, cor: 'bg-red-500/15 text-red-400', alerta: true }
+  if (ms > lim / 2) return { texto: ha, cor: 'bg-amber-500/15 text-amber-400', alerta: false }
+  return { texto: ha, cor: 'bg-green-500/15 text-green-400', alerta: false }
+}
+
 function Painel({ p }: { p: PainelData }) {
   const porDia = p.grafico === 'conformidade' || p.grafico === 'composicao'
+  const f = frescor(p.ultimo_em, p.alerta_silencio_horas)
+  const naoExec = p.nao_executadas ?? 0
+  const motivos = (p.motivos ?? []).slice(0, 2).map(m => `${m.motivo} (${m.count})`).join(', ')
   return (
     <div className="h-full flex flex-col">
-      <div className="mb-2">
-        <p className="text-xl sm:text-3xl font-bold leading-tight">{p.titulo}</p>
-        <p className="text-xs sm:text-sm text-gray-500">Últimas {p.janela_horas}h{porDia ? ' · por dia' : ''}</p>
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xl sm:text-3xl font-bold leading-tight">{p.titulo}</p>
+          <p className="text-xs sm:text-sm text-gray-500">Últimas {p.janela_horas}h{porDia ? ' · por dia' : ''}</p>
+        </div>
+        <span className={`flex-shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs sm:text-sm font-medium ${f.cor} ${f.alerta ? 'animate-pulse' : ''}`}>
+          <span className="text-[10px] leading-none">●</span>{f.texto}
+        </span>
       </div>
       <div className="flex-1 min-h-0">
         {p.grafico === 'linha' && <GraficoLinhaFaixa serie={(p.serie ?? []) as SerieV[]} band={p.ref ?? { min: null, max: null }} unidade={p.unidade} />}
@@ -131,6 +168,12 @@ function Painel({ p }: { p: PainelData }) {
         {p.grafico === 'conformidade' && <GraficoConformidade p={p} />}
         {p.grafico === 'composicao' && <GraficoComposicao p={p} />}
         {!p.grafico && <SemDados />}
+      </div>
+      <div className="mt-2 pt-2 border-t border-gray-800 flex items-center gap-4 flex-wrap text-xs sm:text-sm">
+        <span className="text-gray-400">{p.execucoes ?? 0} execuções</span>
+        <span className={naoExec ? 'text-amber-400' : 'text-green-500'}>
+          {naoExec} não executadas{naoExec && motivos ? ` — ${motivos}` : ''}
+        </span>
       </div>
     </div>
   )
