@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { montarLinha, montarBarras, montarPadrao, serieConformidade, composicaoDiaria, opcoesSimNao, type OpcaoRaw } from '@/lib/painelDados'
+import { montarLinha, montarBarras, montarPadrao, serieConformidade, composicaoDiaria, opcoesSimNao, resumoExecucao, type OpcaoRaw } from '@/lib/painelDados'
 
 // GET /api/painel/[token] — dados PÚBLICOS de um dashboard (sem login).
 // Escopado ao token: só devolve os painéis daquele dashboard e a série de cada
@@ -40,7 +40,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   if (!dash) return Response.json({ error: 'Dashboard não encontrado' }, { status: 404 })
 
   const { data: paineisRaw } = await sb.from('dashboard_paineis')
-    .select('id, ordem, titulo, atividade_id, janela_horas, atividade:atividade_id(nome, tipo, config)')
+    .select('id, ordem, titulo, atividade_id, janela_horas, alerta_silencio_horas, atividade:atividade_id(nome, tipo, config, checklist_id)')
     .eq('dashboard_id', dash.id).order('ordem')
 
   const agora = Date.now()
@@ -59,8 +59,35 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
       .order('criado_em', { ascending: true })
       .limit(MAX_PONTOS)
 
-    const base = { id: p.id, titulo, tipo, janela_horas: p.janela_horas }
     const rs = (respostas ?? []) as { resposta: any; criado_em: string }[]
+
+    // ── Frescor + não execução (nível checklist) ──
+    // Última leitura desta atividade (para o selo de silêncio) e resumo das
+    // execuções do checklist na janela (concluídas × não executadas + motivos).
+    const ultimoEm = rs.length ? rs[rs.length - 1].criado_em : null
+    const checklistId = atv?.checklist_id ?? null
+    let resumo = { concluidas: 0, naoExecutadas: 0, porMotivo: [] as { motivo: string; count: number }[] }
+    if (checklistId) {
+      const { data: execs } = await sb.from('checklist_execucoes')
+        .select('status, motivo:motivo_nao_execucao_id(descricao)')
+        .eq('checklist_id', checklistId)
+        .gte('data_execucao', corte)
+        .in('status', ['concluido', 'nao_executado'])
+        .limit(2000)
+      resumo = resumoExecucao((execs ?? []).map((e: any) => {
+        const m = Array.isArray(e.motivo) ? e.motivo[0] : e.motivo
+        return { status: e.status, motivo: m?.descricao ?? null }
+      }))
+    }
+
+    const base = {
+      id: p.id, titulo, tipo, janela_horas: p.janela_horas,
+      alerta_silencio_horas: p.alerta_silencio_horas ?? null,
+      ultimo_em: ultimoEm,
+      execucoes: resumo.concluidas,
+      nao_executadas: resumo.naoExecutadas,
+      motivos: resumo.porMotivo,
+    }
 
     // ── Número → linha + faixa fixa (config) ──
     if (tipo === 'numero') {

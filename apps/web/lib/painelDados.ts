@@ -4,6 +4,30 @@
 
 export interface RespostaRaw { resposta: any; criado_em: string }
 export interface OpcaoRaw { valor: string; label: string; e_valido: boolean }
+export interface ExecucaoRaw { status: string; motivo: string | null }
+
+/**
+ * Resumo de execução para o rodapé do painel: quantas execuções do checklist
+ * dessa atividade concluíram vs foram marcadas "não executado" na janela, e os
+ * motivos das não execuções agrupados (mais frequente primeiro). Enxerga a
+ * AUSÊNCIA que os gráficos de resposta não mostram (não-execução não gera linha).
+ */
+export function resumoExecucao(execs: ExecucaoRaw[]) {
+  let concluidas = 0, naoExecutadas = 0
+  const motivos = new Map<string, number>()
+  for (const e of execs) {
+    if (e.status === 'concluido') concluidas++
+    else if (e.status === 'nao_executado') {
+      naoExecutadas++
+      const m = (e.motivo ?? '').trim() || 'Sem motivo'
+      motivos.set(m, (motivos.get(m) ?? 0) + 1)
+    }
+  }
+  const porMotivo = [...motivos.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([motivo, count]) => ({ motivo, count }))
+  return { concluidas, naoExecutadas, porMotivo }
+}
 
 /** Valor numérico da resposta (número, string numérica, ou {numero} do padrão). */
 export function num(v: any): number | null {

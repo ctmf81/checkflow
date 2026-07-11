@@ -2,7 +2,7 @@
 // parsing de valor, série + referência (número/padrão), barras por opção e
 // tendência da não-conformidade (sim/não e única escolha).
 import { describe, it, expect } from 'vitest'
-import { num, tendencia, opcoesSimNao, montarLinha, montarBarras, agruparPorDia, serieConformidade, composicaoDiaria, montarPadrao } from '@/lib/painelDados'
+import { num, tendencia, opcoesSimNao, montarLinha, montarBarras, agruparPorDia, serieConformidade, composicaoDiaria, montarPadrao, resumoExecucao } from '@/lib/painelDados'
 
 const H = 3600_000
 const AGORA = Date.parse('2026-07-09T12:00:00.000Z')
@@ -181,5 +181,35 @@ describe('montarPadrao (faixa varia por ponto)', () => {
     expect(idxs[0]).toBe(0)
     expect(idxs[1]).toBeGreaterThan(100)
     expect(r.fora).toBe(1)
+  })
+})
+
+describe('resumoExecucao (rodapé: execução vs não execução)', () => {
+  it('conta concluídas, não executadas e agrupa motivos (mais frequente primeiro)', () => {
+    const r = resumoExecucao([
+      { status: 'concluido', motivo: null },
+      { status: 'concluido', motivo: null },
+      { status: 'nao_executado', motivo: 'Falta de insumo' },
+      { status: 'nao_executado', motivo: 'Falta de insumo' },
+      { status: 'nao_executado', motivo: 'Equipamento parado' },
+      { status: 'em_andamento', motivo: null }, // ignorado
+    ])
+    expect(r.concluidas).toBe(2)
+    expect(r.naoExecutadas).toBe(3)
+    expect(r.porMotivo).toEqual([
+      { motivo: 'Falta de insumo', count: 2 },
+      { motivo: 'Equipamento parado', count: 1 },
+    ])
+  })
+  it('motivo vazio/nulo vira "Sem motivo"', () => {
+    const r = resumoExecucao([
+      { status: 'nao_executado', motivo: null },
+      { status: 'nao_executado', motivo: '  ' },
+    ])
+    expect(r.naoExecutadas).toBe(2)
+    expect(r.porMotivo).toEqual([{ motivo: 'Sem motivo', count: 2 }])
+  })
+  it('lista vazia → tudo zero', () => {
+    expect(resumoExecucao([])).toEqual({ concluidas: 0, naoExecutadas: 0, porMotivo: [] })
   })
 })
