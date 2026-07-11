@@ -29,7 +29,6 @@ interface PainelData {
   placar?: Placar
   conformidade_dias?: DiaConf[]
   top_nao_conformes?: TopNC[]
-  tratamento?: { corrigidos: number; naoCorrigidos: number; aguardN1: number; aguardN2: number }
   tempo_medio?: { segundos: number; amostras: number } | null
 }
 interface DashData {
@@ -207,9 +206,8 @@ function ChecklistPainel({ p }: { p: PainelData }) {
   const pl = p.placar ?? { executados: 0, aprovados: 0, reprovados: 0, naoExecutados: 0, pctAprovacao: null }
   const dias = (p.conformidade_dias ?? []).filter(d => d.total > 0)
   const top = p.top_nao_conformes ?? []
-  const trat = p.tratamento ?? { corrigidos: 0, naoCorrigidos: 0, aguardN1: 0, aguardN2: 0 }
-  const motivos = (p.motivos ?? []).slice(0, 2).map(m => `${m.motivo} (${m.count})`).join(', ')
-  const temTrat = trat.corrigidos + trat.naoCorrigidos + trat.aguardN1 + trat.aguardN2 > 0
+  const naoExec = p.nao_executadas ?? 0
+  const motivos = (p.motivos ?? []).slice(0, 3).map(m => `${m.motivo} (${m.count})`).join(', ')
   return (
     <div className="h-full flex flex-col">
       <CabecalhoPainel p={p} subtitulo={`Checklist · Últimas ${p.janela_horas}h`} />
@@ -250,19 +248,12 @@ function ChecklistPainel({ p }: { p: PainelData }) {
         </div>
       </div>
 
-      {/* Rodapé: tratamento + não execução */}
-      <div className="mt-3 pt-2 border-t border-gray-800 flex items-center gap-x-4 gap-y-1 flex-wrap text-xs sm:text-sm">
-        <span className="text-gray-500 font-medium">Tratamento</span>
-        <span className="text-green-400">● {trat.corrigidos} corrigidos</span>
-        <span className="text-red-400">● {trat.naoCorrigidos} não corrigidos</span>
-        <span className="text-amber-400">● {trat.aguardN1 + trat.aguardN2} aguardando N1/N2</span>
-        {!temTrat && <span className="text-gray-600">sem reprovações a tratar</span>}
-        {(p.nao_executadas ?? 0) > 0 && (
-          <>
-            <span className="text-gray-700">|</span>
-            <span className="text-gray-400">não exec.: {motivos}</span>
-          </>
-        )}
+      {/* Rodapé: motivos de não execução */}
+      <div className="mt-3 pt-2 border-t border-gray-800 flex items-center gap-x-3 gap-y-1 flex-wrap text-xs sm:text-sm">
+        <span className="text-gray-500 font-medium">Não execução</span>
+        {naoExec === 0
+          ? <span className="text-green-500">nenhuma no período</span>
+          : <span className="text-amber-400">{motivos || `${naoExec} não executadas`}</span>}
       </div>
     </div>
   )
