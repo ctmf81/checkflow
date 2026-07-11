@@ -182,19 +182,39 @@ Rule: **never mutate a published checklist structure** — create a new version 
   - **admin de SISTEMA** (plataforma) ignora todo gate; **admin da EMPRESA** é limitado ao plano.
 - **Cotas vs. entitlements**: cotas (execuções/armazenamento/tokens) seguem em `billing_*` — independentes do gate de módulo. Um módulo liberado ainda respeita a cota.
 
-## Dashboards (painéis públicos de TV) — IMPLEMENTADO 2026-07-09 (migration `20260709030000_dashboards.sql`)
-- **Objetivo**: monitorar em tempo quase real (TV/tela) o **histórico de uma atividade** de checklist. Caso de uso: acompanhar pontos de produção de etapas anteriores e agir preventivamente em desvios.
-- **Estrutura**: `dashboards` (nome, `token` único, `transicao_segundos` = rotação entre painéis, `refresh_segundos` = polling dos dados) + `dashboard_paineis` (ordem, `atividade_id`, `janela_horas`, título opcional). Gerenciado em **Gestão → Configurações → Dashboards** (lista + editor `[id]`).
-- **Permissão** `dashboards` (ver/criar/deletar); escopo **unidade**. O seletor de atividade cruza **qualquer grupo/subgrupo da unidade** (grupo→subgrupo→checklist→atividade), sem a trava de subgrupo — qualquer gestor monitora outros pontos.
-- **Tipos de atividade elegíveis**: `sim_nao`, `multipla_escolha` (**só única escolha**; multi-select fora), `numero`, `padrao`.
+## Dashboards (painéis públicos de TV) — IMPLEMENTADO 2026-07-09; **2 tipos de painel + frescor + tempo médio (2026-07-11)**
+- **Objetivo**: monitorar em tempo quase real (TV/tela) a execução de checklist e agir preventivamente em desvios. Caso de uso original: acompanhar pontos de produção de etapas anteriores.
+- **Estrutura**: `dashboards` (nome, `token` único, `transicao_segundos` = rotação entre painéis, `refresh_segundos` = polling dos dados) + `dashboard_paineis` (ordem, `tipo`, `atividade_id`, `checklist_id`, `janela_horas`, `alerta_silencio_horas`, título opcional). Gerenciado em **Gestão → Configurações → Dashboards** (lista + editor `[id]`). Migrations: `20260709030000_dashboards.sql` (base), `20260711120000_painel_alerta_silencio.sql` (frescor), `20260711140000_painel_checklist.sql` (tipo checklist + `iniciado_em`).
+- **Permissão** `dashboards` (ver/criar/deletar); escopo **unidade**. O seletor cruza **qualquer grupo/subgrupo da unidade** (grupo→subgrupo→checklist→[atividade]), sem a trava de subgrupo — qualquer gestor monitora outros pontos.
 - **Link público (TV)**: página `/painel/[token]` **sem login**; qualquer um com o link vê. Lê `GET /api/painel/[token]` (**service-role, escopada ao token** — só devolve os painéis daquele dashboard) em **polling**. Token **revogável/regenerável** no editor. Carrossel entre painéis + auto-refresh (separados).
-- **Gráficos** (SVG na página, repensados 2026-07-09 p/ contexto temporal + destaque de não-conformidade):
-  - **Número** → linha do tempo + **faixa aceitável SOMBREADA** (min/max do `config`) + pontos fora em vermelho + valor atual e **% fora da faixa**.
-  - **Padrão** (a faixa varia por ponto — depende da combinação de variáveis): **ribbon** quando a faixa é única na janela (linha + faixa fixa, unidades reais); senão **índice normalizado** (0 = centro da faixa, ±100% = borda) — torna combinações diferentes comparáveis num eixo só, com zona fixa "dentro do padrão". (Conserta o bug antigo de usar só a última faixa como referência.)
-  - **Sim/Não** → **linha da % de conformidade POR DIA** + linha de média (era barras de contagem, que achatavam o tempo). Cards: % conforme geral + tendência.
-  - **Única escolha** → **barras EMPILHADAS por dia** (composição no tempo; não-conforme em vermelho, conformes em cores). Vê o mix mudando (ex.: "Ruim" crescendo).
-  - Lógica pura em `lib/painelDados.ts` (`montarLinha`/`montarPadrao`/`serieConformidade`/`composicaoDiaria`/`agruparPorDia`), testada (`painelDados.unit.test.ts`).
-- **Fonte de dados**: `checklist_execucao_respostas` (`resposta` jsonb, `criado_em`) por `atividade_id` na janela. ⚠️ `conforme` **não é gravado** — a conformidade é **recalculada** na rota (número/padrão pela faixa; sim_não por `config.esperado`; única escolha por `checklist_atividade_opcoes.e_valido`).
+
+### Dois tipos de painel (`dashboard_paineis.tipo`, CHECK de alvo único)
+No editor, ao adicionar um painel escolhe-se o tipo: **"Uma atividade"** (`tipo='atividade'`, usa `atividade_id`) ou **"Checklist inteiro"** (`tipo='checklist'`, usa `checklist_id`). Painéis antigos = `'atividade'` (default). `alerta_silencio_horas` e `janela_horas` valem para os dois.
+
+### Selo de frescor (silêncio) — ambos os tipos
+- Cabeçalho de todo painel mostra "há X min" da **última leitura** (painel de atividade = última resposta daquela atividade; painel de checklist = última execução do checklist).
+- `alerta_silencio_horas` (nullable, por painel, campo "alerta se parar (h)" no editor): **verde** até metade do prazo → **amarelo** entre metade e o prazo → **vermelho pulsante** ao estourar (texto "sem registro há X"). **null = sem alerta** (selo neutro só com "há X"). O gestor calibra pela cadência esperada do ponto (forno a cada 30min → 1h; limpeza 1×/turno → 8h). Resolve o ponto cego de a TV "congelar" sem ninguém perceber que parou de medir.
+
+### Painel de ATIVIDADE — gráficos (repensados 2026-07-09 p/ contexto temporal + não-conformidade)
+- **Número** → linha do tempo + **faixa aceitável SOMBREADA** (min/max do `config`) + pontos fora em vermelho + valor atual e **% fora da faixa**.
+- **Padrão** (faixa varia por ponto — depende da combinação de variáveis): **ribbon** quando a faixa é única na janela (linha + faixa fixa, unidades reais); senão **índice normalizado** (0 = centro, ±100% = borda) — combinações diferentes comparáveis num eixo só, com zona fixa "dentro do padrão".
+- **Sim/Não** → **linha da % de conformidade POR DIA** + linha de média. Cards: % conforme geral + tendência.
+- **Única escolha** (`multipla_escolha` **só de escolha única**; multi-select fora) → **barras EMPILHADAS por dia** (composição no tempo; não-conforme em vermelho, conformes em cores).
+- **Rodapé (2026-07-11)**: "N execuções · M não executadas — motivo (n)" — traz a **não-execução** (que não gera linha no gráfico) para o painel. Fonte: `checklist_execucoes` por `checklist_id` da atividade na janela (`resumoExecucao`).
+- Tipos elegíveis: `sim_nao`, `multipla_escolha` (única), `numero`, `padrao`.
+
+### Painel de CHECKLIST (2026-07-11) — a execução do checklist inteiro
+Uma tela que responde "está rodando? · está conforme? · onde falha? · quão rápido? · está sendo tratado?":
+- **Placar da janela**: Executados · **Aprovação %** · Reprovados · Não executados · **Tempo médio** (`placarChecklist`).
+- **Conformidade por dia**: barras empilhadas aprovado (verde) × reprovado (vermelho) das concluídas (`conformidadePorDiaExec`).
+- **Top atividades não conformes**: ranking das que mais reprovam na janela (`topNaoConformes`) — usa a coluna `conforme` **já gravada** na resposta (mesma base do `/gestao/indicadores`, não o recálculo do painel de atividade).
+- **Rodapé — Tratamento**: dos planos de ação das execuções da janela: Corrigidos · Não corrigidos · Aguardando N1/N2 (`resumoPlanos`, sobre `planos_acao.checklist_execucao_id`). + não-execução com motivos.
+- **Tempo médio de execução** (`tempoMedioExecucao`): média de `data_execucao − iniciado_em` das **concluídas com `iniciado_em`**. ⚠️ `iniciado_em` (migration `...140000`) é carimbado pelo cliente **só na execução "de uma vez"** (fresh insert, sem workflow) — retomada/agendada/workflow/offline ficam null e **saem da média**. Execuções antigas nasceram sem `iniciado_em` → tile mostra **"n/d"** até acumular execuções novas ("desde a ativação"). Pausáveis feitas em 1 sessão contam (duração real); só as realmente **pausadas** não entram (caem no path de update, não no fresh insert).
+
+### Fonte de dados e lógica
+- **Painel de atividade**: `checklist_execucao_respostas` (`resposta` jsonb, `criado_em`) por `atividade_id` na janela. ⚠️ para os gráficos a conformidade é **recalculada** na rota (número/padrão pela faixa; sim_não por `config.esperado`; única escolha por `checklist_atividade_opcoes.e_valido`) — o painel NÃO confia no `conforme` gravado. (O painel de checklist, por outro lado, usa `conforme` gravado para o Top NC e `checklist_execucoes.resultado` para o placar — decisão de consistência com a gestão.)
+- **Painel de checklist**: `checklist_execucoes` (status/resultado/`iniciado_em`/`data_execucao`) + respostas das concluídas (Top NC) + `planos_acao` (tratamento), tudo por `checklist_id` na janela.
+- Lógica pura em `lib/painelDados.ts` (atividade: `montarLinha`/`montarPadrao`/`serieConformidade`/`composicaoDiaria`/`agruparPorDia`/`resumoExecucao`; checklist: `placarChecklist`/`conformidadePorDiaExec`/`tempoMedioExecucao`/`topNaoConformes`/`resumoPlanos`), toda testada em `painelDados.unit.test.ts`. Payload montado por `montarPainelChecklist` na rota.
 - **Imagens de etapa contam na cota** de armazenamento (`registrarUsoArmazenamento(..., 'documento', ...)`; origem `'documento'` adicionada ao CHECK). Documento é permanente (a limpeza por tempo de guarda NÃO apaga imagens de documento).
 - **Excluir**: soft-delete (`status='inativo'`) **direto** (documento é consulta livre, não referenciado por checklist) — sem guard.
 - **Duplicar**: copia documento + **etapas + imagens** (reusa as URLs das imagens; não re-faz upload). Pode duplicar p/ outra unidade/grupo/subgrupo.

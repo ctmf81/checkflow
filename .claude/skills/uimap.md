@@ -38,6 +38,8 @@ Layout: `gestao/layout.tsx` — sidebar + SessionProvider
 | `/gestao/configuracoes/nao-execucao` | `gestao/configuracoes/nao-execucao/page.tsx` | Non-execution reasons |
 | `/gestao/configuracoes/causa-raiz` | `gestao/configuracoes/causa-raiz/page.tsx` | Root causes |
 | `/gestao/configuracoes/catalogos` | `gestao/configuracoes/catalogos/page.tsx` | Catalog management |
+| `/gestao/configuracoes/dashboards` | `gestao/configuracoes/dashboards/page.tsx` (+ `[id]/page.tsx`) | Dashboards de TV — lista + editor. Editor: config geral + link público + painéis (toggle **tipo** "Uma atividade / Checklist inteiro", cadeia grupo→subgrupo→checklist→[atividade], `alerta_silencio_horas` por painel) |
+| `/painel/[token]` | `painel/[token]/page.tsx` | **Página PÚBLICA de TV (sem login)** — carrossel de painéis, polling. `Painel` ramifica por `grafico`; `ChecklistPainel` (placar/conformidade/top NC/tratamento/tempo médio) + gráficos de atividade + selo de frescor |
 | `/gestao/agendamentos` | `gestao/agendamentos/page.tsx` | Recurring scheduler for workflows/checklists (NovoAgendamentoModal) |
 | `/gestao/tickets` | `gestao/tickets/page.tsx` | Ticket listing — SLA semaphore, filter tabs (abertos/fechados/todos), summary cards |
 | `/gestao/tickets/[id]` | `gestao/tickets/[id]/page.tsx` | Ticket timeline + contextual actions by status+role. Fixed footer com `EvidenciaPicker`. Banner "Aguardando sua resposta" no topo da listagem (abridor, 2026-07-05). Transferência com modal |
@@ -157,6 +159,7 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 | `lib/supabase.ts` | Supabase client singleton |
 | `lib/apiClient.ts` | `apiFetch(path, init)` — chamadas do navegador à API Fastify com Bearer do usuário (rotas internas autenticadas) |
 | `lib/padrao.ts` · `lib/perfis.ts` · `lib/turnos.ts` · `lib/tarefas.ts` · `lib/tickets.ts` · `lib/visibilidade.ts` · `lib/midia.ts` | Lógica pura (validação/permissões/visibilidade/limites de mídia) — fonte única importada pelas telas + testes unit. `lib/tickets` = ações por status/papel (sem "corrigido parcial"/"improcedente" desde 2026-07-05) |
+| `lib/painelDados.ts` | Lógica pura dos painéis de TV (sem I/O), importada por `/api/painel/[token]` + testes. Atividade: `montarLinha`/`montarPadrao`/`serieConformidade`/`composicaoDiaria`/`resumoExecucao`. Checklist: `placarChecklist`/`conformidadePorDiaExec`/`tempoMedioExecucao`/`topNaoConformes`/`resumoPlanos` |
 | `components/layout/AvisoTurno.tsx` | Banner "fora do turno" (modo aviso) nos layouts gestão/operação |
 | `components/planos-acao/CausaRaizModeracao.tsx` | Bloco de causa raiz + recorrência na moderação do plano (`/gestao/planos-acao/[id]`) |
 
