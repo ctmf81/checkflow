@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { montarLinha, montarBarras, opcoesSimNao, type OpcaoRaw } from '@/lib/painelDados'
+import { montarLinha, montarBarras, montarPadrao, serieConformidade, composicaoDiaria, opcoesSimNao, type OpcaoRaw } from '@/lib/painelDados'
 
 // GET /api/painel/[token] — dados PÚBLICOS de um dashboard (sem login).
 // Escopado ao token: só devolve os painéis daquele dashboard e a série de cada
@@ -62,12 +62,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
     const base = { id: p.id, titulo, tipo, janela_horas: p.janela_horas }
     const rs = (respostas ?? []) as { resposta: any; criado_em: string }[]
 
-    // ── Número / Padrão → série temporal + linha(s) de referência ──
-    if (tipo === 'numero' || tipo === 'padrao') {
+    // ── Número → linha + faixa fixa (config) ──
+    if (tipo === 'numero') {
       return { ...base, grafico: 'linha', ...montarLinha(rs, tipo, cfg) }
     }
+    // ── Padrão → faixa varia por ponto: ribbon (faixa única) ou índice normalizado ──
+    if (tipo === 'padrao') {
+      return { ...base, grafico: 'padrao', ...montarPadrao(rs) }
+    }
 
-    // ── Sim/Não e Única escolha → barras por opção + tendência ──
+    // ── Sim/Não e Única escolha ──
     let opcoes: OpcaoRaw[]
     if (tipo === 'sim_nao') {
       opcoes = opcoesSimNao(cfg.esperado)
@@ -76,7 +80,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
         .select('valor, label, e_valido').eq('atividade_id', p.atividade_id).order('ordem')
       opcoes = (ops ?? []).map((o: any) => ({ valor: o.valor, label: o.label, e_valido: o.e_valido }))
     }
-    return { ...base, grafico: 'barras', ...montarBarras(rs, opcoes, agora, janelaMs) }
+    const agg = montarBarras(rs, opcoes, agora, janelaMs) // barras/tendência p/ os cards
+    // Sim/Não → taxa de conformidade por dia (linha). Única escolha → composição por dia (empilhado).
+    if (tipo === 'sim_nao') {
+      return { ...base, grafico: 'conformidade', ...agg, dias: serieConformidade(rs, opcoes) }
+    }
+    return { ...base, grafico: 'composicao', ...agg, dias: composicaoDiaria(rs, opcoes) }
   }))
 
   const body = JSON.stringify(

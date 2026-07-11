@@ -2,7 +2,7 @@
 // parsing de valor, série + referência (número/padrão), barras por opção e
 // tendência da não-conformidade (sim/não e única escolha).
 import { describe, it, expect } from 'vitest'
-import { num, tendencia, opcoesSimNao, montarLinha, montarBarras } from '@/lib/painelDados'
+import { num, tendencia, opcoesSimNao, montarLinha, montarBarras, agruparPorDia, serieConformidade, composicaoDiaria, montarPadrao } from '@/lib/painelDados'
 
 const H = 3600_000
 const AGORA = Date.parse('2026-07-09T12:00:00.000Z')
@@ -105,5 +105,81 @@ describe('montarBarras (sim/não, única escolha)', () => {
     ]
     const r = montarBarras(rs, opcoesSimNao('sim'), AGORA, JANELA)
     expect(r.total).toBe(1)
+  })
+})
+
+describe('agruparPorDia', () => {
+  it('agrupa por dia UTC em ordem cronológica', () => {
+    const rs = [
+      { resposta: 'a', criado_em: '2026-07-08T10:00:00Z' },
+      { resposta: 'b', criado_em: '2026-07-09T09:00:00Z' },
+      { resposta: 'c', criado_em: '2026-07-08T22:00:00Z' },
+    ]
+    const g = agruparPorDia(rs)
+    expect(g.map(d => d.dia)).toEqual(['2026-07-08', '2026-07-09'])
+    expect(g[0].itens.length).toBe(2)
+  })
+})
+
+describe('serieConformidade (sim/não por dia)', () => {
+  it('% conforme por dia (esperado sim)', () => {
+    const rs = [
+      { resposta: 'sim', criado_em: '2026-07-08T08:00:00Z' },
+      { resposta: 'nao', criado_em: '2026-07-08T12:00:00Z' },
+      { resposta: 'sim', criado_em: '2026-07-09T08:00:00Z' },
+      { resposta: 'sim', criado_em: '2026-07-09T12:00:00Z' },
+    ]
+    const s = serieConformidade(rs, opcoesSimNao('sim'))
+    expect(s).toEqual([
+      { dia: '2026-07-08', total: 2, conformes: 1, pct: 50 },
+      { dia: '2026-07-09', total: 2, conformes: 2, pct: 100 },
+    ])
+  })
+})
+
+describe('composicaoDiaria (única escolha por dia)', () => {
+  it('conta por opção por dia, mantendo a ordem das opções', () => {
+    const opcoes = [
+      { valor: 'otimo', label: 'Ótimo', e_valido: true },
+      { valor: 'ruim', label: 'Ruim', e_valido: false },
+    ]
+    const rs = [
+      { resposta: 'otimo', criado_em: '2026-07-08T08:00:00Z' },
+      { resposta: 'ruim', criado_em: '2026-07-08T12:00:00Z' },
+      { resposta: 'otimo', criado_em: '2026-07-08T16:00:00Z' },
+    ]
+    const c = composicaoDiaria(rs, opcoes)
+    expect(c.length).toBe(1)
+    expect(c[0].total).toBe(3)
+    expect(c[0].seg).toEqual([
+      { valor: 'otimo', label: 'Ótimo', conforme: true, count: 2 },
+      { valor: 'ruim', label: 'Ruim', conforme: false, count: 1 },
+    ])
+  })
+})
+
+describe('montarPadrao (faixa varia por ponto)', () => {
+  it('ribbon quando a faixa é única na janela', () => {
+    const rs = [
+      { resposta: { numero: 5, valor_min: 0, valor_max: 8 }, criado_em: tAtras(3) },
+      { resposta: { numero: 9, valor_min: 0, valor_max: 8 }, criado_em: tAtras(1) }, // fora
+    ]
+    const r = montarPadrao(rs)
+    expect(r.modo).toBe('ribbon')
+    expect(r.total).toBe(2)
+    expect(r.fora).toBe(1)
+  })
+  it('índice normalizado quando as faixas diferem (0=centro, ±100=borda)', () => {
+    const rs = [
+      { resposta: { numero: 5, valor_min: 0, valor_max: 10 }, criado_em: tAtras(3) },  // centro → 0
+      { resposta: { numero: 12, valor_min: 0, valor_max: 8 }, criado_em: tAtras(2) },  // acima da borda → >100
+      { resposta: { numero: 3, valor_min: 2, valor_max: 4 }, criado_em: tAtras(1) },   // centro → 0
+    ]
+    const r = montarPadrao(rs) as Extract<ReturnType<typeof montarPadrao>, { modo: 'indice' }>
+    expect(r.modo).toBe('indice')
+    const idxs = r.serie.map(s => s.idx)
+    expect(idxs[0]).toBe(0)
+    expect(idxs[1]).toBeGreaterThan(100)
+    expect(r.fora).toBe(1)
   })
 })

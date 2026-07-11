@@ -59,6 +59,84 @@ export function montarLinha(rs: RespostaRaw[], tipo: string, cfg: any) {
   return { serie, ref: { min: refMin, max: refMax }, unidade: cfg?.unidade ?? '', total: serie.length }
 }
 
+/** Agrupa respostas por dia (UTC, AAAA-MM-DD) em ordem cronológica. */
+export function agruparPorDia<T extends RespostaRaw>(rs: T[]): { dia: string; itens: T[] }[] {
+  const m = new Map<string, T[]>()
+  for (const r of rs) {
+    const dia = String(r.criado_em).slice(0, 10)
+    const arr = m.get(dia)
+    if (arr) arr.push(r); else m.set(dia, [r])
+  }
+  return [...m.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([dia, itens]) => ({ dia, itens }))
+}
+
+/** Valor escolhido de uma resposta de opção (string; array→[0]); null se objeto/vazio. */
+function valEscolhido(resposta: any): string | null {
+  const v = Array.isArray(resposta) ? resposta[0] : resposta
+  if (v === null || v === undefined || typeof v === 'object') return null
+  return String(v)
+}
+
+/** Sim/Não: taxa de conformidade POR DIA (série temporal). pct null em dia sem resposta válida. */
+export function serieConformidade(rs: RespostaRaw[], opcoes: OpcaoRaw[]) {
+  const valido = new Map(opcoes.map(o => [o.valor, o.e_valido]))
+  return agruparPorDia(rs).map(({ dia, itens }) => {
+    let total = 0, conformes = 0
+    for (const r of itens) {
+      const v = valEscolhido(r.resposta); if (v === null) continue
+      total++; if (valido.get(v) !== false) conformes++
+    }
+    return { dia, total, conformes, pct: total ? Math.round((conformes / total) * 100) : null }
+  })
+}
+
+/** Única escolha: composição (contagem por opção) POR DIA — para barras empilhadas. */
+export function composicaoDiaria(rs: RespostaRaw[], opcoes: OpcaoRaw[]) {
+  return agruparPorDia(rs).map(({ dia, itens }) => {
+    const cont = new Map<string, number>()
+    let total = 0
+    for (const r of itens) {
+      const v = valEscolhido(r.resposta); if (v === null) continue
+      cont.set(v, (cont.get(v) ?? 0) + 1); total++
+    }
+    return { dia, total, seg: opcoes.map(o => ({ valor: o.valor, label: o.label, conforme: o.e_valido, count: cont.get(o.valor) ?? 0 })) }
+  })
+}
+
+/**
+ * Painel de PADRÃO: a faixa aceitável varia por ponto (depende da combinação de
+ * variáveis). `ribbon` quando a faixa é ÚNICA na janela (unidades reais); senão
+ * `indice` — normaliza cada ponto pela SUA faixa (0 = centro, ±100 = borda),
+ * tornando combinações diferentes comparáveis num eixo só.
+ */
+export function montarPadrao(rs: RespostaRaw[]) {
+  const pts = rs.map(r => {
+    const o: any = r.resposta
+    const temObj = o && typeof o === 'object'
+    return {
+      t: r.criado_em, v: num(r.resposta),
+      min: temObj && o.valor_min != null ? Number(o.valor_min) : null,
+      max: temObj && o.valor_max != null ? Number(o.valor_max) : null,
+    }
+  }).filter((p): p is { t: string; v: number; min: number | null; max: number | null } => p.v !== null)
+
+  const comFaixa = pts.filter(p => p.min != null && p.max != null)
+  const faixas = new Set(comFaixa.map(p => `${p.min}|${p.max}`))
+
+  if (pts.length > 0 && comFaixa.length === pts.length && faixas.size === 1) {
+    const fora = pts.filter(p => p.v < (p.min as number) || p.v > (p.max as number)).length
+    return { modo: 'ribbon' as const, serie: pts, ref: { min: pts[0].min, max: pts[0].max }, total: pts.length, fora }
+  }
+
+  const serie = pts.map(p => {
+    if (p.min == null || p.max == null || p.max === p.min) return { t: p.t, idx: null as number | null }
+    const centro = (p.min + p.max) / 2, meia = (p.max - p.min) / 2
+    return { t: p.t, idx: Math.round(((p.v - centro) / meia) * 100) }
+  })
+  const fora = serie.filter(s => s.idx != null && Math.abs(s.idx) > 100).length
+  return { modo: 'indice' as const, serie, total: serie.length, fora }
+}
+
 /** Painel de sim/não e única escolha: barras por opção + tendência. */
 export function montarBarras(rs: RespostaRaw[], opcoes: OpcaoRaw[], agoraMs: number, janelaMs: number) {
   const validoPorValor = new Map(opcoes.map(o => [o.valor, o.e_valido]))
