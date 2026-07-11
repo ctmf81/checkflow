@@ -2,7 +2,7 @@
 // parsing de valor, série + referência (número/padrão), barras por opção e
 // tendência da não-conformidade (sim/não e única escolha).
 import { describe, it, expect } from 'vitest'
-import { num, tendencia, opcoesSimNao, montarLinha, montarBarras, agruparPorDia, serieConformidade, composicaoDiaria, montarPadrao, resumoExecucao, placarChecklist, conformidadePorDiaExec, tempoMedioExecucao, topNaoConformes, resumoPlanos, type ExecChecklistRaw } from '@/lib/painelDados'
+import { num, tendencia, opcoesSimNao, montarLinha, montarBarras, agruparPorDia, serieConformidade, composicaoDiaria, montarPadrao, resumoExecucao, placarChecklist, conformidadePorDiaExec, tempoMedioExecucao, topNaoConformes, type ExecChecklistRaw } from '@/lib/painelDados'
 
 const H = 3600_000
 const AGORA = Date.parse('2026-07-09T12:00:00.000Z')
@@ -277,13 +277,6 @@ describe('painel de checklist', () => {
         { atividade: 'Torque', naoConformes: 2, total: 3, taxa: 67 },
         { atividade: 'Óleo', naoConformes: 1, total: 1, taxa: 100 },
       ])
-    })
-  })
-
-  describe('resumoPlanos', () => {
-    it('conta por status', () => {
-      expect(resumoPlanos(['corrigido', 'corrigido', 'nao_corrigido', 'em_moderacao_n1', 'em_moderacao_n2', 'em_moderacao_n2']))
-        .toEqual({ corrigidos: 2, naoCorrigidos: 1, aguardN1: 1, aguardN2: 2 })
     })
   })
 })

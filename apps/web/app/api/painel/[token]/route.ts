@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { montarLinha, montarBarras, montarPadrao, serieConformidade, composicaoDiaria, opcoesSimNao, resumoExecucao, placarChecklist, conformidadePorDiaExec, tempoMedioExecucao, topNaoConformes, resumoPlanos, type OpcaoRaw, type ExecChecklistRaw } from '@/lib/painelDados'
+import { montarLinha, montarBarras, montarPadrao, serieConformidade, composicaoDiaria, opcoesSimNao, resumoExecucao, placarChecklist, conformidadePorDiaExec, tempoMedioExecucao, topNaoConformes, type OpcaoRaw, type ExecChecklistRaw } from '@/lib/painelDados'
 
 // GET /api/painel/[token] — dados PÚBLICOS de um dashboard (sem login).
 // Escopado ao token: só devolve os painéis daquele dashboard e a série de cada
@@ -62,22 +62,14 @@ async function montarPainelChecklist(sb: any, p: any, agora: number, corte: stri
     }))
   }
 
-  // Tratamento — planos de ação das execuções concluídas na janela
-  let tratamento = { corrigidos: 0, naoCorrigidos: 0, aguardN1: 0, aguardN2: 0 }
-  if (execIds.length) {
-    const { data: planos } = await sb.from('planos_acao')
-      .select('status').in('checklist_execucao_id', execIds).limit(3000)
-    tratamento = resumoPlanos((planos ?? []).map((x: any) => x.status))
-  }
-
   return {
     ...base,
     ultimo_em: ultimoEm,
     placar: placarChecklist(execs),
     conformidade_dias: conformidadePorDiaExec(execs),
     top_nao_conformes: top,
-    tratamento,
     tempo_medio: tempoMedioExecucao(execs),
+    nao_executadas: resumo.naoExecutadas,
     motivos: resumo.porMotivo,
   }
 }

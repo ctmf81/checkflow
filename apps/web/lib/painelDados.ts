@@ -246,9 +246,3 @@ export function topNaoConformes(rs: RespostaConformeRaw[], limite = 5) {
     .sort((a, b) => b.naoConformes - a.naoConformes)
     .slice(0, limite)
 }
-
-/** Resumo dos planos de ação (tratamento das reprovações) por status. */
-export function resumoPlanos(status: string[]) {
-  const c = (s: string) => status.filter(x => x === s).length
-  return { corrigidos: c('corrigido'), naoCorrigidos: c('nao_corrigido'), aguardN1: c('em_moderacao_n1'), aguardN2: c('em_moderacao_n2') }
-}
