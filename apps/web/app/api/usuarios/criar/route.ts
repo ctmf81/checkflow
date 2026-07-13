@@ -36,6 +36,18 @@ export async function POST(req: NextRequest) {
 
     const supabaseAdmin = makeAdmin()
 
+    // Ao menos 1 unidade quando a empresa tem unidades ativas — sem escopo de
+    // unidade o usuário não opera. Espelha o guard do cliente (backstop p/ chamadas
+    // diretas). Empresa sem unidade ativa (estado degenerado) não é barrada aqui.
+    {
+      const { data: unidadesAtivas } = await supabaseAdmin
+        .from('unidades').select('id').eq('empresa_id', empresaId).eq('status', 'ativo').limit(1)
+      const temUnidadeAtiva = (unidadesAtivas ?? []).length > 0
+      if (temUnidadeAtiva && (!Array.isArray(unidades) || unidades.length === 0)) {
+        return NextResponse.json({ message: 'Selecione ao menos uma unidade para o usuário.' }, { status: 400 })
+      }
+    }
+
     // ── Pessoa já cadastrada? (mesma pessoa pode estar em várias empresas) ──
     // CPFs são salvos com ou sem máscara (dados legados inconsistentes).
     // Consulta as duas variantes para não criar duplicatas.
