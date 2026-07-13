@@ -628,6 +628,9 @@ function AbaHistorico({ unidadeId }: { unidadeId: string }) {
 // ─── ABA: Documentos ─────────────────────────────────────────────────────────
 
 function AbaDocumentos({ unidadeId, empresaId }: { unidadeId: string; empresaId?: string }) {
+  const { flagsHabilitadas } = useSession()
+  // Consulta Inteligente = característica 'ia' do plano (opt-in: null = sem restrição).
+  const iaHabilitada = flagsHabilitadas === null || flagsHabilitadas.has('ia')
   const [documentos, setDocumentos] = useState<Documento[]>([])
   const [loading, setLoading] = useState(true)
   const [docAberto, setDocAberto] = useState<Documento | null>(null)
@@ -693,8 +696,8 @@ function AbaDocumentos({ unidadeId, empresaId }: { unidadeId: string; empresaId?
         const { data: docs } = await query
 
         setDocumentos((docs ?? [])
-          // Consulta Inteligente sem arquivo não fica disponível na Operação
-          .filter((d: any) => !(d.tipo === 'consulta_inteligente' && !d.arquivo_url))
+          // Consulta Inteligente: fora se sem arquivo OU se o plano não inclui IA
+          .filter((d: any) => !(d.tipo === 'consulta_inteligente' && (!d.arquivo_url || !iaHabilitada)))
           .map((d: any) => ({
             id: d.id,
             nome: d.nome,
@@ -709,7 +712,7 @@ function AbaDocumentos({ unidadeId, empresaId }: { unidadeId: string; empresaId?
       }
     }
     carregar()
-  }, [unidadeId, empresaId])
+  }, [unidadeId, empresaId, iaHabilitada])
 
   async function abrirDocumento(doc: Documento) {
     setDocAberto(doc)
@@ -1144,7 +1147,8 @@ function ChecklistCard({ checklist, onClick }: { checklist: Checklist; onClick: 
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function OperacaoPage() {
-  const { unidadeAtiva, empresaAtiva, faseAssinatura } = useSession()
+  const { unidadeAtiva, empresaAtiva, faseAssinatura, flagsHabilitadas } = useSession()
+  const iaHabilitada = flagsHabilitadas === null || flagsHabilitadas.has('ia')
   const router = useRouter()
   const online = useOnlineStatus()
   const [aba, setAba] = useState<Aba>('checklists')
@@ -1202,7 +1206,7 @@ export default function OperacaoPage() {
       const { data: docs } = await sb.from('documentos')
         .select('id, tipo, arquivo_url, subgrupo_id, grupo_id').eq('unidade_id', unidadeAtiva!.id)
       const temDoc = (docs ?? [])
-        .filter((d: any) => !(d.tipo === 'consulta_inteligente' && !d.arquivo_url))
+        .filter((d: any) => !(d.tipo === 'consulta_inteligente' && (!d.arquivo_url || !iaHabilitada)))
         .some((d: any) => documentoVisivelOperador(d, { isAdmin, meusGrupos, meusSubgrupos }))
 
       // Histórico (execuções do próprio usuário nesta unidade)
@@ -1223,7 +1227,7 @@ export default function OperacaoPage() {
       setAbasProntas(true)
     })()
     return () => { cancel = true }
-  }, [unidadeAtiva?.id, empresaAtiva?.id])
+  }, [unidadeAtiva?.id, empresaAtiva?.id, iaHabilitada])
 
   // Restaura a aba a partir da URL (?aba=...) no mount — mantém a aba ao dar
   // refresh e ao voltar de uma tela de detalhe (ex.: execução aberta do Histórico).

@@ -27,7 +27,10 @@ const TIPOS = [
 ]
 
 export function NovoDocumentoModal({ onClose, onCriado }: Props) {
-  const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
+  const { unidadeAtiva, grupoLabel, subgrupoLabel, flagsHabilitadas } = useSession()
+  // Consulta Inteligente é a característica 'ia' do plano (opt-in: null = sem restrição).
+  const iaHabilitada = flagsHabilitadas === null || flagsHabilitadas.has('ia')
+  const tiposDisponiveis = TIPOS.filter(t => t.value !== 'consulta_inteligente' || iaHabilitada)
   const [nome, setNome] = useState('')
   const [descricao, setDescricao] = useState('')
   const [tipo, setTipo] = useState('')
@@ -148,7 +151,7 @@ export function NovoDocumentoModal({ onClose, onCriado }: Props) {
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200"
               required>
               <option value="">Tipo do documento</option>
-              {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              {tiposDisponiveis.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
 

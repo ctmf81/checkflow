@@ -26,6 +26,9 @@ interface SessionState {
   // Recursos de permissão liberados pelo plano da empresa (entitlements).
   // null = SEM restrição (trial / plano sem serviços configurados / dev).
   recursosHabilitados: Set<string> | null
+  // Flags de CARACTERÍSTICAS liberadas pelo plano (ex.: 'ia'). Mesma regra opt-in:
+  // null = SEM restrição (trial / plano sem serviços configurados / dev).
+  flagsHabilitadas: Set<string> | null
   // Fase do ciclo de vida da assinatura: 'ativa' (normal), 'carencia' (uso livre
   // acabou → criação bloqueada) ou 'bloqueada' (acesso cortado). Default 'ativa'.
   faseAssinatura: 'ativa' | 'carencia' | 'bloqueada'
@@ -45,6 +48,7 @@ const SessionContext = createContext<SessionState>({
   grupoLabel: 'Grupo',
   subgrupoLabel: 'Subgrupo',
   recursosHabilitados: null,
+  flagsHabilitadas: null,
   faseAssinatura: 'ativa',
   setAmbiente: () => {},
   setEmpresaAtiva: () => {},
@@ -62,6 +66,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [grupoLabel, setGrupoLabel] = useState('Grupo')
   const [subgrupoLabel, setSubgrupoLabel] = useState('Subgrupo')
   const [recursosHabilitados, setRecursosHabilitados] = useState<Set<string> | null>(null)
+  const [flagsHabilitadas, setFlagsHabilitadas] = useState<Set<string> | null>(null)
   const [faseAssinatura, setFaseAssinatura] = useState<'ativa' | 'carencia' | 'bloqueada'>('ativa')
 
   // Fase do ciclo de vida da assinatura da empresa ativa (uso livre → carência
@@ -81,25 +86,32 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   // (opt-in): sem plano OU plano sem serviços configurados → null (não restringe).
   useEffect(() => {
     const empId = empresaAtiva?.id
-    if (!empId) { setRecursosHabilitados(null); return }
+    if (!empId) { setRecursosHabilitados(null); setFlagsHabilitadas(null); return }
     let cancel = false
+    const zerar = () => { if (!cancel) { setRecursosHabilitados(null); setFlagsHabilitadas(null) } }
     ;(async () => {
       const sb = createClient()
       const { data: assin } = await sb.from('empresa_assinaturas').select('plano_id').eq('empresa_id', empId).maybeSingle()
       const planoId = assin?.plano_id
-      if (!planoId) { if (!cancel) setRecursosHabilitados(null); return }
+      if (!planoId) { zerar(); return }
       const { data: ps } = await sb.from('plano_servicos')
-        .select('servico:servico_id(recursos, tipo, ativo)').eq('plano_id', planoId)
-      if (!ps || ps.length === 0) { if (!cancel) setRecursosHabilitados(null); return }
+        .select('servico:servico_id(recursos, tipo, ativo, flag)').eq('plano_id', planoId)
+      if (!ps || ps.length === 0) { zerar(); return }
       const set = new Set<string>()
+      const flags = new Set<string>()
       for (const row of ps as any[]) {
         const s = Array.isArray(row.servico) ? row.servico[0] : row.servico
-        if (s?.tipo === 'modulo' && s.ativo) (s.recursos ?? []).forEach((r: string) => set.add(r))
+        if (!s?.ativo) continue
+        if (s.tipo === 'modulo') (s.recursos ?? []).forEach((r: string) => set.add(r))
+        if (s.tipo === 'caracteristica' && s.flag) flags.add(s.flag)
       }
       // Serviços "padrão" (base) ficam sempre liberados, independem do plano.
-      const { data: padr } = await sb.from('servicos').select('recursos').eq('ativo', true).eq('padrao', true).eq('tipo', 'modulo')
-      for (const s of (padr ?? []) as any[]) (s.recursos ?? []).forEach((r: string) => set.add(r))
-      if (!cancel) setRecursosHabilitados(set)
+      const { data: padr } = await sb.from('servicos').select('recursos, tipo, flag').eq('ativo', true).eq('padrao', true)
+      for (const s of (padr ?? []) as any[]) {
+        if (s.tipo === 'modulo') (s.recursos ?? []).forEach((r: string) => set.add(r))
+        if (s.tipo === 'caracteristica' && s.flag) flags.add(s.flag)
+      }
+      if (!cancel) { setRecursosHabilitados(set); setFlagsHabilitadas(flags) }
     })()
     return () => { cancel = true }
   }, [empresaAtiva?.id])
@@ -338,7 +350,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     <SessionContext.Provider value={{
       ambiente, empresaAtiva, unidadeAtiva, unidades, empresas,
       precisaEscolherEmpresa, modoEmpresa, grupoLabel, subgrupoLabel,
-      recursosHabilitados, faseAssinatura,
+      recursosHabilitados, flagsHabilitadas, faseAssinatura,
       setAmbiente, setEmpresaAtiva, setUnidadeAtiva,
     }}>
       {children}
