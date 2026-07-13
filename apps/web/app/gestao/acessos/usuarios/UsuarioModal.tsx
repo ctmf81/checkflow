@@ -204,6 +204,10 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
       setErro('Selecione um perfil para o usuário.')
       return
     }
+    if (unidades.length > 0 && unidadesSel.length === 0) {
+      setErro('Selecione ao menos uma unidade de acesso para o usuário.')
+      return
+    }
 
     // Guard: não pode trocar o perfil do último admin ATIVO da empresa
     if (isEdicao && usuario.perfilId === ADMIN_EMPRESA_ID && perfilId !== ADMIN_EMPRESA_ID && empresaId) {
@@ -387,7 +391,7 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
 
           {/* Unidades */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Unidades com acesso</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Unidades com acesso {unidades.length > 0 && <span className="text-red-400">*</span>}</label>
             {unidadesSel.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2">
                 {unidadesSel.map(u => (
