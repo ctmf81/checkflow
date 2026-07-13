@@ -374,7 +374,22 @@ Bug 21: admin 716 não aparecia na própria lista. Fix: migration `2026070100000
 
 **Bug 51 (2026-07-13)** — 9.2.2 revelou: a moderação aprovava com **unidade opcional** → usuário nascia sem escopo para operar. Fix: exige ao menos 1 unidade (quando a empresa tem unidade ativa) na moderação (`ModeracaoPreCadastroModal`), no cadastro direto (`UsuarioModal`) e no backstop de servidor (`/api/usuarios/criar`). Commits `a508466`/`35b5e55`/`2e0df97`.
 
-### 9.3 Perfis (`/gestao/acessos/perfis`) — ⏳ pendente
+### 9.3 Perfis (`/gestao/acessos/perfis`) — ⏳ roteiro pronto (a rodar)
+
+**Usuários necessários:** ADM_A (admin da empresa) + um GESTOR de grupo (perfil não-admin, p/ 9.3.5) + um usuário comum p/ atribuir o perfil novo (9.3.8).
+**Regras (ver `/biz`):** lista mostra perfis da empresa **+ perfis de sistema** (badge "sistema", somente leitura). Recursos **core** `home/usuarios/perfis` sempre aparecem no construtor. Se o plano tiver serviços, o construtor mostra só os recursos liberados (+ core). Perfil **público** pode ser atribuído por gestor de grupo; não-público só admin.
+
+| # | Cenário | Passos | Esperado | Status |
+|---|---------|--------|----------|--------|
+| 9.3.1 | Criar perfil | "Novo" → nome + marcar permissões (recurso×ação) → salvar | Aparece na lista da empresa | ⬜ |
+| 9.3.2 | Editar permissões | Abrir o perfil → alterar marcações → salvar → reabrir | Permissões persistem | ⬜ |
+| 9.3.3 | Perfil de sistema é read-only | Abrir um perfil com badge "sistema" | Campos bloqueados; sem botão excluir | ⬜ |
+| 9.3.4 | Excluir perfil (não-sistema) | Ícone lixeira → confirmar | Some da lista (bloqueia/erro coerente se houver usuários no perfil) | ⬜ |
+| 9.3.5 | Público × não-público | Marcar "público"; logar como gestor de grupo e tentar atribuir | Gestor só atribui perfis **públicos** (+ o atual do usuário) | ⬜ |
+| 9.3.6 | Recursos core sempre presentes | Abrir o construtor | `home/usuarios/perfis` sempre aparecem | ⬜ |
+| 9.3.7 | Gating por plano (se aplicável) | Empresa com plano que exclui um módulo | Recurso do módulo não aparece no construtor | ⬜ |
+| 9.3.8 | Menu por permissão | Atribuir o perfil a um usuário → logar com ele | Sidebar mostra só o que o perfil libera | ⬜ |
+| 9.3.9 | Isolamento multi-tenant | Perfil criado na Empresa A | Não aparece na Empresa B (só os de sistema são comuns) | ⬜ |
 
 ### 9.4 Turnos (`/gestao/acessos/turnos`) — ✅ 9.4.1–9.4.11 OK (2026-07-02)
 
@@ -392,8 +407,22 @@ Bug 21: admin 716 não aparecia na própria lista. Fix: migration `2026070100000
 
 **Aprendizado timezone:** função e SQL Editor rodam em UTC. `hora_inicio` dos turnos é interpretada em UTC. Admins que configuram em BRT precisam somar +3h.
 
-### 9.5 Empresa/Unidades (`/gestao/acessos/empresa`) — ⏳ pendente
+### 9.5 Empresa/Unidades (`/gestao/acessos/empresa`) — ⏳ roteiro pronto (a rodar)
+
+**Usuários necessários:** ADM_A (admin da empresa). Para 9.5.7, uma 2ª empresa.
+**Regras (ver `/biz`, `/db`):** unidade é **soft-delete** (`status='inativo'`), **nunca hard delete** (cascade apagaria grupos/checklists/tickets/... da unidade). Reativar é pela **edição**. Guard: a empresa deve ter **ao menos 1 unidade ativa** (não dá pra inativar a última). Unidade inativa **some do seletor global** do header e do modal de usuário. Toda listagem é escopada pela **unidade ativa** do header.
+
+| # | Cenário | Passos | Esperado | Status |
+|---|---------|--------|----------|--------|
+| 9.5.1 | Criar unidade | "Nova" → nome → salvar | Aparece na lista e no **seletor de unidade** do header | ⬜ |
+| 9.5.2 | Editar unidade | Ícone lápis → mudar nome → salvar | Nome atualizado | ⬜ |
+| 9.5.3 | Inativar unidade | Ícone PowerOff → confirmar | Vira "Inativa"; **some do seletor** do header e do modal de usuário; dados preservados | ⬜ |
+| 9.5.4 | Reativar unidade | Editar a inativa → status ativo → salvar | Volta como "Ativa" e ao seletor | ⬜ |
+| 9.5.5 | Guard última unidade ativa | Tentar inativar a única unidade ativa | Bloqueia: "a empresa deve ter ao menos uma unidade ativa" | ⬜ |
+| 9.5.6 | Editar dados da empresa | Alterar dados da empresa (nome/etc) → salvar | Persistem | ⬜ |
+| 9.5.7 | Isolamento multi-tenant | Unidade da Empresa A | Não aparece na Empresa B | ⬜ |
+| 9.5.8 | Escopo por unidade ativa | Trocar a unidade no seletor do header | Listagens (checklists, grupos, indicadores...) refletem a unidade escolhida | ⬜ |
 
 ---
 
-> **Próximas telas (a adicionar conforme formos testando):** Tela 10 (Grupos/Subgrupos) → Tela 11 (Tickets) → … (segue a ordem do CENARIOS_DE_TESTE_MANUAL.md).
+> **Próximas telas (a adicionar conforme formos testando):** as demais seguem a ordem do `CENARIOS_DE_TESTE_MANUAL.md`. **Já validadas nesta bateria:** Telas 1–8, 9 (9.1/9.2/9.4 ✅; 9.3/9.5 roteiro pronto), 10 (Grupos), 11 (Tickets), 12 (Planos de Ação). **Próximo planejado:** fechar 9.3/9.5 → Tela 13 (§8 Tarefas).
