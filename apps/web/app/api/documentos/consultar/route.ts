@@ -198,6 +198,29 @@ export async function POST(req: NextRequest) {
     empresaId = unidadeDoc?.empresa_id ?? null
   }
 
+  // Entitlement da CARACTERÍSTICA "Consulta Inteligente (IA)": o plano precisa
+  // incluí-la. Regra opt-in (igual aos módulos): plano não configurado (sem
+  // serviços) não restringe. Se configurado e sem a característica `ia` → barra.
+  if (empresaId) {
+    const { data: assinIA } = await supabaseAdmin.from('empresa_assinaturas').select('plano_id').eq('empresa_id', empresaId).maybeSingle()
+    if (assinIA?.plano_id) {
+      const { data: ps } = await supabaseAdmin.from('plano_servicos')
+        .select('servico:servico_id(flag, tipo, ativo)').eq('plano_id', assinIA.plano_id)
+      if (ps && ps.length > 0) {
+        const incluiIA = ps.some((row: any) => {
+          const s = Array.isArray(row.servico) ? row.servico[0] : row.servico
+          return s?.ativo && s?.tipo === 'caracteristica' && s?.flag === 'ia'
+        })
+        if (!incluiIA) {
+          return new Response(
+            JSON.stringify({ error: 'A Consulta Inteligente (IA) não está incluída no seu plano. Faça upgrade para habilitar.' }),
+            { status: 402, headers: { 'Content-Type': 'application/json' } }
+          )
+        }
+      }
+    }
+  }
+
   // Bloqueio por limite de tokens de IA do plano
   if (empresaId) {
     const { data: pode } = await supabaseAdmin.rpc('billing_pode_consumir_ia', { p_empresa_id: empresaId })
