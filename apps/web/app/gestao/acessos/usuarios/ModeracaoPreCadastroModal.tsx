@@ -59,6 +59,7 @@ export function ModeracaoPreCadastroModal({ empresaId, onClose, onChange }: {
 
   async function aprovar(pc: PreCadastro) {
     if (!perfilSel) { toast.error('Escolha um perfil para aprovar.'); return }
+    if (unidades.length > 0 && unidadesSel.length === 0) { toast.error('Selecione ao menos uma unidade para o usuário.'); return }
     setProcessando(true)
     try {
       const sb = createClient()
@@ -166,7 +167,7 @@ export function ModeracaoPreCadastroModal({ empresaId, onClose, onChange }: {
                   </div>
                   {unidades.length > 0 && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Unidades <span className="text-gray-400 font-normal">(opcional)</span></label>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Unidades <span className="text-red-400">*</span></label>
                       <div className="flex flex-wrap gap-1.5">
                         {unidades.map(u => (
                           <button key={u.id} type="button" onClick={() => toggleUnidade(u.id)}
