@@ -25,6 +25,7 @@ interface Plano {
   ativo: boolean
   ordem: number
   padrao: boolean
+  selecionavel_empresa: boolean
 }
 
 const GB = 1024 * 1024 * 1024
@@ -167,6 +168,7 @@ function PlanoModal({ plano, onClose, onSaved }: { plano: Plano | null; onClose:
   const [tokens, setTokens] = useState(plano?.limite_tokens_ia_mes != null ? String(plano.limite_tokens_ia_mes) : '')
   const [ativo, setAtivo] = useState(plano?.ativo ?? true)
   const [padrao, setPadrao] = useState(plano?.padrao ?? false)
+  const [selecionavel, setSelecionavel] = useState(plano?.selecionavel_empresa ?? false)
   const [ordem, setOrdem] = useState(plano?.ordem != null ? String(plano.ordem) : '0')
   const [servicos, setServicos] = useState<{ id: string; nome: string; tipo: string; descricao: string | null; padrao: boolean }[]>([])
   const [servicosSel, setServicosSel] = useState<Set<string>>(new Set())
@@ -207,6 +209,7 @@ function PlanoModal({ plano, onClose, onSaved }: { plano: Plano | null; onClose:
       limite_tokens_ia_mes: numOuNull(tokens),
       ativo,
       padrao,
+      selecionavel_empresa: selecionavel,
       ordem: Number(ordem || 0),
       atualizado_em: new Date().toISOString(),
     }
@@ -354,7 +357,12 @@ function PlanoModal({ plano, onClose, onSaved }: { plano: Plano | null; onClose:
 
           <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
             <input type="checkbox" checked={ativo} onChange={e => setAtivo(e.target.checked)} className="accent-orange-500" />
-            Plano ativo (disponível para contratação)
+            Plano ativo <span className="text-xs text-gray-400">(existe no catálogo — se inativo, some de tudo)</span>
+          </label>
+
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input type="checkbox" checked={selecionavel} onChange={e => setSelecionavel(e.target.checked)} className="accent-orange-500" />
+            Selecionável pela empresa <span className="text-xs text-gray-400">(aparece p/ contratação autônoma; desmarcado = só o admin atribui)</span>
           </label>
 
           <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">

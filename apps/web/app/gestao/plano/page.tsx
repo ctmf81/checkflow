@@ -98,7 +98,7 @@ export default function PlanoPage() {
     const [{ data: st, error: stErr }, { data: assin }, { data: ps }, { data: pks }, { data: cbs }] = await Promise.all([
       sb.rpc('billing_status', { p_empresa_id: empresaAtiva.id }),
       sb.from('empresa_assinaturas').select('plano_id, status').eq('empresa_id', empresaAtiva.id).maybeSingle(),
-      sb.from('planos').select('id, nome, descricao, tipo, valor, ciclo, limite_execucoes_mes, limite_armazenamento_bytes, limite_tokens_ia_mes').eq('ativo', true).eq('tipo', 'pago').order('ordem'),
+      sb.from('planos').select('id, nome, descricao, tipo, valor, ciclo, limite_execucoes_mes, limite_armazenamento_bytes, limite_tokens_ia_mes').eq('ativo', true).eq('selecionavel_empresa', true).order('ordem'),
       sb.from('pacotes_adicionais').select('id, nome, descricao, tipo, quantidade, valor').eq('ativo', true).order('ordem'),
       sb.from('empresa_cobrancas').select('id, tipo, descricao, valor, status, vencimento, invoice_url, criado_em').eq('empresa_id', empresaAtiva.id).order('criado_em', { ascending: false }).limit(10),
     ])
@@ -128,6 +128,12 @@ export default function PlanoPage() {
   }
 
   useEffect(() => { carregar() }, [empresaAtiva?.id])
+
+  // Trava de downgrade: estando num plano PAGO ativo, a empresa não pode voltar
+  // a um não-pago por conta própria (só o admin faz). Os selecionáveis não-pagos
+  // somem da lista de auto-serviço nesse caso.
+  const estaEmPago = status?.plano_tipo === 'pago' && status?.status === 'ativo'
+  const planosVisiveis = planos.filter(p => !estaEmPago || p.tipo === 'pago')
 
   async function assinar(plano: Plano) {
     if (!empresaAtiva?.id) return
@@ -274,12 +280,12 @@ export default function PlanoPage() {
         ))}
       </div>
 
-      {/* Planos pagos */}
-      {planos.length > 0 && (
+      {/* Planos disponíveis para contratação autônoma */}
+      {planosVisiveis.length > 0 && (
         <div className="mb-8">
           <h2 className="text-sm font-semibold text-gray-700 mb-3">Planos disponíveis</h2>
           <div className="grid sm:grid-cols-2 gap-3">
-            {planos.map(p => (
+            {planosVisiveis.map(p => (
               <div key={p.id} className="rounded-xl border border-gray-200 p-4 bg-white">
                 <div className="flex items-baseline justify-between">
                   <h3 className="font-semibold text-gray-800">{p.nome}</h3>
@@ -312,7 +318,7 @@ export default function PlanoPage() {
                 <thead>
                   <tr className="bg-gray-50">
                     <th className="text-left px-3 py-2 font-medium text-gray-500 min-w-[180px]">Serviço</th>
-                    {planos.map(p => (
+                    {planosVisiveis.map(p => (
                       <th key={p.id} className="px-3 py-2 text-center font-semibold text-gray-800 whitespace-nowrap">
                         {p.nome}<div className="text-xs font-normal text-gray-400">{moeda(p.valor)}</div>
                       </th>
@@ -327,7 +333,7 @@ export default function PlanoPage() {
                         {s.padrao && <span className="ml-1 text-xs text-green-600">(incluído)</span>}
                         {s.descricao && <span className="block text-xs text-gray-400">{s.descricao}</span>}
                       </td>
-                      {planos.map(p => (
+                      {planosVisiveis.map(p => (
                         <td key={p.id} className="px-3 py-2 text-center">
                           {s.padrao || planoServicos.get(p.id)?.has(s.id)
                             ? <Check className="inline text-green-500" size={16} />
@@ -343,7 +349,7 @@ export default function PlanoPage() {
                   ].map(row => (
                     <tr key={row.label} className="border-t border-gray-100 bg-gray-50/60">
                       <td className="px-3 py-2 font-medium text-gray-700">{row.label}</td>
-                      {planos.map(p => <td key={p.id} className="px-3 py-2 text-center text-gray-600">{row.val(p)}</td>)}
+                      {planosVisiveis.map(p => <td key={p.id} className="px-3 py-2 text-center text-gray-600">{row.val(p)}</td>)}
                     </tr>
                   ))}
                 </tbody>
