@@ -92,7 +92,9 @@ function DocMenu({ doc, onEditar, onEtapas, onDuplicar, onExcluir }: {
 }
 
 export default function DocumentosPage() {
-  const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
+  const { unidadeAtiva, grupoLabel, subgrupoLabel, flagsHabilitadas } = useSession()
+  // Consulta Inteligente = característica 'ia' do plano (opt-in: null = sem restrição).
+  const iaHabilitada = flagsHabilitadas === null || flagsHabilitadas.has('ia')
   const confirm = useConfirm()
   const toast = useToast()
   const [documentos, setDocumentos] = useState<Documento[]>([])
@@ -160,6 +162,8 @@ export default function DocumentosPage() {
   }
 
   const filtrados = documentos.filter(d => {
+    // Plano sem IA: Consulta Inteligente fica oculta também na gestão (consistente com a Operação)
+    if (!iaHabilitada && d.tipo === 'consulta_inteligente') return false
     const matchBusca = d.nome.toLowerCase().includes(busca.toLowerCase())
     const matchTipo = !filtroTipo || d.tipo === filtroTipo
     const matchGrupo = !filtroGrupo || d.grupo_id === filtroGrupo
@@ -195,7 +199,7 @@ export default function DocumentosPage() {
         </div>
 
         {/* Filtro tipo */}
-        {['', 'pop', 'it', 'consulta_inteligente'].map(t => (
+        {['', 'pop', 'it', 'consulta_inteligente'].filter(t => iaHabilitada || t !== 'consulta_inteligente').map(t => (
           <button key={t} onClick={() => setFiltroTipo(t)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filtroTipo === t ? 'bg-orange-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
             {t === '' ? 'Todos' : TIPO_LABEL[t]}
