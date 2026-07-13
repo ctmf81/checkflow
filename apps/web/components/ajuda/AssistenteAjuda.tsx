@@ -75,6 +75,43 @@ const SUGESTOES_POR_TELA: { rota: string; perguntas: string[] }[] = [
     'O que cada indicador mostra?',
     'Como filtro os indicadores por período?',
   ]},
+  { rota: '/gestao/configuracoes/dashboards', perguntas: [
+    'Qual a diferença entre painel de atividade e painel de checklist?',
+    'Como coloco o painel numa TV?',
+    'Como funciona o alerta de silêncio quando a atividade para de ser medida?',
+    'O que o tempo médio de execução mostra?',
+  ]},
+  { rota: '/gestao/workflows', perguntas: [
+    'O que é um workflow?',
+    'Como encadeio checklists num fluxo?',
+    'Por que não consigo inativar um checklist usado por um workflow?',
+  ]},
+  { rota: '/gestao/padrao', perguntas: [
+    'Para que serve um padrão?',
+    'O que são as variáveis e valores de um padrão?',
+    'Como uma atividade usa um padrão para validar a resposta?',
+  ]},
+  { rota: '/gestao/acessos/turnos', perguntas: [
+    'Para que servem os turnos?',
+    'Como configuro uma escala 12x36?',
+    'O que acontece quando o usuário está fora do turno?',
+  ]},
+  { rota: '/gestao/configuracoes/nao-execucao', perguntas: [
+    'Para que servem os motivos de não execução?',
+    'Qual a diferença entre não execução de checklist e de atividade?',
+  ]},
+  { rota: '/gestao/configuracoes/causa-raiz', perguntas: [
+    'Para que serve a causa raiz?',
+    'Onde a causa raiz aparece no plano de ação?',
+  ]},
+  { rota: '/gestao/configuracoes/notificacoes', perguntas: [
+    'Como edito o texto de uma notificação?',
+    'Quais variáveis posso usar na mensagem?',
+    'Como desativo o WhatsApp ou o e-mail de um evento?',
+  ]},
+  { rota: '/gestao/configuracoes/formatacao', perguntas: [
+    'Como personalizo os nomes de grupo e subgrupo?',
+  ]},
 ]
 
 function resolverSugestoes(pathname: string | null): string[] {
