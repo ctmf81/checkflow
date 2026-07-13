@@ -317,7 +317,9 @@ Uma tela que responde "está rodando? · está conforme? · onde falha? · quão
 
 ## Assistente de IA — sugestões por tela (2026-06-18)
 - O botão flutuante (`components/ajuda/AssistenteAjuda.tsx`) detecta a rota atual (`usePathname`) e mostra **perguntas sugeridas pertinentes àquela tela** (mapa `SUGESTOES_POR_TELA`, casa pelo prefixo mais específico; fallback `SUGESTOES_PADRAO`). Clicar no chip envia a pergunta. 100% frontend — **não muda a chamada à IA nem adiciona tokens** (tende a reduzir, por evitar tentativa-e-erro). Campo livre continua permitindo perguntar sobre qualquer parte do sistema.
-- ⏳ Evolução p/ cortar tokens de verdade (quando o MANUAL crescer): enviar só a seção da tela com fallback, ou RAG (pgvector) — ver `/status`. Ao criar telas novas, adicionar entrada no `SUGESTOES_POR_TELA`.
+- ⚠️ **Renderizado SÓ no layout de gestão** (`app/gestao/layout.tsx`) — **não existe na Operação** (só há sugestões p/ rotas `/gestao/*`). Se um dia entrar na operação, adicionar entradas `/operacao*`.
+- **Cobertura do mapa (auditada 2026-07-13)**: checklists, tarefas, grupos, agendamentos, tickets, planos-acao, acessos/usuarios, acessos/perfis, acessos/turnos, catalogos, documentos, **dashboards**, workflows, padrao, nao-execucao, causa-raiz, notificacoes, formatacao, plano, indicadores. Telas sem entrada caíam no fallback genérico (perguntas de checklist) — foi o gap reportado (dashboards). **Regra viva: toda tela de gestão nova = entrada no `SUGESTOES_POR_TELA`** (junto do requisito do `/uimap`).
+- ⏳ Evolução p/ cortar tokens de verdade (quando o MANUAL crescer): enviar só a seção da tela com fallback, ou RAG (pgvector) — ver `/status`.
 
 ## Premissa de montagem (mental model) — 2026-06-17
 - Ao montar uma atividade, o que importa é o **tipo de resposta** desejado, não a pergunta. O usuário escolhe o **tipo** pela resposta que quer obter (sim ou não → Sim/Não; valor numérico → Número; escolher entre opções → Múltipla escolha; etc.). A pergunta vai no nome/descrição.
