@@ -42,7 +42,7 @@ function WorkflowsIndisponivel() {
 }
 
 function WorkflowsConteudo() {
-  const { empresaAtiva, unidadeAtiva } = useSession()
+  const { empresaAtiva, unidadeAtiva, faseAssinatura } = useSession()
   const toast = useToast()
   const [workflows, setWorkflows] = useState<Workflow[]>([])
   const [loading, setLoading] = useState(true)
@@ -118,9 +118,13 @@ function WorkflowsConteudo() {
           <h1 className="text-xl font-semibold text-gray-800">Workflows</h1>
           <p className="hidden sm:block text-xs text-gray-400 mt-0.5">Pipelines de checklists com estágios e dependências</p>
         </div>
-        <Link href="/gestao/workflows/novo">
-          <Button><Plus size={16} />Novo workflow</Button>
-        </Link>
+        {faseAssinatura !== 'ativa' ? (
+          <Button disabled title="Criação bloqueada — período de teste encerrado (somente consulta)"><Plus size={16} />Novo workflow</Button>
+        ) : (
+          <Link href="/gestao/workflows/novo">
+            <Button><Plus size={16} />Novo workflow</Button>
+          </Link>
+        )}
       </div>
 
       {loading ? (

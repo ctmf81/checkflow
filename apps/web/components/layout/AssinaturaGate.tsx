@@ -62,7 +62,7 @@ export function AssinaturaGate() {
       <span className="min-w-0">
         {bloqueada
           ? 'Acesso da empresa bloqueado — o período gratuito e a carência terminaram. '
-          : 'O sistema se encontra com funcionalidades reduzidas. Procure o administrador do sistema da sua empresa para mais informações. '}
+          : 'Seu período de teste terminou — o sistema está em modo somente-leitura: não é possível criar checklists, tarefas, tickets, agendamentos ou workflows. Contrate um plano para reativar a criação. '}
         {isAdmin && (
           <a href="/gestao/plano" className="font-medium underline underline-offset-2">Ver plano</a>
         )}

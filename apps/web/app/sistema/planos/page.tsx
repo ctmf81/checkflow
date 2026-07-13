@@ -263,7 +263,8 @@ function PlanoModal({ plano, onClose, onSaved }: { plano: Plano | null; onClose:
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Tipo</label>
               <select value={tipo} onChange={e => setTipo(e.target.value as TipoPlano)} className={inputCls}>
-                <option value="gratuito">Gratuito</option>
+                {/* 'gratuito' descontinuado — só aparece em plano legado desse tipo (2026-07-13) */}
+                {tipo === 'gratuito' && <option value="gratuito">Gratuito (legado)</option>}
                 <option value="trial">Teste (trial)</option>
                 <option value="pago">Pago</option>
                 <option value="cortesia">Cortesia (beneficente)</option>

@@ -238,7 +238,7 @@ function NovoAgendamentoModal({
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function AgendamentosPage() {
-  const { empresaAtiva, unidadeAtiva } = useSession()
+  const { empresaAtiva, unidadeAtiva, faseAssinatura } = useSession()
   const toast = useToast()
   const confirm = useConfirm()
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
@@ -354,9 +354,13 @@ export default function AgendamentosPage() {
           <h1 className="text-xl font-semibold text-gray-800">Agendamentos</h1>
           <p className="hidden sm:block text-xs text-gray-400 mt-0.5">Início programado e recorrente de workflows e checklists</p>
         </div>
-        <Button onClick={() => unidadeAtiva ? setModalAberto(true) : toast.info('Selecione uma unidade para criar um agendamento.')}>
-          <Plus size={16} />Novo
-        </Button>
+        {faseAssinatura !== 'ativa' ? (
+          <Button disabled title="Criação bloqueada — período de teste encerrado (somente consulta)"><Plus size={16} />Novo</Button>
+        ) : (
+          <Button onClick={() => unidadeAtiva ? setModalAberto(true) : toast.info('Selecione uma unidade para criar um agendamento.')}>
+            <Plus size={16} />Novo
+          </Button>
+        )}
       </div>
 
       {loading ? (

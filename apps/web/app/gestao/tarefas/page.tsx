@@ -154,7 +154,7 @@ export default function TarefasPage() {
           <p className="hidden sm:block text-xs text-gray-400 mt-0.5">Listas de tarefas pontuais distribuídas a grupos/subgrupos · Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
         <Button onClick={novaLista} disabled={criando || faseAssinatura !== 'ativa'}
-          title={faseAssinatura !== 'ativa' ? 'Criação bloqueada — período gratuito encerrado' : undefined}>
+          title={faseAssinatura !== 'ativa' ? 'Criação bloqueada — período de teste encerrado (somente consulta)' : undefined}>
           {criando ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}Nova
         </Button>
       </div>

@@ -239,7 +239,7 @@ function ChecklistsContent() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {faseAssinatura !== 'ativa' ? (
-            <Button disabled title="Criação bloqueada — período gratuito encerrado"><Plus size={16} />Novo</Button>
+            <Button disabled title="Criação bloqueada — período de teste encerrado (somente consulta)"><Plus size={16} />Novo</Button>
           ) : (
             <>
               <Button variant="outline" onClick={() => setGerandoIA(true)}><Sparkles size={16} />Gerar com IA</Button>
