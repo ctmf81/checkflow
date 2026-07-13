@@ -612,7 +612,8 @@ Modelo: **freemium + usage-based híbrido**, padrão SaaS de mercado, com gatewa
 ## Exclusão Definitiva de Empresa
 - Apenas empresas com `status = 'inativo'` podem ser excluídas, e somente por `is_admin_sistema()` — validado na RPC `excluir_empresa_cascata`
 - Apaga em cascata: unidades, grupos, usuários vinculados, checklists, execuções, planos de ação, tickets, workflows
-- Ação **proposital não-trivial**: na tela `/sistema/empresas/[id]` (aba Configurações, "Zona de perigo"), exige digitar o nome exato da empresa + marcar checkbox de ciência antes de habilitar o botão — evita exclusão acidental de uma operação tão pesada
+- Ação **proposital não-trivial**: na tela `/sistema/empresas/[id]` (aba Configurações, "Zona de perigo", só aparece com `status='inativo'`), exige digitar o nome exato da empresa + marcar checkbox de ciência antes de habilitar o botão — evita exclusão acidental de uma operação tão pesada
+- ⏳ **PENDENTE (2026-07-13): apagar os ARQUIVOS do storage junto** — a RPC é SQL e só apaga o banco; os arquivos (buckets `execucoes` e `empresas`) ficam órfãos. Plano: rota service-role que enumera os IDs (via unidade→empresa) e remove os objetos antes do cascade. Mapa de storage e passo-a-passo em [[pendencia-excluir-empresa-storage]].
 - Irreversível — sem soft delete/recuperação
 
 ## Regras de Negócio Críticas
