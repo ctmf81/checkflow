@@ -4,7 +4,7 @@ import { SessionProvider, useSession } from '@/contexts/SessionContext'
 import { createClient } from '@/lib/supabase'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { LayoutDashboard, LogOut, UserCircle, ChevronDown } from 'lucide-react'
+import { LayoutDashboard, LogOut, UserCircle, ChevronDown, Building2 } from 'lucide-react'
 import { EscolherEmpresaModal } from '@/components/layout/EscolherEmpresaModal'
 import { TermosGate } from '@/components/layout/TermosGate'
 import { AssinaturaGate } from '@/components/layout/AssinaturaGate'
@@ -13,7 +13,7 @@ import { InstallAppButton } from '@/components/pwa/InstallAppButton'
 import { PendingSync } from '@/components/pwa/PendingSync'
 
 function OperacaoHeader() {
-  const { empresaAtiva } = useSession()
+  const { empresaAtiva, empresas, trocarEmpresa } = useSession()
   const router = useRouter()
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [temGestao, setTemGestao] = useState(false)
@@ -73,6 +73,11 @@ function OperacaoHeader() {
 
   async function handleLogout() {
     const supabase = createClient()
+    // Esquece a empresa escolhida → próximo login pergunta de novo (multi-empresa).
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) await supabase.from('sessao_usuario').update({ ultima_empresa_id: null }).eq('usuario_id', user.id)
+    } catch { /* segue o logout mesmo se falhar */ }
     await supabase.auth.signOut()
     // Navegação DURA p/ sair na hora (router.push + refresh exigia reload manual).
     window.location.href = '/login'
@@ -127,6 +132,13 @@ function OperacaoHeader() {
                     className="sm:hidden w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors border-b border-gray-100">
                     <LayoutDashboard size={16} className="text-orange-400" />
                     Gestão
+                  </button>
+                )}
+                {empresas.length > 1 && (
+                  <button onClick={() => { setDropUsuario(false); trocarEmpresa() }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors border-b border-gray-100">
+                    <Building2 size={16} className="text-orange-400" />
+                    Trocar empresa
                   </button>
                 )}
                 <button onClick={handleLogout}

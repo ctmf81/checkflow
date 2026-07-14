@@ -35,6 +35,9 @@ interface SessionState {
   setAmbiente: (a: Ambiente) => void
   setEmpresaAtiva: (e: Empresa | null) => void
   setUnidadeAtiva: (u: Unidade | null) => void
+  // Reabre a escolha de empresa (para quem tem +1). Limpa a empresa salva para
+  // não travar na última — a sessão persiste a partir da unidade, não da empresa.
+  trocarEmpresa: () => void
 }
 
 const SessionContext = createContext<SessionState>({
@@ -53,6 +56,7 @@ const SessionContext = createContext<SessionState>({
   setAmbiente: () => {},
   setEmpresaAtiva: () => {},
   setUnidadeAtiva: () => {},
+  trocarEmpresa: () => {},
 })
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
@@ -346,12 +350,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     else { setGrupoLabel('Grupo'); setSubgrupoLabel('Subgrupo') }
   }, [])
 
+  // Reabre o seletor de empresa e esquece a empresa salva (não a última unidade).
+  const trocarEmpresa = useCallback(() => {
+    setEmpresaAtivaState(null)
+    setUnidadeAtivaState(null)
+    setUnidades([])
+    setPrecisaEscolherEmpresa(true)
+    salvarSessao({ ultima_empresa_id: null })
+  }, [])
+
   return (
     <SessionContext.Provider value={{
       ambiente, empresaAtiva, unidadeAtiva, unidades, empresas,
       precisaEscolherEmpresa, modoEmpresa, grupoLabel, subgrupoLabel,
       recursosHabilitados, flagsHabilitadas, faseAssinatura,
-      setAmbiente, setEmpresaAtiva, setUnidadeAtiva,
+      setAmbiente, setEmpresaAtiva, setUnidadeAtiva, trocarEmpresa,
     }}>
       {children}
     </SessionContext.Provider>

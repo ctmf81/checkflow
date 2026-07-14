@@ -20,7 +20,7 @@ export function Header() {
   const pathname = usePathname()
   const isSistema = pathname.startsWith('/sistema')
   const sidebar = useSidebarOptional()
-  const { unidades, unidadeAtiva, setUnidadeAtiva, setAmbiente, setEmpresaAtiva, empresaAtiva } = useSession()
+  const { unidades, unidadeAtiva, setUnidadeAtiva, setAmbiente, setEmpresaAtiva, empresaAtiva, empresas, trocarEmpresa } = useSession()
   const [nome, setNome] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
   const [dropUsuario, setDropUsuario] = useState(false)
@@ -102,6 +102,12 @@ export function Header() {
 
   async function handleLogout() {
     const supabase = createClient()
+    // Esquece a empresa escolhida para que o próximo login pergunte de novo
+    // (multi-empresa). A última unidade permanece. Best-effort: não trava o logout.
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) await supabase.from('sessao_usuario').update({ ultima_empresa_id: null }).eq('usuario_id', user.id)
+    } catch { /* segue o logout mesmo se falhar */ }
     await supabase.auth.signOut()
     // Navegação DURA: garante que a sessão saia da tela imediatamente. Com
     // router.push + refresh a tela continuava "logada" até um reload manual.
@@ -196,6 +202,14 @@ export function Header() {
                 className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors">
                 <Building2 size={16} className="text-orange-400" />
                 Painel de sistema
+              </button>
+            )}
+
+            {empresas.length > 1 && (
+              <button onClick={() => { setDropUsuario(false); trocarEmpresa() }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors">
+                <Building2 size={16} className="text-orange-400" />
+                Trocar empresa
               </button>
             )}
 
