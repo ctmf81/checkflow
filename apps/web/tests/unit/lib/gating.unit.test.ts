@@ -84,6 +84,36 @@ describe('itemVisivelNoMenu — item Relatórios (perm relatorios + flag ia)', (
   })
 })
 
+describe('recursos CORE (unidades/perfis/usuarios) nunca gateados por plano', () => {
+  it('planoLiberaRecurso: core passa mesmo com plano configurado sem ele', () => {
+    const planoFechado = new Set(['turnos']) // plano só com Turnos
+    expect(planoLiberaRecurso(planoFechado, 'unidades')).toBe(true)
+    expect(planoLiberaRecurso(planoFechado, 'perfis')).toBe(true)
+    expect(planoLiberaRecurso(planoFechado, 'usuarios')).toBe(true)
+    // módulo não-core segue gateado
+    expect(planoLiberaRecurso(planoFechado, 'checklists')).toBe(false)
+    expect(planoLiberaRecurso(planoFechado, 'turnos')).toBe(true)
+  })
+
+  it('admin da empresa vê Empresa/Perfis/Usuários num plano fechado (só Turnos)', () => {
+    const c = ctx({ isAdminEmpresa: true, recursosHabilitados: new Set(['turnos']) })
+    expect(itemVisivelNoMenu({ perm: 'unidades' }, c)).toBe(true)  // Empresa
+    expect(itemVisivelNoMenu({ perm: 'perfis' }, c)).toBe(true)
+    expect(itemVisivelNoMenu({ perm: 'usuarios' }, c)).toBe(true)
+    expect(itemVisivelNoMenu({ perm: 'turnos' }, c)).toBe(true)
+    // módulo fora do plano continua escondido (admin empresa é limitado ao plano)
+    expect(itemVisivelNoMenu({ perm: 'checklists' }, c)).toBe(false)
+  })
+
+  it('usuário comum: core respeita a permissão do perfil, não o plano', () => {
+    const plano = new Set(['turnos'])
+    // tem 'perfis' no perfil → vê Perfis mesmo com plano fechado
+    expect(itemVisivelNoMenu({ perm: 'perfis' }, ctx({ recursosHabilitados: plano, recursos: new Set(['perfis']) }))).toBe(true)
+    // sem a permissão → não vê
+    expect(itemVisivelNoMenu({ perm: 'perfis' }, ctx({ recursosHabilitados: plano, recursos: new Set() }))).toBe(false)
+  })
+})
+
 describe('itemVisivelNoMenu — itens comuns (regressão)', () => {
   it('módulo simples respeita recurso do plano + permissão do perfil', () => {
     const item: ItemGate = { perm: 'checklists' }

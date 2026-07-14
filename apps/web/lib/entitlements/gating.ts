@@ -5,9 +5,17 @@
 // Regra opt-in (vale para todo o sistema): `recursosHabilitados`/`flagsHabilitadas`
 // = null significa SEM restrição (trial, dev, ou plano sem serviços configurados).
 
+// Recursos CORE de plataforma — NUNCA gateados por plano. São a gestão da
+// própria empresa (unidades), perfis e usuários: não pertencem a nenhum serviço/
+// módulo, então um plano configurado não os inclui em recursosHabilitados. Sem
+// esta exceção, admin da empresa perderia esses menus num plano fechado.
+export const RECURSOS_CORE = new Set(['unidades', 'perfis', 'usuarios'])
+
 // O plano libera esse RECURSO de módulo? (ex.: 'checklists', 'tarefas')
+// Recursos core passam sempre. `null` = sem restrição (trial/dev).
 export function planoLiberaRecurso(recursosHabilitados: Set<string> | null, recurso?: string): boolean {
   if (!recurso) return true
+  if (RECURSOS_CORE.has(recurso)) return true
   if (recursosHabilitados === null) return true
   return recursosHabilitados.has(recurso)
 }
