@@ -77,7 +77,9 @@ interface Catalogo {
 export default function AtividadeModal({ checklistId, secaoId, atividade, paiId, valorGatilho, ordemAtual, onClose, onSalva }: Props) {
   const isEdicao = !!atividade
   const isDependente = !!paiId
-  const { unidadeAtiva } = useSession()
+  const { unidadeAtiva, flagsHabilitadas } = useSession()
+  // IA por foto depende da característica 'ia' do plano (opt-in: null = sem restrição).
+  const iaHabilitada = flagsHabilitadas === null || flagsHabilitadas.has('ia')
 
   const [nome, setNome] = useState(atividade?.nome ?? '')
   const [descricao, setDescricao] = useState(atividade?.descricao ?? '')
@@ -458,8 +460,9 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
             </div>
           )}
 
-          {/* Preenchimento por foto (IA) — texto / sim_não / número */}
-          {['texto', 'sim_nao', 'numero'].includes(tipo) && (
+          {/* Preenchimento por foto (IA) — texto / sim_não / número. Só se o plano
+              inclui a característica 'ia' (ou se já estava ligado, p/ poder desligar). */}
+          {['texto', 'sim_nao', 'numero'].includes(tipo) && (iaHabilitada || iaFoto) && (
             <div className="space-y-2 border-t border-gray-100 pt-3">
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
                 <input type="checkbox" checked={iaFoto} onChange={e => setIaFoto(e.target.checked)} className="accent-orange-500" />

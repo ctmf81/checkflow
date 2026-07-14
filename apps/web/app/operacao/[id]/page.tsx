@@ -1335,7 +1335,7 @@ function PlanoAcaoModal({ atividade, subgrupoId, checklistId, unidadeId, dadosIn
 
 // ─── Item de atividade ────────────────────────────────────────────────────────
 
-function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturados, motivosAtividade, onFotoIA, fotosIA, permiteOffline, nivel = 0 }: {
+function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturados, motivosAtividade, onFotoIA, fotosIA, permiteOffline, iaDisponivel, nivel = 0 }: {
   atividade: Atividade
   onResposta: (id: string, val: any) => void
   onAbrirPlanoAcao: (atv: Atividade) => void
@@ -1344,6 +1344,7 @@ function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturad
   onFotoIA: (id: string, foto: { file: File; url: string } | null) => void
   fotosIA: Record<string, { file: File; url: string }>
   permiteOffline: boolean
+  iaDisponivel: boolean
   nivel?: number
 }) {
   const [escolhendoMotivo, setEscolhendoMotivo] = useState(false)
@@ -1399,7 +1400,7 @@ function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturad
         ) : (() => {
           // IA por foto exige internet no momento da captura → escondida se o
           // checklist permite offline (evita capturar online e perder a evidência ao finalizar offline).
-          const usaIaFoto = !permiteOffline && ['texto', 'sim_nao', 'numero'].includes(atividade.tipo) && atividade.config?.ia_foto
+          const usaIaFoto = iaDisponivel && !permiteOffline && ['texto', 'sim_nao', 'numero'].includes(atividade.tipo) && atividade.config?.ia_foto
           const iaEditavel = atividade.config?.ia_editavel !== false
           const campoIA = usaIaFoto
             ? <CampoIAFoto atividade={atividade} foto={fotosIA[atividade.id]}
@@ -1471,7 +1472,7 @@ function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturad
       {dependentesVisiveis.map(dep => (
         <AtividadeItem key={dep.id} atividade={dep} onResposta={onResposta}
           onAbrirPlanoAcao={onAbrirPlanoAcao} planosCapturados={planosCapturados}
-          motivosAtividade={motivosAtividade} onFotoIA={onFotoIA} fotosIA={fotosIA} permiteOffline={permiteOffline} nivel={nivel + 1} />
+          motivosAtividade={motivosAtividade} onFotoIA={onFotoIA} fotosIA={fotosIA} permiteOffline={permiteOffline} iaDisponivel={iaDisponivel} nivel={nivel + 1} />
       ))}
     </div>
   )
@@ -1482,7 +1483,9 @@ function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturad
 export default function ExecucaoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
-  const { unidadeAtiva, empresaAtiva } = useSession()
+  const { unidadeAtiva, empresaAtiva, flagsHabilitadas } = useSession()
+  // IA por foto depende da característica 'ia' do plano (opt-in: null = sem restrição).
+  const iaDisponivel = flagsHabilitadas === null || flagsHabilitadas.has('ia')
   const [checklist, setChecklist] = useState<Checklist | null>(null)
   const [secoes, setSecoes] = useState<Secao[]>([])
   const [respostas, setRespostas] = useState<Record<string, any>>({})
@@ -2491,7 +2494,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
                           <AtividadeItem key={atv.id} atividade={atv} onResposta={setResposta}
                             onAbrirPlanoAcao={setModalPlanoAtividade} planosCapturados={planosCapturados}
                             motivosAtividade={motivosAtividade} onFotoIA={setFotoIA} fotosIA={fotosIA}
-                            permiteOffline={checklist?.permite_offline ?? false} />
+                            permiteOffline={checklist?.permite_offline ?? false} iaDisponivel={iaDisponivel} />
                         ))}
                       </div>
                   }
