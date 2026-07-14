@@ -15,6 +15,7 @@ import { useSidebar } from './SidebarContext'
 import { createClient } from '@/lib/supabase'
 import { ehAdminDaEmpresa } from '@/lib/admin'
 import { WORKFLOWS_HABILITADO } from '@/lib/features'
+import { itemVisivelNoMenu } from '@/lib/entitlements/gating'
 
 // Cada item pode declarar como é liberado no menu:
 //   - perm:  só aparece se o perfil do usuário tem ALGUMA permissão nesse recurso
@@ -140,32 +141,13 @@ export function Sidebar() {
     return () => { cancelado = true }
   }, [empresaAtiva?.id])
 
-  // O plano da empresa libera esse recurso? null = sem restrição (trial/dev).
-  function planoLibera(recurso?: string): boolean {
-    if (!recurso) return true
-    if (recursosHabilitados === null) return true
-    return recursosHabilitados.has(recurso)
-  }
-
-  // O plano inclui a característica (flag, ex.: 'ia')? null = sem restrição.
-  function planoLiberaFlag(flag?: string): boolean {
-    if (!flag) return true
-    if (flagsHabilitadas === null) return true
-    return flagsHabilitadas.has(flag)
-  }
-
-  // Um item folha é visível? Admin de SISTEMA vê tudo (plataforma). O plano
-  // barra o módulo/característica (vale até p/ admin da empresa). Admin da empresa
-  // vê tudo que o plano libera; usuário comum precisa da permissão no perfil.
+  // Visibilidade de um item folha — lógica pura centralizada em lib/entitlements
+  // (mesma coberta por testes). Admin sistema vê tudo; o plano barra por
+  // característica (flag) ou recurso-módulo; usuário comum precisa da permissão.
   function folhaVisivel(it: { perm?: string; admin?: boolean; flag?: string }): boolean {
-    if (isAdminSistema) return true
-    // Item por característica (IA): gate pela flag, não pelo recurso módulo.
-    if (it.flag) { if (!planoLiberaFlag(it.flag)) return false }
-    else if (!planoLibera(it.perm)) return false
-    if (isAdminEmpresa) return true
-    if (it.admin) return false
-    if (it.perm) return carregado && recursos.has(it.perm)
-    return true
+    return itemVisivelNoMenu(it, {
+      isAdminSistema, isAdminEmpresa, recursosHabilitados, flagsHabilitadas, recursos, carregado,
+    })
   }
   function itemVisivel(it: NavItem): boolean {
     if (it.children) return it.children.some(folhaVisivel)

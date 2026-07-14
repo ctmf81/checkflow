@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { useToast } from '@/components/ui/feedback'
 import { ehAdminDaEmpresa } from '@/lib/admin'
+import { resolverAcoesRelatorios } from '@/lib/entitlements/gating'
 
 interface ModeloOpt { id: string; nome: string }
 interface GeradoRow {
@@ -56,15 +57,20 @@ export function RelatoriosHome() {
       const sb = createClient()
       const { data: { user } } = await sb.auth.getUser()
       if (!user) return
-      if (user.user_metadata?.role === 'admin_sistema') { if (!cancel) setPodeExecutar(true); return }
-      if (await ehAdminDaEmpresa(sb, empresaAtiva.id)) { if (!cancel) setPodeExecutar(true); return }
-      const { data: ue } = await sb.from('usuario_empresa').select('perfil_id').eq('usuario_id', user.id).eq('empresa_id', empresaAtiva.id).maybeSingle()
-      if (!ue?.perfil_id) { if (!cancel) setPodeExecutar(false); return }
-      const { data: pp } = await sb.from('perfil_permissoes').select('permissao:permissao_id(recurso, acao)').eq('perfil_id', ue.perfil_id)
-      const pode = (pp ?? []).some((row: any) => {
-        const p = Array.isArray(row.permissao) ? row.permissao[0] : row.permissao
-        return p?.recurso === 'relatorios' && p?.acao === 'executar'
-      })
+      const isAdminSistema = user.user_metadata?.role === 'admin_sistema'
+      const isAdminEmpresa = isAdminSistema ? false : await ehAdminDaEmpresa(sb, empresaAtiva.id)
+      let permissoes: { recurso: string; acao: string }[] = []
+      if (!isAdminSistema && !isAdminEmpresa) {
+        const { data: ue } = await sb.from('usuario_empresa').select('perfil_id').eq('usuario_id', user.id).eq('empresa_id', empresaAtiva.id).maybeSingle()
+        if (ue?.perfil_id) {
+          const { data: pp } = await sb.from('perfil_permissoes').select('permissao:permissao_id(recurso, acao)').eq('perfil_id', ue.perfil_id)
+          permissoes = (pp ?? []).map((row: any) => {
+            const p = Array.isArray(row.permissao) ? row.permissao[0] : row.permissao
+            return { recurso: p?.recurso, acao: p?.acao }
+          }).filter((p: any) => p.recurso && p.acao)
+        }
+      }
+      const pode = resolverAcoesRelatorios({ isAdminSistema, isAdminEmpresa, permissoes }).executar
       if (!cancel) setPodeExecutar(pode)
     })()
     return () => { cancel = true }

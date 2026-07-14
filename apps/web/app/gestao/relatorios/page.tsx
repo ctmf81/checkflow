@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { useConfirm, useToast } from '@/components/ui/feedback'
 import { ehAdminDaEmpresa } from '@/lib/admin'
+import { resolverAcoesRelatorios } from '@/lib/entitlements/gating'
 import { ModeloModal, type ModeloRelatorio } from './ModeloModal'
 
 interface ModeloRow extends ModeloRelatorio {
@@ -75,17 +76,21 @@ export default function RelatoriosPage() {
       const sb = createClient()
       const { data: { user } } = await sb.auth.getUser()
       if (!user) return
-      const tudo = { criar: true, editar: true, excluir: true }
-      if (user.user_metadata?.role === 'admin_sistema') { if (!cancel) setPerms(tudo); return }
-      if (await ehAdminDaEmpresa(sb, empresaAtiva.id)) { if (!cancel) setPerms(tudo); return }
-      const { data: ue } = await sb.from('usuario_empresa').select('perfil_id').eq('usuario_id', user.id).eq('empresa_id', empresaAtiva.id).maybeSingle()
-      if (!ue?.perfil_id) { if (!cancel) setPerms({ criar: false, editar: false, excluir: false }); return }
-      const { data: pp } = await sb.from('perfil_permissoes').select('permissao:permissao_id(recurso, acao)').eq('perfil_id', ue.perfil_id)
-      const acoes = new Set((pp ?? []).map((row: any) => {
-        const p = Array.isArray(row.permissao) ? row.permissao[0] : row.permissao
-        return p?.recurso === 'relatorios' ? p.acao : null
-      }).filter(Boolean))
-      if (!cancel) setPerms({ criar: acoes.has('criar'), editar: acoes.has('editar'), excluir: acoes.has('excluir') })
+      const isAdminSistema = user.user_metadata?.role === 'admin_sistema'
+      const isAdminEmpresa = isAdminSistema ? false : await ehAdminDaEmpresa(sb, empresaAtiva.id)
+      let permissoes: { recurso: string; acao: string }[] = []
+      if (!isAdminSistema && !isAdminEmpresa) {
+        const { data: ue } = await sb.from('usuario_empresa').select('perfil_id').eq('usuario_id', user.id).eq('empresa_id', empresaAtiva.id).maybeSingle()
+        if (ue?.perfil_id) {
+          const { data: pp } = await sb.from('perfil_permissoes').select('permissao:permissao_id(recurso, acao)').eq('perfil_id', ue.perfil_id)
+          permissoes = (pp ?? []).map((row: any) => {
+            const p = Array.isArray(row.permissao) ? row.permissao[0] : row.permissao
+            return { recurso: p?.recurso, acao: p?.acao }
+          }).filter((p: any) => p.recurso && p.acao)
+        }
+      }
+      const acoes = resolverAcoesRelatorios({ isAdminSistema, isAdminEmpresa, permissoes })
+      if (!cancel) setPerms({ criar: acoes.criar, editar: acoes.editar, excluir: acoes.excluir })
     })()
     return () => { cancel = true }
   }, [empresaAtiva?.id])
