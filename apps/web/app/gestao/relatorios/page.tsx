@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { useConfirm, useToast } from '@/components/ui/feedback'
+import { ehAdminDaEmpresa } from '@/lib/admin'
 import { ModeloModal, type ModeloRelatorio } from './ModeloModal'
 
 interface ModeloRow extends ModeloRelatorio {
@@ -17,7 +18,9 @@ function nomeChecklist(m: ModeloRow): string {
   return c?.nome ?? '—'
 }
 
-function Menu({ onEditar, onExcluir }: { onEditar: () => void; onExcluir: () => void }) {
+function Menu({ podeEditar, podeExcluir, onEditar, onExcluir }: {
+  podeEditar: boolean; podeExcluir: boolean; onEditar: () => void; onExcluir: () => void
+}) {
   const [aberto, setAberto] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -32,16 +35,20 @@ function Menu({ onEditar, onExcluir }: { onEditar: () => void; onExcluir: () => 
       </button>
       {aberto && (
         <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
-          <button onClick={() => { setAberto(false); onEditar() }}
-            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-            <Pencil size={14} className="text-gray-400" />Editar modelo
-          </button>
-          <div className="border-t border-gray-100 mt-1">
-            <button onClick={() => { setAberto(false); onExcluir() }}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50">
-              <Trash2 size={14} />Excluir modelo
+          {podeEditar && (
+            <button onClick={() => { setAberto(false); onEditar() }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+              <Pencil size={14} className="text-gray-400" />Editar modelo
             </button>
-          </div>
+          )}
+          {podeExcluir && (
+            <div className={podeEditar ? 'border-t border-gray-100 mt-1' : ''}>
+              <button onClick={() => { setAberto(false); onExcluir() }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50">
+                <Trash2 size={14} />Excluir modelo
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -49,7 +56,7 @@ function Menu({ onEditar, onExcluir }: { onEditar: () => void; onExcluir: () => 
 }
 
 export default function RelatoriosPage() {
-  const { unidadeAtiva, flagsHabilitadas } = useSession()
+  const { unidadeAtiva, empresaAtiva, flagsHabilitadas } = useSession()
   const iaHabilitada = flagsHabilitadas === null || flagsHabilitadas.has('ia')
   const confirm = useConfirm()
   const toast = useToast()
@@ -57,6 +64,31 @@ export default function RelatoriosPage() {
   const [loading, setLoading] = useState(true)
   const [modalNovo, setModalNovo] = useState(false)
   const [editando, setEditando] = useState<ModeloRelatorio | null>(null)
+  // Permissões por ação do usuário (esconde botões que ele não pode usar; a RLS
+  // é a barreira real). Admin de sistema/empresa tem tudo.
+  const [perms, setPerms] = useState({ criar: false, editar: false, excluir: false })
+
+  useEffect(() => {
+    if (!empresaAtiva?.id) { setPerms({ criar: false, editar: false, excluir: false }); return }
+    let cancel = false
+    ;(async () => {
+      const sb = createClient()
+      const { data: { user } } = await sb.auth.getUser()
+      if (!user) return
+      const tudo = { criar: true, editar: true, excluir: true }
+      if (user.user_metadata?.role === 'admin_sistema') { if (!cancel) setPerms(tudo); return }
+      if (await ehAdminDaEmpresa(sb, empresaAtiva.id)) { if (!cancel) setPerms(tudo); return }
+      const { data: ue } = await sb.from('usuario_empresa').select('perfil_id').eq('usuario_id', user.id).eq('empresa_id', empresaAtiva.id).maybeSingle()
+      if (!ue?.perfil_id) { if (!cancel) setPerms({ criar: false, editar: false, excluir: false }); return }
+      const { data: pp } = await sb.from('perfil_permissoes').select('permissao:permissao_id(recurso, acao)').eq('perfil_id', ue.perfil_id)
+      const acoes = new Set((pp ?? []).map((row: any) => {
+        const p = Array.isArray(row.permissao) ? row.permissao[0] : row.permissao
+        return p?.recurso === 'relatorios' ? p.acao : null
+      }).filter(Boolean))
+      if (!cancel) setPerms({ criar: acoes.has('criar'), editar: acoes.has('editar'), excluir: acoes.has('excluir') })
+    })()
+    return () => { cancel = true }
+  }, [empresaAtiva?.id])
 
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
@@ -102,7 +134,7 @@ export default function RelatoriosPage() {
             Modelos de relatório por IA · gere na <span className="font-medium text-orange-500">Home</span>
           </p>
         </div>
-        <Button onClick={() => setModalNovo(true)}><Plus size={16} />Novo</Button>
+        {perms.criar && <Button onClick={() => setModalNovo(true)}><Plus size={16} />Novo</Button>}
       </div>
 
       {loading ? (
@@ -125,10 +157,14 @@ export default function RelatoriosPage() {
               <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 bg-gray-100 text-gray-600">
                 <Clock size={12} />últimas {m.periodo_horas}h
               </span>
-              <Menu
-                onEditar={() => setEditando({ id: m.id, nome: m.nome, checklist_id: m.checklist_id, periodo_horas: m.periodo_horas, prompt: m.prompt })}
-                onExcluir={() => excluir(m)}
-              />
+              {(perms.editar || perms.excluir) && (
+                <Menu
+                  podeEditar={perms.editar}
+                  podeExcluir={perms.excluir}
+                  onEditar={() => setEditando({ id: m.id, nome: m.nome, checklist_id: m.checklist_id, periodo_horas: m.periodo_horas, prompt: m.prompt })}
+                  onExcluir={() => excluir(m)}
+                />
+              )}
             </div>
           ))}
         </div>
