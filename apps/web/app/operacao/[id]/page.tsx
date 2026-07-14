@@ -811,6 +811,7 @@ function CampoIAFoto({ atividade, foto, onValor, onFoto }: {
   const inputRef = useRef<HTMLInputElement>(null)
   const [analisando, setAnalisando] = useState(false)
   const [erro, setErro] = useState('')
+  const [preview, setPreview] = useState(false)
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -847,9 +848,22 @@ function CampoIAFoto({ atividade, foto, onValor, onFoto }: {
       <input ref={inputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} />
       {foto?.url && (
         <div className="flex items-center gap-2 mb-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={foto.url} alt="Foto analisada" className="w-12 h-12 object-cover rounded-lg border border-gray-200" />
+          <button type="button" onClick={() => setPreview(true)} title="Ver imagem"
+            className="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 hover:border-violet-300 flex-shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={foto.url} alt="Foto analisada" className="w-full h-full object-cover" />
+          </button>
           <span className="text-xs text-gray-500">Foto analisada pela IA (guardada como evidência)</span>
+        </div>
+      )}
+      {preview && foto?.url && (
+        <div className="fixed inset-0 z-[60] bg-black/85 flex items-center justify-center p-4" onClick={() => setPreview(false)}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={foto.url} alt="Foto analisada pela IA" className="max-w-full max-h-full rounded-lg" />
+          <button type="button" onClick={() => setPreview(false)}
+            className="absolute top-4 right-4 text-white/90 bg-white/10 rounded-full p-2 hover:bg-white/20">
+            <X size={20} />
+          </button>
         </div>
       )}
       <button type="button" onClick={() => inputRef.current?.click()} disabled={analisando || !online}
