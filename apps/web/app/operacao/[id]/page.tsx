@@ -197,6 +197,13 @@ function CampoTexto({ atividade, onChange }: { atividade: Atividade; onChange: (
   const mascara: string = cfg.mascara ?? ''
   const val: string = atividade.resposta ?? ''
   const [erroCodigo, setErroCodigo] = useState<string | null>(null)
+  // Sem máscara → textarea que cresce com o texto (inclusive quando a IA preenche).
+  const usaTextarea = !mascara
+  const taRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const t = taRef.current
+    if (t) { t.style.height = 'auto'; t.style.height = `${Math.min(t.scrollHeight, 400)}px` }
+  }, [val])
 
   function indexOfMatch(input: string, from: number, re: RegExp): number {
     for (let k = from; k < input.length; k++) if (re.test(input[k])) return k
@@ -238,13 +245,24 @@ function CampoTexto({ atividade, onChange }: { atividade: Atividade; onChange: (
 
   return (
     <div className="space-y-2">
-      <div className="flex gap-2">
-        <input
-          value={val}
-          onChange={e => onChange(mascara ? aplicarMascara(e.target.value.replace(/\W/g, '')) : e.target.value)}
-          placeholder={mascara || 'Digite aqui...'}
-          className="flex-1 px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200"
-        />
+      <div className="flex gap-2 items-start">
+        {usaTextarea ? (
+          <textarea
+            ref={taRef}
+            value={val}
+            onChange={e => onChange(e.target.value)}
+            placeholder="Digite aqui..."
+            rows={2}
+            className="flex-1 px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none overflow-y-auto leading-relaxed"
+          />
+        ) : (
+          <input
+            value={val}
+            onChange={e => onChange(aplicarMascara(e.target.value.replace(/\W/g, '')))}
+            placeholder={mascara}
+            className="flex-1 px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200"
+          />
+        )}
         {cfg.qrcode && (
           <button title="Ler QR Code" onClick={handleScanQR}
             className="px-3 py-2.5 bg-gray-800 text-white rounded-xl text-xs flex items-center gap-1 hover:bg-gray-700 active:scale-95 transition-transform">
