@@ -7,8 +7,7 @@ import { clsx } from 'clsx'
 import {
   Home, Users, CheckSquare, BarChart2, Settings,
   ChevronDown, ChevronUp, ClipboardList, Layers,
-  Network, UserCircle, GitBranch, Clock, Ticket, X, CreditCard, ListChecks,
-  FileBarChart2
+  Network, UserCircle, GitBranch, Clock, Ticket, X, CreditCard, ListChecks
 } from 'lucide-react'
 import { useSession } from '@/contexts/SessionContext'
 import { useSidebar } from './SidebarContext'
@@ -55,7 +54,6 @@ const nav: NavItem[] = [
   ...(WORKFLOWS_HABILITADO ? [{ label: 'Workflows', href: '/gestao/workflows', icon: GitBranch, perm: 'workflows' } as NavItem] : []),
   { label: 'Agendamentos', href: '/gestao/agendamentos',   icon: Clock, perm: 'agendamentos' },
   { label: 'Indicadores',  href: '/gestao/indicadores',    icon: BarChart2 },
-  { label: 'Relatórios',   href: '/gestao/relatorios',     icon: FileBarChart2, perm: 'relatorios', flag: 'ia' },
   {
     label: 'Padrão',
     icon: Network,
@@ -85,7 +83,7 @@ const nav: NavItem[] = [
       { label: 'Causa raiz',    href: '/gestao/configuracoes/causa-raiz',   perm: 'causa_raiz' },
       { label: 'Formatação',    href: '/gestao/configuracoes/formatacao',   admin: true },
       { label: 'Notificações',  href: '/gestao/configuracoes/notificacoes', admin: true },
-      { label: 'Relatórios',    href: '/gestao/configuracoes/relatorios',   admin: true },
+      { label: 'Relatórios',    href: '/gestao/relatorios',                 perm: 'relatorios', flag: 'ia' },
       { label: 'Dashboards',    href: '/gestao/configuracoes/dashboards',   perm: 'dashboards' },
     ],
   },
