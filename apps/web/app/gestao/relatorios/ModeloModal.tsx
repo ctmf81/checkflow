@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { X, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
+import { useSession } from '@/contexts/SessionContext'
 import { useToast } from '@/components/ui/feedback'
 import { montarPromptModelo, type SecaoEstrutura } from '@/lib/relatorios/montarPrompt'
 
@@ -22,10 +23,11 @@ interface Props {
   onSalvo: () => void
 }
 
-interface ChecklistOpt { id: string; nome: string }
+interface ChecklistOpt { id: string; nome: string; subgrupo_id: string | null }
 
 export function ModeloModal({ unidadeId, modelo, onClose, onSalvo }: Props) {
   const toast = useToast()
+  const { grupoLabel, subgrupoLabel } = useSession()
   const edicao = !!modelo
 
   const [nome, setNome] = useState(modelo?.nome ?? '')
@@ -33,15 +35,48 @@ export function ModeloModal({ unidadeId, modelo, onClose, onSalvo }: Props) {
   const [periodoHoras, setPeriodoHoras] = useState(modelo?.periodo_horas ?? 24)
   const [prompt, setPrompt] = useState(modelo?.prompt ?? '')
   const [checklists, setChecklists] = useState<ChecklistOpt[]>([])
+  const [grupos, setGrupos] = useState<{ id: string; nome: string; display_name: string | null }[]>([])
+  const [subgrupos, setSubgrupos] = useState<{ id: string; nome: string }[]>([])
+  const [filtroGrupo, setFiltroGrupo] = useState('')
+  const [filtroSubgrupo, setFiltroSubgrupo] = useState('')
   const [salvando, setSalvando] = useState(false)
   // Se o usuário editou o prompt à mão, não sobrescreve ao trocar de checklist.
   const promptTocado = useRef(edicao)
 
   useEffect(() => {
-    createClient().from('checklists')
-      .select('id, nome').eq('unidade_id', unidadeId).eq('status', 'publicado').order('nome')
+    const sb = createClient()
+    sb.from('checklists')
+      .select('id, nome, subgrupo_id').eq('unidade_id', unidadeId).eq('status', 'publicado').order('nome')
       .then(({ data }) => setChecklists(data ?? []))
+    sb.from('grupos')
+      .select('id, nome, display_name').eq('unidade_id', unidadeId).eq('status', 'ativo').order('nome')
+      .then(({ data }) => setGrupos(data ?? []))
   }, [unidadeId])
+
+  // Carrega subgrupos ao escolher um grupo (para o 2º filtro).
+  useEffect(() => {
+    setFiltroSubgrupo('')
+    if (!filtroGrupo) { setSubgrupos([]); return }
+    createClient().from('subgrupos').select('id, nome')
+      .eq('grupo_id', filtroGrupo).eq('status', 'ativo').order('nome')
+      .then(({ data }) => setSubgrupos(data ?? []))
+  }, [filtroGrupo])
+
+  // Checklists visíveis conforme os filtros (grupo → subgrupo). Sem filtro = todos.
+  const subgruposDoGrupo = new Set(subgrupos.map(s => s.id))
+  const checklistsFiltrados = checklists.filter(c => {
+    if (filtroSubgrupo) return c.subgrupo_id === filtroSubgrupo
+    if (filtroGrupo) return c.subgrupo_id != null && subgruposDoGrupo.has(c.subgrupo_id)
+    return true
+  })
+
+  // Se o checklist selecionado sair do filtro, limpa a seleção (evita salvar oculto).
+  useEffect(() => {
+    if (checklistId && !checklistsFiltrados.some(c => c.id === checklistId)) {
+      setChecklistId('')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroGrupo, filtroSubgrupo, subgrupos])
 
   // Ao escolher um checklist, pré-preenche o prompt com seções/atividades dele.
   async function aoTrocarChecklist(id: string) {
@@ -115,13 +150,36 @@ export function ModeloModal({ unidadeId, modelo, onClose, onSalvo }: Props) {
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
           </div>
 
+          {/* Filtros opcionais para achar o checklist */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{grupoLabel}</label>
+              <select value={filtroGrupo} onChange={e => setFiltroGrupo(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
+                <option value="">Todos</option>
+                {grupos.map(g => <option key={g.id} value={g.id}>{g.display_name || g.nome}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{subgrupoLabel}</label>
+              <select value={filtroSubgrupo} onChange={e => setFiltroSubgrupo(e.target.value)} disabled={!filtroGrupo}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200 disabled:opacity-50">
+                <option value="">Todos</option>
+                {subgrupos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Checklist</label>
             <select value={checklistId} onChange={e => aoTrocarChecklist(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
               <option value="">Selecione…</option>
-              {checklists.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              {checklistsFiltrados.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
+            {checklistsFiltrados.length === 0 && (
+              <p className="text-xs text-gray-400 mt-1">Nenhum checklist publicado neste filtro.</p>
+            )}
           </div>
 
           <div>
