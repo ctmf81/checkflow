@@ -74,6 +74,8 @@ const STATUS_PLANO_PDF: Record<string, { label: string; bg: string; cor: string 
 }
 
 function formatarResposta(tipo: string, resposta: any): string {
+  // IA por foto: resposta = { valor, foto_ia } → o texto vem do valor.
+  if (resposta && typeof resposta === 'object' && 'foto_ia' in resposta) resposta = resposta.valor
   if (resposta === null || resposta === undefined) return '—'
   if (tipo === 'sim_nao')         return resposta === true || resposta === 'true' || resposta === 'sim' ? 'Sim' : 'Não'
   if (tipo === 'foto')            return resposta?.url ? '' : '—'
