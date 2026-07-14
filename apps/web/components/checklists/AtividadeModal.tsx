@@ -102,6 +102,10 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
   const [textoMascara, setTextoMascara] = useState(config.mascara ?? '')
   const [textoQrcode, setTextoQrcode] = useState(config.qrcode ?? false)
   const [textoBarcode, setTextoBarcode] = useState(config.barcode ?? false)
+  // Preenchimento por foto (IA) — texto/sim_nao/numero
+  const [iaFoto, setIaFoto] = useState(config.ia_foto ?? false)
+  const [iaPrompt, setIaPrompt] = useState(config.ia_prompt ?? '')
+  const [iaEditavel, setIaEditavel] = useState(config.ia_editavel ?? true)
   const [locLat, setLocLat] = useState(config.lat ?? '')
   const [locLng, setLocLng] = useState(config.lng ?? '')
   const [locRaio, setLocRaio] = useState(config.raio_metros ?? 100)
@@ -232,10 +236,14 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
   }
 
   function buildConfig() {
+    // Preenchimento por foto (IA) — comum a texto/sim_nao/numero
+    const ia = iaFoto
+      ? { ia_foto: true, ia_prompt: iaPrompt.trim() || null, ia_editavel: iaEditavel }
+      : { ia_foto: false }
     switch (tipo) {
-      case 'sim_nao': return { esperado: simNaoEsperado, exibir_referencia: simNaoExibirRef }
-      case 'numero': return { min: numMin !== '' ? Number(numMin) : null, max: numMax !== '' ? Number(numMax) : null, unidade: numUnidade || null, exibir_referencia: numExibirRef }
-      case 'texto': return { mascara: textoMascara || null, qrcode: textoQrcode, barcode: textoBarcode }
+      case 'sim_nao': return { esperado: simNaoEsperado, exibir_referencia: simNaoExibirRef, ...ia }
+      case 'numero': return { min: numMin !== '' ? Number(numMin) : null, max: numMax !== '' ? Number(numMax) : null, unidade: numUnidade || null, exibir_referencia: numExibirRef, ...ia }
+      case 'texto': return { mascara: textoMascara || null, qrcode: textoQrcode, barcode: textoBarcode, ...ia }
       case 'localizacao': return { lat: locLat ? Number(locLat) : null, lng: locLng ? Number(locLng) : null, raio_metros: Number(locRaio), endereco: locEnderecoDisplay || null }
       case 'data_hora': return { automatico: dataAuto }
       case 'catalogo': return { catalogo_id: catalogoId || null }
@@ -249,6 +257,11 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
     // Valida catálogo obrigatório
     if (tipo === 'catalogo' && !catalogoId) {
       setErro('Selecione um catálogo para esta atividade.'); return
+    }
+
+    // Preenchimento por foto (IA): exige o prompt de análise
+    if (['texto', 'sim_nao', 'numero'].includes(tipo) && iaFoto && !iaPrompt.trim()) {
+      setErro('Informe o prompt de análise da imagem para o preenchimento por foto (IA).'); return
     }
 
     // Valida SLA: se preenchido, deve ser número inteiro positivo
@@ -441,6 +454,34 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
                 <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
                   ⚠️ A leitura por QR Code / Barcode usa a câmera e só está disponível no <strong>app mobile</strong>. No desktop, o operador digita o valor manualmente.
                 </p>
+              )}
+            </div>
+          )}
+
+          {/* Preenchimento por foto (IA) — texto / sim_não / número */}
+          {['texto', 'sim_nao', 'numero'].includes(tipo) && (
+            <div className="space-y-2 border-t border-gray-100 pt-3">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+                <input type="checkbox" checked={iaFoto} onChange={e => setIaFoto(e.target.checked)} className="accent-orange-500" />
+                Preencher por foto (IA)
+                <span className="text-xs font-normal text-gray-400">— o operador tira uma foto e a IA gera a resposta</span>
+              </label>
+              {iaFoto && (
+                <div className="space-y-2 pl-6">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Prompt de análise da imagem</label>
+                    <textarea value={iaPrompt} onChange={e => setIaPrompt(e.target.value)} rows={3}
+                      placeholder="Ex: Analise o mostrador do manômetro e informe a pressão em bar."
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      A IA recebe a foto + este prompt e retorna {tipo === 'texto' ? 'um texto resumido (até 4 linhas)' : tipo === 'sim_nao' ? 'a resposta sim ou não' : 'somente um número'}. Consome os tokens de IA do plano.
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                    <input type="checkbox" checked={iaEditavel} onChange={e => setIaEditavel(e.target.checked)} className="accent-orange-500" />
+                    Operador pode editar o resultado da IA
+                  </label>
+                </div>
               )}
             </div>
           )}

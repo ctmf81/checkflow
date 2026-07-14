@@ -30,6 +30,8 @@ function dataBR(iso: string) {
 
 // Texto da resposta para tipos que NÃO são mídia (mídia é renderizada à parte).
 function textoResposta(tipo: string, r: any): string | null {
+  // IA por foto: resposta = { valor, foto_ia } → o texto vem do valor.
+  if (r && typeof r === 'object' && 'foto_ia' in r) r = r.valor
   if (r === null || r === undefined) return '—'
   if (tipo === 'foto' || tipo === 'video' || tipo === 'assinatura') return null // mídia
   if (tipo === 'sim_nao') return (r === true || r === 'true' || r === 'sim') ? 'Sim' : 'Não'
@@ -146,6 +148,7 @@ export function ExecucaoViewer({ execId, ambiente }: { execId: string; ambiente:
               const r = dados.respostas[atv.id]
               const conf = r?.conforme
               const url = (atv.tipo === 'foto' || atv.tipo === 'video' || atv.tipo === 'assinatura') ? r?.resposta?.url : null
+              const fotoIa = (r?.resposta && typeof r.resposta === 'object') ? r.resposta.foto_ia : null
               const txt = textoResposta(atv.tipo, r?.resposta)
               const loc = atv.tipo === 'localizacao' ? r?.resposta : null
               return (
@@ -178,6 +181,14 @@ export function ExecucaoViewer({ execId, ambiente }: { execId: string; ambiente:
                       className="mt-2 w-20 h-20 rounded-lg overflow-hidden border border-gray-200 hover:border-orange-300 relative">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={url} alt={atv.nome} className="w-full h-full object-cover" />
+                    </button>
+                  )}
+                  {fotoIa && (
+                    <button onClick={() => setLightbox(fotoIa)}
+                      className="mt-2 flex items-center gap-2 group">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={fotoIa} alt="Foto analisada pela IA" className="w-16 h-16 rounded-lg object-cover border border-violet-200 group-hover:border-violet-300" />
+                      <span className="text-[11px] text-violet-600">Foto analisada pela IA</span>
                     </button>
                   )}
                 </div>

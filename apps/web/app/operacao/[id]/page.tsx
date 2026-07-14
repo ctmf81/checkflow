@@ -14,7 +14,7 @@ import {
   ChevronDown, ChevronUp, CheckCircle2, XCircle,
   Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine,
   CalendarDays, MapPin, AlertCircle, Send, Clock, Locate, Search,
-  QrCode, X, ImagePlus, Video, AlertTriangle, GitBranch, ClipboardList, Loader2, Ticket, FileText, WifiOff
+  QrCode, X, ImagePlus, Video, AlertTriangle, GitBranch, ClipboardList, Loader2, Ticket, FileText, WifiOff, Sparkles
 } from 'lucide-react'
 import NovoTicketModal from '@/components/tickets/NovoTicketModal'
 
@@ -102,9 +102,12 @@ function ValidacaoTag({ valido }: { valido: boolean | null }) {
 }
 
 export function calcularValidacao(atividade: Atividade): boolean | null {
-  const val = atividade.resposta
+  let val = atividade.resposta
   if (val === null || val === undefined || val === '') return null
   if (typeof val === 'object' && val?._nao_executavel) return null
+  // Preenchimento por foto (IA): resposta = { valor, foto_ia } → valida pelo valor.
+  if (val && typeof val === 'object' && 'foto_ia' in val) val = val.valor
+  if (val === null || val === undefined || val === '') return null
   const cfg = atividade.config ?? {}
 
   if (atividade.tipo === 'sim_nao') {
@@ -765,6 +768,81 @@ function CampoFoto({ atividade, onChange }: { atividade: Atividade; onChange: (v
   )
 }
 
+// base64 (sem o prefixo data:) de um Blob — para enviar a imagem à IA.
+function blobParaBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(String(r.result).split(',')[1] ?? '')
+    r.onerror = reject
+    r.readAsDataURL(blob)
+  })
+}
+
+// Preenchimento por foto (IA): captura uma imagem, envia à IA com o prompt da
+// atividade e devolve o valor do campo (escalar) + a foto (guardada p/ evidência
+// no finalize). Exige conexão. Usado em texto/sim_nao/numero com config.ia_foto.
+function CampoIAFoto({ atividade, foto, onValor, onFoto }: {
+  atividade: Atividade
+  foto?: { file: File; url: string }
+  onValor: (v: any) => void
+  onFoto: (f: { file: File; url: string } | null) => void
+}) {
+  const { empresaAtiva, unidadeAtiva } = useSession()
+  const online = useOnlineStatus()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [analisando, setAnalisando] = useState(false)
+  const [erro, setErro] = useState('')
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setErro(''); setAnalisando(true)
+    try {
+      const comprimida = await comprimirImagem(file)
+      const url = URL.createObjectURL(comprimida)
+      const base64 = await blobParaBase64(comprimida)
+      const { data: { session } } = await createClient().auth.getSession()
+      const res = await fetch('/api/ia/interpretar-foto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+        body: JSON.stringify({
+          atividadeId: atividade.id, imageBase64: base64,
+          mimeType: comprimida.type || 'image/jpeg',
+          empresaId: empresaAtiva?.id, unidadeId: unidadeAtiva?.id,
+        }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { setErro(json.error ?? 'Não foi possível analisar a imagem.'); return }
+      onValor(json.valor ?? '')
+      onFoto({ file: comprimida, url })
+    } catch {
+      setErro('Falha ao analisar a imagem. Tente novamente.')
+    } finally {
+      setAnalisando(false)
+    }
+  }
+
+  return (
+    <div className="mt-2">
+      <input ref={inputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} />
+      {foto?.url && (
+        <div className="flex items-center gap-2 mb-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={foto.url} alt="Foto analisada" className="w-12 h-12 object-cover rounded-lg border border-gray-200" />
+          <span className="text-xs text-gray-500">Foto analisada pela IA (guardada como evidência)</span>
+        </div>
+      )}
+      <button type="button" onClick={() => inputRef.current?.click()} disabled={analisando || !online}
+        className="w-full py-2.5 border-2 border-dashed border-violet-200 rounded-xl text-sm text-violet-600 flex items-center justify-center gap-2 hover:border-violet-300 hover:bg-violet-50 disabled:opacity-50 transition-colors active:scale-[0.99]">
+        {analisando ? <><Loader2 size={16} className="animate-spin" />Analisando…</> : <><Sparkles size={16} />{foto ? 'Refazer análise por foto' : 'Preencher por foto (IA)'}</>}
+      </button>
+      {!online && <p className="text-[11px] text-amber-600 mt-1">Sem conexão — a análise por IA precisa de internet.</p>}
+      {erro && <p className="text-xs text-red-500 mt-1">{erro}</p>}
+    </div>
+  )
+}
+
 // Gravador de vídeo inline via getUserMedia (funciona em desktop e mobile)
 function GravadorVideo({ onGravado }: { onGravado: (file: File, url: string) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -1256,12 +1334,14 @@ function PlanoAcaoModal({ atividade, subgrupoId, checklistId, unidadeId, dadosIn
 
 // ─── Item de atividade ────────────────────────────────────────────────────────
 
-function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturados, motivosAtividade, nivel = 0 }: {
+function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturados, motivosAtividade, onFotoIA, fotosIA, nivel = 0 }: {
   atividade: Atividade
   onResposta: (id: string, val: any) => void
   onAbrirPlanoAcao: (atv: Atividade) => void
   planosCapturados: Record<string, DadosPlano>
   motivosAtividade: Motivo[]
+  onFotoIA: (id: string, foto: { file: File; url: string } | null) => void
+  fotosIA: Record<string, { file: File; url: string }>
   nivel?: number
 }) {
   const [escolhendoMotivo, setEscolhendoMotivo] = useState(false)
@@ -1314,9 +1394,32 @@ function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturad
             <button onClick={() => onResposta(atividade.id, undefined)}
               className="text-xs text-gray-400 hover:text-gray-600 underline flex-shrink-0">Desfazer</button>
           </div>
-        ) : (
-          <CampoResposta atividade={atividade} onChange={val => onResposta(atividade.id, val)} />
-        )}
+        ) : (() => {
+          const usaIaFoto = ['texto', 'sim_nao', 'numero'].includes(atividade.tipo) && atividade.config?.ia_foto
+          const iaEditavel = atividade.config?.ia_editavel !== false
+          const campoIA = usaIaFoto
+            ? <CampoIAFoto atividade={atividade} foto={fotosIA[atividade.id]}
+                onValor={v => onResposta(atividade.id, v)} onFoto={f => onFotoIA(atividade.id, f)} />
+            : null
+          // IA-foto travada (não editável): mostra o valor read-only + a captura
+          if (usaIaFoto && !iaEditavel) {
+            return (
+              <>
+                {respondida && (
+                  <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700">
+                    {atividade.tipo === 'sim_nao' ? (atividade.resposta === 'sim' ? 'Sim' : 'Não') : String(atividade.resposta)}
+                    {atividade.tipo === 'numero' && atividade.config?.unidade ? ` ${atividade.config.unidade}` : ''}
+                  </div>
+                )}
+                {campoIA}
+              </>
+            )
+          }
+          return <>
+            <CampoResposta atividade={atividade} onChange={val => onResposta(atividade.id, val)} />
+            {campoIA}
+          </>
+        })()}
 
         {/* Não consigo executar esta atividade */}
         {!naoExecutavel && atividade.obrigatoria && motivosAtividade.length > 0 && (
@@ -1364,7 +1467,7 @@ function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturad
       {dependentesVisiveis.map(dep => (
         <AtividadeItem key={dep.id} atividade={dep} onResposta={onResposta}
           onAbrirPlanoAcao={onAbrirPlanoAcao} planosCapturados={planosCapturados}
-          motivosAtividade={motivosAtividade} nivel={nivel + 1} />
+          motivosAtividade={motivosAtividade} onFotoIA={onFotoIA} fotosIA={fotosIA} nivel={nivel + 1} />
       ))}
     </div>
   )
@@ -1379,6 +1482,9 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
   const [checklist, setChecklist] = useState<Checklist | null>(null)
   const [secoes, setSecoes] = useState<Secao[]>([])
   const [respostas, setRespostas] = useState<Record<string, any>>({})
+  // Fotos capturadas p/ preenchimento por IA (texto/sim_nao/numero). Guardadas
+  // aqui até o finalize, quando são enviadas ao storage como evidência.
+  const [fotosIA, setFotosIA] = useState<Record<string, { file: File; url: string }>>({})
   const [secaoAberta, setSecaoAberta] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [erroCarregar, setErroCarregar] = useState<string | null>(null)
@@ -1534,7 +1640,11 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
         .eq('execucao_id', execParam)
       if (respSalvas && respSalvas.length > 0) {
         const mapa: Record<string, any> = {}
-        for (const r of respSalvas) if (r.resposta != null) mapa[r.atividade_id] = r.resposta
+        for (const r of respSalvas) if (r.resposta != null) {
+          const rv = r.resposta
+          // IA-foto: resposta salva = { valor, foto_ia } → restaura só o valor (escalar)
+          mapa[r.atividade_id] = (rv && typeof rv === 'object' && 'foto_ia' in rv) ? rv.valor : rv
+        }
         setRespostas(mapa)
       }
     }
@@ -1544,6 +1654,10 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
 
   function setResposta(atividadeId: string, valor: any) {
     setRespostas(prev => ({ ...prev, [atividadeId]: valor }))
+  }
+
+  function setFotoIA(atividadeId: string, foto: { file: File; url: string } | null) {
+    setFotosIA(prev => { const n = { ...prev }; if (foto) n[atividadeId] = foto; else delete n[atividadeId]; return n })
   }
 
   function injetarRespostas(atividades: Atividade[]): Atividade[] {
@@ -1965,6 +2079,12 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
         if (!url && a.obrigatoria) falhasUpload.push(a.nome)
         resposta = url ? { url, nome: resposta.nome, origem: resposta.origem, dataArquivo: resposta.dataArquivo } : { nome: resposta.nome }
       }
+      // IA por foto (texto/sim_nao/numero): sobe a foto como evidência e grava
+      // { valor, foto_ia }. `conforme` vem do valor (calcularValidacao desempacota).
+      if (fotosIA[a.id]?.file && ['texto', 'sim_nao', 'numero'].includes(a.tipo)) {
+        const url = await uploadArquivo(fotosIA[a.id].file, `${execId}/iafoto_${a.id}.jpg`)
+        resposta = { valor: resposta ?? null, foto_ia: url ?? null }
+      }
       return {
         execucao_id: execId,
         atividade_id: a.id,
@@ -2366,7 +2486,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
                         {atvsComResp.map(atv => (
                           <AtividadeItem key={atv.id} atividade={atv} onResposta={setResposta}
                             onAbrirPlanoAcao={setModalPlanoAtividade} planosCapturados={planosCapturados}
-                            motivosAtividade={motivosAtividade} />
+                            motivosAtividade={motivosAtividade} onFotoIA={setFotoIA} fotosIA={fotosIA} />
                         ))}
                       </div>
                   }
