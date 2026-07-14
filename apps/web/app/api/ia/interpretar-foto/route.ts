@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient } from '@supabase/supabase-js'
+import { SUFIXO_IA_FOTO, comporPromptFoto, posProcessarFoto } from '@/lib/ia/interpretarFoto'
 
 // Interpreta uma FOTO por IA e devolve o valor de um campo de checklist
 // (texto / sim_nao / numero). O prompt e o tipo vêm da atividade (server-side,
@@ -11,13 +12,6 @@ const ENV_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const SUPABASE_URL = ENV_URL.includes('.supabase.co') ? ENV_URL : 'https://pswdjdlirylxgscohcfi.supabase.co'
 const SUPABASE_SECRET = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 const SUPABASE_PUBLISHABLE = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
-
-// Sufixo do prompt por tipo de campo (define o formato do retorno).
-const SUFIXO: Record<string, string> = {
-  texto:   '\n\nRetorne como resposta um texto resumido, de no máximo 4 linhas.',
-  sim_nao: "\n\nRetorne como resposta apenas 'sim' ou 'não', com base na análise da imagem.",
-  numero:  '\n\nRetorne somente o valor absoluto, inteiro ou decimal (apenas o número, sem texto nem unidade).',
-}
 
 interface Resultado { texto: string; usage?: { tokensIn: number; tokensOut: number } }
 
@@ -92,7 +86,7 @@ export async function POST(req: NextRequest) {
   if (!atv) return erro('Atividade não encontrada', 404)
   const tipo = atv.tipo as string
   const cfg = (atv.config ?? {}) as any
-  if (!cfg.ia_foto || !SUFIXO[tipo]) return erro('Esta atividade não usa preenchimento por foto (IA).', 400)
+  if (!cfg.ia_foto || !SUFIXO_IA_FOTO[tipo]) return erro('Esta atividade não usa preenchimento por foto (IA).', 400)
   const promptBase = (cfg.ia_prompt ?? '').trim()
   if (!promptBase) return erro('Atividade sem prompt de análise configurado.', 400)
 
@@ -114,7 +108,7 @@ export async function POST(req: NextRequest) {
   }
 
   const sys = 'Você analisa a imagem enviada e responde de forma objetiva, seguindo exatamente o formato pedido.'
-  const pergunta = promptBase + SUFIXO[tipo]
+  const pergunta = comporPromptFoto(promptBase, tipo)
 
   // Provedores (mesma config da Consulta Inteligente)
   const { data: provDb } = await sb.from('ia_provedores').select('provedor, api_key, modelo, base_url, ativo, ordem').eq('ativo', true).order('ordem', { ascending: true })
@@ -150,17 +144,8 @@ export async function POST(req: NextRequest) {
   }
   if (!usado) return erro('Não foi possível interpretar a imagem. Tente novamente.', 502)
 
-  // Pós-processa por tipo
-  let valor: string = bruto
-  if (tipo === 'sim_nao') {
-    const t = bruto.toLowerCase()
-    valor = (t.includes('não') || t.includes('nao') || t.startsWith('n')) && !t.startsWith('sim') ? 'nao' : t.includes('sim') || t.startsWith('s') ? 'sim' : ''
-  } else if (tipo === 'numero') {
-    const m = bruto.replace(',', '.').match(/-?\d+(\.\d+)?/)
-    valor = m ? m[0] : ''
-  } else {
-    valor = bruto.split('\n').slice(0, 4).join('\n').trim()
-  }
+  // Pós-processa por tipo (lógica pura testada em lib/ia/interpretarFoto)
+  const valor = posProcessarFoto(bruto, tipo)
 
   // Debita tokens
   if (empresaId && usado.usage) {
