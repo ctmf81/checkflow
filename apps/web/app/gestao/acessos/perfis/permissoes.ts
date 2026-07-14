@@ -178,11 +178,22 @@ const recursosTodos: Recurso[] = [
       { key: 'excluir',label: 'Excluir perfil' },
     ],
   },
-  // 'indicadores' e 'relatorios' REMOVIDOS (2026-06-30): eram checkboxes que
-  // NÃO salvavam — não existem na tabela `permissoes` e não são enforçados em
-  // lugar nenhum (o menu lateral é estático, não filtra por permissão; a página
-  // de Relatórios nem existe). Mesmo motivo pelo qual planos_acao/configuracoes
-  // saíram do construtor (20260622160000): permissão sem enforcement engana.
+  {
+    // Relatórios por IA (Feature 2 de IA). Enforçado: RLS por ação em
+    // relatorio_modelos + a rota /api/relatorios/gerar checa 'executar'.
+    // (Reintroduzido 2026-07-14 — antes era um checkbox inerte sem tabela/rota.)
+    key: 'relatorios',
+    label: 'Relatórios (IA)',
+    acoes: [
+      { key: 'criar',    label: 'Criar modelo de relatório' },
+      { key: 'editar',   label: 'Editar modelo de relatório' },
+      { key: 'excluir',  label: 'Excluir modelo de relatório' },
+      { key: 'executar', label: 'Gerar relatório (executar modelo)' },
+    ],
+  },
+  // 'indicadores' REMOVIDO (2026-06-30): checkbox que NÃO salvava — não existe na
+  // tabela `permissoes` e não é enforçado (o menu de Indicadores não filtra por
+  // permissão). Permissão sem enforcement engana.
 ]
 
 // Workflow desabilitado: não aparece no construtor de perfis

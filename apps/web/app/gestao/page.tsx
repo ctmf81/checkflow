@@ -11,6 +11,7 @@ import {
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { PrimeirosPassos } from '@/components/onboarding/PrimeirosPassos'
+import { RelatoriosHome } from '@/components/relatorios/RelatoriosHome'
 import { useSession } from '@/contexts/SessionContext'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -282,6 +283,9 @@ export default function GestaoHomePage() {
           </div>
         )}
       </div>
+
+      {/* ── Relatórios por IA (grupo recolhível) ── */}
+      <RelatoriosHome />
 
       {/* ── Últimas execuções ── */}
       <div className="bg-white border border-gray-200 rounded-2xl p-5">

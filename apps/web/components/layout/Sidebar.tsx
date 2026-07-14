@@ -7,7 +7,8 @@ import { clsx } from 'clsx'
 import {
   Home, Users, CheckSquare, BarChart2, Settings,
   ChevronDown, ChevronUp, ClipboardList, Layers,
-  Network, UserCircle, GitBranch, Clock, Ticket, X, CreditCard, ListChecks
+  Network, UserCircle, GitBranch, Clock, Ticket, X, CreditCard, ListChecks,
+  FileBarChart2
 } from 'lucide-react'
 import { useSession } from '@/contexts/SessionContext'
 import { useSidebar } from './SidebarContext'
@@ -21,13 +22,17 @@ import { WORKFLOWS_HABILITADO } from '@/lib/features'
 //   - nenhum dos dois: sempre visível (Home, e áreas sem permissão de perfil)
 // Admin (empresa/sistema) vê tudo. Isto é UX (não é a barreira de segurança —
 // essa é o RLS + a checagem de permissão nas ações/páginas).
-interface NavChild { label: string; href: string; perm?: string; admin?: boolean }
+//   - flag: exige uma CARACTERÍSTICA do plano (ex.: 'ia'). Quando presente, o
+//     gate de plano é pela característica (flagsHabilitadas), não pelo recurso
+//     módulo — usado por features de IA que não são um módulo próprio.
+interface NavChild { label: string; href: string; perm?: string; admin?: boolean; flag?: string }
 interface NavItem {
   label: string
   href?: string
   icon: React.ElementType
   perm?: string
   admin?: boolean
+  flag?: string
   children?: NavChild[]
 }
 
@@ -49,6 +54,7 @@ const nav: NavItem[] = [
   ...(WORKFLOWS_HABILITADO ? [{ label: 'Workflows', href: '/gestao/workflows', icon: GitBranch, perm: 'workflows' } as NavItem] : []),
   { label: 'Agendamentos', href: '/gestao/agendamentos',   icon: Clock, perm: 'agendamentos' },
   { label: 'Indicadores',  href: '/gestao/indicadores',    icon: BarChart2 },
+  { label: 'Relatórios',   href: '/gestao/relatorios',     icon: FileBarChart2, perm: 'relatorios', flag: 'ia' },
   {
     label: 'Padrão',
     icon: Network,
@@ -86,7 +92,7 @@ const nav: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname()
-  const { empresaAtiva, recursosHabilitados } = useSession()
+  const { empresaAtiva, recursosHabilitados, flagsHabilitadas } = useSession()
   const { aberta, fechar } = useSidebar()
   const [open, setOpen] = useState<string[]>([])
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
@@ -141,12 +147,21 @@ export function Sidebar() {
     return recursosHabilitados.has(recurso)
   }
 
+  // O plano inclui a característica (flag, ex.: 'ia')? null = sem restrição.
+  function planoLiberaFlag(flag?: string): boolean {
+    if (!flag) return true
+    if (flagsHabilitadas === null) return true
+    return flagsHabilitadas.has(flag)
+  }
+
   // Um item folha é visível? Admin de SISTEMA vê tudo (plataforma). O plano
-  // barra o módulo (vale até p/ admin da empresa). Admin da empresa vê tudo que
-  // o plano libera; usuário comum precisa da permissão no perfil.
-  function folhaVisivel(it: { perm?: string; admin?: boolean }): boolean {
+  // barra o módulo/característica (vale até p/ admin da empresa). Admin da empresa
+  // vê tudo que o plano libera; usuário comum precisa da permissão no perfil.
+  function folhaVisivel(it: { perm?: string; admin?: boolean; flag?: string }): boolean {
     if (isAdminSistema) return true
-    if (!planoLibera(it.perm)) return false
+    // Item por característica (IA): gate pela flag, não pelo recurso módulo.
+    if (it.flag) { if (!planoLiberaFlag(it.flag)) return false }
+    else if (!planoLibera(it.perm)) return false
     if (isAdminEmpresa) return true
     if (it.admin) return false
     if (it.perm) return carregado && recursos.has(it.perm)
