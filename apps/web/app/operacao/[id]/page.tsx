@@ -66,6 +66,7 @@ interface Checklist {
   tempo_guarda_meses: number
   subgrupo_id: string | null
   permite_continuar_depois?: boolean
+  permite_offline?: boolean
 }
 
 // ─── Icones ───────────────────────────────────────────────────────────────────
@@ -1334,7 +1335,7 @@ function PlanoAcaoModal({ atividade, subgrupoId, checklistId, unidadeId, dadosIn
 
 // ─── Item de atividade ────────────────────────────────────────────────────────
 
-function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturados, motivosAtividade, onFotoIA, fotosIA, nivel = 0 }: {
+function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturados, motivosAtividade, onFotoIA, fotosIA, permiteOffline, nivel = 0 }: {
   atividade: Atividade
   onResposta: (id: string, val: any) => void
   onAbrirPlanoAcao: (atv: Atividade) => void
@@ -1342,6 +1343,7 @@ function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturad
   motivosAtividade: Motivo[]
   onFotoIA: (id: string, foto: { file: File; url: string } | null) => void
   fotosIA: Record<string, { file: File; url: string }>
+  permiteOffline: boolean
   nivel?: number
 }) {
   const [escolhendoMotivo, setEscolhendoMotivo] = useState(false)
@@ -1395,7 +1397,9 @@ function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturad
               className="text-xs text-gray-400 hover:text-gray-600 underline flex-shrink-0">Desfazer</button>
           </div>
         ) : (() => {
-          const usaIaFoto = ['texto', 'sim_nao', 'numero'].includes(atividade.tipo) && atividade.config?.ia_foto
+          // IA por foto exige internet no momento da captura → escondida se o
+          // checklist permite offline (evita capturar online e perder a evidência ao finalizar offline).
+          const usaIaFoto = !permiteOffline && ['texto', 'sim_nao', 'numero'].includes(atividade.tipo) && atividade.config?.ia_foto
           const iaEditavel = atividade.config?.ia_editavel !== false
           const campoIA = usaIaFoto
             ? <CampoIAFoto atividade={atividade} foto={fotosIA[atividade.id]}
@@ -1467,7 +1471,7 @@ function AtividadeItem({ atividade, onResposta, onAbrirPlanoAcao, planosCapturad
       {dependentesVisiveis.map(dep => (
         <AtividadeItem key={dep.id} atividade={dep} onResposta={onResposta}
           onAbrirPlanoAcao={onAbrirPlanoAcao} planosCapturados={planosCapturados}
-          motivosAtividade={motivosAtividade} onFotoIA={onFotoIA} fotosIA={fotosIA} nivel={nivel + 1} />
+          motivosAtividade={motivosAtividade} onFotoIA={onFotoIA} fotosIA={fotosIA} permiteOffline={permiteOffline} nivel={nivel + 1} />
       ))}
     </div>
   )
@@ -1571,7 +1575,7 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     const cacheKey = chaveChecklist(id, unidadeAtiva!.id)
 
     const { data: cl, error: clErr } = await sb.from('checklists')
-      .select('id, nome, descricao, tempo_guarda_meses, subgrupo_id, permite_continuar_depois')
+      .select('id, nome, descricao, tempo_guarda_meses, subgrupo_id, permite_continuar_depois, permite_offline')
       .eq('id', id)
       .eq('unidade_id', unidadeAtiva!.id)
       .single()
@@ -2486,7 +2490,8 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
                         {atvsComResp.map(atv => (
                           <AtividadeItem key={atv.id} atividade={atv} onResposta={setResposta}
                             onAbrirPlanoAcao={setModalPlanoAtividade} planosCapturados={planosCapturados}
-                            motivosAtividade={motivosAtividade} onFotoIA={setFotoIA} fotosIA={fotosIA} />
+                            motivosAtividade={motivosAtividade} onFotoIA={setFotoIA} fotosIA={fotosIA}
+                            permiteOffline={checklist?.permite_offline ?? false} />
                         ))}
                       </div>
                   }
