@@ -46,6 +46,38 @@ function row(label: string, valor: string): string {
   </tr>`
 }
 
+// ─── Template: Fim de trial se aproximando ───────────────────────────────────
+
+export function emailTrialExpirando(dados: {
+  nomeDestinatario: string
+  nomeEmpresa: string
+  diasRestantes: number
+  link: string
+}): { assunto: string; html: string } {
+  const { nomeDestinatario, nomeEmpresa, diasRestantes, link } = dados
+  const quando = diasRestantes <= 0
+    ? 'termina hoje'
+    : diasRestantes === 1
+      ? 'termina amanhã'
+      : `termina em ${diasRestantes} dias`
+  const assunto = `Seu teste do CheckFlow ${quando} — contrate para não perder recursos`
+  const conteudo = `
+    <p style="margin:0 0 4px;font-size:13px;color:#6b7280">Olá, ${nomeDestinatario}</p>
+    <h1 style="margin:0 0 16px;font-size:20px;color:#111827;font-weight:700">Seu período de teste ${quando}</h1>
+    <p style="margin:0 0 12px;font-size:14px;color:#374151;line-height:1.6">
+      O teste da empresa <strong>${nomeEmpresa}</strong> está chegando ao fim. Quando ele terminar,
+      a conta continua funcionando em <strong>modo somente-leitura</strong>: você segue consultando e
+      operando o que já existe, mas <strong>não será possível criar novos itens</strong>
+      (checklists, listas de tarefas, tickets, agendamentos, workflows ou relatórios) até contratar um plano.
+    </p>
+    <p style="margin:0 0 4px;font-size:14px;color:#374151;line-height:1.6">
+      Para manter tudo funcionando, contrate um plano agora:
+    </p>
+    ${btnLink(link, 'Ver planos e contratar')}
+  `
+  return { assunto, html: base(conteudo) }
+}
+
 // ─── Template: Plano aberto → N1/N2 ──────────────────────────────────────────
 
 export function emailPlanoAberto(dados: {

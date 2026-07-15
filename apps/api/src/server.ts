@@ -9,6 +9,7 @@ import { whatsappRoutes } from './routes/whatsapp'
 import { planosAcaoRoutes } from './routes/planos-acao'
 import { ticketsRoutes } from './routes/tickets'
 import { parceiroRoutes } from './routes/parceiros'
+import { avisosTrialRoutes } from './routes/avisos-trial'
 import { limpezaRoutes } from './routes/limpeza'
 import { billingRoutes } from './routes/billing'
 import { tarefasRoutes } from './routes/tarefas'
@@ -51,6 +52,7 @@ app.register(whatsappRoutes)
 app.register(planosAcaoRoutes)
 app.register(ticketsRoutes)
 app.register(parceiroRoutes)
+app.register(avisosTrialRoutes)
 app.register(limpezaRoutes)
 app.register(billingRoutes)
 app.register(tarefasRoutes)
