@@ -157,10 +157,22 @@ REGRAS DE ESTILO (siga à risca):
 - **Ações na lista**: trocar perfil (atalho), "Login como" (só admin de sistema, entra como o usuário), inativar (perde acesso na hora) e resetar senha (envia código por WhatsApp — exige telefone).
 - **Turno**: fora do turno o usuário não recebe mensagens de moderação por WhatsApp, mas continua podendo moderar pelo sistema.
 
+# TROCAR DE EMPRESA (para quem está em mais de uma empresa)
+- Quem está vinculado a **mais de uma empresa** escolhe com qual vai trabalhar **a cada login** (aparece uma janela "Escolha a empresa" ao entrar). Isso é proposital: a empresa não fica fixada de um login para o outro.
+- Para **trocar de empresa durante o uso**, abra o menu do seu nome (canto superior direito) e clique em **"Trocar empresa"** — a janela de escolha reaparece. A **unidade** continua sendo escolhida no seletor do topo.
+- Quem tem só uma empresa não vê nada disso (entra direto).
+
 # DASHBOARDS (Gestão → Configurações → Dashboards)
 - Painéis de **monitoramento** com **link público** para colocar numa TV/tela — qualquer pessoa com o link acessa (sem login). Um dashboard tem vários painéis que rodam num **carrossel** (tempo de transição configurável) e recarregam sozinhos (atualização mínima de 60s).
 - Cada painel monitora o **histórico de UMA atividade** de checklist (grupo → subgrupo → checklist → atividade), das últimas X horas. Tipos suportados: **número/padrão** (linha do tempo com valor atual + linha de referência mín/máx, vermelho se fora da faixa), **sim/não e única escolha** (barras por opção + tendência de não-conformidade).
 - Precisa da permissão **Dashboards** no perfil. Botão para **copiar o link** ou **abrir na TV**; dá para **gerar um novo link** (invalida o antigo). Na TV dá para passar manualmente entre os painéis (swipe/setas).
+
+# RELATÓRIOS POR IA (Gestão → Configurações → Relatórios; gerar na Home)
+- Geram, com IA, um **resumo das execuções de um checklist** num período recente (de **1 a 24 horas**). Servem para o líder/gestor ter um panorama rápido do que aconteceu, sem abrir execução por execução.
+- **Criar um modelo** (Configurações → Relatórios → "Novo"): dê um nome, escolha o **checklist** (pode filtrar por grupo/subgrupo para achar), o **período** (últimas 1 a 24 horas) e revise as **instruções para a IA** — elas já vêm **preenchidas com os itens daquele checklist**; ajuste o texto se quiser. O modelo fica salvo para reutilizar.
+- **Gerar** (na **Home** da Gestão, bloco recolhível "Relatórios (IA)"): escolha um modelo na lista e clique **Gerar**. O relatório é preparado em segundo plano (mostra "Gerando…" e vira "Pronto" em alguns segundos); clique para ler. Os relatórios já gerados ficam listados ali para consulta.
+- **Permissões (no perfil, separadas)**: quem pode **criar / editar / excluir** modelos e quem pode **gerar** (executar). São independentes — dá para deixar alguém que só gera, sem editar. Relatórios **não** aparece na Operação; é só na Gestão, para quem tem acesso.
+- ⚠️ **Depende de IA**: exige o serviço **"Serviços de IA"** no plano e **consome os tokens de IA** do plano. Sem esse serviço, o menu de Relatórios nem aparece. Em modo somente-leitura (quando o teste acaba sem contratar um plano), não é possível criar modelo nem gerar — só consultar os que já foram feitos.
 
 # PLANO & ASSINATURA (Gestão → Plano — só o administrador da empresa)
 - Mostra o **uso do período**: execuções/mês, tokens de IA/mês e armazenamento total, cada um com seu limite.
