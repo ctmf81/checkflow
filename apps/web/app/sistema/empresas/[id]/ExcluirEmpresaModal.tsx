@@ -25,9 +25,20 @@ export function ExcluirEmpresaModal({ empresaId, empresaNome, onClose, onExcluid
     setExcluindo(true)
     setErro('')
     const supabase = createClient()
-    const { error } = await supabase.rpc('excluir_empresa_cascata', { p_empresa_id: empresaId })
-    if (error) {
-      setErro('Erro ao excluir empresa. Verifique se todos os dados foram removidos e tente novamente.')
+    const { data: { session } } = await supabase.auth.getSession()
+    try {
+      const res = await fetch(`/api/empresas/${empresaId}/excluir`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${session?.access_token ?? ''}` },
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setErro(json.error ?? 'Erro ao excluir empresa. Verifique e tente novamente.')
+        setExcluindo(false)
+        return
+      }
+    } catch {
+      setErro('Falha de conexão ao excluir a empresa.')
       setExcluindo(false)
       return
     }
@@ -51,7 +62,7 @@ export function ExcluirEmpresaModal({ empresaId, empresaNome, onClose, onExcluid
           Esta ação é <strong>irreversível</strong>. Todos os dados de{' '}
           <strong>{empresaNome}</strong> — unidades, grupos, usuários vinculados, checklists,
           execuções, planos de ação, tickets e workflows — serão apagados permanentemente do banco
-          de dados.
+          de dados, <strong>incluindo os arquivos</strong> (fotos, vídeos, PDFs, logo) do armazenamento.
         </p>
 
         <div className="mt-4">
