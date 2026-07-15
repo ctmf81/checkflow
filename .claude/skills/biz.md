@@ -649,7 +649,8 @@ Modelo: **freemium + usage-based híbrido**, padrão SaaS de mercado, com gatewa
 - Apenas empresas com `status = 'inativo'` podem ser excluídas, e somente por `is_admin_sistema()` — validado na RPC `excluir_empresa_cascata`
 - Apaga em cascata: unidades, grupos, usuários vinculados, checklists, execuções, planos de ação, tickets, workflows
 - Ação **proposital não-trivial**: na tela `/sistema/empresas/[id]` (aba Configurações, "Zona de perigo", só aparece com `status='inativo'`), exige digitar o nome exato da empresa + marcar checkbox de ciência antes de habilitar o botão — evita exclusão acidental de uma operação tão pesada
-- ⏳ **PENDENTE (2026-07-13): apagar os ARQUIVOS do storage junto** — a RPC é SQL e só apaga o banco; os arquivos (buckets `execucoes` e `empresas`) ficam órfãos. Plano: rota service-role que enumera os IDs (via unidade→empresa) e remove os objetos antes do cascade. Mapa de storage e passo-a-passo em [[pendencia-excluir-empresa-storage]].
+- ✅ **Apaga também os ARQUIVOS do storage (2026-07-15, commit `717ece7`)**: a exclusão agora passa pela rota service-role `POST /api/empresas/[id]/excluir` (só admin de sistema, empresa inativa) — enumera os IDs via unidade→empresa e remove os objetos dos buckets `execucoes` (`{exec}/`, `tarefas/`, `tickets/`, `planos/`) e `empresas` (`etapas/`, `documentos/`, `catalogos/`, logo) **antes** do cascade; depois chama a RPC `excluir_empresa_cascata` (via JWT do admin). Best-effort no storage (falha de arquivo não aborta o delete). `ExcluirEmpresaModal` chama a rota.
+- ⚠️ **Gap de repo**: a RPC `excluir_empresa_cascata` e as FKs `on delete cascade` foram aplicadas **só em prod** (não há migration no repo — a `20260610040000` citada na memória antiga não existe). Funciona em prod; um rebuild do banco do zero não teria o cascade. Codificar numa migration é follow-up.
 - Irreversível — sem soft delete/recuperação
 
 ## Regras de Negócio Críticas
