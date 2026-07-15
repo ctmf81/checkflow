@@ -9,7 +9,7 @@ description: Quality Assurance for CheckFlow — test strategy, suites por tela/
 
 | Camada | Ferramenta | Status |
 |--------|-----------|--------|
-| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **465 testes / 31 arquivos** (2026-07-15, `npx vitest run`) |
+| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **472 testes / 31 arquivos** (2026-07-15, `npx vitest run`) |
 | Smoke Tests | Manual UI/navegação | ✅ 9/10 PASSED (2026-06-24) — checklist exec, auth, perms, billing, tickets |
 | Risk Assessment | Custom scripts | ✅ 6/8 PASSED (2026-06-24) — routes auth, WhatsApp OTP, data calc, mascara |
 | Quota Enforcement | Node.js + Supabase | ✅ 6/6 PASSED (2026-06-24) — billing enforcement, assinatura, reset |
@@ -179,7 +179,7 @@ Cobre a validação por faixa [min, max] resolvida via combinação de variávei
 `lib/perfis.ts` (lógica pura **importada** por `PerfilModal.tsx` — extraída na revisão de Perfis). Cobre tri-state (`recursoChecked`/`recursoIndeterminate`), toggles (recurso inteiro marca/desmarca todas; recurso sem ações usa a própria chave; imutabilidade; preserva outros recursos), `permsFromRows` (linhas do banco → Set) e `permissaoIdsToInsert` (Set marcado → ids a gravar; match por recurso sem ação). **16/16 ✅ (2026-06-22).** Guarda a lógica que sustentava o bug de "editar perfil apagava permissões".
 
 ### ✅ Unit — Modos fora do turno — `tests/unit/lib/turnoModo.unit.test.ts` (14 testes)
-Espelhos TS (`recebeNotificacao`/`podeAcessar`/`deveAvisar` em `lib/turnos.ts`) das funções SQL `usuario_recebe_notificacao`/`usuario_pode_acessar`/`usuario_deve_avisar_turno` (migration 20260622120000). Cobre os 3 modos × dentro/fora × sem-turno/inativo × admin-isento (login). **Mantenha em sincronia** com as funções SQL. **14/14 ✅ (2026-06-22).** Complementa os 16 testes de `estaNoTurno` em `turnos.unit.test.ts`.
+Espelhos TS (`recebeNotificacao`/`podeAcessar`/`deveAvisar` em `lib/turnos.ts`) das funções SQL `usuario_recebe_notificacao`/`usuario_pode_acessar`/`usuario_deve_avisar_turno` (migration 20260622120000). Cobre os 3 modos × dentro/fora × sem-turno/inativo × admin-isento (login). **Mantenha em sincronia** com as funções SQL. **⚠️ 2026-07-15 (+7):** `estaDeFerias` (período inclusivo, UTC; sem período = false) e `usuarioRecebeNotificacao` (férias suprime mesmo dentro do turno; fora das férias delega ao turno) — espelho da branch de férias de `usuario_recebe_notificacao` (migration 20260715130000). **21/21 ✅.** Complementa os 16 testes de `estaNoTurno` em `turnos.unit.test.ts`.
 
 ### ✅ Unit — Validação de cadastro de Padrão — `tests/unit/lib/padrao.unit.test.ts` (15 testes)
 Criado `lib/padrao.ts` (`validarPadrao`, lógica pura **importada** por `app/gestao/padrao/criar/page.tsx` — fonte única, não espelho; extraída da validação inline do `salvar()`). Cobre: nome obrigatório, ao menos 1 variável, instâncias opcionais, combinação completa por instância (com índice 1-based no erro), combinações duplicadas bloqueadas, faixa [min,max] (só-min/só-max/min=max/decimais/negativos), exige ao menos um limite, não-numérico, min>max. **15/15 ✅ (2026-06-22).** Complementa os 7 testes do `calcularValidacao` tipo padrão (lado execução) em `validacao.unit.test.ts`.

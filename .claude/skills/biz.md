@@ -62,6 +62,9 @@ Antes de a empresa cair em **somente-leitura** (pós-trial; ver `billing-ciclo-b
 ## Atualização automática de listagens (polling) — 2026-07-15
 As listagens da Gestão se atualizam sozinhas via **polling** (`lib/usePolling.ts`, 45s), não Supabase Realtime. **Por quê**: Supabase é plano **free** — Realtime cobra em conexões simultâneas + reavaliação de RLS **por cliente/por mudança** (Postgres Changes) + cota de mensagens; polling é **previsível e barato** e a gente controla o custo. **Regras** (baratas): pausa em aba oculta + refetch ao voltar; intervalo 45s; só na tela ativa; escopo = listagens (não forms/detalhe). Fora do polling: **operação** (é offline-first, polling quebraria/geraria erro sem sinal) e **sistema** (admin único, baixa mudança). Realtime só valeria com poucas escritas + necessidade de instantâneo — não é o perfil operacional multi-tenant.
 
+## Férias do usuário — não notifica (2026-07-15)
+O gestor informa um **período de férias** (início/fim, opcional) na gestão de usuários (`UsuarioModal`, em Acessos → Usuários e no "Gerenciar usuários" dos Grupos). Durante o período, o usuário **não recebe notificação** (WhatsApp/e-mail de moderação/tickets/tarefas). Reusa a função `usuario_recebe_notificacao` (a mesma do turno) — agora ela retorna `false` se está de férias OU fora do turno (modo notificação). Set-and-forget: acabou o período, volta a notificar sozinho. Validação: informar ambas as datas ou nenhuma; fim ≥ início. Ver `/db`.
+
 ## Core Product
 CheckFlow is a checklist management SaaS with two distinct areas:
 - **Gestão** (`/gestao`) — admin backoffice: create checklists, configure activities, manage users/units

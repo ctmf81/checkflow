@@ -344,7 +344,7 @@ Função `usuario_esta_no_turno(p_usuario_id, p_momento default now())` → bool
 ⚠️ **Timezone das funções de turno**: `usuario_esta_no_turno()` e derivadas rodam em UTC (timezone padrão do Supabase). `hora_inicio` / janelas dos dias são interpretadas como UTC. Admins que configuram horários em BRT (UTC-3) devem somar 3h ao cadastrar. Bug de design — sem correção no schema atual.
 
 **Modo fora do turno** (migration `20260622120000`) — 3 funções derivadas (todas `sem turno/inativo` = não restringe):
-- `usuario_recebe_notificacao(uid, momento)` → `false` só se turno ativo modo `notificacao` e fora do horário. Usada nas 3 rotas de notificação WhatsApp (`/planos-acao/notificar`, `/tarefas/notificar`, `/tickets/notificar`) — substituiu o uso direto de `usuario_esta_no_turno`.
+- `usuario_recebe_notificacao(uid, momento)` → `false` se turno ativo modo `notificacao` e fora do horário, **OU se o usuário está de férias** (`20260715130000`: colunas `usuarios.ferias_inicio/ferias_fim date` + branch de férias na função — data UTC do momento `between` início e fim, inclusivo). Usada nas 3 rotas de notificação WhatsApp (`/planos-acao/notificar`, `/tarefas/notificar`, `/tickets/notificar`). Espelho TS (só p/ teste): `estaDeFerias`/`usuarioRecebeNotificacao` em `lib/turnos.ts`. Editado na `UsuarioModal` (gestão de usuários/grupos).
 - `usuario_pode_acessar(uid, momento)` (security definer) → `false` só se turno ativo modo `login`, fora do horário, e **não** `is_admin_sistema()` nem `is_admin_empresa(empresa_id)`. Chamada no login (web) após autenticar; `false` → `signOut`.
 - `usuario_deve_avisar_turno(uid, momento)` → `true` se turno ativo modo `aviso` e fora. Consumida por `AvisoTurno.tsx` (banner nos layouts).
 
