@@ -378,7 +378,7 @@ export default function SubgruposPage({ params }: { params: Promise<{ id: string
                   <ShieldCheck size={13} />Funções
                 </button>
                 <button
-                  onClick={() => router.push(`/gestao/checklists?subgrupo=${sub.id}&subgrupoNome=${encodeURIComponent(sub.nome)}`)}
+                  onClick={() => router.push(`/gestao/checklists?subgrupo=${sub.id}&subgrupoNome=${encodeURIComponent(sub.nome)}&grupo=${id}`)}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-orange-500 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors">
                   Ver checklists <ChevronRight size={13} />
                 </button>

@@ -48,6 +48,8 @@ function ChecklistsContent() {
   const router = useRouter()
   const filtroSubgrupoId = searchParams.get('subgrupo')
   const filtroSubgrupoNome = searchParams.get('subgrupoNome') ?? ''
+  // Grupo de origem (quando veio da tela de subgrupos): o "voltar" retorna a ela.
+  const filtroGrupoId = searchParams.get('grupo')
 
   const [checklists, setChecklists] = useState<Checklist[]>([])
   const [busca, setBusca] = useState('')
@@ -222,7 +224,7 @@ function ChecklistsContent() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-2">
           {filtroSubgrupoId && (
-            <button onClick={() => router.push('/gestao/checklists')}
+            <button onClick={() => router.push(filtroGrupoId ? `/gestao/grupos/${filtroGrupoId}/subgrupos` : '/gestao/checklists')}
               className="text-gray-400 hover:text-orange-500 transition-colors">
               <ChevronLeft size={20} />
             </button>
