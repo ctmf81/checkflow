@@ -99,6 +99,34 @@ export function recebeNotificacao(turno: Turno | null | undefined, momento: Date
 }
 
 /**
+ * Está de férias no momento? Espelho da parte de férias de
+ * `usuario_recebe_notificacao()` (SQL). Datas 'YYYY-MM-DD' inclusivas, comparadas
+ * pela data UTC do momento (igual ao SQL). Sem período completo → false.
+ */
+export function estaDeFerias(
+  inicio: string | null | undefined,
+  fim: string | null | undefined,
+  momento: Date = new Date(),
+): boolean {
+  if (!inicio || !fim) return false
+  const hoje = momento.toISOString().slice(0, 10)
+  return inicio <= hoje && hoje <= fim
+}
+
+/**
+ * Espelho COMPLETO de `usuario_recebe_notificacao()` (SQL): NÃO recebe se está
+ * de férias OU (turno modo 'notificacao' e fora do turno). Mantenha em sincronia
+ * com a função SQL (migration 20260715130000).
+ */
+export function usuarioRecebeNotificacao(
+  args: { turno?: Turno | null; feriasInicio?: string | null; feriasFim?: string | null },
+  momento: Date = new Date(),
+): boolean {
+  if (estaDeFerias(args.feriasInicio, args.feriasFim, momento)) return false
+  return recebeNotificacao(args.turno, momento)
+}
+
+/**
  * Espelho de `usuario_pode_acessar()` (SQL). Só NÃO pode quando há turno ativo
  * no modo 'login', fora do horário agora, e o usuário NÃO é admin (sistema ou
  * empresa). Admins nunca são bloqueados.

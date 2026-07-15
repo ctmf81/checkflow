@@ -58,6 +58,8 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
   const [unidadesSel, setUnidadesSel] = useState<Unidade[]>(usuario?.unidades ?? [])
   const [turnoId, setTurnoId] = useState(usuario?.turnoId ?? '')
   const [turnoPeriodoId, setTurnoPeriodoId] = useState<string>('')
+  const [feriasInicio, setFeriasInicio] = useState('')
+  const [feriasFim, setFeriasFim] = useState('')
   const [perfis, setPerfis] = useState<Perfil[]>([])
   const [unidades, setUnidades] = useState<Unidade[]>([])
   const [turnos, setTurnos] = useState<Turno[]>([])
@@ -162,8 +164,12 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
 
     // Carrega o período atual do usuário (edição)
     if (usuario?.id) {
-      supabase.from('usuarios').select('turno_periodo_id').eq('id', usuario.id).single()
-        .then(({ data }) => { if (data?.turno_periodo_id) setTurnoPeriodoId(data.turno_periodo_id) })
+      supabase.from('usuarios').select('turno_periodo_id, ferias_inicio, ferias_fim').eq('id', usuario.id).single()
+        .then(({ data }) => {
+          if (data?.turno_periodo_id) setTurnoPeriodoId(data.turno_periodo_id)
+          if (data?.ferias_inicio) setFeriasInicio(data.ferias_inicio)
+          if (data?.ferias_fim) setFeriasFim(data.ferias_fim)
+        })
     }
   }, [perfilFixo, empresaId, usuario?.perfilId])
 
@@ -225,6 +231,13 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
       }
     }
 
+    if ((feriasInicio && !feriasFim) || (!feriasInicio && feriasFim)) {
+      setErro('Informe início e fim das férias.'); return
+    }
+    if (feriasInicio && feriasFim && feriasFim < feriasInicio) {
+      setErro('O fim das férias não pode ser antes do início.'); return
+    }
+
     setSalvando(true)
 
     const supabase = createClient()
@@ -236,6 +249,8 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
           nome, cpf: cpf || null, telefone: telefone || null,
           turno_id: turnoId || null,
           turno_periodo_id: turnoPeriodoId || null,
+          ferias_inicio: feriasInicio || null,
+          ferias_fim: feriasFim || null,
         }).eq('id', usuario.id)
 
         // Notifica o Header para atualizar o nome caso seja o próprio usuário logado
@@ -386,6 +401,23 @@ export function UsuarioModal({ usuario, empresaId, onClose, perfilFixo }: Props)
             )}
             <p className="text-xs text-gray-400 mt-1">
               Fora do turno, o usuário não recebe mensagens de moderação por WhatsApp.
+            </p>
+          </div>
+
+          {/* Férias */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Férias <span className="font-normal text-gray-400">(opcional)</span></label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input type="date" value={feriasInicio} onChange={e => setFeriasInicio(e.target.value)} aria-label="Início das férias"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
+              <input type="date" value={feriasFim} min={feriasInicio || undefined} onChange={e => setFeriasFim(e.target.value)} aria-label="Fim das férias"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
+            </div>
+            <p className="text-xs text-gray-400 mt-1 flex items-center justify-between">
+              <span>Durante o período, o usuário não recebe notificações (WhatsApp/e-mail).</span>
+              {(feriasInicio || feriasFim) && (
+                <button type="button" onClick={() => { setFeriasInicio(''); setFeriasFim('') }} className="text-orange-500 hover:text-orange-600 ml-2 flex-shrink-0">Limpar</button>
+              )}
             </p>
           </div>
 

@@ -2,7 +2,7 @@
 // usuario_recebe_notificacao / usuario_pode_acessar / usuario_deve_avisar_turno
 // (migration 20260622120000_turno_modo_fora.sql).
 import { describe, it, expect } from 'vitest'
-import { recebeNotificacao, podeAcessar, deveAvisar, type Turno, type ModoForaTurno } from '@/lib/turnos'
+import { recebeNotificacao, podeAcessar, deveAvisar, estaDeFerias, usuarioRecebeNotificacao, type Turno, type ModoForaTurno } from '@/lib/turnos'
 
 function dataHora(y: number, m: number, d: number, h: number, min = 0) {
   return new Date(y, m - 1, d, h, min)
@@ -87,5 +87,43 @@ describe('deveAvisar', () => {
   it('modos notificacao/login nunca avisam', () => {
     expect(deveAvisar(turnoAdmin('notificacao'), FORA)).toBe(false)
     expect(deveAvisar(turnoAdmin('login'), FORA)).toBe(false)
+  })
+})
+
+// Datas em UTC (meia-dia) para não virar o dia pelo fuso.
+const DIA = (y: number, m: number, d: number) => new Date(Date.UTC(y, m - 1, d, 12))
+
+describe('estaDeFerias', () => {
+  it('sem período (uma ou ambas as datas ausentes) → false', () => {
+    expect(estaDeFerias(null, null, DIA(2026, 7, 20))).toBe(false)
+    expect(estaDeFerias('2026-07-18', null, DIA(2026, 7, 20))).toBe(false)
+    expect(estaDeFerias(null, '2026-07-25', DIA(2026, 7, 20))).toBe(false)
+  })
+  it('dentro do período (inclusivo nas pontas) → true', () => {
+    expect(estaDeFerias('2026-07-18', '2026-07-25', DIA(2026, 7, 20))).toBe(true)
+    expect(estaDeFerias('2026-07-18', '2026-07-25', DIA(2026, 7, 18))).toBe(true) // início
+    expect(estaDeFerias('2026-07-18', '2026-07-25', DIA(2026, 7, 25))).toBe(true) // fim
+  })
+  it('fora do período → false', () => {
+    expect(estaDeFerias('2026-07-18', '2026-07-25', DIA(2026, 7, 17))).toBe(false)
+    expect(estaDeFerias('2026-07-18', '2026-07-25', DIA(2026, 7, 26))).toBe(false)
+  })
+})
+
+describe('usuarioRecebeNotificacao (férias + turno)', () => {
+  it('de férias → NÃO recebe, mesmo sem turno', () => {
+    expect(usuarioRecebeNotificacao({ turno: null, feriasInicio: '2026-07-18', feriasFim: '2026-07-25' }, DIA(2026, 7, 20))).toBe(false)
+  })
+  it('de férias → NÃO recebe, mesmo dentro do turno', () => {
+    // DENTRO do turno (seg 10h) mas de férias → suprime
+    const seg10 = new Date(Date.UTC(2026, 6, 20, 10)) // 2026-07-20 é segunda
+    expect(usuarioRecebeNotificacao({ turno: turnoAdmin('notificacao'), feriasInicio: '2026-07-18', feriasFim: '2026-07-25' }, seg10)).toBe(false)
+  })
+  it('fora das férias → delega ao turno (recebe dentro, não recebe fora)', () => {
+    expect(usuarioRecebeNotificacao({ turno: turnoAdmin('notificacao') }, DENTRO)).toBe(true)
+    expect(usuarioRecebeNotificacao({ turno: turnoAdmin('notificacao') }, FORA)).toBe(false)
+  })
+  it('sem turno e sem férias → sempre recebe', () => {
+    expect(usuarioRecebeNotificacao({ turno: null }, FORA)).toBe(true)
   })
 })
