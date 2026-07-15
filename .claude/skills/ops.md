@@ -46,6 +46,9 @@ Rota `/api/documentos/consultar` tenta provedores em ordem, usando só os que t�
 ## Cron do resumo mensal de parceiros
 `POST /cron/parceiros/resumo-mensal` é chamado 1x/dia pelo **cron-job.org** (conta do usuário) com header `x-cron-secret: $CRON_SECRET`. A rota só age no último dia do mês (idempotente por mês — nos demais dias responde `skip`). `CRON_SECRET` precisa estar no Railway (serviço API) e no job do cron-job.org com o mesmo valor. Teste manual fora do último dia: body JSON `{"force": true}`.
 
+## Cron de avisos de fim de trial — `POST /cron/billing/avisos-trial`
+⚠️ **PRECISA SER AGENDADO no cron-job.org** (novo, 2026-07-15). Job **1x/dia** (ex.: 9h tz São_Paulo), header `x-cron-secret: $CRON_SECRET`, URL `<API>/cron/billing/avisos-trial`. Avisa o **admin da empresa** (perfil `…002`) por **WhatsApp + e-mail** quando o teste está a **0–5 dias** do fim, com link `/gestao/plano`. Idempotente por empresa (colunas `empresa_assinaturas.aviso_trial_5d_em`/`aviso_trial_1d_em`): heads-up a ≤5d e urgente a ≤1d, 1x cada. Teste manual: body `{"force": true}` (reenvia) e opcional `{"empresa_id": "<uuid>"}` para mirar uma empresa. Reusa `enviarWhatsApp`/`enviarEmail`; mensagens hardcoded (aviso de plataforma). Banner correspondente na Home = RPC `empresa_dias_trial`. Ver `/biz`, `/db`.
+
 ## Cron de sincronização de catálogos (API externa)
 `POST /catalogos/sync-all` (header `x-cron-secret: $CRON_SECRET`) sincroniza todos os catálogos com `api_url` configurada (upsert dos valores via `/catalogos/{id}/sync`). Disparado pelo job **"Checkflow | Atualizar Catálogos"** no cron-job.org (POST + header). Testado 200 OK 2026-06-20. ⚠️ O endpoint **não lê corpo** — `server.ts` tem content-type parser `'*'` para não dar 415 quando o cron manda Content-Type não-JSON. Frequência: catálogo ~1x/dia basta.
 

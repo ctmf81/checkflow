@@ -180,7 +180,7 @@ REGRAS DE ESTILO (siga à risca):
 - Execuções e tokens **resetam a cada período mensal** (não acumulam — "use ou perde"). Armazenamento é **total** (não mensal); o tempo de guarda dos checklists é a alavanca de espaço.
 - Ao **atingir um limite**, a ação é **bloqueada** (nova execução, Consulta IA ou upload) até fazer upgrade de plano ou **comprar um pacote adicional** (execuções, tokens ou armazenamento).
 - **Assinar / trocar de plano**: a 1ª contratação de um plano pago é imediata (gera a fatura). Já a **troca entre planos pagos vale só no fim do período vigente** (sem cobrança proporcional) — até lá segue o plano atual.
-- **Trial**: empresa nova começa em teste. Quando o teste expira sem assinar um plano pago, a conta entra em modo **somente-leitura**: você continua **consultando e operando** o que já existe (executar checklists, tratar tickets, moderar planos, etc.), mas **não cria itens novos** (novo checklist, lista de tarefas, ticket, agendamento, workflow ou modelo de relatório) até contratar um plano. Não há mais queda automática para um plano gratuito.
+- **Trial**: empresa nova começa em teste. Quando o teste expira sem assinar um plano pago, a conta entra em modo **somente-leitura**: você continua **consultando e operando** o que já existe (executar checklists, tratar tickets, moderar planos, etc.), mas **não cria itens novos** (novo checklist, lista de tarefas, ticket, agendamento, workflow ou modelo de relatório) até contratar um plano. Não há mais queda automática para um plano gratuito. O administrador é **avisado por e-mail e WhatsApp** alguns dias antes do fim do teste, e a Home mostra um aviso com os dias restantes.
 - Pagamento (PIX, boleto ou cartão) é concluído na fatura do gateway.
 
 # PRIMEIROS PASSOS

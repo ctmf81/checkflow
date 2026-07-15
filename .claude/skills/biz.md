@@ -53,6 +53,12 @@ Usuário com **mais de uma empresa**: o sistema **pergunta qual empresa a cada l
 - Botão **"Trocar empresa"** no menu do usuário (Gestão e Operação) quando há +1 empresa — reabre o seletor via `SessionContext.trocarEmpresa()`.
 - Empresa única = inalterado (auto-seleciona). Ver `/uimap` (SessionContext/Header).
 
+## Avisos de fim de trial — IMPLEMENTADO 2026-07-15
+Antes de a empresa cair em **somente-leitura** (pós-trial; ver `billing-ciclo-bloqueio`), o sistema avisa com antecedência:
+- **Cron diário** `/cron/billing/avisos-trial` (x-cron-secret): para trials a **0–5 dias** do fim, avisa os **admins da empresa** (perfil `…002`) por **WhatsApp + e-mail** com link `/gestao/plano`. Idempotente: heads-up a ≤5 dias e urgente a ≤1 dia, 1× cada (`empresa_assinaturas.aviso_trial_5d_em/1d_em`). Mensagens hardcoded (aviso de plataforma, não editável em Notificações). **Precisa ser agendado no cron-job.org** — ver `/ops`.
+- **Banner na Home** (`AvisoTrial`): aparece só nos **últimos 5 dias**, mostra os dias restantes + CTA "Ver planos". Qualquer membro vê os dias (RPC `empresa_dias_trial`); o CTA leva a `/gestao/plano` (contratação é do admin).
+- Não respeita turno (é aviso administrativo, não operacional).
+
 ## Core Product
 CheckFlow is a checklist management SaaS with two distinct areas:
 - **Gestão** (`/gestao`) — admin backoffice: create checklists, configure activities, manage users/units
