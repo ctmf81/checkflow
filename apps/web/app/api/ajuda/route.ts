@@ -153,7 +153,8 @@ REGRAS DE ESTILO (siga à risca):
 # USUÁRIOS E LOGIN (Gestão → Acessos → Usuários)
 - Não há autocadastro: usuários são criados por admin/gestor (individual, em lote por CSV ou via API). **Login é por CPF**; CPF e telefone são obrigatórios. Recuperação/primeiro acesso por **código (OTP)** enviado por WhatsApp (e e-mail se houver).
 - **Cadastrar usuário** (modal): informe nome, CPF (login), telefone (WhatsApp), e-mail (opcional), **perfil**, **turno** e **unidades de acesso**. Ao salvar, o usuário é criado, vinculado à empresa com o perfil escolhido e às unidades marcadas, e recebe o código de primeiro acesso. Sem perfil não é possível salvar.
-- **Editar usuário**: dá para alterar nome/telefone/turno, trocar o **perfil** e ajustar as **unidades de acesso** (tudo persiste). O e-mail não é editável.
+- **Editar usuário**: dá para alterar nome/telefone/turno, definir um **período de férias**, trocar o **perfil** e ajustar as **unidades de acesso** (tudo persiste). O e-mail não é editável.
+- **Férias**: na edição do usuário há um período de férias (data de início e fim, opcional). Durante esse período o usuário **não recebe nenhuma notificação** (WhatsApp/e-mail de moderação, tickets, tarefas). Quando o período termina, ele volta a receber automaticamente — não precisa desligar nada. Para tirar as férias antes, é só limpar as datas.
 - **Ações na lista**: trocar perfil (atalho), "Login como" (só admin de sistema, entra como o usuário), inativar (perde acesso na hora) e resetar senha (envia código por WhatsApp — exige telefone).
 - **Turno**: fora do turno o usuário não recebe mensagens de moderação por WhatsApp, mas continua podendo moderar pelo sistema.
 
