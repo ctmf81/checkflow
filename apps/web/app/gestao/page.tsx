@@ -12,6 +12,7 @@ import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { PrimeirosPassos } from '@/components/onboarding/PrimeirosPassos'
 import { RelatoriosHome } from '@/components/relatorios/RelatoriosHome'
+import { AvisoTrial } from '@/components/layout/AvisoTrial'
 import { useSession } from '@/contexts/SessionContext'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -199,6 +200,8 @@ export default function GestaoHomePage() {
       <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
 
       <PrimeirosPassos />
+
+      <AvisoTrial />
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
