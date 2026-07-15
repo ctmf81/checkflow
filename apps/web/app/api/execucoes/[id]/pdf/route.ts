@@ -167,7 +167,12 @@ function PdfExecucao({ dados }: { dados: any }) {
           ...atvs.map((atv: any) => {
             const resp = respostas[atv.id]
             const conforme = resp?.conforme
-            const fotoUrl = atv.tipo === 'foto' ? resp?.resposta?.url : null
+            const r = resp?.resposta
+            // Foto: atividade tipo `foto` (resposta.url) OU IA por foto
+            // (texto/sim_nao/numero com a foto embrulhada em resposta.foto_ia).
+            const fotoUrl = atv.tipo === 'foto'
+              ? r?.url
+              : (r && typeof r === 'object' && 'foto_ia' in r ? r.foto_ia : null)
             const textoResposta = formatarResposta(atv.tipo, resp?.resposta)
 
             return React.createElement(View, { key: atv.id, style: s.atv },
