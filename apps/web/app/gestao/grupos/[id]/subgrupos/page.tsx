@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, use, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Plus, Users, ChevronLeft, MoreVertical, Pencil, PowerOff, X, FileCheck, ChevronRight, ShieldCheck, Check, Loader2 } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { NovoSubgrupoModal } from './NovoSubgrupoModal'
 import { createClient } from '@/lib/supabase'
@@ -278,8 +278,11 @@ function FuncoesModal({ subgrupo, onClose }: { subgrupo: Subgrupo; onClose: () =
   )
 }
 
-export default function SubgruposPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+export default function SubgruposPage() {
+  // useParams() (reativo) em vez de use(params): garante que o `id` sempre
+  // reflete a rota atual — evita gerar links com o grupo/estado de uma navegação
+  // anterior (bug: "Ver checklists" caía na área errada).
+  const { id } = useParams<{ id: string }>()
   const { subgrupoLabel } = useSession()
   const confirm = useConfirm()
   const toast = useToast()
@@ -341,7 +344,7 @@ export default function SubgruposPage({ params }: { params: Promise<{ id: string
         </Button>
       </div>
 
-      {loading ? (
+      {loading && subgrupos.length === 0 ? (
         <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
       ) : subgrupos.length === 0 ? (
         <div className="py-16 text-center">
