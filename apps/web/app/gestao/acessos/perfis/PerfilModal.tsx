@@ -14,6 +14,7 @@ import {
   permKey, recursoChecked, recursoIndeterminate, toggleRecurso, toggleAcao,
   permsFromRows, permissaoIdsToInsert,
 } from '@/lib/perfis'
+import { recursoVisivelNoPerfil } from '@/lib/entitlements/gating'
 
 interface Perfil {
   id: string
@@ -31,11 +32,12 @@ export function PerfilModal({ perfil, empresaId, onClose }: Props) {
   const isEdicao = !!perfil
   const soLeitura = !!perfil?.is_system // perfil de sistema não é editável
   const toast = useToast()
-  const { recursosHabilitados, grupoLabel, subgrupoLabel } = useSession()
-  // Só mostra recursos liberados pelo plano (+ core). null = sem restrição.
-  const recursosVisiveis = recursosHabilitados
-    ? recursos.filter(r => RECURSOS_CORE.has(r.key) || recursosHabilitados.has(r.key))
-    : recursos
+  const { recursosHabilitados, flagsHabilitadas, grupoLabel, subgrupoLabel } = useSession()
+  // Mostra recursos do plano (+ core) e os por característica quando o plano
+  // inclui a flag (ex.: 'relatorios' aparece quando o plano tem IA). null = tudo.
+  const recursosVisiveis = recursos.filter(r =>
+    recursoVisivelNoPerfil(r, recursosHabilitados, flagsHabilitadas, RECURSOS_CORE)
+  )
 
   // Grupos/Áreas usam o rótulo configurado da empresa (Subgrupo/Área/Loja...),
   // não o texto fixo do registro. Ex.: sem label "Área" definido → "Subgrupo".

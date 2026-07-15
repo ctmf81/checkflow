@@ -57,6 +57,25 @@ export function itemVisivelNoMenu(it: ItemGate, ctx: ContextoAcesso): boolean {
   return true
 }
 
+// Um recurso deve aparecer no CONSTRUTOR DE PERFIL?
+//   • plano não configurado (recursosHabilitados null) → mostra tudo (opt-in)
+//   • recurso core (home/usuarios/perfis…) → sempre
+//   • recurso do plano (módulo) → mostra
+//   • recurso por característica (flag, ex.: ia) → mostra se o plano tem a flag
+//   • senão → esconde
+export function recursoVisivelNoPerfil(
+  r: { key: string; flag?: string },
+  recursosHabilitados: Set<string> | null,
+  flagsHabilitadas: Set<string> | null,
+  core: Set<string>,
+): boolean {
+  if (recursosHabilitados === null) return true
+  if (core.has(r.key)) return true
+  if (recursosHabilitados.has(r.key)) return true
+  if (r.flag) return planoLiberaFlag(flagsHabilitadas, r.flag)
+  return false
+}
+
 // ── Permissões por AÇÃO do recurso 'relatorios' ───────────────────────────────
 export interface AcoesRelatorios { criar: boolean; editar: boolean; excluir: boolean; executar: boolean }
 

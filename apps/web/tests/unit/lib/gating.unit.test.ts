@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   planoLiberaRecurso, planoLiberaFlag, itemVisivelNoMenu, resolverAcoesRelatorios,
+  recursoVisivelNoPerfil,
   type ContextoAcesso, type ItemGate,
 } from '@/lib/entitlements/gating'
 
@@ -133,6 +134,32 @@ describe('itemVisivelNoMenu — itens comuns (regressão)', () => {
 
   it('item sem perm/flag/admin (ex.: Home) é sempre visível', () => {
     expect(itemVisivelNoMenu({}, ctx())).toBe(true)
+  })
+})
+
+describe('recursoVisivelNoPerfil (construtor de perfil)', () => {
+  const CORE = new Set(['home', 'usuarios', 'perfis'])
+  const relatorios = { key: 'relatorios', flag: 'ia' }
+  const checklists = { key: 'checklists' }
+
+  it('plano não configurado (null) → mostra tudo', () => {
+    expect(recursoVisivelNoPerfil(relatorios, null, null, CORE)).toBe(true)
+    expect(recursoVisivelNoPerfil(checklists, null, null, CORE)).toBe(true)
+  })
+
+  it('recurso por característica: aparece SÓ quando o plano tem a flag', () => {
+    // plano configurado COM ia → Relatórios aparece (era o bug: sumia)
+    expect(recursoVisivelNoPerfil(relatorios, new Set(['checklists']), new Set(['ia']), CORE)).toBe(true)
+    // plano configurado SEM ia → Relatórios some
+    expect(recursoVisivelNoPerfil(relatorios, new Set(['checklists']), new Set([]), CORE)).toBe(false)
+  })
+
+  it('módulo do plano aparece; fora do plano some; core sempre', () => {
+    const plano = new Set(['checklists'])
+    const flags = new Set(['ia'])
+    expect(recursoVisivelNoPerfil(checklists, plano, flags, CORE)).toBe(true)
+    expect(recursoVisivelNoPerfil({ key: 'tickets' }, plano, flags, CORE)).toBe(false)
+    expect(recursoVisivelNoPerfil({ key: 'usuarios' }, plano, flags, CORE)).toBe(true) // core
   })
 })
 

@@ -7,6 +7,9 @@ export interface Recurso {
   key: string
   label: string
   acoes: Acao[]
+  // Recurso gateado por uma CARACTERÍSTICA do plano (ex.: 'ia'), não por módulo.
+  // Só aparece no construtor de perfil quando o plano inclui a característica.
+  flag?: string
 }
 
 import { WORKFLOWS_HABILITADO } from '@/lib/features'
@@ -184,6 +187,7 @@ const recursosTodos: Recurso[] = [
     // (Reintroduzido 2026-07-14 — antes era um checkbox inerte sem tabela/rota.)
     key: 'relatorios',
     label: 'Relatórios (IA)',
+    flag: 'ia',   // gateado pela característica IA, não por módulo
     acoes: [
       { key: 'criar',    label: 'Criar modelo de relatório' },
       { key: 'editar',   label: 'Editar modelo de relatório' },
