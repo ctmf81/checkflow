@@ -48,6 +48,8 @@ function EditarUsuarioModal({ usuario, onClose, onSalvo }: {
   const [turnoId, setTurnoId] = useState(usuario.turnoId ?? '')
   const [turnoPeriodos, setTurnoPeriodos] = useState<TurnoPeriodo[]>([])
   const [turnoPeriodoId, setTurnoPeriodoId] = useState(usuario.turnoPeriodoId ?? '')
+  const [feriasInicio, setFeriasInicio] = useState('')
+  const [feriasFim, setFeriasFim] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
 
@@ -60,7 +62,8 @@ function EditarUsuarioModal({ usuario, onClose, onSalvo }: {
       supabase.from('usuario_empresa').select('perfil:perfil_id(id, nome)')
         .eq('usuario_id', usuario.id).eq('empresa_id', empresaAtiva.id).single(),
       supabase.from('turnos').select('id, nome, tipo').eq('empresa_id', empresaAtiva.id).eq('ativo', true).order('nome'),
-    ]).then(([pubRes, ueRes, turnosRes]) => {
+      supabase.from('usuarios').select('ferias_inicio, ferias_fim').eq('id', usuario.id).single(),
+    ]).then(([pubRes, ueRes, turnosRes, feriasRes]) => {
       const publicos = pubRes.data ?? []
       const atual: any = (ueRes.data as any)?.perfil
       const atualNorm = Array.isArray(atual) ? atual[0] : atual
@@ -70,6 +73,9 @@ function EditarUsuarioModal({ usuario, onClose, onSalvo }: {
       setPerfis(lista)
       if (atualNorm?.id) { setPerfilId(atualNorm.id); setPerfilOriginal(atualNorm.id) }
       setTurnos((turnosRes.data ?? []) as Turno[])
+      const f = feriasRes.data as any
+      if (f?.ferias_inicio) setFeriasInicio(f.ferias_inicio)
+      if (f?.ferias_fim) setFeriasFim(f.ferias_fim)
     })
   }, [empresaAtiva?.id, usuario.id])
 
@@ -86,6 +92,8 @@ function EditarUsuarioModal({ usuario, onClose, onSalvo }: {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!nome.trim()) { setErro('Nome é obrigatório.'); return }
+    if ((feriasInicio && !feriasFim) || (!feriasInicio && feriasFim)) { setErro('Informe início e fim das férias.'); return }
+    if (feriasInicio && feriasFim && feriasFim < feriasInicio) { setErro('O fim das férias não pode ser antes do início.'); return }
     setSalvando(true)
     setErro('')
     const supabase = createClient()
@@ -96,6 +104,8 @@ function EditarUsuarioModal({ usuario, onClose, onSalvo }: {
         telefone: telefone.trim() || null,
         turno_id: turnoId || null,
         turno_periodo_id: turnoPeriodoId || null,
+        ferias_inicio: feriasInicio || null,
+        ferias_fim: feriasFim || null,
       })
       .eq('id', usuario.id)
     if (error) { setSalvando(false); setErro('Erro ao salvar.'); return }
@@ -159,6 +169,16 @@ function EditarUsuarioModal({ usuario, onClose, onSalvo }: {
                 {turnoPeriodos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
               </select>
             )}
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Férias <span className="font-normal text-gray-400">(opcional)</span></label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input type="date" value={feriasInicio} onChange={e => setFeriasInicio(e.target.value)} aria-label="Início das férias"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
+              <input type="date" value={feriasFim} min={feriasInicio || undefined} onChange={e => setFeriasFim(e.target.value)} aria-label="Fim das férias"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Durante o período, o usuário não recebe notificações. {(feriasInicio || feriasFim) && <button type="button" onClick={() => { setFeriasInicio(''); setFeriasFim('') }} className="text-orange-500 hover:text-orange-600">Limpar</button>}</p>
           </div>
           {erro && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{erro}</p>}
           <div className="flex justify-end gap-2 pt-1">
