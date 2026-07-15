@@ -11,6 +11,12 @@ description: Cyber security rules and DevOps hardening for CheckFlow. Use whenev
 - GitHub Push Protection está ativo — qualquer secret no commit será bloqueado
 - RLS obrigatório em **todas** as tabelas de dados de usuário, sem exceção
 
+## Gating de entitlement (menu/perfil) é UX, NÃO segurança
+`lib/entitlements/gating.ts` decide o que aparece no menu/tela/perfil — é **UX**. A barreira real segue no **RLS + checagem de permissão nas ações/rotas**.
+- **Característica (`ia`)**: recursos gateados por característica (ex.: `relatorios`) são barrados na **UI** (`flag:'ia'` no Sidebar/permissoes.ts) e na **rota que gasta token** (checa `plano_servicos` flag + `billing_pode_consumir_ia`). A RLS de `relatorio_modelos` enforça **tenant + permissão + carência**, mas NÃO a característica (é flag, não recurso-módulo) — risco v1 aceito (criar modelo sem IA é inócuo; gerar é barrado na rota). Mesmo padrão da IA-foto/Consulta Inteligente.
+- **Rota de IA com service role**: `/api/relatorios/gerar` ignora RLS → checa a permissão `relatorios/executar` **na mão** (query em `perfil_permissoes`) + admin sistema/empresa, antes de gerar.
+- **Recursos CORE** (`unidades/perfis/usuarios`) nunca gateados por plano (`RECURSOS_CORE`) — são gestão da própria empresa; não é vazamento entre tenants, é só visibilidade.
+
 ## RLS — Padrão Obrigatório por Operação
 Toda tabela com `unidade_id` precisa das 4 policies:
 

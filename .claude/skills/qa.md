@@ -9,7 +9,7 @@ description: Quality Assurance for CheckFlow — test strategy, suites por tela/
 
 | Camada | Ferramenta | Status |
 |--------|-----------|--------|
-| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **400 testes / 27 arquivos** (2026-07-09, `npx vitest run`) |
+| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **461 testes / 30 arquivos** (2026-07-14, `npx vitest run`) |
 | Smoke Tests | Manual UI/navegação | ✅ 9/10 PASSED (2026-06-24) — checklist exec, auth, perms, billing, tickets |
 | Risk Assessment | Custom scripts | ✅ 6/8 PASSED (2026-06-24) — routes auth, WhatsApp OTP, data calc, mascara |
 | Quota Enforcement | Node.js + Supabase | ✅ 6/6 PASSED (2026-06-24) — billing enforcement, assinatura, reset |
@@ -156,6 +156,12 @@ Lógica pura extraída da rota `/api/painel/[token]` para `lib/painelDados.ts` (
 
 ### ✅ Unit — IA por foto no campo — `tests/unit/lib/interpretarFoto.unit.test.ts` (12 testes, 2026-07-14)
 Lógica pura de `lib/ia/interpretarFoto.ts` (usada pela rota `/api/ia/interpretar-foto`): `comporPromptFoto` (sufixo por tipo texto/sim_não/número), `normalizarSimNao` (começo vence o meio, acentos, "n"/"s", ambíguo → ""), `extrairNumero` (ponto/vírgula, no meio do texto, negativo, ausente → ""), `posProcessarFoto` (texto ≤4 linhas). **Suíte total: 381 testes.**
+
+### ✅ Unit — Gating de entitlement (menu/plano/perfil) — `tests/unit/lib/gating.unit.test.ts` (27 testes, 2026-07-14)
+Lógica pura de `lib/entitlements/gating.ts` (fonte única do Sidebar, tela CRUD/Home de Relatórios e construtor de perfil). Cobre: `planoLiberaRecurso`/`planoLiberaFlag` (opt-in null=sem restrição), `itemVisivelNoMenu` (gate por característica `ia` vs recurso-módulo, admin sistema/empresa, opt-in trial, não-pisca), **`RECURSOS_CORE`** (unidades/perfis/usuarios nunca gateados — bug do admin da empresa em plano fechado), `resolverAcoesRelatorios` (4 ações; só-executar × só-criar; não vaza de outros recursos), `recursoVisivelNoPerfil` (recurso por característica aparece no construtor quando o plano tem a flag — bug "Relatórios não aparecia no perfil").
+
+### ✅ Unit — Relatórios por IA (Feature 2) — `tests/unit/lib/relatorios.unit.test.ts` (8 testes, 2026-07-14)
+`lib/relatorios/montarPrompt.ts` (prompt-modelo a partir de seções/atividades; `rotuloTipo`) e `compilarExecucoes.ts` (`formatarValorResposta` desembrulha `{valor}` da IA-foto; `compilarExecucoesMarkdown` conta aprovados/reprovados, lista não conformidades, resume acima do teto de detalhe).
 
 ### ✅ Unit — Templates de Notificação — `tests/unit/lib/notificacaoTemplates.unit.test.ts` (23 testes)
 Espelho de `renderizar()` de `apps/api/src/lib/notificacao-templates.ts`. Cobre: substituição simples/múltipla/repetida, variável ausente/null/undefined → string vazia (nunca expõe `{{chave}}`), padrão `{{linha_X}}` (aparece/some), templates reais completos (ticket_aberto, ticket_movimentado, **plano_devolvido_n1**, **tarefa_publicada**, reset_senha), caracteres especiais no valor (`$`, `\`). **Mantenha em sincronia** com a função original se a regex mudar. ⚠️ **2026-07-08**: +2 testes dos novos tipos `plano_devolvido_n1` (N2→N1, wa) e `tarefa_publicada` (só wa).

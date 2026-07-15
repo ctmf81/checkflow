@@ -17,6 +17,8 @@ description: Checklist de go-live (definition of done) para TODA funcionalidade 
 ## 2. Menu (Sidebar) & Guards
 - [ ] Item no `components/layout/Sidebar.tsx` com o `perm` (ou `admin: true`) certo
 - [ ] `folhaVisivel` já aplica `planoLibera(perm)` (entitlements) — então telas gateadas por permissão somem sozinhas do menu quando fora do plano. Só telas **`admin: true` que agregam vários módulos** (ex.: Notificações) precisam de filtro interno por `recursosHabilitados`.
+- [ ] **Recurso gateado por CARACTERÍSTICA** (não módulo, ex.: `ia`): o item do Sidebar usa `flag: '<flag>'` (não `perm` p/ o gate de plano) — some quando o plano tem serviços mas não a característica. Lógica em `lib/entitlements/gating.ts` (`itemVisivelNoMenu`).
+- [ ] **Recurso CORE de plataforma** (gestão da própria empresa/perfis/usuários): NÃO gatear por plano — adicionar a `RECURSOS_CORE` em `gating.ts`. *(Furo real 2026-07-14: Empresa/Perfis/Usuários sumiam do admin da empresa em plano configurado.)*
 - [ ] Rotas de detalhe respeitam o `GestaoGuard` / ambiente (operação x gestão)
 
 ## 3. RLS / Isolamento de tenant
@@ -27,6 +29,8 @@ description: Checklist de go-live (definition of done) para TODA funcionalidade 
 ## 4. Entitlements por plano (se for módulo gateável)
 - [ ] Serviço no catálogo `servicos` (módulo→`recursos[]` ou característica→flag) + incluível no plano (`plano_servicos`)
 - [ ] Decidir se é **`padrao`** (sempre liberado, base) ou gateável
+- [ ] **Recurso operacional** (ex.: `nao_execucao`, `catalogos`) tem que estar nos `recursos` de ALGUM serviço-módulo — senão some do menu do admin da empresa em plano configurado. *(Furo real 2026-07-14: `nao_execucao` não estava em nenhum serviço → mapeado no serviço Checklists.)*
+- [ ] **Recurso por característica** (`flag:'ia'` no `permissoes.ts`): garanta que aparece no **construtor de perfil** — `recursoVisivelNoPerfil` mostra recursos por flag quando o plano tem a característica. *(Furo real 2026-07-14: "Relatórios" não aparecia no PerfilModal com IA ligada.)*
 - [ ] Gate `empresa_libera_recurso(empresa, recurso)` em **todas as write policies de autoria** (incl. `*_admin_empresa`); tickets via policy `restrictive` de insert
 - [ ] **Não gatear operação viva** (execução, finalizar→plano) — só autoria
 - [ ] Comportamento de **contratação / upgrade / downgrade** documentado no `/biz`

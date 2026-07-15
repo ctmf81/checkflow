@@ -53,6 +53,7 @@ Layout: `gestao/layout.tsx` — sidebar + SessionProvider
 | `/gestao/padrao/variaveis` | `gestao/padrao/variaveis/page.tsx` (+ `VariavelModal.tsx`) | Variáveis (atributos+valores) que compõem padrões — `variaveis`/`variavel_valores`, por unidade |
 | `/gestao/padrao/padroes` | `gestao/padrao/padroes/page.tsx` | Listagem de padrões (validação combinatória), contagem de instâncias |
 | `/gestao/padrao/criar` | `gestao/padrao/criar/page.tsx` | Criar/editar padrão: variáveis do padrão + instâncias (combinação→faixa min/max). `?id=` edita |
+| `/gestao/relatorios` | `gestao/relatorios/page.tsx` (+ `ModeloModal.tsx`) | **Relatórios por IA** — CRUD dos modelos (checklist + período 1–24h + prompt pré-preenchido, filtro grupo/subgrupo). Menu em **Configurações → Relatórios** (gate característica `ia` + perm `relatorios`). Botões +Novo/Editar/Excluir por permissão (`resolverAcoesRelatorios`). Gerar acontece na **Home** (`RelatoriosHome`) |
 
 ### Operação — Mobile execution (`operacao/`)
 Layout: `operacao/layout.tsx` — NO sidebar, OperacaoHeader with unit selector
@@ -127,7 +128,8 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 |------|---------|
 | `Sidebar.tsx` | Menu lateral da Gestão. Responsivo: drawer off-canvas no mobile (<lg), fixo no desktop. Só o item de rota mais específico fica ativo |
 | `SidebarContext.tsx` | Estado do drawer mobile (`useSidebar()` / `useSidebarOptional()` p/ componentes compartilhados como o Header) |
-| `Header.tsx` | Topo. Botão hambúrguer (lg:hidden) abre o drawer na Gestão; seletor de unidade/usuário/módulo |
+| `Header.tsx` | Topo. Botão hambúrguer (lg:hidden) abre o drawer na Gestão; seletor de unidade/usuário/módulo. Menu do usuário tem **"Trocar empresa"** (só se `empresas.length > 1`, chama `trocarEmpresa()`); logout zera `ultima_empresa_id` |
+| `RelatoriosHome.tsx` (`components/relatorios/`) | Grupo recolhível na Home da Gestão: dropdown de modelos + Gerar + lista de gerados com **polling** (status) + viewer. Só aparece com característica `ia` + permissão `relatorios/executar` |
 
 ### `modals/`
 | File | Purpose |
@@ -155,7 +157,10 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 ## Context & Lib
 | File | Purpose |
 |------|---------|
-| `contexts/SessionContext.tsx` | Empresa, unidade, ambiente state + persistence. **Offline-tolerante**: `getSession()` (sem rede) + reidrata do cache `checkflow:session-ctx` quando `getUser()` falha |
+| `contexts/SessionContext.tsx` | Empresa, unidade, ambiente state + persistence. **Offline-tolerante**: `getSession()` (sem rede) + reidrata do cache `checkflow:session-ctx` quando `getUser()` falha. **Multi-empresa (2026-07-14)**: expõe `trocarEmpresa()` (reabre o seletor + zera `ultima_empresa_id`); o logout do Header zera a empresa salva → próximo login pergunta de novo (só a unidade é lembrada). Ver `/biz` |
+| `lib/entitlements/gating.ts` | **Lógica PURA de gating (menu/plano/perfil)** — fonte única do Sidebar (`itemVisivelNoMenu`), tela CRUD e Home de Relatórios (`resolverAcoesRelatorios`) e construtor de perfil (`recursoVisivelNoPerfil`). `planoLiberaRecurso`/`planoLiberaFlag` (opt-in: null=sem restrição), `RECURSOS_CORE` (unidades/perfis/usuarios sempre passam). Coberta por `tests/unit/lib/gating.unit.test.ts` |
+| `lib/relatorios/montarPrompt.ts` · `compilarExecucoes.ts` | Puras da feature Relatórios: monta o prompt-modelo a partir das seções/atividades; compila as execuções da janela em markdown (teto de detalhe). Testes em `tests/unit/lib/relatorios.unit.test.ts` |
+| `app/api/relatorios/gerar/route.ts` | **Geração assíncrona do relatório por IA**: valida perm `executar` + gate `ia` + cota + carência → insere `gerando`, devolve id, gera em background (failover provedores) → `pronto`/`erro`. Front faz polling. Ver `/db`, `/biz` |
 | `lib/supabase.ts` | Supabase client singleton |
 | `lib/apiClient.ts` | `apiFetch(path, init)` — chamadas do navegador à API Fastify com Bearer do usuário (rotas internas autenticadas) |
 | `lib/padrao.ts` · `lib/perfis.ts` · `lib/turnos.ts` · `lib/tarefas.ts` · `lib/tickets.ts` · `lib/visibilidade.ts` · `lib/midia.ts` | Lógica pura (validação/permissões/visibilidade/limites de mídia) — fonte única importada pelas telas + testes unit. `lib/tickets` = ações por status/papel (sem "corrigido parcial"/"improcedente" desde 2026-07-05) |

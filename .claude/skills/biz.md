@@ -37,6 +37,22 @@ Espec original abaixo (mantida como referência):
 - **Notificação ao publicar (RECOMENDAÇÃO a confirmar)**: canal garantido = aba Tarefas na Operação. WhatsApp **individual por pessoa** do subgrupo deve ser **opcional por lista** (toggle "avisar por WhatsApp"), **respeitando o turno** de cada um; default **desligado** (evita custo/spam de disparo automático p/ subgrupo inteiro).
 - **Pontos a confirmar**: se mídias contam na cota de armazenamento (como no checklist); se há limite de 1 instância por pessoa por janela de abertura, ou várias.
 
+## Relatórios por IA (Feature 2 de IA) — IMPLEMENTADO e VALIDADO 2026-07-14
+IA gera o relatório das **execuções de um checklist nas últimas X horas** (1–24h). Menu em **Configurações → Relatórios**; geração na **Home**.
+- **Modelo** (`relatorio_modelos`) = template reutilizável: escolhe checklist (com filtro grupo→subgrupo) + período (1–24h) + **prompt pré-preenchido** com as seções/atividades do checklist (o gestor não procura os campos; edita à vontade).
+- **Geração** = executar o modelo. **Assíncrona**: cria `relatorios_gerados` (`status='gerando'`), a rota gera em background e o front faz **polling** até `pronto`/`erro`. Compila as execuções da janela em markdown → IA (failover de provedores) → texto.
+- **Entitlement = característica `ia`** ("Serviços de IA", mesma de Consulta Inteligente + IA-foto). Sem IA no plano: menu some, tela bloqueia, rota 402. NÃO é módulo → gate na UI + na rota (tokens), não em `empresa_libera_recurso`.
+- **Permissões de perfil (4, independentes)**: `criar`/`editar`/`excluir` (CRUD do modelo, enforçado por RLS) e `executar` (gerar; a rota checa; o grupo na Home só aparece com ela). Botões da tela CRUD escondem por permissão.
+- **Não é operação**: fica só na Gestão (menu + Home), nunca na Operação. Consulta/geração é de líder/gestor.
+- **Somente-leitura pós-trial**: criar modelo e gerar **bloqueiam** (`empresa_pode_criar`); consultar os já gerados continua.
+- **Pendência**: quando "Padrão" virar tipo de atividade no montador, escondê-lo quando o plano não tem o serviço `padrao` (regra: tipo de atividade ligado a serviço gateado some fora do plano). Ver memória `pendencia-gate-tipos-atividade`.
+
+## Sessão multi-empresa — perguntar empresa a cada login (2026-07-14)
+Usuário com **mais de uma empresa**: o sistema **pergunta qual empresa a cada login** (antes restaurava a última automaticamente e não havia como trocar → ficava preso). A persistência da sessão vale **a partir da unidade**, não da empresa.
+- Logout **zera `sessao_usuario.ultima_empresa_id`** (mantém a última unidade) → próximo login cai no `EscolherEmpresaModal`. Reload dentro da sessão mantém.
+- Botão **"Trocar empresa"** no menu do usuário (Gestão e Operação) quando há +1 empresa — reabre o seletor via `SessionContext.trocarEmpresa()`.
+- Empresa única = inalterado (auto-seleciona). Ver `/uimap` (SessionContext/Header).
+
 ## Core Product
 CheckFlow is a checklist management SaaS with two distinct areas:
 - **Gestão** (`/gestao`) — admin backoffice: create checklists, configure activities, manage users/units
