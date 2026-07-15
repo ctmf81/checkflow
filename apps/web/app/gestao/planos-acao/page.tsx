@@ -8,6 +8,7 @@ import { ONBOARDING_PLANOS_ACAO } from '@/components/onboarding/configs'
 import { visivelPorSubgrupo } from '@/lib/visibilidade'
 import { ehAdminDaEmpresa } from '@/lib/admin'
 import { useSession } from '@/contexts/SessionContext'
+import { usePolling } from '@/lib/usePolling'
 import {
   ClipboardList, Clock, CheckCircle2, XCircle,
   ChevronRight, Loader2, RefreshCw, X
@@ -138,6 +139,7 @@ function PlanosAcaoContent() {
   }
 
   useEffect(() => { carregar(filtro) }, [filtro, execId, empresaAtiva?.id, unidadeAtiva?.id])
+  usePolling(() => carregar(filtro), 45000, !!unidadeAtiva?.id)
 
   return (
     <div className="max-w-4xl mx-auto">

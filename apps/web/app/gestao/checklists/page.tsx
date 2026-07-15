@@ -7,6 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { usePolling } from '@/lib/usePolling'
 import { useToast, useConfirm } from '@/components/ui/feedback'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ONBOARDING_CHECKLISTS } from '@/components/onboarding/configs'
@@ -119,6 +120,7 @@ function ChecklistsContent() {
   }
 
   useEffect(() => { carregar() }, [unidadeAtiva?.id, filtroSubgrupoId, mostrarInativos])
+  usePolling(carregar, 45000, !!unidadeAtiva?.id)
 
   // Fecha dropdown ao clicar fora
   useEffect(() => {

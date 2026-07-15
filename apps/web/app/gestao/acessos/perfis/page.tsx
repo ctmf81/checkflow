@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { PerfilModal } from './PerfilModal'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { usePolling } from '@/lib/usePolling'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { useConfirm, useToast } from '@/components/ui/feedback'
@@ -63,6 +64,7 @@ export default function PerfisPage() {
   }
 
   useEffect(() => { carregar() }, [empresaAtiva?.id])
+  usePolling(carregar, 45000, !!empresaAtiva?.id)
 
   async function excluir(perfil: Perfil) {
     if (perfil.totalUsuarios > 0) {

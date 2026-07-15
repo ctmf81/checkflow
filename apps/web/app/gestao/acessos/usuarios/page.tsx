@@ -9,6 +9,7 @@ import { QrPreCadastroModal } from './QrPreCadastroModal'
 import { ModeracaoPreCadastroModal } from './ModeracaoPreCadastroModal'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { usePolling } from '@/lib/usePolling'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { useToast, useConfirm } from '@/components/ui/feedback'
@@ -211,6 +212,7 @@ export default function UsuariosPage() {
   }
 
   useEffect(() => { carregar() }, [empresaAtiva?.id])
+  usePolling(carregar, 45000, !!empresaAtiva?.id)
 
   const filtrados = usuarios
     .filter(u => mostrarInativos ? true : u.status !== 'inativo')

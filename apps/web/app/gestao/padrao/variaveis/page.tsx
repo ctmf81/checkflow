@@ -5,6 +5,7 @@ import { Plus, Variable, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { usePolling } from '@/lib/usePolling'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { useConfirm, useToast } from '@/components/ui/feedback'
@@ -37,6 +38,7 @@ export default function VariaveisPage() {
   }
 
   useEffect(() => { carregar() }, [unidadeAtiva?.id])
+  usePolling(carregar, 45000, !!unidadeAtiva?.id)
 
   async function excluir(v: Variavel) {
     if (!await confirm({ titulo: `Excluir a variável "${v.nome}"?`, mensagem: 'Padrões que a usam podem deixar de funcionar corretamente.', confirmarLabel: 'Excluir', perigo: true })) return

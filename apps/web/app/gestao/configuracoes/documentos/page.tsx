@@ -5,6 +5,7 @@ import { Plus, FileText, Search, MoreVertical, AlertCircle, Pencil, Layers, Powe
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { usePolling } from '@/lib/usePolling'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { useConfirm, useToast } from '@/components/ui/feedback'
@@ -134,6 +135,7 @@ export default function DocumentosPage() {
     setBusca('')
     carregar()
   }, [unidadeAtiva?.id])
+  usePolling(carregar, 45000, !!unidadeAtiva?.id)
 
   useEffect(() => {
     setFiltroSubgrupo('')

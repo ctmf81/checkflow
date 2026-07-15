@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { NovoSubgrupoModal } from './NovoSubgrupoModal'
 import { createClient } from '@/lib/supabase'
+import { usePolling } from '@/lib/usePolling'
 import { useSession } from '@/contexts/SessionContext'
 import { useConfirm, useToast } from '@/components/ui/feedback'
 
@@ -322,6 +323,7 @@ export default function SubgruposPage({ params }: { params: Promise<{ id: string
   }
 
   useEffect(() => { carregar() }, [id])
+  usePolling(carregar, 45000, !!id)
 
   return (
     <>

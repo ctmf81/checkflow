@@ -5,6 +5,7 @@ import { Plus, Pencil, PowerOff, AlertCircle, Ban } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { usePolling } from '@/lib/usePolling'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { useConfirm, useToast } from '@/components/ui/feedback'
@@ -68,6 +69,7 @@ export default function NaoExecucaoPage() {
   }
 
   useEffect(() => { carregar() }, [unidadeAtiva?.id])
+  usePolling(carregar, 45000, !!unidadeAtiva?.id)
 
   if (!unidadeAtiva) return (
     <div className="py-16 text-center">

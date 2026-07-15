@@ -14,6 +14,7 @@ import { PrimeirosPassos } from '@/components/onboarding/PrimeirosPassos'
 import { RelatoriosHome } from '@/components/relatorios/RelatoriosHome'
 import { AvisoTrial } from '@/components/layout/AvisoTrial'
 import { useSession } from '@/contexts/SessionContext'
+import { usePolling } from '@/lib/usePolling'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -189,6 +190,7 @@ export default function GestaoHomePage() {
 
   useEffect(() => { carregarFunil() },     [carregarFunil])
   useEffect(() => { carregarExecucoes() }, [carregarExecucoes])
+  usePolling(() => { carregarFunil(); carregarExecucoes() }, 45000, !!unidadeId)
 
   // ─── Render ────────────────────────────────────────────────────────────────
 

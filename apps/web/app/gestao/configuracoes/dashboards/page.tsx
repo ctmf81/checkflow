@@ -7,6 +7,7 @@ import { Plus, LayoutDashboard, AlertCircle, Loader2, Pencil, Trash2, Link2, Tv,
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { usePolling } from '@/lib/usePolling'
 import { useToast, useConfirm } from '@/components/ui/feedback'
 
 interface Dashboard {
@@ -44,6 +45,7 @@ export default function DashboardsPage() {
   }
 
   useEffect(() => { carregar() }, [unidadeAtiva?.id])
+  usePolling(carregar, 45000, !!unidadeAtiva?.id)
 
   async function novo() {
     if (!unidadeAtiva?.id) return

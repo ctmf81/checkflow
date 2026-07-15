@@ -10,6 +10,7 @@ import { EditarGrupoModal } from './EditarGrupoModal'
 import { UsuariosGrupoModal } from './UsuariosGrupoModal'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { usePolling } from '@/lib/usePolling'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { useConfirm, useToast } from '@/components/ui/feedback'
@@ -76,6 +77,7 @@ export default function GruposPage() {
   }
 
   useEffect(() => { carregar() }, [unidadeAtiva?.id])
+  usePolling(carregar, 45000, !!unidadeAtiva?.id)
 
   if (!unidadeAtiva) return (
     <div className="py-16 text-center">

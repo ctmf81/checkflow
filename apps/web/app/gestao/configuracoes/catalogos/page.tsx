@@ -5,6 +5,7 @@ import { Plus, AlertCircle, Database, ChevronRight, MoreVertical, Pencil, Copy, 
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { usePolling } from '@/lib/usePolling'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { useConfirm, useToast } from '@/components/ui/feedback'
@@ -89,6 +90,7 @@ export default function CatalogosPage() {
   }
 
   useEffect(() => { carregar() }, [unidadeAtiva?.id])
+  usePolling(carregar, 45000, !!unidadeAtiva?.id)
 
   async function excluir(id: string, nome: string) {
     const supabase = createClient()

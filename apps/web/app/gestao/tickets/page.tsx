@@ -5,6 +5,7 @@ import { Plus, Search, Ticket, Clock, AlertCircle, CheckCircle2, XCircle, Rotate
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { usePolling } from '@/lib/usePolling'
 import NovoTicketModal from '@/components/tickets/NovoTicketModal'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
@@ -101,6 +102,7 @@ export default function TicketsPage() {
   }
 
   useEffect(() => { carregar() }, [unidadeAtiva])
+  usePolling(carregar, 45000, !!unidadeAtiva)
 
   // Pré-filtra ao chegar dos Indicadores (?status=aberto|tratamento|finalizados|todos)
   useEffect(() => {

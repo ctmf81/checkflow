@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { usePolling } from '@/lib/usePolling'
 import { useToast, useConfirm } from '@/components/ui/feedback'
 import { statusTarefa, StatusTarefa } from '@/lib/tarefas'
 
@@ -80,6 +81,7 @@ export default function TarefasPage() {
   }
 
   useEffect(() => { carregar() }, [unidadeAtiva?.id])
+  usePolling(carregar, 45000, !!unidadeAtiva?.id)
 
   async function novaLista() {
     if (!unidadeAtiva?.id) return

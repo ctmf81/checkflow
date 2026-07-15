@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, AlertCircle, Clock, Repeat } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { usePolling } from '@/lib/usePolling'
 import { TurnoModal } from './TurnoModal'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
@@ -91,6 +92,7 @@ export default function TurnosPage() {
   }
 
   useEffect(() => { carregar() }, [empresaAtiva?.id])
+  usePolling(carregar, 45000, !!empresaAtiva?.id)
 
   if (!empresaAtiva) return (
     <div className="py-16 text-center">

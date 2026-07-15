@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { usePolling } from '@/lib/usePolling'
 import { Button } from '@/components/ui/Button'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
@@ -248,6 +249,7 @@ export default function AgendamentosPage() {
   const [alterando, setAlterando]       = useState<string | null>(null)
 
   useEffect(() => { carregar() }, [empresaAtiva?.id, unidadeAtiva?.id])
+  usePolling(carregar, 45000, !!unidadeAtiva?.id)
 
   async function carregar() {
     if (!empresaAtiva?.id) { setLoading(false); return }
