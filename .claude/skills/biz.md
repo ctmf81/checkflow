@@ -59,6 +59,9 @@ Antes de a empresa cair em **somente-leitura** (pós-trial; ver `billing-ciclo-b
 - **Banner na Home** (`AvisoTrial`): aparece só nos **últimos 5 dias**, mostra os dias restantes + CTA "Ver planos". Qualquer membro vê os dias (RPC `empresa_dias_trial`); o CTA leva a `/gestao/plano` (contratação é do admin).
 - Não respeita turno (é aviso administrativo, não operacional).
 
+## Atualização automática de listagens (polling) — 2026-07-15
+As listagens da Gestão se atualizam sozinhas via **polling** (`lib/usePolling.ts`, 45s), não Supabase Realtime. **Por quê**: Supabase é plano **free** — Realtime cobra em conexões simultâneas + reavaliação de RLS **por cliente/por mudança** (Postgres Changes) + cota de mensagens; polling é **previsível e barato** e a gente controla o custo. **Regras** (baratas): pausa em aba oculta + refetch ao voltar; intervalo 45s; só na tela ativa; escopo = listagens (não forms/detalhe). Fora do polling: **operação** (é offline-first, polling quebraria/geraria erro sem sinal) e **sistema** (admin único, baixa mudança). Realtime só valeria com poucas escritas + necessidade de instantâneo — não é o perfil operacional multi-tenant.
+
 ## Core Product
 CheckFlow is a checklist management SaaS with two distinct areas:
 - **Gestão** (`/gestao`) — admin backoffice: create checklists, configure activities, manage users/units

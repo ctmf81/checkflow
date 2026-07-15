@@ -9,7 +9,7 @@ description: Quality Assurance for CheckFlow — test strategy, suites por tela/
 
 | Camada | Ferramenta | Status |
 |--------|-----------|--------|
-| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **461 testes / 30 arquivos** (2026-07-14, `npx vitest run`) |
+| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **465 testes / 31 arquivos** (2026-07-15, `npx vitest run`) |
 | Smoke Tests | Manual UI/navegação | ✅ 9/10 PASSED (2026-06-24) — checklist exec, auth, perms, billing, tickets |
 | Risk Assessment | Custom scripts | ✅ 6/8 PASSED (2026-06-24) — routes auth, WhatsApp OTP, data calc, mascara |
 | Quota Enforcement | Node.js + Supabase | ✅ 6/6 PASSED (2026-06-24) — billing enforcement, assinatura, reset |
@@ -156,6 +156,9 @@ Lógica pura extraída da rota `/api/painel/[token]` para `lib/painelDados.ts` (
 
 ### ✅ Unit — IA por foto no campo — `tests/unit/lib/interpretarFoto.unit.test.ts` (12 testes, 2026-07-14)
 Lógica pura de `lib/ia/interpretarFoto.ts` (usada pela rota `/api/ia/interpretar-foto`): `comporPromptFoto` (sufixo por tipo texto/sim_não/número), `normalizarSimNao` (começo vence o meio, acentos, "n"/"s", ambíguo → ""), `extrairNumero` (ponto/vírgula, no meio do texto, negativo, ausente → ""), `posProcessarFoto` (texto ≤4 linhas). **Suíte total: 381 testes.**
+
+### ✅ Unit — Polling de listagens — `tests/unit/lib/usePolling.unit.test.ts` (4 testes, 2026-07-15)
+`lib/usePolling.ts` (hook): fake timers + `document.hidden`/`visibilitychange`. Cobre: chama a cada intervalo enquanto visível (não no mount), **pausa em aba oculta** e **refetch imediato ao voltar**, `enabled=false` não dispara, para após desmontar. Renderiza com `act`/`createRoot` nativos (React 19, sem testing-library).
 
 ### ✅ Unit — Gating de entitlement (menu/plano/perfil) — `tests/unit/lib/gating.unit.test.ts` (27 testes, 2026-07-14)
 Lógica pura de `lib/entitlements/gating.ts` (fonte única do Sidebar, tela CRUD/Home de Relatórios e construtor de perfil). Cobre: `planoLiberaRecurso`/`planoLiberaFlag` (opt-in null=sem restrição), `itemVisivelNoMenu` (gate por característica `ia` vs recurso-módulo, admin sistema/empresa, opt-in trial, não-pisca), **`RECURSOS_CORE`** (unidades/perfis/usuarios nunca gateados — bug do admin da empresa em plano fechado), `resolverAcoesRelatorios` (4 ações; só-executar × só-criar; não vaza de outros recursos), `recursoVisivelNoPerfil` (recurso por característica aparece no construtor quando o plano tem a flag — bug "Relatórios não aparecia no perfil").
