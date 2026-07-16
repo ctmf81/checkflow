@@ -67,6 +67,7 @@ function NovoAgendamentoModal({
   onCriado: () => void
 }) {
   const isEdicao = !!agendamento
+  const confirm = useConfirm()
   const refLocal = agendamento ? isoParaLocal(agendamento.referencia_inicio) : null
   const [tipoAlvo, setTipoAlvo]       = useState<'workflow' | 'checklist'>(agendamento?.tipo_alvo ?? (WORKFLOWS_HABILITADO ? 'workflow' : 'checklist'))
   const [workflows, setWorkflows]     = useState<Opcao[]>([])
@@ -103,6 +104,19 @@ function NovoAgendamentoModal({
 
     const referencia = new Date(`${dataRef}T${horaRef}:00`)
     if (isNaN(referencia.getTime())) { setErro('Data/hora de referência inválida.'); return }
+
+    // Salvaguarda: referência a mais de 1 ano no futuro é quase sempre erro de
+    // ano no seletor de data (type="date"). Pede confirmação antes de salvar.
+    const umAnoFrente = new Date()
+    umAnoFrente.setFullYear(umAnoFrente.getFullYear() + 1)
+    if (referencia > umAnoFrente) {
+      const ok = await confirm({
+        titulo: 'Data de referência muito distante',
+        mensagem: `A referência está em ${referencia.toLocaleDateString('pt-BR')} — mais de um ano à frente. Confirmar o agendamento nessa data?`,
+        confirmarLabel: 'Sim, agendar',
+      })
+      if (!ok) return
+    }
 
     setSalvando(true)
     const sb = createClient()
