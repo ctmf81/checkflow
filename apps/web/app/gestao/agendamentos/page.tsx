@@ -86,7 +86,8 @@ function NovoAgendamentoModal({
   const [diasSemana, setDiasSemana]   = useState<number[]>(agendamento?.dias_semana ?? [])
   const [restringeHora, setRestringeHora] = useState(agendamento?.hora_inicio != null && agendamento?.hora_fim != null)
   const [horaIni, setHoraIni]         = useState(agendamento?.hora_inicio != null ? String(agendamento.hora_inicio) : '8')
-  const [horaFim, setHoraFim]         = useState(agendamento?.hora_fim != null ? String(agendamento.hora_fim) : '18')
+  // Última hora ATIVA (inclusiva na UI); grava hora_fim = horaFimUlt + 1 (exclusiva).
+  const [horaFimUlt, setHoraFimUlt]   = useState(agendamento?.hora_fim != null ? String(agendamento.hora_fim - 1) : '17')
   const [salvando, setSalvando]       = useState(false)
   const [erro, setErro]               = useState('')
   const [loading, setLoading]         = useState(true)
@@ -118,10 +119,12 @@ function NovoAgendamentoModal({
     let hIni: number | null = null
     let hFim: number | null = null
     if (restringeHora) {
-      hIni = Number(horaIni); hFim = Number(horaFim)
-      if (!Number.isInteger(hIni) || !Number.isInteger(hFim) || hIni < 0 || hFim > 23 || hIni > hFim) {
-        setErro('Faixa de horário inválida — a hora inicial deve ser menor ou igual à final.'); return
+      hIni = Number(horaIni)
+      const ult = Number(horaFimUlt)   // última hora ativa (inclusiva)
+      if (!Number.isInteger(hIni) || !Number.isInteger(ult) || hIni < 0 || ult > 23 || hIni > ult) {
+        setErro('Faixa de horário inválida — o horário inicial deve ser menor ou igual ao final.'); return
       }
+      hFim = ult + 1               // grava exclusiva
     }
 
     // Salvaguarda: referência a mais de 1 ano no futuro é quase sempre erro de
@@ -280,21 +283,21 @@ function NovoAgendamentoModal({
                 <div className="relative">
                   <select value={horaIni} onChange={e => setHoraIni(e.target.value)}
                     className="appearance-none pl-3 pr-7 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-200 bg-white">
-                    {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}h</option>)}
+                    {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>)}
                   </select>
                   <ChevronDown size={13} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                 </div>
                 <span className="text-xs text-gray-500">às</span>
                 <div className="relative">
-                  <select value={horaFim} onChange={e => setHoraFim(e.target.value)}
+                  <select value={horaFimUlt} onChange={e => setHoraFimUlt(e.target.value)}
                     className="appearance-none pl-3 pr-7 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-200 bg-white">
-                    {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}h</option>)}
+                    {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}:59</option>)}
                   </select>
                   <ChevronDown size={13} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                 </div>
               </div>
             )}
-            <p className="text-xs text-gray-400 mt-1">Fora da faixa, o disparo aguarda até voltar ao horário permitido (fuso de Brasília).</p>
+            <p className="text-xs text-gray-400 mt-1">Só gera dentro da faixa; fora dela o disparo aguarda até voltar ao horário permitido (fuso de Brasília).</p>
           </div>
 
           {erro && (
@@ -487,7 +490,7 @@ export default function AgendamentosPage() {
                   {a.hora_inicio != null && a.hora_fim != null && (
                     <>
                       <span className="text-gray-300">·</span>
-                      <span className="text-xs text-gray-400">{String(a.hora_inicio).padStart(2, '0')}h–{String(a.hora_fim).padStart(2, '0')}h</span>
+                      <span className="text-xs text-gray-400">{String(a.hora_inicio).padStart(2, '0')}:00–{String(a.hora_fim - 1).padStart(2, '0')}:59</span>
                     </>
                   )}
                 </div>
