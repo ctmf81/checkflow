@@ -407,7 +407,7 @@ export default function ChecklistMontador({ checklistId, modoTemplate = false, b
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <button onClick={() => router.push(baseRoute)}
+          <button onClick={() => router.back()}
             className="text-gray-400 hover:text-orange-500 transition-colors">
             <ChevronLeft size={20} />
           </button>

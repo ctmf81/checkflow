@@ -226,7 +226,11 @@ function ExecutarLista({ lista, unidadeId, empresaId, onVoltar }: { lista: Lista
   const [erro, setErro] = useState('')
 
   const expirado = edicaoExpirada(editavelAte, Date.now())
-  const bloqueado = expirado
+  // Também trava quando o PRAZO DE RESPOSTA da lista (abertura_data_limite) já
+  // passou — "só edita enquanto a lista está ativa". O max_respostas rege a
+  // abertura de NOVAS instâncias (já filtra em Liberadas), não a edição desta.
+  const aberturaVencida = lista.abertura_data_limite != null && Date.parse(lista.abertura_data_limite) <= Date.now()
+  const bloqueado = expirado || aberturaVencida
 
   useEffect(() => {
     async function iniciar() {
@@ -305,7 +309,7 @@ function ExecutarLista({ lista, unidadeId, empresaId, onVoltar }: { lista: Lista
   }
 
   async function enviarEvidencia(item: Item, file: File) {
-    if (!execucaoId) return
+    if (!execucaoId || bloqueado) return
     setSalvando(item.id)
     setErro('')
     const supabase = createClient()
@@ -326,8 +330,13 @@ function ExecutarLista({ lista, unidadeId, empresaId, onVoltar }: { lista: Lista
     // de insert, então `upsert:true` (que exige UPDATE) falhava — "Erro ao enviar
     // a evidência". Reenvio cria um novo arquivo; o antigo vira órfão (limpeza).
     const path = `tarefas/${execucaoId}/${item.id}_${Date.now()}.${ext}`
-    const { error: upErr } = await supabase.storage.from('execucoes').upload(path, file, { contentType: file.type })
-    if (upErr) { setSalvando(null); setErro('Erro ao enviar a evidência.'); return }
+    const { error: upErr } = await supabase.storage.from('execucoes').upload(path, file, { contentType: file.type || 'application/octet-stream' })
+    if (upErr) {
+      console.error('[tarefa-evidencia] upload falhou:', upErr)
+      setSalvando(null)
+      setErro(`Erro ao enviar a evidência: ${upErr.message || 'tente novamente.'}`)
+      return
+    }
     // Contabiliza o uso de armazenamento (fire-and-forget)
     registrarUsoArmazenamento(empresaId, 'tarefa', file.size)
     const { data: pub } = supabase.storage.from('execucoes').getPublicUrl(path)
