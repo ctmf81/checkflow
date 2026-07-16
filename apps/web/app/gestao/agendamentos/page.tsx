@@ -30,9 +30,15 @@ interface Agendamento {
   proxima_execucao: string
   ultima_execucao_em: string | null
   ativo: boolean
+  dias_semana: number[] | null
+  hora_inicio: number | null
+  hora_fim: number | null
 }
 
 interface Opcao { id: string; nome: string }
+
+// Dias da semana — índice = valor gravado (0=domingo … 6=sábado, mesmo do Postgres `dow`)
+const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
 const UNIDADE_LABEL: Record<string, (v: number) => string> = {
   horas: v => v === 1 ? 'hora' : 'horas',
@@ -77,6 +83,10 @@ function NovoAgendamentoModal({
   const [intervaloValor, setIntervaloValor]     = useState(agendamento ? String(agendamento.intervalo_valor) : '1')
   const [dataRef, setDataRef]         = useState(refLocal?.data ?? '')
   const [horaRef, setHoraRef]         = useState(refLocal?.hora ?? '08:00')
+  const [diasSemana, setDiasSemana]   = useState<number[]>(agendamento?.dias_semana ?? [])
+  const [restringeHora, setRestringeHora] = useState(agendamento?.hora_inicio != null && agendamento?.hora_fim != null)
+  const [horaIni, setHoraIni]         = useState(agendamento?.hora_inicio != null ? String(agendamento.hora_inicio) : '8')
+  const [horaFim, setHoraFim]         = useState(agendamento?.hora_fim != null ? String(agendamento.hora_fim) : '18')
   const [salvando, setSalvando]       = useState(false)
   const [erro, setErro]               = useState('')
   const [loading, setLoading]         = useState(true)
@@ -105,6 +115,15 @@ function NovoAgendamentoModal({
     const referencia = new Date(`${dataRef}T${horaRef}:00`)
     if (isNaN(referencia.getTime())) { setErro('Data/hora de referência inválida.'); return }
 
+    let hIni: number | null = null
+    let hFim: number | null = null
+    if (restringeHora) {
+      hIni = Number(horaIni); hFim = Number(horaFim)
+      if (!Number.isInteger(hIni) || !Number.isInteger(hFim) || hIni < 0 || hFim > 23 || hIni > hFim) {
+        setErro('Faixa de horário inválida — a hora inicial deve ser menor ou igual à final.'); return
+      }
+    }
+
     // Salvaguarda: referência a mais de 1 ano no futuro é quase sempre erro de
     // ano no seletor de data (type="date"). Pede confirmação antes de salvar.
     const umAnoFrente = new Date()
@@ -129,6 +148,9 @@ function NovoAgendamentoModal({
       intervalo_unidade: intervaloUnidade,
       intervalo_valor: valor,
       referencia_inicio: referencia.toISOString(),
+      dias_semana: diasSemana.length > 0 ? [...diasSemana].sort((a, b) => a - b) : null,
+      hora_inicio: hIni,
+      hora_fim: hFim,
     }
 
     const { error } = isEdicao
@@ -227,6 +249,54 @@ function NovoAgendamentoModal({
             </p>
           </div>
 
+          {/* Dias da semana permitidos */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Dias da semana permitidos</label>
+            <div className="flex gap-1.5">
+              {DIAS_SEMANA.map((dia, idx) => {
+                const sel = diasSemana.includes(idx)
+                return (
+                  <button key={idx} type="button"
+                    onClick={() => setDiasSemana(prev => sel ? prev.filter(d => d !== idx) : [...prev, idx])}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${sel ? 'bg-violet-50 border-violet-300 text-violet-700' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}>
+                    {dia}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Nenhum selecionado = todos os dias.</p>
+          </div>
+
+          {/* Faixa de horário permitida */}
+          <div>
+            <label className="flex items-center gap-2 text-xs font-medium text-gray-600 mb-1.5 cursor-pointer">
+              <input type="checkbox" checked={restringeHora} onChange={e => setRestringeHora(e.target.checked)}
+                className="rounded border-gray-300 text-violet-500 focus:ring-violet-200" />
+              Restringir a uma faixa de horário
+            </label>
+            {restringeHora && (
+              <div className="flex items-center gap-2 pl-6">
+                <span className="text-xs text-gray-500">Das</span>
+                <div className="relative">
+                  <select value={horaIni} onChange={e => setHoraIni(e.target.value)}
+                    className="appearance-none pl-3 pr-7 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-200 bg-white">
+                    {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}h</option>)}
+                  </select>
+                  <ChevronDown size={13} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+                <span className="text-xs text-gray-500">às</span>
+                <div className="relative">
+                  <select value={horaFim} onChange={e => setHoraFim(e.target.value)}
+                    className="appearance-none pl-3 pr-7 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-200 bg-white">
+                    {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}h</option>)}
+                  </select>
+                  <ChevronDown size={13} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-gray-400 mt-1">Fora da faixa, o disparo aguarda até voltar ao horário permitido (fuso de Brasília).</p>
+          </div>
+
           {erro && (
             <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
               <AlertCircle size={14} className="text-red-500 flex-shrink-0" />
@@ -273,7 +343,7 @@ export default function AgendamentosPage() {
     const isAdmin = await ehAdminDaEmpresa(sb, empresaAtiva?.id)
 
     let q = sb.from('agendamentos')
-      .select('id, tipo_alvo, workflow_id, checklist_id, intervalo_unidade, intervalo_valor, referencia_inicio, proxima_execucao, ultima_execucao_em, ativo, workflow:workflow_id(nome), checklist:checklist_id(nome, subgrupo_id)')
+      .select('id, tipo_alvo, workflow_id, checklist_id, intervalo_unidade, intervalo_valor, referencia_inicio, proxima_execucao, ultima_execucao_em, ativo, dias_semana, hora_inicio, hora_fim, workflow:workflow_id(nome), checklist:checklist_id(nome, subgrupo_id)')
       .eq('empresa_id', empresaAtiva.id)
       .order('proxima_execucao')
 
@@ -328,6 +398,9 @@ export default function AgendamentosPage() {
         proxima_execucao: a.proxima_execucao,
         ultima_execucao_em: a.ultima_execucao_em,
         ativo: a.ativo,
+        dias_semana: a.dias_semana ?? null,
+        hora_inicio: a.hora_inicio ?? null,
+        hora_fim: a.hora_fim ?? null,
       }
     })
     setAgendamentos(lista)
@@ -405,6 +478,18 @@ export default function AgendamentosPage() {
                   </span>
                   <span className="text-gray-300">·</span>
                   <span className="text-xs text-gray-400">Ref.: {formatarData(a.referencia_inicio)}</span>
+                  {a.dias_semana && a.dias_semana.length > 0 && a.dias_semana.length < 7 && (
+                    <>
+                      <span className="text-gray-300">·</span>
+                      <span className="text-xs text-gray-400">{[...a.dias_semana].sort((x, y) => x - y).map(d => DIAS_SEMANA[d]).join(', ')}</span>
+                    </>
+                  )}
+                  {a.hora_inicio != null && a.hora_fim != null && (
+                    <>
+                      <span className="text-gray-300">·</span>
+                      <span className="text-xs text-gray-400">{String(a.hora_inicio).padStart(2, '0')}h–{String(a.hora_fim).padStart(2, '0')}h</span>
+                    </>
+                  )}
                 </div>
               </div>
 
