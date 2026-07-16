@@ -6,17 +6,15 @@
 
 alter table agendamentos
   add column if not exists dias_semana smallint[],           -- 0=domingo … 6=sábado; null/vazio = todos os dias
-  add column if not exists hora_inicio smallint,             -- 0..23; null = sem restrição
-  add column if not exists hora_fim    smallint;             -- 0..23; null = sem restrição
+  add column if not exists hora_inicio smallint,             -- 0..23; null = sem restrição (hora inicial, inclusiva)
+  add column if not exists hora_fim    smallint;             -- 1..24; null = sem restrição (hora final, EXCLUSIVA)
 
-do $$ begin
-  if not exists (select 1 from pg_constraint where conname = 'agendamento_hora_valida') then
-    alter table agendamentos add constraint agendamento_hora_valida check (
-      (hora_inicio is null and hora_fim is null)
-      or (hora_inicio between 0 and 23 and hora_fim between 0 and 23 and hora_inicio <= hora_fim)
-    );
-  end if;
-end $$;
+-- hora_fim é exclusiva: das 8 às 18 = 08:00 até 17:59 (a hora 18 não gera).
+alter table agendamentos drop constraint if exists agendamento_hora_valida;
+alter table agendamentos add constraint agendamento_hora_valida check (
+  (hora_inicio is null and hora_fim is null)
+  or (hora_inicio between 0 and 23 and hora_fim between 1 and 24 and hora_inicio < hora_fim)
+);
 
 -- Reprocessa com as janelas: se o momento atual (em São Paulo) está fora do
 -- dia/horário permitido, PULA o registro sem avançar proxima_execucao — assim
@@ -48,9 +46,10 @@ begin
       continue;
     end if;
 
-    -- Fora da faixa de horário permitida → aguarda (janela [inicio, fim] em horas)
+    -- Fora da faixa de horário permitida → aguarda. Janela [inicio, fim) em
+    -- horas: fim é EXCLUSIVA (das 8 às 18 = 08:00 até 17:59).
     if rec.hora_inicio is not null and rec.hora_fim is not null
-       and not (v_hora between rec.hora_inicio and rec.hora_fim) then
+       and not (v_hora >= rec.hora_inicio and v_hora < rec.hora_fim) then
       continue;
     end if;
 
