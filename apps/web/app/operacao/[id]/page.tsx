@@ -1780,16 +1780,27 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
     const expiracao = new Date(Date.UTC(agora.getFullYear(), agora.getMonth() + (checklist.tempo_guarda_meses ?? 12), agora.getDate()))
     const dataExpiracao = `${expiracao.getUTCFullYear()}-${String(expiracao.getUTCMonth() + 1).padStart(2, '0')}-${String(expiracao.getUTCDate()).padStart(2, '0')}`
 
-    const { error } = await sb.from('checklist_execucoes').insert({
-      checklist_id: checklist.id,
-      unidade_id: unidadeAtiva.id,
-      executado_por: user.id,
-      data_execucao: agora.toISOString(),
-      data_expiracao: dataExpiracao,
-      status: 'nao_executado',
-      motivo_nao_execucao_id: motivoChecklistSel,
-      motivo_nao_execucao_obs: obsNaoExec.trim() || null,
-    })
+    // Veio de um agendado (?exec=): reaproveita a MESMA linha (marca não
+    // executado + assume o operador), senão ela ficaria eterna em "Agendados
+    // pendentes" (em_andamento/executado_por null). Avulso: insere linha nova.
+    const { error } = execAgendadaId
+      ? await sb.from('checklist_execucoes').update({
+          executado_por: user.id,
+          status: 'nao_executado',
+          data_expiracao: dataExpiracao,
+          motivo_nao_execucao_id: motivoChecklistSel,
+          motivo_nao_execucao_obs: obsNaoExec.trim() || null,
+        }).eq('id', execAgendadaId)
+      : await sb.from('checklist_execucoes').insert({
+          checklist_id: checklist.id,
+          unidade_id: unidadeAtiva.id,
+          executado_por: user.id,
+          data_execucao: agora.toISOString(),
+          data_expiracao: dataExpiracao,
+          status: 'nao_executado',
+          motivo_nao_execucao_id: motivoChecklistSel,
+          motivo_nao_execucao_obs: obsNaoExec.trim() || null,
+        })
 
     setEnviandoNaoExec(false)
     if (error) { setErroFinalizar('Erro ao registrar não execução. Tente novamente.'); return }
