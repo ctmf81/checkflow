@@ -44,7 +44,7 @@ export function CausaRaizModeracao({ planoId, atividadeId, subgrupoId, unidadeId
     const sel = 'id, observacao, criado_em, causa:causa_raiz_id(nome), usuario:criado_por(nome)'
     const [{ data: dp }, { data: hist }, { data: cs }] = await Promise.all([
       sb.from('causa_raiz_ocorrencias').select(sel).eq('plano_acao_id', planoId).order('criado_em', { ascending: false }),
-      sb.from('causa_raiz_ocorrencias').select(sel).eq('atividade_id', atividadeId).order('criado_em', { ascending: false }).limit(6),
+      sb.from('causa_raiz_ocorrencias').select(sel).eq('atividade_id', atividadeId).order('criado_em', { ascending: false }).limit(5),
       sb.from('causa_raiz').select('id, nome').eq('atividade_id', atividadeId).eq('status', 'ativo').order('nome'),
     ])
     setDoPlano(mapOcorrencias(dp))
