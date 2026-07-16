@@ -322,8 +322,11 @@ function ExecutarLista({ lista, unidadeId, empresaId, onVoltar }: { lista: Lista
 
     const ext = file.name.split('.').pop() ?? 'bin'
     const tipo: 'foto' | 'video' = file.type.startsWith('video') ? 'video' : 'foto'
-    const path = `tarefas/${execucaoId}/${item.id}.${ext}`
-    const { error: upErr } = await supabase.storage.from('execucoes').upload(path, file, { contentType: file.type, upsert: true })
+    // Caminho ÚNICO (timestamp) + INSERT puro: o bucket `execucoes` só tem policy
+    // de insert, então `upsert:true` (que exige UPDATE) falhava — "Erro ao enviar
+    // a evidência". Reenvio cria um novo arquivo; o antigo vira órfão (limpeza).
+    const path = `tarefas/${execucaoId}/${item.id}_${Date.now()}.${ext}`
+    const { error: upErr } = await supabase.storage.from('execucoes').upload(path, file, { contentType: file.type })
     if (upErr) { setSalvando(null); setErro('Erro ao enviar a evidência.'); return }
     // Contabiliza o uso de armazenamento (fire-and-forget)
     registrarUsoArmazenamento(empresaId, 'tarefa', file.size)
