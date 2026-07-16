@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { GitBranch, Plus, Loader2 } from 'lucide-react'
+import { GitBranch, Plus, Loader2, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { useConfirm } from '@/components/ui/feedback'
 
 interface Ocorrencia { id: string; observacao: string | null; criado_em: string; causa_nome: string; usuario_nome: string | null }
 interface CausaOpt { id: string; nome: string }
@@ -38,6 +39,7 @@ export function CausaRaizModeracao({ planoId, atividadeId, subgrupoId, unidadeId
   const [adicionando, setAdicionando] = useState(false)
   const [novoNome, setNovoNome] = useState('')
   const [salvando, setSalvando] = useState(false)
+  const confirm = useConfirm()
 
   async function carregar() {
     const sb = createClient()
@@ -84,6 +86,14 @@ export function CausaRaizModeracao({ planoId, atividadeId, subgrupoId, unidadeId
     if (!error && nova) { await carregar(); setCausaId(nova.id); setNovoNome(''); setAdicionando(false) }
   }
 
+  // Remove a causa raiz deste plano (para trocar por outra). Um plano tem no
+  // máximo uma causa; só volta a aparecer o formulário depois de remover.
+  async function remover(o: Ocorrencia) {
+    if (!await confirm({ titulo: `Remover a causa raiz "${o.causa_nome}"?`, mensagem: 'Depois você pode registrar outra.', confirmarLabel: 'Remover', perigo: true })) return
+    const { error } = await createClient().from('causa_raiz_ocorrencias').delete().eq('id', o.id)
+    if (!error) { setCausaId(''); setObs(''); carregar() }
+  }
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
@@ -94,10 +104,16 @@ export function CausaRaizModeracao({ planoId, atividadeId, subgrupoId, unidadeId
       {doPlano.length > 0 ? (
         <div className="space-y-1.5 mb-3">
           {doPlano.map(o => (
-            <div key={o.id} className="text-sm bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
-              <span className="font-medium text-orange-700">{o.causa_nome}</span>
-              {o.observacao && <span className="text-gray-600"> — {o.observacao}</span>}
-              <span className="text-xs text-gray-400 block mt-0.5">{dataBR(o.criado_em)}{o.usuario_nome ? ` · ${o.usuario_nome}` : ''}</span>
+            <div key={o.id} className="text-sm bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <span className="font-medium text-orange-700">{o.causa_nome}</span>
+                {o.observacao && <span className="text-gray-600"> — {o.observacao}</span>}
+                <span className="text-xs text-gray-400 block mt-0.5">{dataBR(o.criado_em)}{o.usuario_nome ? ` · ${o.usuario_nome}` : ''}</span>
+              </div>
+              {podeEditar && (
+                <button type="button" onClick={() => remover(o)} title="Remover causa raiz"
+                  className="text-gray-400 hover:text-red-500 flex-shrink-0"><Trash2 size={14} /></button>
+              )}
             </div>
           ))}
         </div>
@@ -105,8 +121,9 @@ export function CausaRaizModeracao({ planoId, atividadeId, subgrupoId, unidadeId
         <p className="text-sm text-gray-400 mb-3">Causa raiz ainda não registrada para este plano.</p>
       )}
 
-      {/* Registrar (N1/N2/admin) */}
-      {podeEditar && (
+      {/* Registrar (N1/N2/admin) — só quando ainda não há causa raiz no plano
+          (1 por plano; para trocar, remover a atual primeiro). */}
+      {podeEditar && doPlano.length === 0 && (
         <div className="space-y-2 mb-3">
           {!adicionando ? (
             <div className="flex gap-2">
