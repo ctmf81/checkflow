@@ -102,7 +102,7 @@ export default function PerfisPage() {
           </Button>
         </div>
 
-        {loading ? (
+        {loading && perfis.length === 0 ? (
           <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
         ) : perfis.length === 0 ? (
           <div className="py-16 text-center text-sm text-gray-500">Nenhum perfil cadastrado.</div>

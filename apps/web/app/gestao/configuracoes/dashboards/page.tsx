@@ -97,7 +97,7 @@ export default function DashboardsPage() {
         </Button>
       </div>
 
-      {loading ? (
+      {loading && dashboards.length === 0 ? (
         <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
       ) : dashboards.length === 0 ? (
         <div className="py-16 text-center">

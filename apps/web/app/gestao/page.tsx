@@ -246,7 +246,7 @@ export default function GestaoHomePage() {
           </div>
         </div>
 
-        {loadingFunil ? (
+        {loadingFunil && funil.executados === 0 ? (
           <div className="flex justify-center py-6">
             <Loader2 size={20} className="animate-spin text-gray-300" />
           </div>
@@ -305,7 +305,7 @@ export default function GestaoHomePage() {
           </select>
         </div>
 
-        {loadingExec ? (
+        {loadingExec && execucoes.length === 0 ? (
           <div className="flex justify-center py-6">
             <Loader2 size={20} className="animate-spin text-gray-300" />
           </div>

@@ -365,7 +365,7 @@ export default function AgendamentosPage() {
         )}
       </div>
 
-      {loading ? (
+      {loading && agendamentos.length === 0 ? (
         <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
       ) : agendamentos.length === 0 ? (
         <div className="py-20 text-center">

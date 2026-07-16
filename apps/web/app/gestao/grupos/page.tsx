@@ -102,7 +102,7 @@ export default function GruposPage() {
         </Button>
       </div>
 
-      {loading ? (
+      {loading && grupos.length === 0 ? (
         <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
       ) : grupos.length === 0 ? (
         <div className="py-16 text-center">

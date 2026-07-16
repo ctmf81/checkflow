@@ -118,7 +118,7 @@ export default function TurnosPage() {
         </Button>
       </div>
 
-      {loading ? (
+      {loading && turnos.length === 0 ? (
         <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
       ) : turnos.length === 0 ? (
         <div className="py-16 text-center">

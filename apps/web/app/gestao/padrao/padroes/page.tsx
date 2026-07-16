@@ -67,7 +67,7 @@ export default function PadroesPage() {
         <Link href="/gestao/padrao/criar"><Button><Plus size={16} />Novo</Button></Link>
       </div>
 
-      {loading ? (
+      {loading && padroes.length === 0 ? (
         <p className="text-sm text-gray-400">Carregando...</p>
       ) : padroes.length === 0 ? (
         <div className="text-center py-16 text-gray-400">

@@ -229,7 +229,7 @@ export default function DocumentosPage() {
         <span className="text-sm text-gray-500 ml-auto">{filtrados.length} documento{filtrados.length !== 1 ? 's' : ''}</span>
       </div>
 
-      {loading ? (
+      {loading && filtrados.length === 0 ? (
         <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
       ) : filtrados.length === 0 ? (
         <div className="py-16 text-center">

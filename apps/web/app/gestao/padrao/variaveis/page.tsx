@@ -63,7 +63,7 @@ export default function VariaveisPage() {
         </Button>
       </div>
 
-      {loading ? (
+      {loading && variaveis.length === 0 ? (
         <p className="text-sm text-gray-400">Carregando...</p>
       ) : variaveis.length === 0 ? (
         <div className="text-center py-16 text-gray-400">

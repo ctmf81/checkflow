@@ -115,7 +115,7 @@ export default function CausaRaizPage() {
         </Button>
       </div>
 
-      {loading ? (
+      {loading && causas.length === 0 ? (
         <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
       ) : causas.length === 0 ? (
         <div className="py-16 text-center">

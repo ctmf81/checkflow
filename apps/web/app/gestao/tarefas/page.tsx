@@ -175,7 +175,7 @@ export default function TarefasPage() {
         </div>
       )}
 
-      {loading ? (
+      {loading && listas.length === 0 ? (
         <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
       ) : listas.length === 0 ? (
         <div className="py-16 text-center">

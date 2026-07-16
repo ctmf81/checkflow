@@ -227,7 +227,7 @@ export default function TicketsPage() {
       </div>
 
       {/* Lista */}
-      {loading ? (
+      {loading && filtrados.length === 0 ? (
         <div className="py-16 text-center text-sm text-gray-400">Carregando…</div>
       ) : filtrados.length === 0 ? (
         <div className="py-16 text-center text-sm text-gray-400">Nenhum ticket encontrado.</div>

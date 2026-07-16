@@ -94,7 +94,7 @@ export default function NaoExecucaoPage() {
         </Button>
       </div>
 
-      {loading ? (
+      {loading && motivos.length === 0 ? (
         <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
       ) : motivos.length === 0 ? (
         <div className="py-16 text-center">

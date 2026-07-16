@@ -186,7 +186,7 @@ function PlanosAcaoContent() {
       )}
 
       {/* Lista */}
-      {loading ? (
+      {loading && planos.length === 0 ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 size={24} className="animate-spin text-gray-300" />
         </div>

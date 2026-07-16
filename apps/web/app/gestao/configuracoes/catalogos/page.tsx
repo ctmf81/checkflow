@@ -150,7 +150,7 @@ export default function CatalogosPage() {
         </Button>
       </div>
 
-      {loading ? (
+      {loading && catalogos.length === 0 ? (
         <div className="py-16 text-center text-sm text-gray-400">Carregando...</div>
       ) : catalogos.length === 0 ? (
         <div className="py-16 text-center">
