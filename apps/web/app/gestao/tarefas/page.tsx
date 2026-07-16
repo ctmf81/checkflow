@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, ListChecks, AlertCircle, Pencil, Trash2, Loader2, BarChart2, X, Check, MoreVertical, Copy } from 'lucide-react'
+import { Plus, ListChecks, AlertCircle, Pencil, Trash2, Loader2, BarChart2, MoreVertical, Copy } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
@@ -53,7 +53,6 @@ export default function TarefasPage() {
   const [listas, setListas] = useState<Lista[]>([])
   const [loading, setLoading] = useState(true)
   const [criando, setCriando] = useState(false)
-  const [indicadores, setIndicadores] = useState<Lista | null>(null)
   const [filtro, setFiltro] = useState<StatusTarefa | 'todas'>('todas')
   const [menuAberto, setMenuAberto] = useState<string | null>(null)
 
@@ -208,10 +207,10 @@ export default function TarefasPage() {
               </div>
               <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_DERIV[st].cor}`}>{STATUS_DERIV[st].label}</span>
               <div className="flex items-center gap-1">
-                <button onClick={() => setIndicadores(l)} title="Indicadores"
+                <Link href={`/gestao/tarefas/${l.id}/indicadores`} title="Indicadores"
                   className="p-1.5 text-gray-400 hover:text-orange-500 rounded-lg hover:bg-orange-50 transition-colors">
                   <BarChart2 size={15} />
-                </button>
+                </Link>
                 <Link href={`/gestao/tarefas/${l.id}`} title="Editar"
                   className="p-1.5 text-gray-400 hover:text-orange-500 rounded-lg hover:bg-orange-50 transition-colors">
                   <Pencil size={15} />
@@ -243,83 +242,6 @@ export default function TarefasPage() {
           )})}
         </div>
       )}
-
-      {indicadores && (
-        <IndicadoresModal lista={indicadores} onClose={() => setIndicadores(null)} />
-      )}
     </>
-  )
-}
-
-// ─── Modal de indicadores de execução ────────────────────────────────────────
-function IndicadoresModal({ lista, onClose }: { lista: Lista; onClose: () => void }) {
-  const [execucoes, setExecucoes] = useState<{ nome: string; status: string; feitos: number; total: number; aberta_em: string }[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function carregar() {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('tarefa_execucoes')
-        .select('id, status, aberta_em, usuario:usuario_id(nome), respostas:tarefa_respostas(feito)')
-        .eq('lista_id', lista.id)
-        .order('aberta_em', { ascending: false })
-      if (data) {
-        setExecucoes(data.map((e: any) => {
-          const u = Array.isArray(e.usuario) ? e.usuario[0] : e.usuario
-          const resp = e.respostas ?? []
-          return {
-            nome: u?.nome ?? '—',
-            status: e.status,
-            feitos: resp.filter((r: any) => r.feito).length,
-            total: lista.total_itens,
-            aberta_em: e.aberta_em,
-          }
-        }))
-      }
-      setLoading(false)
-    }
-    carregar()
-  }, [lista.id, lista.total_itens])
-
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl max-h-[85vh] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-gray-800 truncate">Indicadores — {lista.titulo}</p>
-            <p className="text-xs text-gray-400">{execucoes.length} resposta(s){lista.abertura_max_respostas ? ` de ${lista.abertura_max_respostas}` : ''}</p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
-        </div>
-        <div className="overflow-y-auto flex-1">
-          {loading ? (
-            <div className="flex justify-center py-16"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
-          ) : execucoes.length === 0 ? (
-            <p className="py-16 text-center text-sm text-gray-400">Ninguém respondeu ainda.</p>
-          ) : (
-            <ul className="divide-y divide-gray-50">
-              {execucoes.map((e, i) => (
-                <li key={i} className="px-6 py-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">{e.nome}</p>
-                    <p className="text-xs text-gray-400">{new Date(e.aberta_em).toLocaleString('pt-BR')}</p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-xs text-gray-500">{e.feitos}/{e.total} feitas</span>
-                    {e.status === 'encerrada'
-                      ? <span className="flex items-center gap-1 text-xs text-green-600"><Check size={12} />encerrada</span>
-                      : <span className="text-xs text-blue-500">em andamento</span>}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <div className="px-6 py-4 border-t border-gray-100 flex-shrink-0">
-          <button onClick={onClose} className="w-full py-2.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50">Fechar</button>
-        </div>
-      </div>
-    </div>
   )
 }
