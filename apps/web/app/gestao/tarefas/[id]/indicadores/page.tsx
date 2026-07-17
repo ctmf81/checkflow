@@ -4,7 +4,7 @@ import { useEffect, useState, use, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import {
   ChevronLeft, BarChart2, Image as ImageIcon, MapPin, Loader2, X, Check,
-  ChevronDown, ChevronRight, Play, User,
+  ChevronDown, ChevronRight, Play, User, FileText,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
@@ -159,6 +159,32 @@ export default function IndicadoresTarefaPage({ params }: { params: Promise<{ id
   const [lightbox, setLightbox] = useState<{ url: string; tipo: 'foto' | 'video' } | null>(null)
   const [enderecoAlvo, setEnderecoAlvo] = useState<{ lat: number; lng: number } | null>(null)
   const [expandido, setExpandido] = useState<string | null>(null)
+  const [gerandoPdf, setGerandoPdf] = useState(false)
+  const [erroPdf, setErroPdf] = useState('')
+
+  async function gerarPdf() {
+    setGerandoPdf(true)
+    setErroPdf('')
+    try {
+      const sb = createClient()
+      const { data: { session } } = await sb.auth.getSession()
+      if (!session?.access_token) { setErroPdf('Sessão expirada. Recarregue a página.'); setGerandoPdf(false); return }
+      const res = await fetch(`/api/tarefas/${id}/pdf`, {
+        method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!res.ok) { setErroPdf('Não foi possível gerar o relatório.'); setGerandoPdf(false); return }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `relatorio-tarefas-${titulo || 'lista'}.pdf`
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      setErroPdf('Não foi possível gerar o relatório.')
+    }
+    setGerandoPdf(false)
+  }
 
   useEffect(() => { carregar() }, [id])
   async function carregar() {
@@ -232,10 +258,19 @@ export default function IndicadoresTarefaPage({ params }: { params: Promise<{ id
       <Link href="/gestao/tarefas" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-3">
         <ChevronLeft size={16} /> Voltar
       </Link>
-      <div className="mb-5">
-        <h1 className="text-xl font-semibold text-gray-800">Indicadores</h1>
-        <p className="text-sm text-gray-400">{titulo}</p>
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-800">Indicadores</h1>
+          <p className="text-sm text-gray-400">{titulo}</p>
+        </div>
+        <button onClick={gerarPdf} disabled={gerandoPdf || loading || execs.length === 0}
+          title={execs.length === 0 ? 'Sem respostas para gerar o relatório' : 'Gerar relatório em PDF'}
+          className="flex items-center gap-2 px-3.5 py-2 text-sm font-medium bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 flex-shrink-0">
+          {gerandoPdf ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
+          {gerandoPdf ? 'Gerando...' : 'Relatório PDF'}
+        </button>
       </div>
+      {erroPdf && <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">{erroPdf}</p>}
 
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-3 mb-5">
