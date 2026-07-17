@@ -6,21 +6,23 @@
 import webpush from 'web-push'
 import { SupabaseClient } from '@supabase/supabase-js'
 
-let configurado: boolean | null = null
+// Cacheia só o SUCESSO. Se ainda não deu, re-tenta a cada chamada (evita
+// travar em "não configurado" se as envs chegaram depois — ex.: restart).
+let vapidPronto = false
 function configurar(): boolean {
-  if (configurado !== null) return configurado
+  if (vapidPronto) return true
   const pub = process.env.VAPID_PUBLIC_KEY
   const priv = process.env.VAPID_PRIVATE_KEY
   const subject = process.env.VAPID_SUBJECT || 'mailto:suporte@checkflow.digital'
-  if (!pub || !priv) { configurado = false; return false }
+  if (!pub || !priv) return false
   try {
     webpush.setVapidDetails(subject, pub, priv)
-    configurado = true
+    vapidPronto = true
+    return true
   } catch (e) {
     console.error('[push] VAPID inválido:', (e as any)?.message)
-    configurado = false
+    return false
   }
-  return configurado
 }
 
 /**
