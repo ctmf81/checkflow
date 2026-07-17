@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { useSidebarOptional } from './SidebarContext'
 import { InstallAppButton } from '@/components/pwa/InstallAppButton'
+import { PushBell } from '@/components/pwa/PushBell'
 import { UsuarioModal } from '@/app/gestao/acessos/usuarios/UsuarioModal'
 
 interface UsuarioParaModal {
@@ -164,6 +165,9 @@ export function Header() {
 
       {/* Instalar app (PWA) — fora do painel de sistema */}
       {!isSistema && <InstallAppButton />}
+
+      {/* Sino: lembrete para ativar notificações push (some quando indisponível) */}
+      {!isSistema && <PushBell />}
 
       {!isSistema && <div className="w-px h-6 bg-gray-200" />}
 
