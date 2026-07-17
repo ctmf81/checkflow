@@ -183,7 +183,7 @@ export async function ticketsRoutes(app: FastifyInstance) {
       if (!foraDoTurno.has(u.id)) {
         const titulo = evento === 'aberto' ? `Novo ticket #${numeroStr}` : `Ticket #${numeroStr} — ${eventoLabel}`
         const corpo = evento === 'aberto' ? t.titulo : (texto || t.titulo)
-        pushEnviados += await enviarPush(sb, [u.id], { titulo, corpo, url: link, tag: `ticket-${ticket_id}` })
+        pushEnviados += (await enviarPush(sb, [u.id], { titulo, corpo, url: link, tag: `ticket-${ticket_id}` })).enviados
       }
 
       // ── WhatsApp ──

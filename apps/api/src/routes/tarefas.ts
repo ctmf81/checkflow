@@ -110,12 +110,12 @@ export async function tarefasRoutes(app: FastifyInstance) {
 
     // 6. Push (PWA) — independe de telefone; mesmo público (respeita turno)
     const idsPush = ids.filter(uid => !foraDoTurno.has(uid))
-    const push_enviados = await enviarPush(sb, idsPush, {
+    const push_enviados = (await enviarPush(sb, idsPush, {
       titulo: 'Nova lista de tarefas',
       corpo: lista.titulo,
       url: `${baseUrl}/operacao?aba=tarefas`,
       tag: 'tarefa-nova',
-    })
+    })).enviados
 
     return reply.send({ enviados, push_enviados, erros })
   })

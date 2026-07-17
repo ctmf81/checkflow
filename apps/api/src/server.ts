@@ -14,6 +14,7 @@ import { agendamentosRoutes } from './routes/agendamentos'
 import { limpezaRoutes } from './routes/limpeza'
 import { billingRoutes } from './routes/billing'
 import { tarefasRoutes } from './routes/tarefas'
+import { pushRoutes } from './routes/push'
 import { alertsRoutes } from './routes/alerts'
 import { downloadRoutes } from './routes/download'
 // import { sincronizacaoRoutes } from './routes/sincronizacao'
@@ -58,6 +59,7 @@ app.register(agendamentosRoutes)
 app.register(limpezaRoutes)
 app.register(billingRoutes)
 app.register(tarefasRoutes)
+app.register(pushRoutes)
 app.register(alertsRoutes)
 app.register(downloadRoutes)
 // app.register(sincronizacaoRoutes) // TODO: Fix TypeScript errors

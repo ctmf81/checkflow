@@ -35,20 +35,28 @@ export interface PushPayload {
  * Remove inscrições expiradas (404/410). Retorna quantos envios tiveram sucesso.
  * Usa `sb` com service role (lê inscrições de qualquer usuário).
  */
+export interface PushResultado {
+  enviados: number
+  inscricoes: number
+  vapid_configurado: boolean
+  erros: string[]
+}
+
 export async function enviarPush(
   sb: SupabaseClient,
   usuarioIds: string[],
   payload: PushPayload,
-): Promise<number> {
-  if (!configurar()) return 0
+): Promise<PushResultado> {
+  const vapid_configurado = configurar()
+  if (!vapid_configurado) return { enviados: 0, inscricoes: 0, vapid_configurado: false, erros: ['VAPID não configurado'] }
   const ids = [...new Set(usuarioIds.filter(Boolean))]
-  if (ids.length === 0) return 0
+  if (ids.length === 0) return { enviados: 0, inscricoes: 0, vapid_configurado, erros: [] }
 
   const { data: subs } = await sb
     .from('push_subscriptions')
     .select('id, endpoint, p256dh, auth')
     .in('usuario_id', ids)
-  if (!subs || subs.length === 0) return 0
+  if (!subs || subs.length === 0) return { enviados: 0, inscricoes: 0, vapid_configurado, erros: [] }
 
   const body = JSON.stringify({
     title: payload.titulo,
@@ -58,6 +66,7 @@ export async function enviarPush(
   })
 
   const expiradas: string[] = []
+  const erros: string[] = []
   let enviados = 0
   await Promise.all(subs.map(async (s: any) => {
     try {
@@ -69,12 +78,16 @@ export async function enviarPush(
     } catch (err: any) {
       const code = err?.statusCode
       if (code === 404 || code === 410) expiradas.push(s.id)
-      else console.error('[push] falha ao enviar:', code, err?.message)
+      else {
+        const msg = `${code ?? '?'}: ${err?.body || err?.message || 'erro'}`
+        erros.push(msg)
+        console.error('[push] falha ao enviar:', msg)
+      }
     }
   }))
 
   if (expiradas.length) {
     await sb.from('push_subscriptions').delete().in('id', expiradas)
   }
-  return enviados
+  return { enviados, inscricoes: subs.length, vapid_configurado, erros }
 }
