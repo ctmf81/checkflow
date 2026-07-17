@@ -21,7 +21,15 @@ export function PushToggle() {
     try {
       const res = await apiFetch('/push/testar', { method: 'POST' })
       const j = await res.json()
-      if (!j.vapid_configurado) setDiagnostico('⚠️ Servidor sem chaves VAPID (VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY na API).')
+      if (!j.vapid_configurado) {
+        const d = j.diag ?? {}
+        const partes = [
+          `pública ${d.pub_presente ? `${d.pub_len} chars` : 'AUSENTE'}`,
+          `privada ${d.priv_presente ? `${d.priv_len} chars` : 'AUSENTE'}`,
+          d.setvapid_erro ? `erro: ${d.setvapid_erro}` : null,
+        ].filter(Boolean).join(' · ')
+        setDiagnostico(`⚠️ VAPID inválido na API — ${partes}. (válido: pública 87, privada 43)`)
+      }
       else if ((j.inscricoes ?? 0) === 0) setDiagnostico('⚠️ Nenhuma inscrição salva para você. Ative novamente neste aparelho.')
       else if ((j.erros?.length ?? 0) > 0) setDiagnostico(`⚠️ Erro no envio: ${j.erros[0]}`)
       else if ((j.enviados ?? 0) > 0) setDiagnostico('✅ Enviado! A notificação deve aparecer na área de notificações do aparelho em alguns segundos.')

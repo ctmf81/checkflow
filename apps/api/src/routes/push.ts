@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
-import { enviarPush } from '../lib/push'
+import { enviarPush, diagnosticoVapid } from '../lib/push'
 
 // Rota de teste/diagnóstico do Web Push. Envia um push para o próprio usuário
 // logado e devolve o estado do pipeline (VAPID configurado? inscrições? erro?).
@@ -33,6 +33,7 @@ export async function pushRoutes(app: FastifyInstance) {
       inscricoes: r.inscricoes,
       enviados: r.enviados,
       erros: r.erros,
+      diag: diagnosticoVapid(),
     })
   })
 }

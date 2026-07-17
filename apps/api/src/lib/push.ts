@@ -23,6 +23,27 @@ function configurar(): boolean {
   return configurado
 }
 
+/**
+ * Diagnóstico do VAPID sem vazar segredo: só presença/tamanho e o erro de
+ * setVapidDetails. Público válido = 87 chars; privado = 43 chars.
+ */
+export function diagnosticoVapid() {
+  const pub = process.env.VAPID_PUBLIC_KEY
+  const priv = process.env.VAPID_PRIVATE_KEY
+  const subject = process.env.VAPID_SUBJECT || 'mailto:suporte@checkflow.digital'
+  let setvapid_erro: string | null = null
+  if (pub && priv) {
+    try { webpush.setVapidDetails(subject, pub, priv) }
+    catch (e: any) { setvapid_erro = e?.message ?? String(e) }
+  }
+  return {
+    pub_presente: !!pub, pub_len: pub?.length ?? 0,
+    priv_presente: !!priv, priv_len: priv?.length ?? 0,
+    subject: subject,
+    setvapid_erro,
+  }
+}
+
 export interface PushPayload {
   titulo: string
   corpo: string
