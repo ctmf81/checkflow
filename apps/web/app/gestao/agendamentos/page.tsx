@@ -33,6 +33,7 @@ interface Agendamento {
   dias_semana: number[] | null
   hora_inicio: number | null
   hora_fim: number | null
+  nao_empilhar: boolean
 }
 
 interface Opcao { id: string; nome: string }
@@ -88,6 +89,7 @@ function NovoAgendamentoModal({
   const [horaIni, setHoraIni]         = useState(agendamento?.hora_inicio != null ? String(agendamento.hora_inicio) : '8')
   // Última hora ATIVA (inclusiva na UI); grava hora_fim = horaFimUlt + 1 (exclusiva).
   const [horaFimUlt, setHoraFimUlt]   = useState(agendamento?.hora_fim != null ? String(agendamento.hora_fim - 1) : '17')
+  const [naoEmpilhar, setNaoEmpilhar] = useState(agendamento?.nao_empilhar ?? false)
   const [salvando, setSalvando]       = useState(false)
   const [erro, setErro]               = useState('')
   const [loading, setLoading]         = useState(true)
@@ -154,6 +156,7 @@ function NovoAgendamentoModal({
       dias_semana: diasSemana.length > 0 ? [...diasSemana].sort((a, b) => a - b) : null,
       hora_inicio: hIni,
       hora_fim: hFim,
+      nao_empilhar: naoEmpilhar,
     }
 
     const { error } = isEdicao
@@ -300,6 +303,18 @@ function NovoAgendamentoModal({
             <p className="text-xs text-gray-400 mt-1">Só gera dentro da faixa; fora dela o disparo aguarda até voltar ao horário permitido (fuso de Brasília).</p>
           </div>
 
+          {/* Não empilhar ocorrências */}
+          <div>
+            <label className="flex items-start gap-2 text-xs font-medium text-gray-600 cursor-pointer">
+              <input type="checkbox" checked={naoEmpilhar} onChange={e => setNaoEmpilhar(e.target.checked)}
+                className="mt-0.5 rounded border-gray-300 text-violet-500 focus:ring-violet-200" />
+              <span>Aguardar a resposta anterior antes de gerar a próxima</span>
+            </label>
+            <p className="text-xs text-gray-400 mt-1 pl-6">
+              Evita acúmulo: só cria uma nova pendência quando a atual for respondida. Desmarcado, cada horário gera sua própria ocorrência (útil para registrar a não execução hora a hora).
+            </p>
+          </div>
+
           {erro && (
             <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
               <AlertCircle size={14} className="text-red-500 flex-shrink-0" />
@@ -346,7 +361,7 @@ export default function AgendamentosPage() {
     const isAdmin = await ehAdminDaEmpresa(sb, empresaAtiva?.id)
 
     let q = sb.from('agendamentos')
-      .select('id, tipo_alvo, workflow_id, checklist_id, intervalo_unidade, intervalo_valor, referencia_inicio, proxima_execucao, ultima_execucao_em, ativo, dias_semana, hora_inicio, hora_fim, workflow:workflow_id(nome), checklist:checklist_id(nome, subgrupo_id)')
+      .select('id, tipo_alvo, workflow_id, checklist_id, intervalo_unidade, intervalo_valor, referencia_inicio, proxima_execucao, ultima_execucao_em, ativo, dias_semana, hora_inicio, hora_fim, nao_empilhar, workflow:workflow_id(nome), checklist:checklist_id(nome, subgrupo_id)')
       .eq('empresa_id', empresaAtiva.id)
       .order('proxima_execucao')
 
@@ -404,6 +419,7 @@ export default function AgendamentosPage() {
         dias_semana: a.dias_semana ?? null,
         hora_inicio: a.hora_inicio ?? null,
         hora_fim: a.hora_fim ?? null,
+        nao_empilhar: a.nao_empilhar ?? false,
       }
     })
     setAgendamentos(lista)
