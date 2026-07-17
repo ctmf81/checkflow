@@ -33,7 +33,8 @@ Espec original abaixo (mantida como referência):
 - **Montagem** (quem tem perfil que permite criar): título + tarefas; flags **por tarefa** — cada tarefa define se aceita **observação**, **evidência** (foto/vídeo) e se **exige checkin** (localização).
 - **Execução** (Operação): aparece numa **nova aba "Tarefas"** (4ª aba, junto de Checklists/Histórico/Documentos), para quem está nos subgrupos atribuídos. Para cada tarefa: marca se realizou + (se a tarefa permitir) texto/evidência + (se exigir) checkin.
 - **Menu/permissão**: pelo menu o usuário executa as listas dos seus grupos/subgrupos; com permissão (perfil), também **cria modelos** de lista.
-- **Acompanhamento (Gestão)**: na listagem, por lista, abrir **modal/tela de indicadores de execução** (progresso respostas/alvo, quem respondeu, evidências).
+- **Acompanhamento (Gestão) — Indicadores (2026-07-17, `2d7d354`)**: botão 📊 na listagem abre **página dedicada** `/gestao/tarefas/[id]/indicadores` (substituiu o modal simples). 3 abas: **Resumo** (KPIs respostas/conclusão média/nº tarefas + gráfico **feito × não-feito por tarefa** em barras + **por pessoa** expansível com o que cada um respondeu/obs/evidência/local), **Evidências** (grid de todas as fotos+vídeos → lightbox + quem resolveu/item), **Mapa** (pontos com check-in via **Leaflet CDN/OSM**, fallback lista Google Maps). Dados: `tarefa_execucoes` + `tarefa_respostas`. Sem migration.
+- **Evidência de tarefa — storage (2026-07-16, `10aa8bd`)**: sobe em `execucoes/tarefas/<tarefa_execucao_id>/...`. As policies `execucoes_upload`/`execucoes_delete` foram ampliadas (migration `20260716150000`) para aceitar o 1º segmento `tarefas` (escopado a `tarefa_execucoes.unidade_id`), além de `tickets` e id de `checklist_execucoes`. Antes dava "new row violates row-level security policy". Leitura é via `getPublicUrl` (bucket público).
 - **Notificação ao publicar (RECOMENDAÇÃO a confirmar)**: canal garantido = aba Tarefas na Operação. WhatsApp **individual por pessoa** do subgrupo deve ser **opcional por lista** (toggle "avisar por WhatsApp"), **respeitando o turno** de cada um; default **desligado** (evita custo/spam de disparo automático p/ subgrupo inteiro).
 - **Pontos a confirmar**: se mídias contam na cota de armazenamento (como no checklist); se há limite de 1 instância por pessoa por janela de abertura, ou várias.
 
@@ -426,13 +427,18 @@ Atividade tipo `padrao`: validação **complexa** cujo valor de referência NÃO
 - **Sequência entre setores** garantida pelo motor: só os itens do **estágio atual** ficam `liberado`; os próximos ficam `bloqueado` e nem aparecem até a condição do estágio ser satisfeita.
 - **Operação (2026-06-18)**: "Workflows em andamento" mostra só os itens dos **subgrupos do operador** (admin vê todos); e os checklists que estão como item de workflow liberado **somem da lista avulsa** (evita a "porta dupla" de executar solto sem vincular).
 
-## Agendamentos (recorrência) — revisado 2026-06-18
+## Agendamentos (recorrência) — revisado 2026-07-17
 - Tela `/gestao/agendamentos`: cria disparos recorrentes de workflows ou checklists publicados (workflows da empresa; checklists da unidade ativa)
 - Recorrência personalizada: a cada X horas/dias/meses, a partir de uma data/hora de referência (`referencia_inicio`)
-- `proxima_execucao` calculada automaticamente em Postgres (trigger `agendamento_set_proxima`); processamento via `agendamentos_processar()` chamada periodicamente por `pg_cron`
+- `proxima_execucao` calculada automaticamente em Postgres (trigger `agendamento_set_proxima`); processamento via `agendamentos_processar()`. **Disparo por HTTP** `POST /cron/agendamentos/processar` (cron-job.org, a cada ~10 min, header `x-cron-secret`) — o `pg_cron` do Supabase free é instável; ver `/ops`.
 - **Sem catch-up**: se a referência está no passado, o sistema calcula o **próximo slot futuro** (não recupera disparos perdidos); dispara 1× quando vence e empurra a próxima pra frente.
+- **Janela de geração (2026-07-16, migration `20260716140000`)** — opcional, por agendamento:
+  - **Dias da semana permitidos** (`dias_semana smallint[]`, 0=domingo…6=sábado; null/vazio = todos). Chips no modal.
+  - **Faixa de horário** (`hora_inicio`/`hora_fim smallint`; `hora_fim` é **EXCLUSIVA** — "das 8 às 18" = 08:00 até **17:59**). Fuso **America/Sao_Paulo**. Fora da janela o disparo **aguarda** (não avança `proxima_execucao`); ocorrências perdidas fora da janela colapsam num único disparo ao voltar.
+- **"Não empilhar" (2026-07-17, migration `20260717120000`, `nao_empilhar boolean default false`)** — opção por agendamento (checkbox "Aguardar a resposta anterior antes de gerar a próxima"). **Padrão `false`** = cada slot gera sua própria ocorrência (**registra a não execução hora a hora**). Com `true`, o processamento só cria nova ocorrência de **checklist** se **não houver** pendente daquele agendamento (`em_andamento`, `executado_por` null) → evita acúmulo em "Agendados pendentes". Não se aplica a workflows.
 - **Disparo**: workflow → `workflow_iniciar` (inicia o workflow, libera estágio 1). Checklist → cria `checklist_execucoes` como pendência da unidade (`executado_por` null + `agendamento_id`).
 - **Visibilidade do agendado (2026-06-18)**: a pendência agendada de checklist aparece na Operação **só para operadores do subgrupo do checklist** (admin vê todas) — não mais para qualquer operador da unidade.
+- **Agendado marcado não-executável (2026-07-16, `6c6f281`)**: ao abrir um agendado (`?exec=`) e marcar "Não foi possível executar", a **mesma linha** agendada vira `nao_executado` (reaproveita, não insere nova) → **sai de "Agendados pendentes"**. Antes ficava eterna (em_andamento/executado_por null).
 - **Ativar/pausar, editar e excluir** pela própria tela (edição reabre o modal e recalcula `proxima_execucao`).
 - **Permissão**: criar/editar/excluir exige a permissão `agendamentos` no perfil (RLS).
 - **Listagem da Gestão por grupo (2026-06-18)**: gestor não-admin vê só os agendamentos dos seus subgrupos (`usuario_subgrupo`) — checklist pelo subgrupo do checklist; workflow pelos subgrupos dos itens. Admin vê todos.
