@@ -51,6 +51,18 @@ export async function pushRoutes(app: FastifyInstance) {
     return reply.send(diagnosticoVapid())
   })
 
+  // Lista as inscrições (nome + dispositivo + quando) — temporário p/ diagnóstico.
+  app.get('/push/diag-list', async (_req, reply) => {
+    const sb = createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: false }, realtime: { transport: ws as any } })
+    const { data } = await sb.from('push_subscriptions').select('usuario_id, criado_em, user_agent, usuarios(nome)')
+    return reply.send((data ?? []).map((s: any) => ({
+      nome: (Array.isArray(s.usuarios) ? s.usuarios[0] : s.usuarios)?.nome ?? '?',
+      usuario_id: s.usuario_id,
+      criado_em: s.criado_em,
+      ua: String(s.user_agent ?? '').slice(0, 50),
+    })))
+  })
+
   // Diagnóstico de ENVIO sem login (temporário): dispara um push de teste para
   // TODAS as inscrições existentes e devolve o resultado. Remover após validar.
   app.post('/push/diag-send', async (_req, reply) => {
