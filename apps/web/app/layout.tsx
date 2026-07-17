@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { FeedbackProvider } from "@/components/ui/feedback";
 import { PwaRegister } from "@/components/pwa/PwaRegister";
+import { PushOptIn } from "@/components/pwa/PushOptIn";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,6 +46,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <PwaRegister />
         <FeedbackProvider>{children}</FeedbackProvider>
+        <PushOptIn />
       </body>
     </html>
   );

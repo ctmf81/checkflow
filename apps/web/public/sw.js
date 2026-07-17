@@ -71,3 +71,36 @@ self.addEventListener('fetch', (event) => {
     )
   }
 })
+
+// ─── Web Push ────────────────────────────────────────────────────────────────
+// Recebe a notificação enviada pela API (payload JSON: { title, body, url }).
+self.addEventListener('push', (event) => {
+  let data = {}
+  try { data = event.data ? event.data.json() : {} } catch (e) { data = {} }
+  const title = data.title || 'CheckFlow'
+  const options = {
+    body: data.body || '',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    data: { url: data.url || '/' },
+    tag: data.tag || undefined, // agrupa notificações do mesmo assunto quando informado
+  }
+  event.waitUntil(self.registration.showNotification(title, options))
+})
+
+// Clique na notificação: foca uma aba já aberta no link ou abre uma nova.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const alvo = (event.notification.data && event.notification.data.url) || '/'
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        try {
+          const u = new URL(client.url)
+          if (u.pathname === alvo || client.url.includes(alvo)) return client.focus()
+        } catch (e) { /* noop */ }
+      }
+      return self.clients.openWindow(alvo)
+    })
+  )
+})
