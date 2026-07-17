@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import { exigirAutorizacao } from '../lib/apiAuth'
 import { enviarWhatsApp } from '../lib/whatsapp'
+import { enviarPush } from '../lib/push'
 import { buscarTemplate, renderizar, empresaDeUnidade } from '../lib/notificacao-templates'
 
 // ─── Rota ────────────────────────────────────────────────────────────────────
@@ -107,6 +108,15 @@ export async function tarefasRoutes(app: FastifyInstance) {
       else erros.push(`${nome}: ${erro}`)
     }))
 
-    return reply.send({ enviados, erros })
+    // 6. Push (PWA) — independe de telefone; mesmo público (respeita turno)
+    const idsPush = ids.filter(uid => !foraDoTurno.has(uid))
+    const push_enviados = await enviarPush(sb, idsPush, {
+      titulo: 'Nova lista de tarefas',
+      corpo: lista.titulo,
+      url: `${baseUrl}/operacao?aba=tarefas`,
+      tag: 'tarefa-nova',
+    })
+
+    return reply.send({ enviados, push_enviados, erros })
   })
 }

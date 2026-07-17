@@ -4,6 +4,7 @@ import ws from 'ws'
 import { exigirAutorizacao } from '../lib/apiAuth'
 import { enviarWhatsApp, enviarWhatsAppMidia } from '../lib/whatsapp'
 import { enviarEmail } from '../lib/email'
+import { enviarPush } from '../lib/push'
 import { emailTicketAberto, emailTicketMovimentado } from '../lib/email-templates'
 import {
   buscarTemplate, renderizar, empresaDeUnidade,
@@ -171,12 +172,19 @@ export async function ticketsRoutes(app: FastifyInstance) {
     }
 
     // 8. Dispara para cada destinatário
-    let waEnviados = 0, emailEnviados = 0
+    let waEnviados = 0, emailEnviados = 0, pushEnviados = 0
     const erros: string[] = []
 
     await Promise.all(destinatarios.map(async (u) => {
       const link = linkParaUsuario(u.id)
       const vars = { ...varsBase, link, destinatario: u.nome }
+
+      // ── Push (PWA) ── mesmo público do WA (respeita turno no evento 'aberto')
+      if (!foraDoTurno.has(u.id)) {
+        const titulo = evento === 'aberto' ? `Novo ticket #${numeroStr}` : `Ticket #${numeroStr} — ${eventoLabel}`
+        const corpo = evento === 'aberto' ? t.titulo : (texto || t.titulo)
+        pushEnviados += await enviarPush(sb, [u.id], { titulo, corpo, url: link, tag: `ticket-${ticket_id}` })
+      }
 
       // ── WhatsApp ──
       if (u.telefone && !foraDoTurno.has(u.id)) {
@@ -245,6 +253,7 @@ export async function ticketsRoutes(app: FastifyInstance) {
     return reply.send({
       wa_enviados: waEnviados,
       email_enviados: emailEnviados,
+      push_enviados: pushEnviados,
       total_destinatarios: destinatarios.length,
       erros: erros.length ? erros : undefined,
     })

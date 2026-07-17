@@ -4,6 +4,7 @@ import ws from 'ws'
 import { exigirAutorizacao } from '../lib/apiAuth'
 import { enviarWhatsApp, enviarWhatsAppMidia } from '../lib/whatsapp'
 import { enviarEmail } from '../lib/email'
+import { enviarPush } from '../lib/push'
 import { emailPlanoAberto, emailPlanoEnviadoN2 } from '../lib/email-templates'
 import { buscarTemplate, renderizar, empresaDeSubgrupo } from '../lib/notificacao-templates'
 
@@ -192,6 +193,13 @@ async function dispararNotificacaoPlano(
     const email: string | null = usuario.email ?? null
     const telefone: string | null = usuario.telefone ?? null
     const vars = { ...varsBase, destinatario: nome }
+
+    // ── Push (PWA) ── efeito colateral; não afeta o status de entrega WA/email
+    if (!foraDoTurno.has(m.usuario_id)) {
+      const tituloPush = evento === 'aberto' ? 'Novo plano de ação'
+        : evento === 'enviado_n2' ? 'Plano enviado para N2' : 'Plano devolvido para N1'
+      await enviarPush(sb, [m.usuario_id], { titulo: tituloPush, corpo: `${nomeAtividade} · ${nomeSubgrupo}`, url: link, tag: `plano-${plano_id}` })
+    }
 
     // ── WhatsApp ──
     if (telefone && !foraDoTurno.has(m.usuario_id)) {
