@@ -2,7 +2,7 @@
 // inscrição em push_subscriptions (RLS: usuário gerencia as suas).
 // A chave pública VAPID vem de NEXT_PUBLIC_VAPID_PUBLIC_KEY (env do serviço web).
 
-import { createClient } from '@/lib/supabase'
+import { apiFetch } from '@/lib/apiClient'
 
 // Chave PÚBLICA VAPID. Não é segredo (vai para todo navegador). Fallback
 // hardcoded porque o build via Dockerfile no Railway NÃO injeta as
@@ -72,20 +72,45 @@ export async function inscrever(): Promise<{ ok: boolean; motivo?: string }> {
   }
 
   const json = sub.toJSON()
-  const sb = createClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) return { ok: false, motivo: 'Sessão expirada. Entre novamente.' }
-
-  const { error } = await sb.from('push_subscriptions').upsert({
-    usuario_id: user.id,
-    endpoint: sub.endpoint,
-    p256dh: json.keys?.p256dh ?? '',
-    auth: json.keys?.auth ?? '',
-    user_agent: navigator.userAgent.slice(0, 300),
-  }, { onConflict: 'endpoint' })
-
-  if (error) return { ok: false, motivo: 'Não foi possível salvar a inscrição.' }
+  // Grava via API (service role): registra a inscrição sob o usuário logado,
+  // reatribuindo o aparelho a quem está logado agora (troca de login).
+  const res = await apiFetch('/push/subscribe', {
+    method: 'POST',
+    body: JSON.stringify({
+      endpoint: sub.endpoint,
+      p256dh: json.keys?.p256dh ?? '',
+      auth: json.keys?.auth ?? '',
+      user_agent: navigator.userAgent,
+    }),
+  })
+  if (!res.ok) return { ok: false, motivo: 'Não foi possível salvar a inscrição.' }
   return { ok: true }
+}
+
+/**
+ * Garante que a inscrição deste aparelho pertence ao usuário logado. Chamar ao
+ * abrir o app (ex.: no cabeçalho). Se o navegador já tem uma inscrição, reatribui
+ * ao usuário atual — resolve troca de login no mesmo dispositivo.
+ */
+export async function sincronizarInscricao(): Promise<void> {
+  if (!pushSuportado()) return
+  try {
+    const reg = await navigator.serviceWorker.ready
+    const sub = await reg.pushManager.getSubscription()
+    if (!sub) return
+    const json = sub.toJSON()
+    await apiFetch('/push/subscribe', {
+      method: 'POST',
+      body: JSON.stringify({
+        endpoint: sub.endpoint,
+        p256dh: json.keys?.p256dh ?? '',
+        auth: json.keys?.auth ?? '',
+        user_agent: navigator.userAgent,
+      }),
+    })
+  } catch {
+    /* noop */
+  }
 }
 
 export async function desinscrever(): Promise<void> {
@@ -96,8 +121,7 @@ export async function desinscrever(): Promise<void> {
     if (!sub) return
     const endpoint = sub.endpoint
     await sub.unsubscribe().catch(() => {})
-    const sb = createClient()
-    await sb.from('push_subscriptions').delete().eq('endpoint', endpoint)
+    await apiFetch('/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint }) })
   } catch {
     /* noop */
   }

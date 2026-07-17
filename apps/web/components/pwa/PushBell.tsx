@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Bell } from 'lucide-react'
-import { pushSuportado, pushConfigurado, estaInscrito, inscrever, permissaoAtual } from '@/lib/push'
+import { pushSuportado, pushConfigurado, estaInscrito, inscrever, permissaoAtual, sincronizarInscricao } from '@/lib/push'
 
 // Sino no cabeçalho: lembrete permanente para ativar o push.
 // - Push indisponível/não configurado → não renderiza (sem ruído).
@@ -14,7 +14,12 @@ export function PushBell() {
 
   useEffect(() => {
     if (!pushSuportado() || !pushConfigurado()) { setEstado('oculto'); return }
-    estaInscrito().then(v => setEstado(v ? 'on' : 'off'))
+    estaInscrito().then(v => {
+      setEstado(v ? 'on' : 'off')
+      // Se o aparelho já está inscrito, garante que a inscrição pertence ao
+      // usuário logado agora (resolve troca de login no mesmo dispositivo).
+      if (v) sincronizarInscricao()
+    })
   }, [])
 
   if (estado === 'oculto' || estado === 'carregando') return null
