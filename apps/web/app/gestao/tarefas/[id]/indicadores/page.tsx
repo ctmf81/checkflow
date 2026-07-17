@@ -46,6 +46,55 @@ function carregarLeaflet(): Promise<any> {
   return leafletPromise
 }
 
+// ─── Endereço a partir do check-in (geocodificação reversa OSM/Nominatim) ────
+const enderecoCache = new Map<string, string>()
+async function buscarEndereco(lat: number, lng: number): Promise<string> {
+  const key = `${lat.toFixed(6)},${lng.toFixed(6)}`
+  if (enderecoCache.has(key)) return enderecoCache.get(key)!
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=pt-BR`,
+      { headers: { Accept: 'application/json' } },
+    )
+    const data = await res.json()
+    const end = data?.display_name || `${lat}, ${lng}`
+    enderecoCache.set(key, end)
+    return end
+  } catch {
+    return `${lat}, ${lng}`
+  }
+}
+
+function EnderecoModal({ lat, lng, onClose }: { lat: number; lng: number; onClose: () => void }) {
+  const [endereco, setEndereco] = useState<string | null>(null)
+  useEffect(() => {
+    let vivo = true
+    buscarEndereco(lat, lng).then(e => { if (vivo) setEndereco(e) })
+    return () => { vivo = false }
+  }, [lat, lng])
+  return (
+    <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5"><MapPin size={15} className="text-orange-500" /> Localização do check-in</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+        <div className="px-5 py-4">
+          {endereco === null ? (
+            <p className="flex items-center gap-2 text-sm text-gray-400"><Loader2 size={14} className="animate-spin" /> Buscando endereço...</p>
+          ) : (
+            <p className="text-sm text-gray-700">{endereco}</p>
+          )}
+          <a href={`https://www.google.com/maps?q=${lat},${lng}`} target="_blank" rel="noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-3">
+            <MapPin size={12} /> Ver no mapa
+          </a>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Aba do mapa ────────────────────────────────────────────────────────────
 function MapaTarefas({ pontos }: { pontos: { lat: number; lng: number; pessoa: string; item: string; hora: string }[] }) {
   const ref = useRef<HTMLDivElement | null>(null)
@@ -108,6 +157,7 @@ export default function IndicadoresTarefaPage({ params }: { params: Promise<{ id
   const [loading, setLoading] = useState(true)
   const [aba, setAba] = useState<'resumo' | 'evidencias' | 'mapa'>('resumo')
   const [lightbox, setLightbox] = useState<{ url: string; tipo: 'foto' | 'video' } | null>(null)
+  const [enderecoAlvo, setEnderecoAlvo] = useState<{ lat: number; lng: number } | null>(null)
   const [expandido, setExpandido] = useState<string | null>(null)
 
   useEffect(() => { carregar() }, [id])
@@ -150,6 +200,7 @@ export default function IndicadoresTarefaPage({ params }: { params: Promise<{ id
     e.respostas.filter(r => r.evidencia_url).map(r => ({
       url: r.evidencia_url!, tipo: (r.evidencia_tipo ?? 'foto') as 'foto' | 'video',
       pessoa: e.nome, item: tituloItem.get(r.item_id) ?? 'Item', hora: fmt(r.respondido_em),
+      lat: r.lat, lng: r.lng,
     })),
   ), [execs, tituloItem])
 
@@ -322,24 +373,32 @@ export default function IndicadoresTarefaPage({ params }: { params: Promise<{ id
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {evidencias.map((ev, i) => (
-                  <button key={i} onClick={() => setLightbox({ url: ev.url, tipo: ev.tipo })}
-                    className="group text-left">
+                  <div key={i} className="group text-left">
                     <div className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
-                      {ev.tipo === 'video' ? (
-                        <>
-                          <video src={ev.url} className="w-full h-full object-cover" muted preload="metadata" />
-                          <span className="absolute inset-0 flex items-center justify-center bg-black/30">
-                            <Play size={26} className="text-white" fill="white" />
-                          </span>
-                        </>
-                      ) : (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={ev.url} alt={ev.item} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      <button onClick={() => setLightbox({ url: ev.url, tipo: ev.tipo })} className="block w-full h-full">
+                        {ev.tipo === 'video' ? (
+                          <>
+                            <video src={ev.url} className="w-full h-full object-cover" muted preload="metadata" />
+                            <span className="absolute inset-0 flex items-center justify-center bg-black/30">
+                              <Play size={26} className="text-white" fill="white" />
+                            </span>
+                          </>
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={ev.url} alt={ev.item} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                        )}
+                      </button>
+                      {ev.lat != null && ev.lng != null && (
+                        <button onClick={() => setEnderecoAlvo({ lat: ev.lat!, lng: ev.lng! })}
+                          title="Ver localização do check-in"
+                          className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-white/90 shadow flex items-center justify-center text-orange-600 hover:bg-white transition-colors">
+                          <MapPin size={14} />
+                        </button>
                       )}
                     </div>
                     <p className="text-xs font-medium text-gray-700 truncate mt-1">{ev.pessoa}</p>
                     <p className="text-xs text-gray-400 truncate">{ev.item}</p>
-                  </button>
+                  </div>
                 ))}
               </div>
             )
@@ -348,6 +407,11 @@ export default function IndicadoresTarefaPage({ params }: { params: Promise<{ id
           {/* ── MAPA ── */}
           {aba === 'mapa' && <MapaTarefas pontos={pontos} />}
         </>
+      )}
+
+      {/* Modal de endereço (check-in) */}
+      {enderecoAlvo && (
+        <EnderecoModal lat={enderecoAlvo.lat} lng={enderecoAlvo.lng} onClose={() => setEnderecoAlvo(null)} />
       )}
 
       {/* Lightbox de mídia */}
