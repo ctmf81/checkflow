@@ -11,6 +11,12 @@ const SUPA_URL = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_UR
 const SUPA_KEY = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 
 export async function pushRoutes(app: FastifyInstance) {
+  // Diagnóstico SEM login (temporário): só presença/tamanho das chaves — nunca
+  // o valor. Serve para inspecionar o processo que realmente atende HTTP.
+  app.get('/push/diag', async (_req, reply) => {
+    return reply.send(diagnosticoVapid())
+  })
+
   app.post('/push/testar', async (req, reply) => {
     const token = String(req.headers['authorization'] ?? '').replace(/^Bearer\s+/i, '').trim()
     if (!token) return reply.status(401).send({ error: 'Não autorizado' })
