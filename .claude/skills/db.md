@@ -78,13 +78,13 @@ foto:             {}   (no config needed)
 ### Agendamentos (migration 20260606000015)
 | Table | Description |
 |-------|-------------|
-| `agendamentos` | Recurring scheduler for workflows/checklists: `tipo_alvo` (workflow/checklist), `intervalo_unidade` (horas/dias/meses), `intervalo_valor`, `referencia_inicio`, `proxima_execucao` (auto-calc via trigger), `ativo`, `ultima_execucao_em` |
+| `agendamentos` | Recurring scheduler for workflows/checklists: `tipo_alvo` (workflow/checklist), `intervalo_unidade` (horas/dias/meses), `intervalo_valor`, `referencia_inicio`, `proxima_execucao` (auto-calc via trigger), `ativo`, `ultima_execucao_em`. **Janela (20260716140000)**: `dias_semana smallint[]` (0=dom…6=sáb, null=todos), `hora_inicio`/`hora_fim smallint` (`hora_fim` EXCLUSIVA; constraint `agendamento_hora_valida`: `hora_inicio<hora_fim`, fuso São_Paulo). **`nao_empilhar boolean default false` (20260717120000)** |
 
 **Funções:**
 - `agendamento_calcular_proxima(referencia, unidade, valor, a_partir_de)` → loops adding interval until past target
 - `agendamento_set_proxima()` trigger → recalculates `proxima_execucao` on insert/update of recurrence fields
-- `agendamentos_processar()` → processes due schedules (`for update skip locked`), calls `workflow_iniciar()` or inserts `checklist_execucoes` (status `'em_andamento'`), recalculates next run
-- **Requires pg_cron**: `select cron.schedule('processar-agendamentos', '*/10 * * * *', $$select agendamentos_processar()$$);`
+- `agendamentos_processar()` → processes due schedules (`for update skip locked`), calls `workflow_iniciar()` or inserts `checklist_execucoes` (status `'em_andamento'`), recalculates next run. **Pula** (sem avançar `proxima_execucao`) quando fora dos `dias_semana`/faixa de horário (em `America/Sao_Paulo`), ou quando `nao_empilhar` e já há pendência aberta do agendamento (`agendamento_id=id`, `em_andamento`, `executado_por null`). Reescrita nas migrations 20260716140000 e 20260717120000.
+- **Disparo em produção via HTTP** `POST /cron/agendamentos/processar` (cron-job.org ~10 min) — pg_cron do Supabase free é instável. Idempotente (roda por pg_cron E HTTP sem duplicar). Ver `/ops`.
 
 ### Validação de troca de perfil (migration 20260607100800)
 Trigger `trg_validar_troca_perfil` (before update em `usuario_empresa`) chama `validar_troca_perfil()`: bloqueia a troca para um perfil **não público** a menos que quem está fazendo a alteração seja Admin da empresa (`00000000-0000-0000-0000-000000000002`) ou Admin de sistema (`...001`) — reforça em DB a regra que já existe na UI do `UsuarioModal`/`alterarPerfil`, protegendo contra chamadas diretas à API.
@@ -147,6 +147,7 @@ Correções do fluxo de ticket descobertas nos testes manuais (Tela 11). **Preci
 - `20260703020000_fix_ticket_eventos_fk_usuarios.sql` — repointa FK `ticket_eventos_autor_id_fkey` → `usuarios(id)` (era auth.users). Sem isso o embed `autor:usuarios(nome)` falha e a **timeline vem VAZIA**. (Mesmo gotcha da `20260614050000`, que cobriu `tickets` mas esqueceu `ticket_eventos`.)
 - `20260703030000_tickets_atualizar_with_check.sql` — `tickets_atualizar` ganha `WITH CHECK` (mesma unidade). Sem isso, **transferir/reatribuir** para outro assignee barra operador não-abridor (USING vira check da linha nova).
 - `20260703040000_storage_execucoes_tickets.sql` — `execucoes_upload/delete` passam a aceitar caminho `tickets/<ticket_id>/...` (comparação por texto, sem cast p/ uuid). Sem isso, **evidência de ticket não sobe**.
+- `20260716150000_storage_execucoes_tarefas.sql` (✅) — mesmo padrão para `tarefas/<tarefa_execucao_id>/...` (escopado a `tarefa_execucoes.unidade_id`). Sem isso, **evidência de tarefa não sobe** ("new row violates row-level security policy"). Bucket `execucoes` aceita 3 tipos de 1º segmento: id de `checklist_execucoes`, `tickets`, `tarefas`.
 - **Já aplicadas nesta leva**: `20260702020000` (buscar_email_por_cpf normaliza `\D`), `20260703000000` (`usuarios_leitura_scoped` via função `partilha_empresa(uuid)` SECURITY DEFINER — operador lê nome de colega; a subquery direta em `usuario_empresa` era barrada pelo RLS aninhado).
 - **UPDATE de dados** (backfill de evidência órfã da abertura): `update ticket_evidencias set evento_id = (select id from ticket_eventos e where e.ticket_id=ticket_evidencias.ticket_id and e.tipo='abertura' order by criado_em limit 1) where evento_id is null`.
 

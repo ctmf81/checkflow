@@ -26,8 +26,9 @@ Layout: `gestao/layout.tsx` — sidebar + SessionProvider
 | `/gestao/checklists/novo/montar` | `gestao/checklists/novo/montar/page.tsx` | Builder for new |
 | `/gestao/checklists/[id]` | `gestao/checklists/[id]/page.tsx` | Edit checklist meta |
 | `/gestao/checklists/[id]/montar` | `gestao/checklists/[id]/montar/page.tsx` | Builder for existing |
-| `/gestao/tarefas` | `gestao/tarefas/page.tsx` | Listas de tarefas (listagem + criar + modal indicadores) |
+| `/gestao/tarefas` | `gestao/tarefas/page.tsx` | Listas de tarefas (listagem + criar + duplicar/excluir) |
 | `/gestao/tarefas/[id]` | `gestao/tarefas/[id]/page.tsx` | Montador da lista de tarefas (encerramento data/qtd, janela edição, grupos/subgrupos, itens c/ flags) |
+| `/gestao/tarefas/[id]/indicadores` | `gestao/tarefas/[id]/indicadores/page.tsx` | Indicadores da lista — 3 abas: Resumo (gráfico feito×não-feito + por pessoa), Evidências (grid+lightbox), Mapa (Leaflet CDN/OSM). Substituiu o modal |
 | `/gestao/grupos` | `gestao/grupos/page.tsx` | Grupos list |
 | `/gestao/grupos/[id]/subgrupos` | `gestao/grupos/[id]/subgrupos/page.tsx` | Subgrupos |
 | `/gestao/acessos/usuarios` | `gestao/acessos/usuarios/page.tsx` | User management + **QR pré-cadastro** (`QrPreCadastroModal`) e **moderação** de pendentes com contador (`ModeracaoPreCadastroModal` → aprovar escolhe perfil+unidades e reusa `/api/usuarios/criar`) |
@@ -40,7 +41,7 @@ Layout: `gestao/layout.tsx` — sidebar + SessionProvider
 | `/gestao/configuracoes/catalogos` | `gestao/configuracoes/catalogos/page.tsx` | Catalog management |
 | `/gestao/configuracoes/dashboards` | `gestao/configuracoes/dashboards/page.tsx` (+ `[id]/page.tsx`) | Dashboards de TV — lista + editor. Editor: config geral + link público + painéis (toggle **tipo** "Uma atividade / Checklist inteiro", cadeia grupo→subgrupo→checklist→[atividade], `alerta_silencio_horas` por painel) |
 | `/painel/[token]` | `painel/[token]/page.tsx` | **Página PÚBLICA de TV (sem login)** — carrossel de painéis, polling. `Painel` ramifica por `grafico`; `ChecklistPainel` (placar/conformidade/top NC/tratamento/tempo médio) + gráficos de atividade + selo de frescor |
-| `/gestao/agendamentos` | `gestao/agendamentos/page.tsx` | Recurring scheduler for workflows/checklists (NovoAgendamentoModal) |
+| `/gestao/agendamentos` | `gestao/agendamentos/page.tsx` | Recurring scheduler for workflows/checklists (NovoAgendamentoModal: recorrência + janela dias/horário + "não empilhar") |
 | `/gestao/tickets` | `gestao/tickets/page.tsx` | Ticket listing — SLA semaphore, filter tabs (abertos/fechados/todos), summary cards |
 | `/gestao/tickets/[id]` | `gestao/tickets/[id]/page.tsx` | Ticket timeline + contextual actions by status+role. Fixed footer com `EvidenciaPicker`. Banner "Aguardando sua resposta" no topo da listagem (abridor, 2026-07-05). Transferência com modal |
 | `/gestao/execucoes/[id]` | `gestao/execucoes/[id]/page.tsx` | **Tela interativa da execução** (2026-07-06) — usa `ExecucaoViewer` ambiente=gestao. Foto amplia (lightbox), vídeo toca, planos clicáveis, Baixar PDF. Aberta pela seta da Home + "Ver execução completa" do plano |
