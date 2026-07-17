@@ -4,7 +4,13 @@
 
 import { createClient } from '@/lib/supabase'
 
-const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
+// Chave PÚBLICA VAPID. Não é segredo (vai para todo navegador). Fallback
+// hardcoded porque o build via Dockerfile no Railway NÃO injeta as
+// NEXT_PUBLIC_* (mesmo padrão de lib/supabase.ts). Deve corresponder à
+// VAPID_PRIVATE_KEY configurada no serviço API. Se rotacionar as chaves,
+// atualizar aqui E no env da API.
+const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+  || 'BCxTgNq-6NyeeEC-J02huW2uWjWPgDXMtmvIyN8hX3CQEk8A-fDJFrIBk26i3JkLS1XuY47Gp6auHI2QU9AyooY'
 
 export function pushSuportado(): boolean {
   return typeof window !== 'undefined'
