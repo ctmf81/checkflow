@@ -222,6 +222,7 @@ function ExecutarLista({ lista, unidadeId, empresaId, onVoltar }: { lista: Lista
   const [status, setStatus] = useState<string>('em_andamento')
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState<string | null>(null)
+  const [enviandoMidia, setEnviandoMidia] = useState<string | null>(null)
   const [concluindo, setConcluindo] = useState(false)
   const [erro, setErro] = useState('')
 
@@ -311,6 +312,7 @@ function ExecutarLista({ lista, unidadeId, empresaId, onVoltar }: { lista: Lista
   async function enviarEvidencia(item: Item, file: File) {
     if (!execucaoId || bloqueado) return
     setSalvando(item.id)
+    setEnviandoMidia(item.id)
     setErro('')
     const supabase = createClient()
 
@@ -319,6 +321,7 @@ function ExecutarLista({ lista, unidadeId, empresaId, onVoltar }: { lista: Lista
       const { data: cabe } = await supabase.rpc('billing_armazenamento_disponivel', { p_empresa_id: empresaId, p_bytes: file.size })
       if (cabe === false) {
         setSalvando(null)
+        setEnviandoMidia(null)
         setErro('Capacidade de armazenamento do plano atingida. Contate o administrador para ampliar o plano ou comprar mais espaço.')
         return
       }
@@ -334,13 +337,15 @@ function ExecutarLista({ lista, unidadeId, empresaId, onVoltar }: { lista: Lista
     if (upErr) {
       console.error('[tarefa-evidencia] upload falhou:', upErr)
       setSalvando(null)
+      setEnviandoMidia(null)
       setErro(`Erro ao enviar a evidência: ${upErr.message || 'tente novamente.'}`)
       return
     }
     // Contabiliza o uso de armazenamento (fire-and-forget)
     registrarUsoArmazenamento(empresaId, 'tarefa', file.size)
     const { data: pub } = supabase.storage.from('execucoes').getPublicUrl(path)
-    salvarResposta(item, { evidencia_url: pub.publicUrl, evidencia_tipo: tipo })
+    await salvarResposta(item, { evidencia_url: pub.publicUrl, evidencia_tipo: tipo })
+    setEnviandoMidia(null)
   }
 
   // Marca a instância como concluída. Continua editável enquanto a janela de
@@ -413,7 +418,11 @@ function ExecutarLista({ lista, unidadeId, empresaId, onVoltar }: { lista: Lista
 
                   {item.aceita_evidencia && (
                     <div className="mt-2">
-                      {r.evidencia_url ? (
+                      {enviandoMidia === item.id ? (
+                        <div className="inline-flex items-center gap-1.5 text-xs text-orange-500 border border-dashed border-orange-300 rounded-lg px-3 py-1.5">
+                          <Loader2 size={13} className="animate-spin" />Enviando mídia...
+                        </div>
+                      ) : r.evidencia_url ? (
                         <div className="flex items-center gap-2 text-xs text-green-600">
                           <Check size={12} />Evidência enviada
                           {!bloqueado && <span className="text-gray-300">·</span>}
