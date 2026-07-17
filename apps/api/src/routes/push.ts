@@ -17,6 +17,22 @@ export async function pushRoutes(app: FastifyInstance) {
     return reply.send(diagnosticoVapid())
   })
 
+  // Diagnóstico de ENVIO sem login (temporário): dispara um push de teste para
+  // TODAS as inscrições existentes e devolve o resultado. Remover após validar.
+  app.post('/push/diag-send', async (_req, reply) => {
+    const sb = createClient(SUPA_URL, SUPA_KEY, {
+      auth: { persistSession: false }, realtime: { transport: ws as any },
+    })
+    const { data: subs } = await sb.from('push_subscriptions').select('usuario_id')
+    const ids = [...new Set((subs ?? []).map((s: any) => s.usuario_id))]
+    const r = await enviarPush(sb, ids, {
+      titulo: 'CheckFlow — teste',
+      corpo: 'Teste de diagnóstico do push 🎉',
+      url: '/operacao', tag: 'teste',
+    })
+    return reply.send({ total_subs: subs?.length ?? 0, usuarios: ids.length, ...r })
+  })
+
   app.post('/push/testar', async (req, reply) => {
     const token = String(req.headers['authorization'] ?? '').replace(/^Bearer\s+/i, '').trim()
     if (!token) return reply.status(401).send({ error: 'Não autorizado' })
