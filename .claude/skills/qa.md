@@ -9,7 +9,7 @@ description: Quality Assurance for CheckFlow — test strategy, suites por tela/
 
 | Camada | Ferramenta | Status |
 |--------|-----------|--------|
-| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **472 testes / 31 arquivos** (2026-07-15, `npx vitest run`) |
+| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **493 testes / 33 arquivos** (2026-07-18) |
 | Smoke Tests | Manual UI/navegação | ✅ 9/10 PASSED (2026-06-24) — checklist exec, auth, perms, billing, tickets |
 | Risk Assessment | Custom scripts | ✅ 6/8 PASSED (2026-06-24) — routes auth, WhatsApp OTP, data calc, mascara |
 | Quota Enforcement | Node.js + Supabase | ✅ 6/6 PASSED (2026-06-24) — billing enforcement, assinatura, reset |
@@ -186,6 +186,14 @@ Criado `lib/padrao.ts` (`validarPadrao`, lógica pura **importada** por `app/ges
 
 ### ✅ Unit — Listas de Tarefas — `tests/unit/lib/tarefas.unit.test.ts` (21 testes)
 Criado `lib/tarefas.ts` (lógica pura, **importada** por `app/operacao/AbaTarefas.tsx` — fonte única, não espelho). Cobre: `aberturaAberta` (sem limite, data futura/passada, qtd abaixo/igual ao máximo, "o que vier primeiro" nas duas combinações), `visivelPara` (interseção por subgrupo; sem subgrupo cai p/ grupo; sem atribuição = invisível), `listaDisponivel` (aberta E visível), `calcularEditavelAte` (null sem janela, soma de horas, atravessa o dia), `edicaoExpirada` (null nunca expira, futuro/passado). **⚠️ 2026-07-08 (+10):** `liberada` (agendamento: null/passado = liberada, futuro = agendada), `listaDisponivel` respeita liberação, e `statusTarefa` (status derivado rascunho/agendada/em_execucao/finalizada). **33/33 ✅.** Rodar: `cd apps/web && npx vitest run tests/unit/lib/tarefas.unit.test.ts`.
+
+### ✅ Unit — Indicadores de Tarefas — `tests/unit/lib/tarefaIndicadores.unit.test.ts` (2026-07-18)
+Criado `lib/tarefaIndicadores.ts` (lógica pura, **importada** pela página `gestao/tarefas/[id]/indicadores/page.tsx`). Cobre: `statsPorItem` (feito × não-feito, denominador = nº de execuções, ausência = não-feito), `conclusaoMediaPct` (média das pessoas em %, arredondamento, zero sem execução/item), `feitosDaExecucao`, `itemFeitoNaExecucao`, `extrairEvidencias` (achata só com evidência, default foto, item desconhecido = "Item"), `extrairPontos` (só lat E lng não nulos; lat/lng 0 são válidos). Rodar: `npx vitest run tests/unit/lib/tarefaIndicadores.unit.test.ts`.
+
+### ✅ Unit — Exclusão de Empresa — `tests/unit/lib/empresaExclusao.unit.test.ts` (2026-07-18)
+Criado `lib/empresaExclusao.ts` (lógica pura, **importada** pela rota `api/empresas/[id]/excluir`). Cobre: `extrairLogoPath` (path após `/empresas/`, ignora query, null p/ vazio/sem-bucket/path-vazio), `prefixosExecucoes` / `prefixosEmpresas` (montagem dos prefixos por bucket), `pathsPdfsExecucao` (`pdfs/{id}.pdf`). Rodar: `npx vitest run tests/unit/lib/empresaExclusao.unit.test.ts`.
+
+> ℹ️ **Sem teste unitário (por natureza):** a janela/"não empilhar" dos **agendamentos** é lógica **SQL** (`agendamentos_processar`) — cobrir via teste manual/cron; o **Web Push** é integração navegador/API (SW, PushManager, VAPID) — não é lógica pura de `lib/`.
 
 ### ✅ Unit — Regras de Tickets — `tests/unit/lib/tickets.unit.test.ts` (44 testes)
 Criado `lib/tickets.ts` (lógica pura, **importada** pelas telas de ticket da gestão E da operação — fonte única, não espelho). Cobre: `ticketVisivel` (admin vê tudo; demais por subgrupo de destino OU por terem aberto; userId null), `acoesDisponiveis` (por status × papel — assumir só do subgrupo; em_tratamento → responsável conclui direto **corrigido/não-corrigido** + solicitar info + transferir; aguardando_informacao → só abridor; reabertura só abridor nos status reabríveis; comentar/cancelar nos abertos; terminais sem ações; label de transferência usa rótulos da empresa), `slaStatus`. **Atualização 2026-07-05:** removidas as saídas **"corrigido parcial" e "improcedente"** do fluxo (testes ajustados: conclusão = só corrigido/não-corrigido; improcedência nunca oferecida). **44/44 ✅.** A matemática de deadline/pausa do SLA continua coberta à parte em `ticketSla.unit.test.ts`.
