@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { X, Plus, Trash2, Type, Hash, ToggleLeft, List, BookOpen, Camera, PenLine, CalendarDays, MapPin, Upload, LocateFixed, Search, Loader2, Video } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { TIPOS_ATIVIDADE, tiposAtividadeDisponiveis } from '@/lib/tiposAtividade'
 
 interface Atividade {
   id: string
@@ -48,19 +49,6 @@ const TIPO_CONFIG_MODAL: Record<string, { bg: string; Icon: React.ComponentType<
   localizacao:     { bg: 'bg-amber-600',   Icon: MapPin },
 }
 
-const TIPOS: { value: string; label: string; validacao: boolean }[] = [
-  { value: 'sim_nao',         label: 'Sim/Não',          validacao: true  },
-  { value: 'numero',          label: 'Número',            validacao: true  },
-  { value: 'texto',           label: 'Texto',             validacao: false },
-  { value: 'multipla_escolha',label: 'Múltipla escolha',  validacao: true  },
-  { value: 'catalogo',        label: 'Catálogo',          validacao: false },
-  { value: 'foto',            label: 'Foto',              validacao: false },
-  { value: 'video',           label: 'Vídeo',             validacao: false },
-  { value: 'assinatura',      label: 'Assinatura',        validacao: false },
-  { value: 'data_hora',       label: 'Data/Hora',         validacao: false },
-  { value: 'localizacao',     label: 'Localização',       validacao: true  },
-]
-
 interface Opcao {
   id?: string
   label: string
@@ -77,7 +65,7 @@ interface Catalogo {
 export default function AtividadeModal({ checklistId, secaoId, atividade, paiId, valorGatilho, ordemAtual, onClose, onSalva }: Props) {
   const isEdicao = !!atividade
   const isDependente = !!paiId
-  const { unidadeAtiva, flagsHabilitadas } = useSession()
+  const { unidadeAtiva, flagsHabilitadas, recursosHabilitados } = useSession()
   // IA por foto depende da característica 'ia' do plano (opt-in: null = sem restrição).
   const iaHabilitada = flagsHabilitadas === null || flagsHabilitadas.has('ia')
 
@@ -331,7 +319,14 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
     setSalvando(false)
   }
 
-  const tipoInfo = TIPOS.find(t => t.value === tipo)
+  // Tipos oferecidos conforme o plano (serviço gateado some o tipo). Na edição,
+  // mantém o tipo atual mesmo se gateado, p/ não travar a atividade já criada.
+  const tiposDisponiveis = useMemo(
+    () => tiposAtividadeDisponiveis(recursosHabilitados, flagsHabilitadas, isEdicao ? tipo : undefined),
+    [recursosHabilitados, flagsHabilitadas, isEdicao, tipo],
+  )
+
+  const tipoInfo = TIPOS_ATIVIDADE.find(t => t.value === tipo)
   const temValidacao = tipoInfo?.validacao
 
   return (
@@ -358,7 +353,7 @@ export default function AtividadeModal({ checklistId, secaoId, atividade, paiId,
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
             <div className="grid grid-cols-3 gap-2">
-              {TIPOS.map(t => {
+              {tiposDisponiveis.map(t => {
                 const cfg = TIPO_CONFIG_MODAL[t.value]
                 const isSelected = tipo === t.value
                 return (
