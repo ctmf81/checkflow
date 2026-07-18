@@ -266,12 +266,20 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
     setSalvando(true)
     setErroConfig('')
     const supabase = createClient()
-    const { error } = await supabase.from('empresas').update({
+    // .select() retorna as linhas afetadas: 0 linhas = update barrado (RLS/permissão),
+    // que o Supabase não sinaliza como erro. Sem isso, "salvava" sem mudar nada.
+    const { data, error } = await supabase.from('empresas').update({
       nome: nomeEmp, cnpj, status: statusEmp,
       atualizado_em: new Date().toISOString()
-    }).eq('id', id)
+    }).eq('id', id).select('id, status, nome, cnpj')
     setSalvando(false)
-    if (error) setErroConfig('Erro ao salvar configurações. Tente novamente.')
+    if (error) { setErroConfig('Erro ao salvar configurações. Tente novamente.'); return }
+    if (!data || data.length === 0) {
+      setErroConfig('Não foi possível alterar esta empresa — sem permissão (só o administrador do sistema).')
+      return
+    }
+    // Reflete na UI na hora: selo de status + visibilidade da Zona de perigo.
+    setEmpresa(prev => prev ? { ...prev, nome: nomeEmp, cnpj, status: statusEmp as Empresa['status'] } : prev)
   }
 
   // Aceita "1.234,56", "1234,56" e "1234.56" — retorna null se inválido
