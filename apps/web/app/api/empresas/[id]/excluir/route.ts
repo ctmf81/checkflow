@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { extrairLogoPath, prefixosExecucoes, prefixosEmpresas, pathsPdfsExecucao } from '@/lib/empresaExclusao'
 
 // Exclui DEFINITIVAMENTE uma empresa já inativa (admin de sistema): apaga os
 // ARQUIVOS do storage (que o cascade do banco NÃO remove) e depois deleta a
@@ -97,15 +98,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     })
 
     // Bucket execucoes: {execId}/, tarefas/{tarefaExecId}/, tickets/{ticketId}/, planos/{planoId}/
-    removidos += await removerPrefixos(sb, 'execucoes', [
-      ...execIds,
-      ...idsDe(tarefaExecs).map(id => `tarefas/${id}`),
-      ...idsDe(tickets).map(id => `tickets/${id}`),
-      ...idsDe(planos).map(id => `planos/${id}`),
-    ], dryRun)
+    removidos += await removerPrefixos(sb, 'execucoes', prefixosExecucoes({
+      execucoes: execIds, tarefaExecucoes: idsDe(tarefaExecs), tickets: idsDe(tickets), planos: idsDe(planos),
+    }), dryRun)
 
     // PDFs de checklist são arquivos soltos em pdfs/{execId}.pdf (não um prefixo).
-    if (execIds.length) {
+    const pdfPaths = pathsPdfsExecucao(execIds)
+    if (pdfPaths.length) {
       if (dryRun) {
         try {
           const { data } = await sb.storage.from('execucoes').list('pdfs', { limit: 1000 })
@@ -114,30 +113,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         } catch { /* best-effort */ }
       } else {
         try {
-          const { data } = await sb.storage.from('execucoes').remove(execIds.map(id => `pdfs/${id}.pdf`))
+          const { data } = await sb.storage.from('execucoes').remove(pdfPaths)
           removidos += data?.length ?? 0
         } catch { /* best-effort */ }
       }
     }
 
     // Bucket empresas: etapas/{etapaId}/, documentos/{docId}/, catalogos/{catId}/
-    removidos += await removerPrefixos(sb, 'empresas', [
-      ...idsDe(etapas).map(id => `etapas/${id}`),
-      ...docIds.map(id => `documentos/${id}`),
-      ...idsDe(catalogos).map(id => `catalogos/${id}`),
-    ], dryRun)
+    removidos += await removerPrefixos(sb, 'empresas', prefixosEmpresas({
+      etapas: idsDe(etapas), documentos: docIds, catalogos: idsDe(catalogos),
+    }), dryRun)
   }
 
   // Logo da empresa (path extraído da URL pública: .../empresas/<path>)
-  let logoPath: string | null = null
-  if (empresa.logo_url) {
-    const marker = '/empresas/'
-    const idx = (empresa.logo_url as string).indexOf(marker)
-    if (idx >= 0) {
-      logoPath = (empresa.logo_url as string).slice(idx + marker.length).split('?')[0]
-      if (dryRun) removidos++
-      else try { await sb.storage.from('empresas').remove([logoPath]); removidos++ } catch { /* best-effort */ }
-    }
+  const logoPath = extrairLogoPath(empresa.logo_url as string | null)
+  if (logoPath) {
+    if (dryRun) removidos++
+    else try { await sb.storage.from('empresas').remove([logoPath]); removidos++ } catch { /* best-effort */ }
   }
 
   if (dryRun) {

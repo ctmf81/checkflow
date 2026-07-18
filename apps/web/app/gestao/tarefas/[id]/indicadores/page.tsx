@@ -7,6 +7,9 @@ import {
   ChevronDown, ChevronRight, Play, User, FileText,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import {
+  statsPorItem as calcStatsPorItem, conclusaoMediaPct, extrairEvidencias, extrairPontos, feitosDaExecucao,
+} from '@/lib/tarefaIndicadores'
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 interface Item { id: string; titulo: string; ordem: number }
@@ -214,38 +217,18 @@ export default function IndicadoresTarefaPage({ params }: { params: Promise<{ id
   }, [itens])
 
   // Feito × não-feito por tarefa (denominador = nº de execuções/pessoas)
-  const statsPorItem = useMemo(() => {
-    const total = execs.length
-    return itens.map(it => {
-      const feito = execs.reduce((n, e) => n + (e.respostas.some(r => r.item_id === it.id && r.feito) ? 1 : 0), 0)
-      return { id: it.id, titulo: it.titulo, feito, naoFeito: total - feito, total }
-    })
-  }, [itens, execs])
+  const statsPorItem = useMemo(() => calcStatsPorItem(itens, execs), [itens, execs])
 
-  const evidencias = useMemo(() => execs.flatMap(e =>
-    e.respostas.filter(r => r.evidencia_url).map(r => ({
-      url: r.evidencia_url!, tipo: (r.evidencia_tipo ?? 'foto') as 'foto' | 'video',
-      pessoa: e.nome, item: tituloItem.get(r.item_id) ?? 'Item', hora: fmt(r.respondido_em),
-      lat: r.lat, lng: r.lng,
-    })),
-  ), [execs, tituloItem])
+  const evidencias = useMemo(() =>
+    extrairEvidencias(execs, tituloItem).map(ev => ({ ...ev, hora: fmt(ev.respondido_em ?? null) })),
+    [execs, tituloItem])
 
-  const pontos = useMemo(() => execs.flatMap(e =>
-    e.respostas.filter(r => r.lat != null && r.lng != null).map(r => ({
-      lat: r.lat!, lng: r.lng!, pessoa: e.nome,
-      item: tituloItem.get(r.item_id) ?? 'Item', hora: fmt(r.respondido_em),
-    })),
-  ), [execs, tituloItem])
+  const pontos = useMemo(() =>
+    extrairPontos(execs, tituloItem).map(p => ({ ...p, hora: fmt(p.respondido_em ?? null) })),
+    [execs, tituloItem])
 
   // Conclusão média (% de tarefas feitas por pessoa)
-  const conclusaoMedia = useMemo(() => {
-    if (execs.length === 0 || itens.length === 0) return 0
-    const soma = execs.reduce((acc, e) => {
-      const feitos = itens.filter(it => e.respostas.some(r => r.item_id === it.id && r.feito)).length
-      return acc + feitos / itens.length
-    }, 0)
-    return Math.round((soma / execs.length) * 100)
-  }, [execs, itens])
+  const conclusaoMedia = useMemo(() => conclusaoMediaPct(itens, execs), [execs, itens])
 
   const ABAS = [
     { id: 'resumo' as const, label: 'Resumo', icon: BarChart2 },
@@ -341,7 +324,7 @@ export default function IndicadoresTarefaPage({ params }: { params: Promise<{ id
                 <h2 className="text-sm font-semibold text-gray-700 mb-3">Por pessoa</h2>
                 <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-50">
                   {execs.map(e => {
-                    const feitos = itens.filter(it => e.respostas.some(r => r.item_id === it.id && r.feito)).length
+                    const feitos = feitosDaExecucao(itens, e)
                     const aberto = expandido === e.id
                     return (
                       <div key={e.id}>
