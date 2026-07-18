@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { useSession } from '@/contexts/SessionContext'
+import { usePolling } from '@/lib/usePolling'
 import { STATUS_NAO_ACEITO, STATUS_EM_TRATAMENTO, STATUS_FECHADOS } from '@/lib/tickets'
 import {
   BarChart2, ArrowLeft, Loader2, RefreshCw,
@@ -272,6 +273,9 @@ export default function IndicadoresPage() {
     carregarPlanos()
     carregarTarefas()
   }
+
+  // Mantém os números do painel frescos sem reload (pausa em aba oculta).
+  usePolling(recarregarTudo, 45000, !!unidadeId)
 
   // ─── Render ────────────────────────────────────────────────────────────────
 

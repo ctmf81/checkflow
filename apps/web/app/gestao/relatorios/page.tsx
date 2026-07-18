@@ -5,6 +5,7 @@ import { Plus, FileBarChart2, AlertCircle, Pencil, Trash2, MoreVertical, Clock }
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { usePolling } from '@/lib/usePolling'
 import { useConfirm, useToast } from '@/components/ui/feedback'
 import { ehAdminDaEmpresa } from '@/lib/admin'
 import { resolverAcoesRelatorios } from '@/lib/entitlements/gating'
@@ -106,6 +107,7 @@ export default function RelatoriosPage() {
   }
 
   useEffect(() => { carregar() }, [unidadeAtiva?.id])
+  usePolling(carregar, 45000, !!unidadeAtiva?.id)
 
   async function excluir(m: ModeloRow) {
     if (!await confirm({ titulo: `Excluir "${m.nome}"?`, mensagem: 'Os relatórios já gerados por este modelo também serão removidos.', confirmarLabel: 'Excluir', perigo: true })) return
