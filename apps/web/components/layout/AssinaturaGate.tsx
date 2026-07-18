@@ -5,6 +5,7 @@ import { Lock, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { ehAdminDaEmpresa } from '@/lib/admin'
+import { estadoAssinaturaGate } from '@/lib/entitlements/assinaturaFase'
 
 /**
  * Gate do ciclo de vida da assinatura (uso livre → carência → bloqueio).
@@ -34,10 +35,11 @@ export function AssinaturaGate() {
     return () => { cancel = true }
   }, [empresaAtiva?.id])
 
-  if (!pronto || fase === 'ativa') return null
+  const estado = estadoAssinaturaGate(fase, isAdmin, pronto)
+  if (estado.tipo === 'nada') return null
 
   // Bloqueio total: usuário comum não acessa (admin passa e vê só o banner).
-  if (fase === 'bloqueada' && !isAdmin) {
+  if (estado.tipo === 'bloqueio_total') {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/95 p-6">
         <div className="max-w-md text-center">
@@ -55,7 +57,7 @@ export function AssinaturaGate() {
   }
 
   // Carência (todos) ou bloqueada para admin → banner no topo.
-  const bloqueada = fase === 'bloqueada'
+  const bloqueada = estado.bloqueada
   return (
     <div className={`flex items-center gap-2 px-4 py-2.5 text-sm ${bloqueada ? 'bg-red-50 text-red-700 border-b border-red-100' : 'bg-amber-50 text-amber-800 border-b border-amber-100'}`}>
       <AlertTriangle size={15} className="shrink-0" />

@@ -7,6 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { podeCriarConteudo, MSG_CRIACAO_BLOQUEADA } from '@/lib/entitlements/assinaturaFase'
 import { usePolling } from '@/lib/usePolling'
 import { useToast, useConfirm } from '@/components/ui/feedback'
 import { Onboarding } from '@/components/onboarding/Onboarding'
@@ -242,8 +243,8 @@ function ChecklistsContent() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {faseAssinatura !== 'ativa' ? (
-            <Button disabled title="Criação bloqueada — período de teste encerrado (somente consulta)"><Plus size={16} />Novo</Button>
+          {!podeCriarConteudo(faseAssinatura) ? (
+            <Button disabled title={MSG_CRIACAO_BLOQUEADA}><Plus size={16} />Novo</Button>
           ) : (
             <>
               <Button variant="outline" onClick={() => setGerandoIA(true)}><Sparkles size={16} />Gerar com IA</Button>

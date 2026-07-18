@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { podeCriarConteudo, MSG_CRIACAO_BLOQUEADA } from '@/lib/entitlements/assinaturaFase'
 import { usePolling } from '@/lib/usePolling'
 import { Button } from '@/components/ui/Button'
 import { Onboarding } from '@/components/onboarding/Onboarding'
@@ -462,8 +463,8 @@ export default function AgendamentosPage() {
           <h1 className="text-xl font-semibold text-gray-800">Agendamentos</h1>
           <p className="hidden sm:block text-xs text-gray-400 mt-0.5">Início programado e recorrente de workflows e checklists</p>
         </div>
-        {faseAssinatura !== 'ativa' ? (
-          <Button disabled title="Criação bloqueada — período de teste encerrado (somente consulta)"><Plus size={16} />Novo</Button>
+        {!podeCriarConteudo(faseAssinatura) ? (
+          <Button disabled title={MSG_CRIACAO_BLOQUEADA}><Plus size={16} />Novo</Button>
         ) : (
           <Button onClick={() => unidadeAtiva ? setModalAberto(true) : toast.info('Selecione uma unidade para criar um agendamento.')}>
             <Plus size={16} />Novo

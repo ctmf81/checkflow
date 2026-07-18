@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Plus, GitBranch, Layers, Clock, CheckCircle2, EyeOff, MoreVertical, Play, Loader2, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { podeCriarConteudo, MSG_CRIACAO_BLOQUEADA } from '@/lib/entitlements/assinaturaFase'
 import { Button } from '@/components/ui/Button'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
@@ -118,8 +119,8 @@ function WorkflowsConteudo() {
           <h1 className="text-xl font-semibold text-gray-800">Workflows</h1>
           <p className="hidden sm:block text-xs text-gray-400 mt-0.5">Pipelines de checklists com estágios e dependências</p>
         </div>
-        {faseAssinatura !== 'ativa' ? (
-          <Button disabled title="Criação bloqueada — período de teste encerrado (somente consulta)"><Plus size={16} />Novo workflow</Button>
+        {!podeCriarConteudo(faseAssinatura) ? (
+          <Button disabled title={MSG_CRIACAO_BLOQUEADA}><Plus size={16} />Novo workflow</Button>
         ) : (
           <Link href="/gestao/workflows/novo">
             <Button><Plus size={16} />Novo workflow</Button>

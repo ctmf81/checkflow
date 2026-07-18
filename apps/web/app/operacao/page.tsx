@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { podeCriarConteudo } from '@/lib/entitlements/assinaturaFase'
 import {
   CheckSquare, ChevronRight, ChevronLeft, AlertCircle, Layers, Search,
   GitBranch, Play, History, FileText, X, ChevronDown, ChevronUp,
@@ -1533,7 +1534,7 @@ export default function OperacaoPage() {
       )}
 
       {/* FAB — Abrir Ticket avulso (oculto na carência: criação bloqueada) */}
-      {faseAssinatura === 'ativa' && (
+      {podeCriarConteudo(faseAssinatura) && (
         <button
           onClick={() => setTicketModalOpen(true)}
           className="fixed bottom-6 right-4 z-40 flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium px-3.5 py-2.5 rounded-full shadow-lg hover:shadow-xl hover:bg-gray-50 transition-all active:scale-95">

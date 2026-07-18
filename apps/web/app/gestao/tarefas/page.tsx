@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { podeCriarConteudo, MSG_CRIACAO_BLOQUEADA } from '@/lib/entitlements/assinaturaFase'
 import { usePolling } from '@/lib/usePolling'
 import { useToast, useConfirm } from '@/components/ui/feedback'
 import { statusTarefa, StatusTarefa } from '@/lib/tarefas'
@@ -154,8 +155,8 @@ export default function TarefasPage() {
           <h1 className="text-xl font-semibold text-gray-800">Tarefas</h1>
           <p className="hidden sm:block text-xs text-gray-400 mt-0.5">Listas de tarefas pontuais distribuídas a grupos/subgrupos · Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
-        <Button onClick={novaLista} disabled={criando || faseAssinatura !== 'ativa'}
-          title={faseAssinatura !== 'ativa' ? 'Criação bloqueada — período de teste encerrado (somente consulta)' : undefined}>
+        <Button onClick={novaLista} disabled={criando || !podeCriarConteudo(faseAssinatura)}
+          title={!podeCriarConteudo(faseAssinatura) ? MSG_CRIACAO_BLOQUEADA : undefined}>
           {criando ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}Nova
         </Button>
       </div>
