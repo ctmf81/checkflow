@@ -132,7 +132,7 @@ export async function ticketsRoutes(app: FastifyInstance) {
       return `${baseUrl}/${area}/tickets/${ticket_id}`
     }
 
-    // 5. Turno (só para WA no evento 'aberto'): suprime só modo 'notificacao' fora do horário
+    // 5. Turno (só para WA/push no evento 'aberto'): suprime modo 'notificacao' fora do horário
     const foraDoTurno = new Set<string>()
     if (evento === 'aberto') {
       await Promise.all(destinatarios.map(async (u) => {
@@ -140,6 +140,13 @@ export async function ticketsRoutes(app: FastifyInstance) {
         if (recebe === false) foraDoTurno.add(u.id)
       }))
     }
+
+    // Férias: suprime TODOS os canais (WA, e-mail, push), em TODOS os eventos.
+    const deFerias = new Set<string>()
+    await Promise.all(destinatarios.map(async (u) => {
+      const { data: ferias } = await sb.rpc('usuario_esta_de_ferias', { p_usuario_id: u.id })
+      if (ferias === true) deFerias.add(u.id)
+    }))
 
     // 6. Primeira foto de evidência
     const { data: evids } = await sb.from('ticket_evidencias')
@@ -178,6 +185,8 @@ export async function ticketsRoutes(app: FastifyInstance) {
     await Promise.all(destinatarios.map(async (u) => {
       const link = linkParaUsuario(u.id)
       const vars = { ...varsBase, link, destinatario: u.nome }
+
+      if (deFerias.has(u.id)) return // de férias: não recebe por nenhum canal
 
       // ── Push (PWA) ── mesmo público do WA (respeita turno no evento 'aberto')
       if (!foraDoTurno.has(u.id)) {

@@ -153,6 +153,14 @@ async function dispararNotificacaoPlano(
     if (recebe === false) foraDoTurno.add(m.usuario_id)
   }))
 
+  // Férias: suprime TODOS os canais (WA, e-mail, push). O turno só pega WA/push;
+  // sem esta checagem, o e-mail escapava durante as férias.
+  const deFerias = new Set<string>()
+  await Promise.all(membros.map(async (m: any) => {
+    const { data: ferias } = await sb.rpc('usuario_esta_de_ferias', { p_usuario_id: m.usuario_id })
+    if (ferias === true) deFerias.add(m.usuario_id)
+  }))
+
   const baseUrl = process.env.APP_URL ?? 'https://app.checkflow.digital'
   const link = `${baseUrl}/gestao/planos-acao/${plano_id}`
 
@@ -193,6 +201,8 @@ async function dispararNotificacaoPlano(
     const email: string | null = usuario.email ?? null
     const telefone: string | null = usuario.telefone ?? null
     const vars = { ...varsBase, destinatario: nome }
+
+    if (deFerias.has(m.usuario_id)) return // de férias: não recebe por nenhum canal
 
     // ── Push (PWA) ── efeito colateral; não afeta o status de entrega WA/email
     if (!foraDoTurno.has(m.usuario_id)) {
