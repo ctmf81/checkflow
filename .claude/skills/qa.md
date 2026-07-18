@@ -9,7 +9,7 @@ description: Quality Assurance for CheckFlow — test strategy, suites por tela/
 
 | Camada | Ferramenta | Status |
 |--------|-----------|--------|
-| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **493 testes / 33 arquivos** (2026-07-18) |
+| Unit / Integration | Vitest + Testing Library | ✅ instalado — `npx vitest run` · **501 testes / 34 arquivos** (2026-07-18) |
 | Smoke Tests | Manual UI/navegação | ✅ 9/10 PASSED (2026-06-24) — checklist exec, auth, perms, billing, tickets |
 | Risk Assessment | Custom scripts | ✅ 6/8 PASSED (2026-06-24) — routes auth, WhatsApp OTP, data calc, mascara |
 | Quota Enforcement | Node.js + Supabase | ✅ 6/6 PASSED (2026-06-24) — billing enforcement, assinatura, reset |
@@ -189,6 +189,9 @@ Criado `lib/tarefas.ts` (lógica pura, **importada** por `app/operacao/AbaTarefa
 
 ### ✅ Unit — Indicadores de Tarefas — `tests/unit/lib/tarefaIndicadores.unit.test.ts` (2026-07-18)
 Criado `lib/tarefaIndicadores.ts` (lógica pura, **importada** pela página `gestao/tarefas/[id]/indicadores/page.tsx`). Cobre: `statsPorItem` (feito × não-feito, denominador = nº de execuções, ausência = não-feito), `conclusaoMediaPct` (média das pessoas em %, arredondamento, zero sem execução/item), `feitosDaExecucao`, `itemFeitoNaExecucao`, `extrairEvidencias` (achata só com evidência, default foto, item desconhecido = "Item"), `extrairPontos` (só lat E lng não nulos; lat/lng 0 são válidos). Rodar: `npx vitest run tests/unit/lib/tarefaIndicadores.unit.test.ts`.
+
+### ✅ Unit — Gate de tipos de atividade — `tests/unit/lib/tiposAtividade.unit.test.ts` (2026-07-18)
+Criado `lib/tiposAtividade.ts` (importada por `AtividadeModal`). Cobre: `tipoLiberado` (tipo sem serviço sempre liberado; `catalogo` só com recurso `catalogos`; null = sem restrição), `tiposAtividadeDisponiveis` (esconde `catalogo` sem `catalogos` mantendo os demais; null = todos; edição mantém o tipo atual mesmo gateado sem duplicar). Rodar: `npx vitest run tests/unit/lib/tiposAtividade.unit.test.ts`.
 
 ### ✅ Unit — Exclusão de Empresa — `tests/unit/lib/empresaExclusao.unit.test.ts` (2026-07-18)
 Criado `lib/empresaExclusao.ts` (lógica pura, **importada** pela rota `api/empresas/[id]/excluir`). Cobre: `extrairLogoPath` (path após `/empresas/`, ignora query, null p/ vazio/sem-bucket/path-vazio), `prefixosExecucoes` / `prefixosEmpresas` (montagem dos prefixos por bucket), `pathsPdfsExecucao` (`pdfs/{id}.pdf`). Rodar: `npx vitest run tests/unit/lib/empresaExclusao.unit.test.ts`.
