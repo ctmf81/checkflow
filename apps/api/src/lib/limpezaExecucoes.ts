@@ -199,6 +199,118 @@ export async function executarLimpezaTickets(sb: SupabaseClient): Promise<ResLim
   return resultado
 }
 
+// ─── Varredura de ÓRFÃOS ──────────────────────────────────────────────────────
+// Arquivos no bucket cujo "pai" (execução/pdf/tarefa/ticket/plano) não existe
+// mais no banco — ex.: entidade deletada sem limpar a mídia, ou upload que subiu
+// mas o insert falhou. Só apaga o que tem pai COMPROVADAMENTE ausente E cujo
+// arquivo mais novo tem mais de 7 dias (janela de segurança contra upload em
+// andamento / linha ainda não gravada). Não abate billing (o pai já não existe
+// para mapear empresa; órfãos são casos de borda).
+
+const PREFIXOS_CONHECIDOS = new Set(['pdfs', 'tarefas', 'tickets', 'planos'])
+const JANELA_SEGURANCA_MS = 7 * 24 * 60 * 60 * 1000
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function pedacos<T>(arr: T[], n: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n))
+  return out
+}
+
+/** IDs (dentre os fornecidos) que ainda existem em `tabela`. */
+async function idsExistentes(sb: SupabaseClient, tabela: string, ids: string[]): Promise<Set<string>> {
+  const existem = new Set<string>()
+  for (const bloco of pedacos(ids, 300)) {
+    const { data } = await sb.from(tabela).select('id').in('id', bloco)
+    for (const r of (data ?? [])) existem.add(r.id as string)
+  }
+  return existem
+}
+
+/** Lista TODAS as entradas de um prefixo (paginado). */
+async function listarTudo(sb: SupabaseClient, prefix: string): Promise<{ name: string; createdMs: number; size: number | null }[]> {
+  const todos: any[] = []
+  let offset = 0
+  const limite = 1000
+  for (;;) {
+    const { data, error } = await sb.storage.from(BUCKET).list(prefix, { limit: limite, offset })
+    if (error || !data?.length) break
+    todos.push(...data)
+    if (data.length < limite) break
+    offset += limite
+  }
+  // metadata nulo = pasta; com size = arquivo.
+  return todos.map(e => ({ name: e.name, createdMs: e.created_at ? Date.parse(e.created_at) : 0, size: e.metadata?.size ?? null }))
+}
+
+/** Remove uma pasta órfã só se o arquivo mais novo for antigo. Retorna true se removeu. */
+async function removerPastaOrfaSeAntiga(sb: SupabaseClient, prefix: string): Promise<boolean> {
+  const arquivos = await listarTudo(sb, prefix)
+  if (!arquivos.length) return false
+  const maisNovo = Math.max(...arquivos.map(a => a.createdMs))
+  if (Date.now() - maisNovo < JANELA_SEGURANCA_MS) return false // recente → não mexe
+  await sb.storage.from(BUCKET).remove(arquivos.map(a => `${prefix}/${a.name}`))
+  return true
+}
+
+/** Subpastas {id}/ de um prefixo-raiz cujo id não existe mais na tabela. */
+async function limparSubpastasOrfas(sb: SupabaseClient, prefixoRaiz: string, tabela: string, erros: string[]): Promise<number> {
+  const subs = (await listarTudo(sb, prefixoRaiz)).filter(e => e.size == null && UUID_RE.test(e.name)).map(e => e.name)
+  if (!subs.length) return 0
+  const existem = await idsExistentes(sb, tabela, subs)
+  let removidas = 0
+  for (const id of subs) {
+    if (existem.has(id)) continue
+    try { if (await removerPastaOrfaSeAntiga(sb, `${prefixoRaiz}/${id}`)) removidas++ } catch (e: any) { erros.push(`${prefixoRaiz} ${id}: ${e?.message}`) }
+  }
+  return removidas
+}
+
+export interface ResOrfaos {
+  execucoes: number; pdfs: number; tarefas: number; tickets: number; planos: number
+  erros: string[]
+}
+
+export async function executarLimpezaOrfaos(sb: SupabaseClient): Promise<ResOrfaos> {
+  const res: ResOrfaos = { execucoes: 0, pdfs: 0, tarefas: 0, tickets: 0, planos: 0, erros: [] }
+  try {
+    // 1) Pastas {execId}/ na raiz sem checklist_execucoes
+    const raiz = await listarTudo(sb, '')
+    const execFolders = raiz.filter(e => e.size == null && !PREFIXOS_CONHECIDOS.has(e.name) && UUID_RE.test(e.name)).map(e => e.name)
+    if (execFolders.length) {
+      const existem = await idsExistentes(sb, 'checklist_execucoes', execFolders)
+      for (const id of execFolders) {
+        if (existem.has(id)) continue
+        try { if (await removerPastaOrfaSeAntiga(sb, id)) res.execucoes++ } catch (e: any) { res.erros.push(`exec ${id}: ${e?.message}`) }
+      }
+    }
+
+    // 2) pdfs/{execId}.pdf sem checklist_execucoes (arquivos soltos, com data própria)
+    const pdfs = (await listarTudo(sb, 'pdfs')).filter(p => p.size != null && /\.pdf$/i.test(p.name))
+    const pdfIds = pdfs.map(p => p.name.replace(/\.pdf$/i, '')).filter(id => UUID_RE.test(id))
+    if (pdfIds.length) {
+      const existem = await idsExistentes(sb, 'checklist_execucoes', pdfIds)
+      const orfaos = pdfs.filter(p => {
+        const id = p.name.replace(/\.pdf$/i, '')
+        const antigo = Date.now() - p.createdMs >= JANELA_SEGURANCA_MS
+        return UUID_RE.test(id) && !existem.has(id) && antigo
+      })
+      if (orfaos.length) {
+        await sb.storage.from(BUCKET).remove(orfaos.map(p => `pdfs/${p.name}`))
+        res.pdfs = orfaos.length
+      }
+    }
+
+    // 3-5) subpastas de tarefas/ tickets/ planos/
+    res.tarefas = await limparSubpastasOrfas(sb, 'tarefas', 'tarefa_execucoes', res.erros)
+    res.tickets = await limparSubpastasOrfas(sb, 'tickets', 'tickets', res.erros)
+    res.planos = await limparSubpastasOrfas(sb, 'planos', 'planos_acao', res.erros)
+  } catch (e: any) {
+    res.erros.push(`geral: ${e?.message ?? String(e)}`)
+  }
+  return res
+}
+
 /** Remove a mídia de tarefas cuja execução foi aberta há mais de 3 meses (execucoes/tarefas/{execId}/*). */
 export async function executarLimpezaTarefas(sb: SupabaseClient): Promise<ResLimpeza> {
   const cutoff = new Date(Date.now() - TRES_MESES_MS).toISOString()
