@@ -75,6 +75,11 @@ video:            {}   (no config needed)
 foto:             {}   (no config needed)
 ```
 
+### Web Push (migration 20260717150000, ✅ aplicada)
+| Table | Description |
+|-------|-------------|
+| `push_subscriptions` | Inscrições de Web Push por aparelho: `usuario_id`, `endpoint` (único), `p256dh`, `auth`, `user_agent`. RLS: usuário gerencia as suas (select/insert/update/delete); admin sistema lê. Envio via API (`enviarPush`, service role); reassociação ao usuário logado em `POST /push/subscribe`. Ver `/ops`, `/biz`, [[feature-web-push]] |
+
 ### Agendamentos (migration 20260606000015)
 | Table | Description |
 |-------|-------------|

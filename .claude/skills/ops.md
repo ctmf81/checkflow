@@ -31,6 +31,9 @@ When debugging an error in logs: surface only the **last 20 lines** unless the u
 
 **Status**: All services deployed, health checks passing, auto-deploy active, RLS isolation verified for 100+ companies.
 
+## Web Push / PWA (2026-07-17)
+Notificações push no aparelho, somadas ao WhatsApp/e-mail nos mesmos eventos (tickets/planos/tarefas). Envs **novas**: serviço **API** = `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (mailto), lidas em runtime. Serviço **Web** = `NEXT_PUBLIC_VAPID_PUBLIC_KEY` **não é necessária** (o build Docker não injeta NEXT_PUBLIC → a chave pública está hardcoded como fallback em `apps/web/lib/push.ts`; ver `/db` e a feature). Rotas: `POST /push/subscribe|unsubscribe` (reassocia device ao usuário logado) e `POST /push/testar` (botão de teste). Sem as VAPID na API, o envio é no-op silencioso (WA/e-mail seguem). Chaves geradas ficam em `VAPID_KEYS.local.txt` (gitignored). ⚠️ Ao adicionar env `NEXT_PUBLIC_*` nova no web, **setar no Railway não basta** — precisa de fallback no código.
+
 ## Env Vars (nomes — nunca valores no chat)
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `CRON_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`, `ALERT_EMAIL` (serviço API — destinatário dos alertas do healthcheck do WhatsApp; opcional), `EVOLUTION_API_KEY` (serviço API — obrigatória, sem fallback no código; URL/instância têm default), `EVOLUTION_API_URL`, `EVOLUTION_INSTANCE`, **`INTERNAL_API_SECRET`** (⚠️ nos serviços **api E web**, MESMO valor — autentica as rotas internas Fastify servidor-a-servidor; sem ele o OTP de reset de senha quebra. 2026-06-23)
 

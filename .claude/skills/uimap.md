@@ -153,6 +153,7 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 | `lib/offlineList.ts` | Cache (localStorage) da lista de checklists offline por unidade |
 | `lib/catalogoCache.ts` | Cache dos valores de catálogo (IndexedDB, sem imagem) p/ a atividade catálogo offline |
 | `components/pwa/InstallAppButton.tsx` | Botão "Instalar" compartilhado (operação+gestão); só no navegador (oculto se standalone) |
+| `components/pwa/PushToggle.tsx` · `PushOptIn.tsx` · `PushBell.tsx` | Web Push: toggle (Configurações→Notificações), card de convite no login (root layout, só PWA instalado), sino no Header (lembrete + reassocia inscrição ao logado). Lógica em `lib/push.ts`; SW `public/sw.js` (handlers push/notificationclick, CACHE v4). Ver [[feature-web-push]] |
 | `components/layout/DownloadAppModal.tsx` | Modal de **instalação do PWA** (Android nativo / instruções iOS) |
 
 ## Context & Lib
