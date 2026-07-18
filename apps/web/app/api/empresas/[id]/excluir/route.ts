@@ -79,12 +79,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     ])
 
     // Bucket execucoes: {execId}/, tarefas/{tarefaExecId}/, tickets/{ticketId}/, planos/{planoId}/
+    const execIds = idsDe(execs)
     removidos += await removerPrefixos(sb, 'execucoes', [
-      ...idsDe(execs),
+      ...execIds,
       ...idsDe(tarefaExecs).map(id => `tarefas/${id}`),
       ...idsDe(tickets).map(id => `tickets/${id}`),
       ...idsDe(planos).map(id => `planos/${id}`),
     ])
+
+    // PDFs de checklist são arquivos soltos em pdfs/{execId}.pdf (não um prefixo) —
+    // removê-los à parte, senão ficam órfãos. remove() ignora paths inexistentes.
+    if (execIds.length) {
+      try {
+        const { data } = await sb.storage.from('execucoes').remove(execIds.map(id => `pdfs/${id}.pdf`))
+        removidos += data?.length ?? 0
+      } catch { /* best-effort */ }
+    }
 
     // Bucket empresas: etapas/{etapaId}/, documentos/{docId}/, catalogos/{catId}/
     removidos += await removerPrefixos(sb, 'empresas', [
