@@ -16,20 +16,21 @@ function erro(msg: string, status: number) {
   return new Response(JSON.stringify({ error: msg }), { status, headers: { 'Content-Type': 'application/json' } })
 }
 
-// Lista e remove todos os objetos sob um prefixo (pasta). Retorna nº removido.
-async function removerPrefixo(sb: SupabaseClient, bucket: string, prefix: string): Promise<number> {
+// Lista os objetos sob um prefixo (pasta) e, se não for dry-run, remove.
+// Retorna nº de arquivos encontrados (= removidos, exceto no dry-run).
+async function removerPrefixo(sb: SupabaseClient, bucket: string, prefix: string, dry: boolean): Promise<number> {
   const { data, error } = await sb.storage.from(bucket).list(prefix, { limit: 1000 })
   if (error || !data?.length) return 0
   const paths = data.filter(o => o.name).map(o => `${prefix}/${o.name}`)
   if (!paths.length) return 0
-  await sb.storage.from(bucket).remove(paths)
+  if (!dry) await sb.storage.from(bucket).remove(paths)
   return paths.length
 }
 
-async function removerPrefixos(sb: SupabaseClient, bucket: string, prefixos: string[]): Promise<number> {
+async function removerPrefixos(sb: SupabaseClient, bucket: string, prefixos: string[], dry: boolean): Promise<number> {
   let total = 0
   for (const p of prefixos) {
-    try { total += await removerPrefixo(sb, bucket, p) } catch { /* best-effort */ }
+    try { total += await removerPrefixo(sb, bucket, p, dry) } catch { /* best-effort */ }
   }
   return total
 }
@@ -55,11 +56,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!empresa) return erro('Empresa não encontrada', 404)
   if (empresa.status !== 'inativo') return erro('A empresa precisa estar inativa antes de excluir.', 409)
 
+  // Dry-run (?dryRun=1): só enumera e devolve o que SERIA apagado — não remove
+  // nada do storage nem roda o cascade. Serve p/ conferir o raio de explosão.
+  const dryRun = req.nextUrl.searchParams.get('dryRun') === '1'
   let removidos = 0
+  const linhas: Record<string, number> = {}
 
   // Unidades da empresa → enumera os IDs de cada fonte de arquivo
   const { data: unidades } = await sb.from('unidades').select('id').eq('empresa_id', empresaId)
   const unidadeIds = (unidades ?? []).map((u: any) => u.id as string)
+  linhas.unidades = unidadeIds.length
 
   if (unidadeIds.length) {
     const [execs, tickets, planos, docs, catalogos, listas] = await Promise.all([
@@ -78,22 +84,40 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       listaIds.length ? sb.from('tarefa_execucoes').select('id').in('lista_id', listaIds) : Promise.resolve({ data: [] }),
     ])
 
-    // Bucket execucoes: {execId}/, tarefas/{tarefaExecId}/, tickets/{ticketId}/, planos/{planoId}/
     const execIds = idsDe(execs)
+    Object.assign(linhas, {
+      checklist_execucoes: execIds.length,
+      tickets: idsDe(tickets).length,
+      planos_acao: idsDe(planos).length,
+      documentos: docIds.length,
+      catalogos: idsDe(catalogos).length,
+      tarefa_listas: listaIds.length,
+      documento_etapas: idsDe(etapas).length,
+      tarefa_execucoes: idsDe(tarefaExecs).length,
+    })
+
+    // Bucket execucoes: {execId}/, tarefas/{tarefaExecId}/, tickets/{ticketId}/, planos/{planoId}/
     removidos += await removerPrefixos(sb, 'execucoes', [
       ...execIds,
       ...idsDe(tarefaExecs).map(id => `tarefas/${id}`),
       ...idsDe(tickets).map(id => `tickets/${id}`),
       ...idsDe(planos).map(id => `planos/${id}`),
-    ])
+    ], dryRun)
 
-    // PDFs de checklist são arquivos soltos em pdfs/{execId}.pdf (não um prefixo) —
-    // removê-los à parte, senão ficam órfãos. remove() ignora paths inexistentes.
+    // PDFs de checklist são arquivos soltos em pdfs/{execId}.pdf (não um prefixo).
     if (execIds.length) {
-      try {
-        const { data } = await sb.storage.from('execucoes').remove(execIds.map(id => `pdfs/${id}.pdf`))
-        removidos += data?.length ?? 0
-      } catch { /* best-effort */ }
+      if (dryRun) {
+        try {
+          const { data } = await sb.storage.from('execucoes').list('pdfs', { limit: 1000 })
+          const alvo = new Set(execIds.map(id => `${id}.pdf`))
+          removidos += (data ?? []).filter(o => alvo.has(o.name)).length
+        } catch { /* best-effort */ }
+      } else {
+        try {
+          const { data } = await sb.storage.from('execucoes').remove(execIds.map(id => `pdfs/${id}.pdf`))
+          removidos += data?.length ?? 0
+        } catch { /* best-effort */ }
+      }
     }
 
     // Bucket empresas: etapas/{etapaId}/, documentos/{docId}/, catalogos/{catId}/
@@ -101,17 +125,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       ...idsDe(etapas).map(id => `etapas/${id}`),
       ...docIds.map(id => `documentos/${id}`),
       ...idsDe(catalogos).map(id => `catalogos/${id}`),
-    ])
+    ], dryRun)
   }
 
   // Logo da empresa (path extraído da URL pública: .../empresas/<path>)
+  let logoPath: string | null = null
   if (empresa.logo_url) {
     const marker = '/empresas/'
     const idx = (empresa.logo_url as string).indexOf(marker)
     if (idx >= 0) {
-      const path = (empresa.logo_url as string).slice(idx + marker.length).split('?')[0]
-      try { await sb.storage.from('empresas').remove([path]); removidos++ } catch { /* best-effort */ }
+      logoPath = (empresa.logo_url as string).slice(idx + marker.length).split('?')[0]
+      if (dryRun) removidos++
+      else try { await sb.storage.from('empresas').remove([logoPath]); removidos++ } catch { /* best-effort */ }
     }
+  }
+
+  if (dryRun) {
+    return new Response(JSON.stringify({
+      dry_run: true, empresa_id: empresaId, arquivos_a_remover: removidos, logo_path: logoPath, linhas,
+    }), { headers: { 'Content-Type': 'application/json' } })
   }
 
   // Deleta a empresa reusando a RPC testada `excluir_empresa_cascata` (guarda

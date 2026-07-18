@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertTriangle, X, Trash2, Loader2 } from 'lucide-react'
+import { AlertTriangle, X, Trash2, Loader2, Search } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 
@@ -17,8 +17,28 @@ export function ExcluirEmpresaModal({ empresaId, empresaNome, onClose, onExcluid
   const [ciente, setCiente] = useState(false)
   const [excluindo, setExcluindo] = useState(false)
   const [erro, setErro] = useState('')
+  const [simulando, setSimulando] = useState(false)
+  const [resumo, setResumo] = useState<{ arquivos_a_remover: number; linhas: Record<string, number> } | null>(null)
 
   const podeExcluir = confirmacao.trim() === empresaNome && ciente && !excluindo
+
+  async function simular() {
+    setSimulando(true); setErro(''); setResumo(null)
+    const supabase = createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+    try {
+      const res = await fetch(`/api/empresas/${empresaId}/excluir?dryRun=1`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${session?.access_token ?? ''}` },
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) setErro(json.error ?? 'Não foi possível simular.')
+      else setResumo({ arquivos_a_remover: json.arquivos_a_remover ?? 0, linhas: json.linhas ?? {} })
+    } catch {
+      setErro('Falha de conexão ao simular.')
+    }
+    setSimulando(false)
+  }
 
   async function excluir() {
     if (!podeExcluir) return
@@ -64,6 +84,30 @@ export function ExcluirEmpresaModal({ empresaId, empresaNome, onClose, onExcluid
           execuções, planos de ação, tickets e workflows — serão apagados permanentemente do banco
           de dados, <strong>incluindo os arquivos</strong> (fotos, vídeos, PDFs, logo) do armazenamento.
         </p>
+
+        {/* Simulação (dry-run): mostra o que será apagado, sem apagar nada */}
+        <div className="mt-4">
+          <button onClick={simular} disabled={simulando}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50">
+            {simulando ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
+            Simular (ver o que será apagado)
+          </button>
+          {resumo && (
+            <div className="mt-2 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+              <p className="font-medium text-gray-700 mb-1">Prévia — nada foi apagado:</p>
+              <p><strong>{resumo.arquivos_a_remover}</strong> arquivo(s) no armazenamento serão removidos.</p>
+              <p className="mt-1">Registros no banco (cascade):</p>
+              <ul className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                {Object.entries(resumo.linhas).filter(([, v]) => v > 0).map(([k, v]) => (
+                  <li key={k}>{k.replace(/_/g, ' ')}: <strong>{v}</strong></li>
+                ))}
+              </ul>
+              {resumo.arquivos_a_remover === 0 && Object.values(resumo.linhas).every(v => v === 0) && (
+                <p className="mt-1 text-gray-400">Sem arquivos nem registros vinculados por unidade.</p>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="mt-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">

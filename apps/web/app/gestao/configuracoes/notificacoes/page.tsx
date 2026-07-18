@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Save, Loader2, MessageCircle, Mail, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, Info, Bell } from 'lucide-react'
-import { PushToggle } from '@/components/pwa/PushToggle'
+import { Save, Loader2, MessageCircle, Mail, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, Info } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Onboarding } from '@/components/onboarding/Onboarding'
@@ -246,17 +245,6 @@ export default function NotificacoesPage() {
         </p>
       </div>
 
-      {/* Notificações push deste aparelho (por usuário, não por empresa) */}
-      <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex items-center gap-2 mb-1">
-          <Bell size={16} className="text-orange-500" />
-          <h2 className="text-sm font-semibold text-gray-800">Notificações no aparelho (push)</h2>
-        </div>
-        <p className="text-xs text-gray-500 mb-3">
-          Receba alertas de tickets, planos de ação e tarefas direto no aparelho — mesmo com o app fechado (requer o app instalado / PWA). Vale só para este dispositivo.
-        </p>
-        <PushToggle />
-      </div>
 
       <div className="space-y-3">
         {tiposVisiveis.map(tipo => {
