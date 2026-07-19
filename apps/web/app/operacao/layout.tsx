@@ -59,7 +59,7 @@ function OperacaoHeader() {
     supabase.auth.getUser().then(({ data }) => {
       const user = data?.user
       if (!user) return
-      if (user.user_metadata?.role === 'admin_sistema') { setTemGestao(true); return }
+      if (user.app_metadata?.role === 'admin_sistema') { setTemGestao(true); return }
       supabase.from('usuario_empresa')
         .select('perfil_id')
         .eq('usuario_id', user.id)

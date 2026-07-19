@@ -20,7 +20,7 @@ export function GestaoGuard() {
     const supabase = createClient()
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
-      if (user.user_metadata?.role === 'admin_sistema') return
+      if (user.app_metadata?.role === 'admin_sistema') return
 
       const { data: vinculo } = await supabase
         .from('usuario_empresa')

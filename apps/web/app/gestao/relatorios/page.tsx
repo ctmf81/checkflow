@@ -77,7 +77,7 @@ export default function RelatoriosPage() {
       const sb = createClient()
       const { data: { user } } = await sb.auth.getUser()
       if (!user) return
-      const isAdminSistema = user.user_metadata?.role === 'admin_sistema'
+      const isAdminSistema = user.app_metadata?.role === 'admin_sistema'
       const isAdminEmpresa = isAdminSistema ? false : await ehAdminDaEmpresa(sb, empresaAtiva.id)
       let permissoes: { recurso: string; acao: string }[] = []
       if (!isAdminSistema && !isAdminEmpresa) {

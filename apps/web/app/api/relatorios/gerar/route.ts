@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
   const supabasePublic = createClient(SUPABASE_URL, keyPublica)
   const { data: { user } } = await supabasePublic.auth.getUser(token)
   if (!user) return erro('Sessão inválida', 401)
-  const ehAdminSistema = user.user_metadata?.role === 'admin_sistema'
+  const ehAdminSistema = user.app_metadata?.role === 'admin_sistema'
 
   const body = await req.json().catch(() => ({}))
   const modeloId = body.modelo_id

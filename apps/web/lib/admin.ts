@@ -6,7 +6,11 @@
 // "vê tudo" (ignora o filtro por subgrupo nas telas operacionais).
 //
 // Use `ehAdminDaEmpresa(supabase, empresaId)` nas telas que hoje
-// checam apenas `user_metadata.role === 'admin_sistema'`.
+// checam apenas `app_metadata.role === 'admin_sistema'`.
+//
+// ⚠️ O role vive em `app_metadata`, NUNCA em `user_metadata`: este último é
+// gravável pelo próprio usuário via `auth.updateUser({ data })` e permitiria
+// auto-promoção a admin de plataforma (corrigido em 20260718160000).
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -14,8 +18,8 @@ export const PERFIL_ADMIN_EMPRESA = '00000000-0000-0000-0000-000000000002'
 export const PERFIL_ADMIN_SISTEMA = '00000000-0000-0000-0000-000000000001'
 
 /** True se o usuário logado é admin de sistema. */
-export function ehAdminSistema(user: { user_metadata?: { role?: string } } | null | undefined): boolean {
-  return user?.user_metadata?.role === 'admin_sistema'
+export function ehAdminSistema(user: { app_metadata?: Record<string, unknown> } | null | undefined): boolean {
+  return user?.app_metadata?.role === 'admin_sistema'
 }
 
 /**

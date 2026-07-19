@@ -118,7 +118,7 @@ export function Sidebar() {
     ;(async () => {
       const { data: { user } } = await sb.auth.getUser()
       if (!user) return
-      const adminSis = user.user_metadata?.role === 'admin_sistema'
+      const adminSis = user.app_metadata?.role === 'admin_sistema'
       const adminEmp = adminSis ? false : await ehAdminDaEmpresa(sb, empresaAtiva.id)
       if (cancelado) return
       setIsAdminSistema(adminSis); setIsAdminEmpresa(adminEmp)

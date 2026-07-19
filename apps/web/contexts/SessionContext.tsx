@@ -165,7 +165,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      const isAdmin = user.user_metadata?.role === 'admin_sistema'
+      const isAdmin = user.app_metadata?.role === 'admin_sistema'
 
       // Carrega as empresas do usuário numa lista LOCAL. NÃO dá pra ler o state
       // `empresas` recém-setado na mesma execução: setState é assíncrono, então
@@ -329,7 +329,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        const isAdmin = user.user_metadata?.role === 'admin_sistema'
+        const isAdmin = user.app_metadata?.role === 'admin_sistema'
         setModoEmpresa(isAdmin)
         const lista = await carregarUnidades(e.id, user.id, isAdmin)
         // Auto-seleciona a primeira unidade (padrão)

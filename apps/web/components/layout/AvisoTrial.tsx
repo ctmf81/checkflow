@@ -26,7 +26,7 @@ export function AvisoTrial() {
     ;(async () => {
       const { data: { user } } = await sb.auth.getUser()
       if (!user) return
-      const admin = user.user_metadata?.role === 'admin_sistema' || await ehAdminDaEmpresa(sb, empresaAtiva.id)
+      const admin = user.app_metadata?.role === 'admin_sistema' || await ehAdminDaEmpresa(sb, empresaAtiva.id)
       if (!cancel) setEhAdmin(admin)
     })()
     return () => { cancel = true }

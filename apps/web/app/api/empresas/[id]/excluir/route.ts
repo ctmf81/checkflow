@@ -49,7 +49,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const keyPublica = [SUPABASE_PUBLISHABLE, SUPABASE_SECRET].find(ehChave) ?? ''
   const { data: { user } } = await createClient(SUPABASE_URL, keyPublica).auth.getUser(token)
   if (!user) return erro('Sessão inválida', 401)
-  if (user.user_metadata?.role !== 'admin_sistema') return erro('Apenas o administrador do sistema pode excluir empresas.', 403)
+  if (user.app_metadata?.role !== 'admin_sistema') return erro('Apenas o administrador do sistema pode excluir empresas.', 403)
 
   const sb = createClient(SUPABASE_URL, SUPABASE_SECRET)
 

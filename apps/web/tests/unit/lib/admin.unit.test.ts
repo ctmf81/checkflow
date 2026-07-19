@@ -11,13 +11,24 @@ import { ehAdminSistema, ehAdminDaEmpresa, PERFIL_ADMIN_EMPRESA } from '../../..
 
 describe('ehAdminSistema()', () => {
   it('true quando role = admin_sistema', () => {
-    expect(ehAdminSistema({ user_metadata: { role: 'admin_sistema' } })).toBe(true)
+    expect(ehAdminSistema({ app_metadata: { role: 'admin_sistema' } })).toBe(true)
   })
   it('false para outros papéis / ausência', () => {
-    expect(ehAdminSistema({ user_metadata: { role: 'operacao' } })).toBe(false)
+    expect(ehAdminSistema({ app_metadata: { role: 'operacao' } })).toBe(false)
     expect(ehAdminSistema(null)).toBe(false)
     expect(ehAdminSistema(undefined)).toBe(false)
     expect(ehAdminSistema({})).toBe(false)
+  })
+
+  // Regressão da escalada de privilégio corrigida em 20260718160000:
+  // `user_metadata` é gravável pelo próprio usuário (auth.updateUser({ data })),
+  // então um role ali NÃO pode conceder admin de plataforma.
+  it('IGNORA role vindo de user_metadata (auto-promoção)', () => {
+    expect(ehAdminSistema({ user_metadata: { role: 'admin_sistema' } } as never)).toBe(false)
+    expect(ehAdminSistema({
+      user_metadata: { role: 'admin_sistema' },
+      app_metadata: { role: 'operacao' },
+    } as never)).toBe(false)
   })
 })
 
@@ -29,7 +40,7 @@ function mockSb(opts: {
   return {
     auth: {
       getUser: async () => ({ data: { user: opts.role !== undefined || opts.perfilId !== undefined
-        ? { id: 'u1', user_metadata: { role: opts.role } }
+        ? { id: 'u1', app_metadata: { role: opts.role } }
         : null } }),
     },
     from() {

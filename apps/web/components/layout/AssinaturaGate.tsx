@@ -26,7 +26,7 @@ export function AssinaturaGate() {
     const sb = createClient()
     ;(async () => {
       const { data: { user } } = await sb.auth.getUser()
-      const adminSis = user?.user_metadata?.role === 'admin_sistema'
+      const adminSis = user?.app_metadata?.role === 'admin_sistema'
       const adminEmp = adminSis ? true : (user ? await ehAdminDaEmpresa(sb, empresaAtiva.id) : false)
       if (cancel) return
       setIsAdmin(adminSis || adminEmp)

@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
   const ehChave = (key: string) => !!key && !key.startsWith('http')
   const keyUsada = [SUPABASE_SECRET, SUPABASE_PUBLISHABLE].find(ehChave) ?? ''
   const { data: { user } } = await createClient(SUPABASE_URL, keyUsada).auth.getUser(token)
-  if (!user || user.user_metadata?.role !== 'admin_sistema') {
+  if (!user || user.app_metadata?.role !== 'admin_sistema') {
     return Response.json({ error: 'Acesso restrito ao administrador do sistema.' }, { status: 403 })
   }
 

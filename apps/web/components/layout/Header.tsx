@@ -34,7 +34,7 @@ export function Header() {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
-      setIsAdmin(user.user_metadata?.role === 'admin_sistema')
+      setIsAdmin(user.app_metadata?.role === 'admin_sistema')
       supabase.from('usuarios').select('nome').eq('id', user.id).single()
         .then(({ data }) => { if (data?.nome) setNome(data.nome) })
     })

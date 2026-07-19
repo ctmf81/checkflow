@@ -28,7 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!execucao) return Response.json({ error: 'Execução não encontrada' }, { status: 404 })
 
   // Autorização
-  let autorizado = user.user_metadata?.role === 'admin_sistema' || execucao.executado_por === user.id
+  let autorizado = user.app_metadata?.role === 'admin_sistema' || execucao.executado_por === user.id
   if (!autorizado) {
     const { count } = await sb.from('usuario_unidade')
       .select('usuario_id', { count: 'exact', head: true })

@@ -13,7 +13,7 @@ import type { User, SupabaseClient } from '@supabase/supabase-js'
 // (ex: magic link de impersonação, que estabelece a sessão pelo hash da URL).
 async function destinoPosLogin(supabase: SupabaseClient, user: User, redirect?: string | null): Promise<string> {
   if (redirect && redirect.startsWith('/')) return redirect
-  const isAdmin = user.user_metadata?.role === 'admin_sistema'
+  const isAdmin = user.app_metadata?.role === 'admin_sistema'
   const { data: sessao } = await supabase
     .from('sessao_usuario').select('ultimo_ambiente').eq('usuario_id', user.id).single()
   if (sessao?.ultimo_ambiente === 'sistema' && isAdmin) return '/sistema'

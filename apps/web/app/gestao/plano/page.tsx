@@ -81,7 +81,7 @@ export default function PlanoPage() {
     const sb = createClient()
     const { data: { user } } = await sb.auth.getUser()
     if (!user || !empresaAtiva?.id) return false
-    if (user.user_metadata?.role === 'admin_sistema') return true
+    if (user.app_metadata?.role === 'admin_sistema') return true
     const { data } = await sb.from('usuario_empresa').select('perfil_id')
       .eq('usuario_id', user.id).eq('empresa_id', empresaAtiva.id).maybeSingle()
     return data?.perfil_id === ADMIN_EMPRESA_ID

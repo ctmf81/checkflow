@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Sessão inválida. Faça login novamente.' }, { status: 401 })
     }
 
-    if (caller.user_metadata?.role !== 'admin_sistema') {
+    if (caller.app_metadata?.role !== 'admin_sistema') {
       return NextResponse.json({ message: 'Apenas administradores do sistema podem usar este recurso.' }, { status: 403 })
     }
 

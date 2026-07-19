@@ -245,7 +245,7 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
     // Função do usuário logado neste subgrupo
     if (user) {
       // Admin do sistema é identificado via JWT metadata
-      const admin = user.user_metadata?.role === 'admin_sistema'
+      const admin = user.app_metadata?.role === 'admin_sistema'
       setIsAdmin(admin)
 
       if (!admin) {

@@ -56,7 +56,7 @@ export default function UsuariosPage() {
   useEffect(() => {
     const sb = createClient()
     sb.auth.getUser().then(({ data }) => {
-      const admin = data?.user?.user_metadata?.role === 'admin_sistema'
+      const admin = data?.user?.app_metadata?.role === 'admin_sistema'
       setIsAdminSistema(admin)
     })
     sb.rpc('usuario_tem_permissao', { p_recurso: 'usuarios', p_acao: 'importar' })

@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Sessão inválida. Faça login novamente.' }, { status: 401 })
     }
 
-    const isAdminSistema = caller.user_metadata?.role === 'admin_sistema'
+    const isAdminSistema = caller.app_metadata?.role === 'admin_sistema'
 
     let autorizado = isAdminSistema
     if (!autorizado) {

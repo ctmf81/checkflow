@@ -29,7 +29,7 @@ export async function autorizarPermissao(
   const { data: { user }, error } = await caller.auth.getUser(token)
   if (error || !user) return { ok: false, status: 401, message: 'Sessão inválida. Faça login novamente.' }
 
-  if (user.user_metadata?.role === 'admin_sistema') return { ok: true, userId: user.id }
+  if (user.app_metadata?.role === 'admin_sistema') return { ok: true, userId: user.id }
 
   const { data: temPermissao } = await caller.rpc('usuario_tem_permissao', { p_recurso: recurso, p_acao: acao })
   if (!temPermissao) return { ok: false, status: 403, message: 'Você não tem permissão para esta ação.' }
