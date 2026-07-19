@@ -28,7 +28,7 @@ export async function billingRoutes(app: FastifyInstance) {
     if (!token) return null
     const { data: { user } } = await supabase.auth.getUser(token)
     if (!user) return null
-    if (user.user_metadata?.role === 'admin_sistema') return { userId: user.id }
+    if (user.app_metadata?.role === 'admin_sistema') return { userId: user.id }
     const { data } = await supabase.from('usuario_empresa')
       .select('perfil_id').eq('usuario_id', user.id).eq('empresa_id', empresaId).maybeSingle()
     if (data?.perfil_id === ADMIN_EMPRESA_ID || data?.perfil_id === ADMIN_SISTEMA_ID) return { userId: user.id }
