@@ -433,3 +433,60 @@ export function emailParceiroResumoMensal(dados: {
     html,
   }
 }
+
+// ─── Template: Fatura vencida (pagamento em atraso) → admin da empresa ────────
+
+export function emailFaturaVencida(dados: {
+  nomeDestinatario: string
+  nomeEmpresa: string
+  valor: number | null
+  vencimento: string | null
+  invoiceUrl: string | null
+  link: string
+}): { assunto: string; html: string } {
+  const { nomeDestinatario, nomeEmpresa, valor, vencimento, invoiceUrl, link } = dados
+  const valorFmt = valor != null
+    ? valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    : null
+  const assunto = `Fatura em atraso — ${nomeEmpresa}`
+  const conteudo = `
+    <p style="margin:0 0 4px;font-size:13px;color:#6b7280">Olá, ${nomeDestinatario}</p>
+    <h1 style="margin:0 0 16px;font-size:20px;color:#111827;font-weight:700">Sua fatura está em atraso</h1>
+    <p style="margin:0 0 12px;font-size:14px;color:#374151;line-height:1.6">
+      A fatura da empresa <strong>${nomeEmpresa}</strong> consta como <strong>não paga</strong>.
+      Regularize para manter a assinatura ativa e evitar bloqueio de criação de novos itens.
+    </p>
+    <table cellpadding="0" cellspacing="0" style="margin:0 0 4px">
+      ${valorFmt ? row('Valor', valorFmt) : ''}
+      ${vencimento ? row('Vencimento', vencimento) : ''}
+    </table>
+    ${btnLink(invoiceUrl || link, invoiceUrl ? 'Pagar fatura' : 'Ver plano e cobranças', '#dc2626')}
+  `
+  return { assunto, html: base(conteudo) }
+}
+
+// ─── Template: Pré-cadastros pendentes → admin da empresa ─────────────────────
+
+export function emailPreCadastrosPendentes(dados: {
+  nomeDestinatario: string
+  nomeEmpresa: string
+  quantidade: number
+  link: string
+}): { assunto: string; html: string } {
+  const { nomeDestinatario, nomeEmpresa, quantidade, link } = dados
+  const item = quantidade === 1 ? 'um pré-cadastro' : `${quantidade} pré-cadastros`
+  const assunto = `${quantidade} pré-cadastro(s) aguardando aprovação — ${nomeEmpresa}`
+  const conteudo = `
+    <p style="margin:0 0 4px;font-size:13px;color:#6b7280">Olá, ${nomeDestinatario}</p>
+    <h1 style="margin:0 0 16px;font-size:20px;color:#111827;font-weight:700">Pré-cadastros aguardando você</h1>
+    <p style="margin:0 0 12px;font-size:14px;color:#374151;line-height:1.6">
+      A empresa <strong>${nomeEmpresa}</strong> tem <strong>${item}</strong> aguardando aprovação.
+      Enquanto não forem aprovadas, essas pessoas não conseguem acessar o sistema.
+    </p>
+    <p style="margin:0 0 4px;font-size:14px;color:#374151;line-height:1.6">
+      Revise em <strong>Acessos → Usuários</strong>:
+    </p>
+    ${btnLink(link, 'Revisar pré-cadastros')}
+  `
+  return { assunto, html: base(conteudo) }
+}
