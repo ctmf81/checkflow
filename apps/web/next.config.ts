@@ -11,6 +11,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Não expor o banner de versão (X-Powered-By: Next.js) — info disclosure
+  // apontada pelo pentest HTTP (pentest/http_probe.mjs).
+  poweredByHeader: false,
   async headers() {
     return [
       {
