@@ -187,6 +187,8 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 | `routes/tickets.ts` | POST /tickets/notificar — template do banco (fallback hardcoded), WA+email. `aberto`→subgrupo; resto→abridor+assignee. **Link por perfil**: operador→`/operacao/tickets/[id]`, demais→`/gestao/tickets/[id]` |
 | `routes/planos-acao.ts` | POST /planos-acao/notificar — N1 somente para aberto, N2 somente para enviado_n2 |
 | `routes/parceiros.ts` | POST /parceiros/boas-vindas (1x por parceiro), POST /cron/parceiros/resumo-mensal (protegido por `x-cron-secret`, último dia do mês) |
+| `routes/avisos-gestao.ts` | **POST /cron/gestao/lembretes** (x-cron-secret, Fase 3) — lembra o admin de **pré-cadastros pendentes** (WA+email), throttle 3d via `empresa_gestao_lembretes`. Lógica pura em `lib/avisosGestao.ts`; helper `lib/adminEmpresa.ts`. Ver `/biz`, `/ops` |
+| `routes/billing.ts` (Fase 2) | No webhook Asaas, `PAYMENT_OVERDUE` avisa o admin da **fatura vencida** (WA+email, link da fatura) — idempotente pelo dedup de `event_id`. Template `emailFaturaVencida` |
 | `lib/whatsapp.ts` | Evolution API helper (enviarWhatsApp, enviarWhatsAppMidia, statusInstancia) |
 | `lib/notificacao-templates.ts` | `buscarTemplate(sb, empresaId, tipo, canal)`, `renderizar(texto, vars)`, `empresaDeUnidade()`, `empresaDeSubgrupo()` |
 
