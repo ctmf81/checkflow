@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { notificarPlanoEnviadoN2, notificarPlanoDevolvidoN1 } from '@/lib/notificacoes'
-import { registrarUsoArmazenamento } from '@/lib/uso'
+import { registrarUsoArmazenamento, armazenamentoDisponivel, somaBytes, MSG_ARMAZENAMENTO_CHEIO } from '@/lib/uso'
 import { CausaRaizModeracao } from '@/components/planos-acao/CausaRaizModeracao'
+import { useToast } from '@/components/ui/feedback'
 import {
   ArrowLeft, Clock, CheckCircle2, XCircle, AlertTriangle,
   ClipboardList, ChevronRight, ImagePlus, Video, X, Loader2,
@@ -206,6 +207,7 @@ function AcaoModal({ titulo, corBtn, onClose, onConfirmar, salvando }: {
 export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const toast = useToast()
   const { empresaAtiva } = useSession()
   const [plano, setPlano] = useState<Plano | null>(null)
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([])
@@ -271,6 +273,16 @@ export default function PlanoAcaoDetalhePage({ params }: { params: Promise<{ id:
     if (!plano) return
     setSalvando(true)
     const sb = createClient()
+
+    // Freio de cota de armazenamento: bloqueia antes de registrar a
+    // movimentação se as evidências (fotos + vídeo) não couberem no plano.
+    const bytesEvidencias = somaBytes([...dados.fotos.map(f => f.file), dados.video?.file])
+    if (!(await armazenamentoDisponivel(sb, empresaAtiva?.id, bytesEvidencias))) {
+      setSalvando(false)
+      toast.error(MSG_ARMAZENAMENTO_CHEIO)
+      return
+    }
+
     const { data: { user } } = await sb.auth.getUser()
 
     // Determina novo status

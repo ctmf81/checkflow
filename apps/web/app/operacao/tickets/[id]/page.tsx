@@ -9,7 +9,7 @@ import {
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { notificarTicket } from '@/lib/notificacoes'
-import { registrarUsoArmazenamento } from '@/lib/uso'
+import { registrarUsoArmazenamento, armazenamentoDisponivel, somaBytes, MSG_ARMAZENAMENTO_CHEIO } from '@/lib/uso'
 import { acoesDisponiveis as calcularAcoes, type Acao } from '@/lib/tickets'
 import { EvidenciaPicker } from '@/components/tickets/EvidenciaPicker'
 
@@ -166,6 +166,12 @@ export default function TicketDetalheOperacao() {
     if (!semObs && !texto.trim()) { setErro('Observação obrigatória.'); return }
     const textoEvento = texto.trim() || (semObs ? 'Ticket assumido' : '')
     setEnviando(true); setErro(null)
+
+    // Freio de cota de armazenamento: bloqueia antes de mexer no ticket se as
+    // evidências da ação não couberem no plano.
+    if (!(await armazenamentoDisponivel(supabase, empresaAtiva?.id, somaBytes(arquivos)))) {
+      setEnviando(false); setErro(MSG_ARMAZENAMENTO_CHEIO); return
+    }
 
     if (acao.tipo === 'aceite' || acao.novoStatus !== ticket!.status) {
       const patch: Record<string, any> =

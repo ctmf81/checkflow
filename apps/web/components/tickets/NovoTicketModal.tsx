@@ -6,7 +6,7 @@ import { EvidenciaPicker } from './EvidenciaPicker'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { notificarTicket } from '@/lib/notificacoes'
-import { registrarUsoArmazenamento } from '@/lib/uso'
+import { registrarUsoArmazenamento, armazenamentoDisponivel, somaBytes, MSG_ARMAZENAMENTO_CHEIO } from '@/lib/uso'
 
 interface Grupo    { id: string; nome: string }
 interface Subgrupo { id: string; nome: string; grupo_id: string }
@@ -90,6 +90,12 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setErro('Sessão expirada. Faça login novamente.'); setSalvando(false); return }
+
+    // Freio de cota de armazenamento: bloqueia antes de criar o ticket se as
+    // evidências não couberem no plano (checa o lote inteiro de uma vez).
+    if (!(await armazenamentoDisponivel(supabase, empresaAtiva?.id, somaBytes(arquivos)))) {
+      setErro(MSG_ARMAZENAMENTO_CHEIO); setSalvando(false); return
+    }
 
     const { data: ticket, error } = await supabase.from('tickets').insert({
       unidade_id:   unidadeAtiva!.id,
