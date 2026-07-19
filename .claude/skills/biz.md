@@ -60,6 +60,13 @@ Antes de a empresa cair em **somente-leitura** (pós-trial; ver `billing-ciclo-b
 - **Banner na Home** (`AvisoTrial`): aparece só nos **últimos 5 dias**, mostra os dias restantes + CTA "Ver planos". Qualquer membro vê os dias (RPC `empresa_dias_trial`); o CTA leva a `/gestao/plano` (contratação é do admin).
 - Não respeita turno (é aviso administrativo, não operacional).
 
+## Alertas de limite de uso ao admin — Fase 1 IMPLEMENTADO 2026-07-19
+Alertas de **gestão** ao admin da empresa (perfil `…002`), WhatsApp + e-mail, **sempre ligados** (mensagem de plataforma, sem toggle) — reusam o molde do cron de trial.
+- **Cron diário** `/cron/billing/avisos-uso` (x-cron-secret): para cada empresa, mede os **3 recursos com limite** (execuções/mês, tokens de IA/mês, armazenamento) e avisa em **80%** (heads-up) e **100%** (atingido). `%` = `usado / (limite + extra_de_pacote)`; `limite null` = ilimitado (não alerta).
+- **Idempotência por período de cobrança** (tabela `empresa_avisos_uso`, chave `empresa+recurso+faixa+periodo_ref=periodo_inicio`): cada aviso sai **1× por recurso × faixa × período**; reseta na virada (execuções/tokens zeram; armazenamento só re-alerta no período novo se seguir acima). Quem pula direto para 100% recebe só o de 100%.
+- **Conteúdo por recurso**: execuções/tokens resetam no período → CTA "comprar pacote / subir de plano"; armazenamento é permanente → CTA "liberar espaço (tempo de guarda) ou ampliar". Todos linkam `/gestao/plano`.
+- **Fase 2 (cobrança/pagamento via webhook Asaas)** e **Fase 3 (pré-cadastros pendentes)** planejadas, não implementadas. ⚠️ Precisa **agendar o cron no cron-job.org** (ver `/ops`). Lógica pura + testes em `apps/api/src/lib/avisosUso.ts`.
+
 ## Atualização automática de listagens (polling) — 2026-07-15
 **Todas** as listagens da Gestão se atualizam sozinhas via **polling** (`lib/usePolling.ts`, 45s), não Supabase Realtime — incluindo o **painel de Indicadores** e a lista de **modelos de Relatórios** (adicionados 2026-07-18; ficaram de fora só: forms/detalhe, operação, sistema/empresas, workflows-off, ajuda, catch-all). **Por quê**: Supabase é plano **free** — Realtime cobra em conexões simultâneas + reavaliação de RLS **por cliente/por mudança** (Postgres Changes) + cota de mensagens; polling é **previsível e barato** e a gente controla o custo. **Regras** (baratas): pausa em aba oculta + refetch ao voltar; intervalo 45s; só na tela ativa; escopo = listagens (não forms/detalhe). Fora do polling: **operação** (é offline-first, polling quebraria/geraria erro sem sinal) e **sistema** (admin único, baixa mudança). Realtime só valeria com poucas escritas + necessidade de instantâneo — não é o perfil operacional multi-tenant.
 
