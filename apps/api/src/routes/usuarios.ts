@@ -4,7 +4,18 @@ import ws from 'ws'
 
 export async function usuarioRoutes(app: FastifyInstance) {
 
+  // POST /usuarios/sync-all — sincroniza usuários de todas as empresas com API
+  // configurada. Usado pelo agendador (cron). Protegido por header
+  // `x-cron-secret` (env CRON_SECRET), mesmo padrão de /catalogos/sync-all.
+  // Estava ABERTO até 2026-07-18: um POST anônimo criava usuários via
+  // auth.admin.createUser e inativava em massa (estrategia='inativar').
   app.post('/usuarios/sync-all', async (req, reply) => {
+    const secret = process.env.CRON_SECRET
+    if (!secret) return reply.status(500).send({ error: 'CRON_SECRET não configurado' })
+    if (req.headers['x-cron-secret'] !== secret) {
+      return reply.status(401).send({ error: 'Não autorizado' })
+    }
+
     const supabase = createClient(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_SECRET_KEY!,

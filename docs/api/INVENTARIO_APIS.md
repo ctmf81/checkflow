@@ -56,7 +56,7 @@ enviar o token.
 | POST | `/catalogos/test-api` | ⚠️ interna | Testa API externa de catálogo (preview de campos) | `{ url, headers }` |
 | POST | `/catalogos/sync-all` | x-cron-secret | Sincroniza catálogos com API configurada | — |
 | POST | `/cron/limpeza-execucoes` | x-cron-secret | Remove mídia de execuções expiradas | — |
-| POST | `/usuarios/sync-all` | x-cron-secret (confirmar) | Sincroniza usuários com fonte externa | — |
+| POST | `/usuarios/sync-all` | x-cron-secret | Sincroniza usuários com fonte externa | — |
 | POST | `/billing/assinar` | bearer (admin empresa/sistema) | Assina/troca plano (Asaas) | `{ empresaId, planoId, billingType }` |
 | POST | `/billing/comprar-pacote` | bearer (admin empresa/sistema) | Compra pacote adicional | `{ empresaId, pacoteId, billingType }` |
 | POST | `/billing/webhook/asaas` | asaas-token | Recebe eventos de pagamento do Asaas | payload Asaas |
