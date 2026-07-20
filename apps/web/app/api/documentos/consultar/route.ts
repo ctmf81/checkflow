@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient } from '@supabase/supabase-js'
 import { gerarMarkdownDocumento } from '@/lib/documentoMarkdown'
+import { assertUrlPublica } from '@/lib/urlExterna'
 
 // ─── Clientes ─────────────────────────────────────────────────────────────────
 
@@ -89,6 +90,7 @@ function runAnthropic(apiKey: string | undefined, model: string) {
 // OpenAI / compatível (OpenAI, Groq, …) — imagem via image_url (sem PDF)
 function runOpenAICompat(baseUrl: string, apiKey: string | undefined, model: string) {
   return async function (ctx: ProviderCtx, c: StreamController) {
+    await assertUrlPublica(baseUrl) // guard SSRF (base_url de ia_provedores)
     const res = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },

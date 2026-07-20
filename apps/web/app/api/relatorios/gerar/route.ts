@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { compilarExecucoesMarkdown, type ExecucaoCompilar } from '@/lib/relatorios/compilarExecucoes'
+import { assertUrlPublica } from '@/lib/urlExterna'
 
 // Gera (assíncrono) o RELATÓRIO das execuções de um checklist numa janela de
 // tempo, via IA. Fluxo: valida auth + permissão 'relatorios/executar' + gate da
@@ -41,6 +42,7 @@ async function runAnthropic(apiKey: string, model: string, sys: string, pergunta
 }
 
 async function runOpenAICompat(baseUrl: string, apiKey: string, model: string, sys: string, pergunta: string): Promise<Resultado> {
+  await assertUrlPublica(baseUrl) // guard SSRF (base_url de ia_provedores)
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },

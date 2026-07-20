@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient } from '@supabase/supabase-js'
 import { SUFIXO_IA_FOTO, comporPromptFoto, posProcessarFoto } from '@/lib/ia/interpretarFoto'
+import { assertUrlPublica } from '@/lib/urlExterna'
 
 // Interpreta uma FOTO por IA e devolve o valor de um campo de checklist
 // (texto / sim_nao / numero). O prompt e o tipo vêm da atividade (server-side,
@@ -42,6 +43,7 @@ async function runAnthropic(apiKey: string, model: string, sys: string, pergunta
 }
 
 async function runOpenAICompat(baseUrl: string, apiKey: string, model: string, sys: string, pergunta: string, b64: string, mime: string): Promise<Resultado> {
+  await assertUrlPublica(baseUrl) // guard SSRF (base_url de ia_provedores)
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },

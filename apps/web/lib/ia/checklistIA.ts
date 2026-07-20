@@ -9,6 +9,7 @@
 
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient } from '@supabase/supabase-js'
+import { assertUrlPublica } from '@/lib/urlExterna'
 
 const ENV_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const SUPABASE_URL = ENV_URL.includes('.supabase.co') ? ENV_URL : 'https://pswdjdlirylxgscohcfi.supabase.co'
@@ -79,6 +80,7 @@ async function anthropic(apiKey: string, model: string, p: Mensagem): Promise<st
   return (await res.json()).content?.[0]?.text ?? ''
 }
 async function openaiCompat(baseUrl: string, apiKey: string, model: string, p: Mensagem): Promise<string> {
+  await assertUrlPublica(baseUrl) // guard SSRF (base_url de ia_provedores)
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({ model, max_tokens: 4000, messages: [{ role: 'system', content: p.system }, { role: 'user', content: p.user }] }),

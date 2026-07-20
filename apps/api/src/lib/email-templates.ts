@@ -37,13 +37,29 @@ function base(conteudo: string): string {
 </html>`
 }
 
-function btnLink(href: string, texto: string, cor = '#f97316'): string {
-  return `<a href="${href}" style="display:inline-block;margin-top:20px;padding:12px 24px;background:${cor};color:#fff;font-size:14px;font-weight:600;text-decoration:none;border-radius:10px">${texto}</a>`
+/** Escapa dados vindos do usuário antes de interpolar no HTML do e-mail. */
+export function escapeHtml(s: unknown): string {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
+function btnLink(href: string, texto: string, cor = '#f97316'): string {
+  return `<a href="${href}" style="display:inline-block;margin-top:20px;padding:12px 24px;background:${cor};color:#fff;font-size:14px;font-weight:600;text-decoration:none;border-radius:10px">${escapeHtml(texto)}</a>`
+}
+
+/** Linha de tabela com o VALOR escapado (uso padrão — dados do usuário). */
 function row(label: string, valor: string): string {
+  return rowRaw(label, escapeHtml(valor))
+}
+
+/** Linha de tabela com o valor cru (para HTML intencional já montado). */
+function rowRaw(label: string, valor: string): string {
   return `<tr>
-    <td style="padding:6px 0;font-size:13px;color:#6b7280;width:110px;vertical-align:top">${label}</td>
+    <td style="padding:6px 0;font-size:13px;color:#6b7280;width:110px;vertical-align:top">${escapeHtml(label)}</td>
     <td style="padding:6px 0;font-size:13px;color:#111827;font-weight:500">${valor}</td>
   </tr>`
 }
@@ -64,10 +80,10 @@ export function emailTrialExpirando(dados: {
       : `termina em ${diasRestantes} dias`
   const assunto = `Seu teste do CheckFlow ${quando} — contrate para não perder recursos`
   const conteudo = `
-    <p style="margin:0 0 4px;font-size:13px;color:#6b7280">Olá, ${nomeDestinatario}</p>
+    <p style="margin:0 0 4px;font-size:13px;color:#6b7280">Olá, ${escapeHtml(nomeDestinatario)}</p>
     <h1 style="margin:0 0 16px;font-size:20px;color:#111827;font-weight:700">Seu período de teste ${quando}</h1>
     <p style="margin:0 0 12px;font-size:14px;color:#374151;line-height:1.6">
-      O teste da empresa <strong>${nomeEmpresa}</strong> está chegando ao fim. Quando ele terminar,
+      O teste da empresa <strong>${escapeHtml(nomeEmpresa)}</strong> está chegando ao fim. Quando ele terminar,
       a conta continua funcionando em <strong>modo somente-leitura</strong>: você segue consultando e
       operando o que já existe, mas <strong>não será possível criar novos itens</strong>
       (checklists, listas de tarefas, tickets, agendamentos, workflows ou relatórios) até contratar um plano.
@@ -124,7 +140,7 @@ export function emailPlanoAberto(dados: {
   fotoUrl?: string | null
 }): { assunto: string; html: string } {
   const link = `${APP_URL}/gestao/planos-acao/${dados.planoId}`
-  const slaLinha = dados.sla ? row('SLA', `<span style="color:#d97706;font-weight:600">${dados.sla}</span>`) : ''
+  const slaLinha = dados.sla ? rowRaw('SLA', `<span style="color:#d97706;font-weight:600">${escapeHtml(dados.sla)}</span>`) : ''
   const fotoBloco = dados.fotoUrl
     ? `<div style="margin-top:16px;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb">
         <img src="${dados.fotoUrl}" alt="Evidência" style="width:100%;max-height:300px;object-fit:cover;display:block" />
@@ -137,7 +153,7 @@ export function emailPlanoAberto(dados: {
       <span style="color:#dc2626;font-size:13px;font-weight:700">🔴 Novo Plano de Ação</span>
     </div>
 
-    <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#111827">Olá, ${dados.nomeDestinatario}!</p>
+    <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#111827">Olá, ${escapeHtml(dados.nomeDestinatario)}!</p>
     <p style="margin:0 0 24px;font-size:14px;color:#6b7280">Um novo plano de ação foi aberto na sua área e precisa de moderação.</p>
 
     <table cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #f3f4f6;margin-bottom:8px">
@@ -150,7 +166,7 @@ export function emailPlanoAberto(dados: {
 
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-top:16px">
       <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em">Observação</p>
-      <p style="margin:0;font-size:14px;color:#374151;line-height:1.5">${dados.observacao}</p>
+      <p style="margin:0;font-size:14px;color:#374151;line-height:1.5">${escapeHtml(dados.observacao)}</p>
     </div>
 
     ${fotoBloco}
@@ -189,7 +205,7 @@ export function emailPlanoEnviadoN2(dados: {
       <span style="color:#ea580c;font-size:13px;font-weight:700">🟠 Plano Escalado para Você (N2)</span>
     </div>
 
-    <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#111827">Olá, ${dados.nomeDestinatario}!</p>
+    <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#111827">Olá, ${escapeHtml(dados.nomeDestinatario)}!</p>
     <p style="margin:0 0 24px;font-size:14px;color:#6b7280">O moderador N1 escalou um plano de ação para sua análise.</p>
 
     <table cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #f3f4f6;margin-bottom:8px">
@@ -201,7 +217,7 @@ export function emailPlanoEnviadoN2(dados: {
 
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-top:16px">
       <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em">Observação do N1</p>
-      <p style="margin:0;font-size:14px;color:#374151;line-height:1.5">${dados.observacao}</p>
+      <p style="margin:0;font-size:14px;color:#374151;line-height:1.5">${escapeHtml(dados.observacao)}</p>
     </div>
 
     ${fotoBloco}
@@ -252,12 +268,12 @@ export function emailTicketAberto(dados: {
       <span style="color:${cor};font-size:13px;font-weight:700">${emoji} Novo Ticket — Prioridade ${dados.prioridade.charAt(0).toUpperCase() + dados.prioridade.slice(1)}</span>
     </div>
 
-    <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#111827">Olá, ${dados.nomeDestinatario}!</p>
+    <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#111827">Olá, ${escapeHtml(dados.nomeDestinatario)}!</p>
     <p style="margin:0 0 24px;font-size:14px;color:#6b7280">Um novo ticket foi aberto para a sua área e aguarda ser assumido.</p>
 
     <div style="background:#f9fafb;border-left:4px solid ${cor};border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:20px">
       <p style="margin:0 0 2px;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em">#${dados.numero}</p>
-      <p style="margin:0;font-size:16px;font-weight:700;color:#111827">${dados.titulo}</p>
+      <p style="margin:0;font-size:16px;font-weight:700;color:#111827">${escapeHtml(dados.titulo)}</p>
     </div>
 
     <table cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #f3f4f6;margin-bottom:8px">
@@ -268,7 +284,7 @@ export function emailTicketAberto(dados: {
 
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-top:16px">
       <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em">Descrição</p>
-      <p style="margin:0;font-size:14px;color:#374151;line-height:1.5">${dados.descricao}</p>
+      <p style="margin:0;font-size:14px;color:#374151;line-height:1.5">${escapeHtml(dados.descricao)}</p>
     </div>
 
     ${fotoBloco}
@@ -302,15 +318,15 @@ export function emailTicketMovimentado(dados: {
 
   const html = base(`
     <div style="display:inline-block;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:6px 12px;margin-bottom:20px">
-      <span style="color:#2563eb;font-size:13px;font-weight:700">📋 ${dados.eventoLabel}</span>
+      <span style="color:#2563eb;font-size:13px;font-weight:700">📋 ${escapeHtml(dados.eventoLabel)}</span>
     </div>
 
-    <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#111827">Olá, ${dados.nomeDestinatario}!</p>
+    <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#111827">Olá, ${escapeHtml(dados.nomeDestinatario)}!</p>
     <p style="margin:0 0 24px;font-size:14px;color:#6b7280">Houve uma movimentação no ticket que envolve você.</p>
 
     <div style="background:#f9fafb;border-left:4px solid #3b82f6;border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:20px">
       <p style="margin:0 0 2px;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em">#${dados.numero}</p>
-      <p style="margin:0;font-size:16px;font-weight:700;color:#111827">${dados.titulo}</p>
+      <p style="margin:0;font-size:16px;font-weight:700;color:#111827">${escapeHtml(dados.titulo)}</p>
     </div>
 
     <table cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #f3f4f6;margin-bottom:8px">
@@ -320,7 +336,7 @@ export function emailTicketMovimentado(dados: {
 
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-top:16px">
       <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em">Observação</p>
-      <p style="margin:0;font-size:14px;color:#374151;line-height:1.5">${dados.texto}</p>
+      <p style="margin:0;font-size:14px;color:#374151;line-height:1.5">${escapeHtml(dados.texto)}</p>
     </div>
 
     ${fotoBloco}
@@ -341,7 +357,7 @@ export function emailParceiroBoasVindas(dados: {
   percentual: number | null
 }): { assunto: string; html: string } {
   const percentualLinha = dados.percentual != null
-    ? row('Seu percentual', `<span style="color:#16a34a;font-weight:700">${formatarPercentual(dados.percentual)}</span>`)
+    ? rowRaw('Seu percentual', `<span style="color:#16a34a;font-weight:700">${formatarPercentual(dados.percentual)}</span>`)
     : ''
 
   const html = base(`
@@ -349,10 +365,10 @@ export function emailParceiroBoasVindas(dados: {
       <span style="color:#16a34a;font-size:13px;font-weight:700">🤝 Programa de Parceiros CheckFlow</span>
     </div>
 
-    <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#111827">Bem-vindo(a), ${dados.nomeParceiro}!</p>
+    <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#111827">Bem-vindo(a), ${escapeHtml(dados.nomeParceiro)}!</p>
     <p style="margin:0 0 24px;font-size:14px;color:#6b7280;line-height:1.6">
       Você foi cadastrado(a) como parceiro indicador do CheckFlow pela empresa
-      <strong>${dados.nomeEmpresa}</strong>. Enquanto o contrato dessa empresa
+      <strong>${escapeHtml(dados.nomeEmpresa)}</strong>. Enquanto o contrato dessa empresa
       estiver ativo, você recebe um percentual da mensalidade como recompensa
       pela indicação.
     </p>
@@ -402,8 +418,8 @@ export function emailParceiroResumoMensal(dados: {
 }): { assunto: string; html: string } {
   const linhasEmpresas = dados.empresas.map(e => `
     <tr>
-      <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px;color:#111827;font-weight:600">${e.nome}</td>
-      <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px;color:#6b7280">${e.plano ?? '—'}</td>
+      <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px;color:#111827;font-weight:600">${escapeHtml(e.nome)}</td>
+      <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px;color:#6b7280">${e.plano != null ? escapeHtml(e.plano) : '—'}</td>
       <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px;color:#6b7280;text-align:right">${e.valorMensalidade != null ? formatarMoeda(e.valorMensalidade) : '—'}</td>
       <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px;color:#6b7280;text-align:right">${e.percentual != null ? formatarPercentual(e.percentual) : '—'}</td>
       <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px;color:#16a34a;font-weight:700;text-align:right">${e.comissaoEstimada != null ? formatarMoeda(e.comissaoEstimada) : '—'}</td>
@@ -416,7 +432,7 @@ export function emailParceiroResumoMensal(dados: {
         <p style="margin:0;font-size:13px;color:#374151;line-height:1.6">
           ${dados.empresasInativadas.length === 1 ? 'A empresa abaixo ficou inativa' : 'As empresas abaixo ficaram inativas'}
           neste período e deixam de gerar comissão a partir de agora:
-          <strong>${dados.empresasInativadas.join(', ')}</strong>.
+          <strong>${dados.empresasInativadas.map(escapeHtml).join(', ')}</strong>.
         </p>
        </div>`
     : ''
@@ -426,7 +442,7 @@ export function emailParceiroResumoMensal(dados: {
       <span style="color:#ea580c;font-size:13px;font-weight:700">📊 Resumo Mensal — Parceiros CheckFlow</span>
     </div>
 
-    <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#111827">Olá, ${dados.nomeParceiro}!</p>
+    <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#111827">Olá, ${escapeHtml(dados.nomeParceiro)}!</p>
     <p style="margin:0 0 24px;font-size:14px;color:#6b7280">
       Aqui está o resumo de ${dados.mesReferenciaLabel} das empresas que você indicou ao CheckFlow.
     </p>

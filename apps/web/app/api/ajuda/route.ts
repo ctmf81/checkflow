@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient } from '@supabase/supabase-js'
+import { assertUrlPublica } from '@/lib/urlExterna'
 
 // Assistente de ajuda do CheckFlow. Texto puro, com failover entre os
 // provedores configurados em `ia_provedores`. Não consome o limite de tokens
@@ -218,6 +219,7 @@ async function anthropic(apiKey: string, model: string, system: string, msgs: Me
 }
 
 async function openaiCompat(baseUrl: string, apiKey: string, model: string, system: string, msgs: Mensagem[]): Promise<string> {
+  await assertUrlPublica(baseUrl) // guard SSRF (base_url de ia_provedores)
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
