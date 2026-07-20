@@ -172,6 +172,17 @@ Rule: **never mutate a published checklist structure** — create a new version 
 - **Tarefas**: Listas ativas / Respostas / % concluído.
 - **REMOVIDO** o card "Taxa de aprovação por unidade" (cruzava unidades/empresas) — 2026-06-22. **Visão de EMPRESA (cross-unidade) virá depois**, à parte.
 
+## Tela interativa da execução (viewer) — `/gestao/execucoes/[id]` e `/operacao/execucao/[id]`
+Visualização **somente-leitura** de uma execução já respondida, compartilhada entre Gestão e Operação (componente `ExecucaoViewer`, prop `ambiente`). Renderiza as respostas por **seção → atividade**, cada tipo do seu jeito:
+- **foto** → miniatura que **amplia** (lightbox); **vídeo** → player que **toca**; **localização** → mapa; **texto/número/sim_não/multipla_escolha/catálogo/data_hora** → valor formatado; **IA-foto** → desempacota `{valor, foto_ia}` (mostra valor + a foto).
+- **Planos de ação** vinculados à execução aparecem como **link clicável** (abre o plano).
+- Botão **"Baixar PDF"** (`POST /api/execucoes/[id]/pdf`, geração sob demanda).
+- Dados via `GET /api/execucoes/[id]/dados` (**service role** + checagem de acesso: admin de sistema **ou** o próprio executor — ver `/security`).
+- **Aberta por**: na Gestão, pela seta na Home e pelo "Ver execução completa" do plano de ação; na Operação, pelo botão do Histórico. Mantém o operador dentro da Operação (ambiente=operacao).
+
+## Acessos → Empresa (`/gestao/acessos/empresa`)
+Configuração da **própria empresa e suas unidades** (recurso core, nunca gateado por plano). Edita dados da empresa e gere unidades. É gestão da própria conta — não é vazamento entre tenants, só visibilidade (ver `/security`, RECURSOS_CORE).
+
 ## Operação — tela principal (`/operacao`)
 - Acesso restrito a usuários com **perfil de Operação** (ou perfil que permita a tela). Sem seletor de unidade na tela (unidade vem da sessão).
 - **Visibilidade**: o operador vê só os checklists publicados dos **subgrupos aos quais está associado** (`usuario_subgrupo`). Associação feita em **Gestão → Grupos** (UsuariosGrupoModal/AdicionarUsuarioModal nas telas de grupos/subgrupos).
