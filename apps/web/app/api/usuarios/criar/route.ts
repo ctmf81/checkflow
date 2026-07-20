@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
       email: emailFinal,
       password: senhaTemp,
       email_confirm: true,
-      user_metadata: { nome, role: 'usuario' },
+      user_metadata: { nome },
     })
 
     if (authError || !authData.user) {
