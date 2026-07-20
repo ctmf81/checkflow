@@ -9,6 +9,7 @@ import { usePolling } from '@/lib/usePolling'
 import { useConfirm, useToast } from '@/components/ui/feedback'
 import { ehAdminDaEmpresa } from '@/lib/admin'
 import { resolverAcoesRelatorios } from '@/lib/entitlements/gating'
+import { podeCriarConteudo, MSG_CRIACAO_BLOQUEADA } from '@/lib/entitlements/assinaturaFase'
 import { ModeloModal, type ModeloRelatorio } from './ModeloModal'
 
 interface ModeloRow extends ModeloRelatorio {
@@ -58,7 +59,7 @@ function Menu({ podeEditar, podeExcluir, onEditar, onExcluir }: {
 }
 
 export default function RelatoriosPage() {
-  const { unidadeAtiva, empresaAtiva, flagsHabilitadas } = useSession()
+  const { unidadeAtiva, empresaAtiva, flagsHabilitadas, faseAssinatura } = useSession()
   const iaHabilitada = flagsHabilitadas === null || flagsHabilitadas.has('ia')
   const confirm = useConfirm()
   const toast = useToast()
@@ -141,7 +142,11 @@ export default function RelatoriosPage() {
             Modelos de relatório por IA · gere na <span className="font-medium text-orange-500">Home</span>
           </p>
         </div>
-        {perms.criar && <Button onClick={() => setModalNovo(true)}><Plus size={16} />Novo</Button>}
+        {perms.criar && (
+          !podeCriarConteudo(faseAssinatura)
+            ? <Button disabled title={MSG_CRIACAO_BLOQUEADA}><Plus size={16} />Novo</Button>
+            : <Button onClick={() => setModalNovo(true)}><Plus size={16} />Novo</Button>
+        )}
       </div>
 
       {loading ? (
