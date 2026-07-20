@@ -14,6 +14,7 @@ description: Dynamic UI and file index for the CheckFlow project. Use this skill
 | `/recuperar-senha` | `(auth)/recuperar-senha/page.tsx` | Request password reset |
 | `/nova-senha` | `(auth)/nova-senha/page.tsx` | Set new password |
 | `/pre-cadastro/[empresaId]` | `(auth)/pre-cadastro/[empresaId]/page.tsx` | **Pré-cadastro público (QR)** — form anônimo insere `pre_cadastros` pendente; mostra nome/logo via RPC `empresa_publica` |
+| `/primeiro-acesso` | `(auth)/primeiro-acesso/page.tsx` | **1º acesso** — CPF + código OTP (WhatsApp/e-mail) → definir senha. Fluxo de ativação de conta nova/`primeiro_acesso` |
 
 ### Gestão — Backoffice (`gestao/`)
 Layout: `gestao/layout.tsx` — sidebar + SessionProvider
@@ -49,7 +50,10 @@ Layout: `gestao/layout.tsx` — sidebar + SessionProvider
 | `/gestao/tickets/categorias` | `gestao/tickets/categorias/page.tsx` | Category tree CRUD (roots + children, create/edit/delete) |
 | `/gestao/tickets/sla` | `gestao/tickets/sla/page.tsx` | SLA config per priority (unidade default + overrides per category) |
 | `/gestao/configuracoes/notificacoes` | `gestao/configuracoes/notificacoes/page.tsx` | Notification template management — accordion by type, toggle active/inactive per canal, body/subject editor, available variable chips |
+| `/gestao/workflows/novo` | `gestao/workflows/novo/page.tsx` | Abre o editor em **modo criação** (reusa `[id]/page.tsx` tratando `id='novo'`) |
 | `/gestao/workflows/[id]` | `gestao/workflows/[id]/page.tsx` | Workflow editor — PickerModal now has Grupo+Subgrupo selectors |
+| `/gestao/workflows/[id]/execucoes` | `gestao/workflows/[id]/execucoes/page.tsx` | Listagem das **execuções de um workflow** (status por estágio) |
+| `/gestao/indicadores` | `gestao/indicadores/page.tsx` | Indicadores da **unidade** (checklists/tickets/planos/tarefas por período). Ver `/biz` |
 | `/gestao/configuracoes/formatacao` | `gestao/configuracoes/formatacao/page.tsx` | Label config |
 | `/gestao/padrao/variaveis` | `gestao/padrao/variaveis/page.tsx` (+ `VariavelModal.tsx`) | Variáveis (atributos+valores) que compõem padrões — `variaveis`/`variavel_valores`, por unidade |
 | `/gestao/padrao/padroes` | `gestao/padrao/padroes/page.tsx` | Listagem de padrões (validação combinatória), contagem de instâncias |
@@ -79,6 +83,9 @@ Layout: `sistema/layout.tsx`
 | `/sistema/integracoes-ia` | `sistema/integracoes-ia/page.tsx` | Provedores de IA da Consulta Inteligente (failover): 4 fixos (Gemini/Claude/OpenAI/Groq) + 2 customizados OpenAI-compatible (base_url). Chave/modelo/ativo/ordem por provedor; chave mascarada (`••••1234`), nunca lida de volta. Tabela `ia_provedores` |
 | `/sistema/termos` | `sistema/termos/page.tsx` | Edita o Termo de Uso único (gera nova versão ao salvar) |
 | `/sistema/onboarding` | `sistema/onboarding/page.tsx` | Ativa/desativa e edita (JSON) o conteúdo do onboarding contextual de cada tela |
+| `/sistema/servicos` | `sistema/servicos/page.tsx` | CRUD do catálogo de **Serviços** (módulo/característica que mapeia recursos) + flag `padrao` (sempre incluído). Base do gating de plano — ver `/biz` (Entitlements) |
+| `/sistema/alertas` | `sistema/alertas/page.tsx` | Painel **System Alerts** — alertas de infra criados pelo healthcheck do WhatsApp (`/cron/whatsapp/health`). Ver `/ops` |
+| `/sistema/health` | `sistema/health/page.tsx` | **System Health Monitor** — diagnóstico das checagens de saúde (RLS/serviços). Ver `/ops` |
 
 ## Onboarding Contextual (`apps/web/components/onboarding/`)
 
