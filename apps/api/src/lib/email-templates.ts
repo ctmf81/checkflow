@@ -114,10 +114,10 @@ export function emailLimiteUso(dados: {
     : `Você já usou ${pct}% do limite de ${alvo} — ${nomeEmpresa}`
   const titulo = atingido ? `Limite de ${alvo} atingido` : `Chegando ao limite de ${alvo}`
   const frase = atingido
-    ? `A empresa <strong>${nomeEmpresa}</strong> atingiu o limite de ${alvo} (<strong>${pct}%</strong> da capacidade). Novas ações desse tipo podem ficar bloqueadas até a regularização.`
-    : `A empresa <strong>${nomeEmpresa}</strong> já usou <strong>${pct}%</strong> do limite de ${alvo}. Vale se antecipar antes de atingir 100%.`
+    ? `A empresa <strong>${escapeHtml(nomeEmpresa)}</strong> atingiu o limite de ${alvo} (<strong>${pct}%</strong> da capacidade). Novas ações desse tipo podem ficar bloqueadas até a regularização.`
+    : `A empresa <strong>${escapeHtml(nomeEmpresa)}</strong> já usou <strong>${pct}%</strong> do limite de ${alvo}. Vale se antecipar antes de atingir 100%.`
   const conteudo = `
-    <p style="margin:0 0 4px;font-size:13px;color:#6b7280">Olá, ${nomeDestinatario}</p>
+    <p style="margin:0 0 4px;font-size:13px;color:#6b7280">Olá, ${escapeHtml(nomeDestinatario)}</p>
     <h1 style="margin:0 0 16px;font-size:20px;color:#111827;font-weight:700">${titulo}</h1>
     <p style="margin:0 0 12px;font-size:14px;color:#374151;line-height:1.6">${frase}</p>
     <p style="margin:0 0 4px;font-size:14px;color:#374151;line-height:1.6">${orientacaoRecurso(recurso)}</p>
@@ -498,10 +498,10 @@ export function emailFaturaVencida(dados: {
     : null
   const assunto = `Fatura em atraso — ${nomeEmpresa}`
   const conteudo = `
-    <p style="margin:0 0 4px;font-size:13px;color:#6b7280">Olá, ${nomeDestinatario}</p>
+    <p style="margin:0 0 4px;font-size:13px;color:#6b7280">Olá, ${escapeHtml(nomeDestinatario)}</p>
     <h1 style="margin:0 0 16px;font-size:20px;color:#111827;font-weight:700">Sua fatura está em atraso</h1>
     <p style="margin:0 0 12px;font-size:14px;color:#374151;line-height:1.6">
-      A fatura da empresa <strong>${nomeEmpresa}</strong> consta como <strong>não paga</strong>.
+      A fatura da empresa <strong>${escapeHtml(nomeEmpresa)}</strong> consta como <strong>não paga</strong>.
       Regularize para manter a assinatura ativa e evitar bloqueio de criação de novos itens.
     </p>
     <table cellpadding="0" cellspacing="0" style="margin:0 0 4px">
@@ -525,10 +525,10 @@ export function emailPreCadastrosPendentes(dados: {
   const item = quantidade === 1 ? 'um pré-cadastro' : `${quantidade} pré-cadastros`
   const assunto = `${quantidade} pré-cadastro(s) aguardando aprovação — ${nomeEmpresa}`
   const conteudo = `
-    <p style="margin:0 0 4px;font-size:13px;color:#6b7280">Olá, ${nomeDestinatario}</p>
+    <p style="margin:0 0 4px;font-size:13px;color:#6b7280">Olá, ${escapeHtml(nomeDestinatario)}</p>
     <h1 style="margin:0 0 16px;font-size:20px;color:#111827;font-weight:700">Pré-cadastros aguardando você</h1>
     <p style="margin:0 0 12px;font-size:14px;color:#374151;line-height:1.6">
-      A empresa <strong>${nomeEmpresa}</strong> tem <strong>${item}</strong> aguardando aprovação.
+      A empresa <strong>${escapeHtml(nomeEmpresa)}</strong> tem <strong>${item}</strong> aguardando aprovação.
       Enquanto não forem aprovadas, essas pessoas não conseguem acessar o sistema.
     </p>
     <p style="margin:0 0 4px;font-size:14px;color:#374151;line-height:1.6">
