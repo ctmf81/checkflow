@@ -187,6 +187,7 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 | `routes/tickets.ts` | POST /tickets/notificar — template do banco (fallback hardcoded), WA+email. `aberto`→subgrupo; resto→abridor+assignee. **Link por perfil**: operador→`/operacao/tickets/[id]`, demais→`/gestao/tickets/[id]` |
 | `routes/planos-acao.ts` | POST /planos-acao/notificar — N1 somente para aberto, N2 somente para enviado_n2 |
 | `routes/parceiros.ts` | POST /parceiros/boas-vindas (1x por parceiro), POST /cron/parceiros/resumo-mensal (protegido por `x-cron-secret`, último dia do mês) |
+| `routes/avisos-uso.ts` | **POST /cron/billing/avisos-uso** (x-cron-secret) — alerta o admin da empresa (WA+email) em 80%/100% de execuções/tokens/armazenamento. Idempotente por período (`empresa_avisos_uso`). Lógica pura em `lib/avisosUso.ts` (+ testes). Ver `/biz`, `/ops` |
 | `lib/whatsapp.ts` | Evolution API helper (enviarWhatsApp, enviarWhatsAppMidia, statusInstancia) |
 | `lib/notificacao-templates.ts` | `buscarTemplate(sb, empresaId, tipo, canal)`, `renderizar(texto, vars)`, `empresaDeUnidade()`, `empresaDeSubgrupo()` |
 

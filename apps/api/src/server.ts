@@ -10,6 +10,7 @@ import { planosAcaoRoutes } from './routes/planos-acao'
 import { ticketsRoutes } from './routes/tickets'
 import { parceiroRoutes } from './routes/parceiros'
 import { avisosTrialRoutes } from './routes/avisos-trial'
+import { avisosUsoRoutes } from './routes/avisos-uso'
 import { agendamentosRoutes } from './routes/agendamentos'
 import { limpezaRoutes } from './routes/limpeza'
 import { billingRoutes } from './routes/billing'
@@ -55,6 +56,7 @@ app.register(planosAcaoRoutes)
 app.register(ticketsRoutes)
 app.register(parceiroRoutes)
 app.register(avisosTrialRoutes)
+app.register(avisosUsoRoutes)
 app.register(agendamentosRoutes)
 app.register(limpezaRoutes)
 app.register(billingRoutes)

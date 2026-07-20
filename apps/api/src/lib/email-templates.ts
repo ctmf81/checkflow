@@ -2,6 +2,8 @@
  * Templates HTML de email para notificações de Plano de Ação e Tickets
  */
 
+import { rotuloRecurso, orientacaoRecurso, type RecursoUso, type FaixaAviso } from './avisosUso'
+
 const APP_URL = process.env.APP_URL ?? 'https://app.checkflow.digital'
 
 function base(conteudo: string): string {
@@ -74,6 +76,36 @@ export function emailTrialExpirando(dados: {
       Para manter tudo funcionando, contrate um plano agora:
     </p>
     ${btnLink(link, 'Ver planos e contratar')}
+  `
+  return { assunto, html: base(conteudo) }
+}
+
+// ─── Template: Limite de uso 80%/100% → admin da empresa ─────────────────────
+
+export function emailLimiteUso(dados: {
+  nomeDestinatario: string
+  nomeEmpresa: string
+  recurso: RecursoUso
+  faixa: FaixaAviso
+  pct: number
+  link: string
+}): { assunto: string; html: string } {
+  const { nomeDestinatario, nomeEmpresa, recurso, faixa, pct, link } = dados
+  const alvo = rotuloRecurso(recurso)
+  const atingido = faixa === '100'
+  const assunto = atingido
+    ? `Limite de ${alvo} atingido — ${nomeEmpresa}`
+    : `Você já usou ${pct}% do limite de ${alvo} — ${nomeEmpresa}`
+  const titulo = atingido ? `Limite de ${alvo} atingido` : `Chegando ao limite de ${alvo}`
+  const frase = atingido
+    ? `A empresa <strong>${nomeEmpresa}</strong> atingiu o limite de ${alvo} (<strong>${pct}%</strong> da capacidade). Novas ações desse tipo podem ficar bloqueadas até a regularização.`
+    : `A empresa <strong>${nomeEmpresa}</strong> já usou <strong>${pct}%</strong> do limite de ${alvo}. Vale se antecipar antes de atingir 100%.`
+  const conteudo = `
+    <p style="margin:0 0 4px;font-size:13px;color:#6b7280">Olá, ${nomeDestinatario}</p>
+    <h1 style="margin:0 0 16px;font-size:20px;color:#111827;font-weight:700">${titulo}</h1>
+    <p style="margin:0 0 12px;font-size:14px;color:#374151;line-height:1.6">${frase}</p>
+    <p style="margin:0 0 4px;font-size:14px;color:#374151;line-height:1.6">${orientacaoRecurso(recurso)}</p>
+    ${btnLink(link, 'Ver plano e uso', atingido ? '#dc2626' : '#f97316')}
   `
   return { assunto, html: base(conteudo) }
 }

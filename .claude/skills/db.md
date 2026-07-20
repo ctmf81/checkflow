@@ -144,7 +144,8 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 | `avancar_periodo_assinatura(empresa)` | SECURITY DEFINER. Expira trial→gratuito, aplica troca agendada, avança períodos mensais vencidos e zera contadores. Chamada por todas as funções de leitura/enforcement (mantém fresco sem cron) |
 | triggers `billing_inc_execucao` / `billing_inc_tokens` | AFTER INSERT em `checklist_execucoes` (deriva empresa via unidade) e `uso_ia_eventos` — incrementam contadores do período |
 | `billing_pode_executar` / `billing_pode_consumir_ia` / `billing_armazenamento_disponivel(empresa,bytes)` | Booleans de enforcement. Sem assinatura → não bloqueia; limite null → ilimitado |
-| `billing_status(empresa)` → jsonb | Leitura consolidada (plano, período, uso×limite×extra dos 3 recursos). Valida permissão (admin_sistema ou Admin da empresa) |
+| `billing_status(empresa)` → jsonb | Leitura consolidada (plano, período, uso×limite×extra dos 3 recursos). Valida permissão (admin_sistema ou Admin da empresa) — ⚠️ **não usar em cron** (exige admin logado; o cron lê `empresa_assinaturas` direto via service role) |
+| `empresa_avisos_uso` (migration `20260719120000`) | Idempotência dos **alertas de limite de uso** ao admin (Fase 1). Chave `unique(empresa_id, recurso, faixa, periodo_ref)` — `recurso` ∈ execucoes/tokens_ia/armazenamento, `faixa` ∈ 80/100, `periodo_ref` = `periodo_inicio` da assinatura. Cron `/cron/billing/avisos-uso` grava 1 linha por aviso enviado; reseta por período. RLS admin-only (cron usa service role). Ver `/biz`, `/ops` |
 
 ### ⚠️ Migrations 2026-07-05 — TICKETS (APLICAR NO SQL EDITOR — pendentes)
 Correções do fluxo de ticket descobertas nos testes manuais (Tela 11). **Precisam ser aplicadas em prod pelo SQL Editor:**
