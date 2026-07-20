@@ -43,7 +43,7 @@ async function criarUsuario(email, nome, cpf) {
     email,
     password: 'Teste@2026',
     email_confirm: true,
-    user_metadata: { nome, role: 'usuario' },
+    user_metadata: { nome },
   })
   if (error && !error.message.includes('already')) fail(`auth ${email}`, error)
   if (data?.user) {
