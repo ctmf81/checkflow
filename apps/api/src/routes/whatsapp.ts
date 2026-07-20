@@ -6,10 +6,29 @@ import { enviarEmail } from '../lib/email'
 import { buscarTemplate, renderizar } from '../lib/notificacao-templates'
 import { exigirAutorizacao } from '../lib/apiAuth'
 import { adicionarAlerta } from './alerts'
+import { supabase } from '../lib/supabase'
+import { decidirAlertaWhatsapp } from '../lib/whatsappHealth'
 
-// Último estado conhecido do WhatsApp (em memória) — usado pelo healthcheck
-// para só alertar na MUDANÇA de estado (evita spam a cada checagem).
-let ultimoWhatsappOk: boolean | null = null
+// Chave em `sistema_estado` que guarda o último estado conhecido do WhatsApp.
+// Vive no banco (não em memória) para ser compartilhado entre réplicas — só
+// assim o anti-spam "alerta só na MUDANÇA de estado" funciona com 2+ instâncias.
+const ESTADO_WHATSAPP = 'whatsapp_ok'
+
+async function lerUltimoWhatsappOk(): Promise<boolean | null> {
+  const { data } = await supabase
+    .from('sistema_estado')
+    .select('valor')
+    .eq('chave', ESTADO_WHATSAPP)
+    .maybeSingle()
+  if (!data) return null
+  return data.valor === 'true'
+}
+
+async function gravarUltimoWhatsappOk(ok: boolean): Promise<void> {
+  await supabase.from('sistema_estado').upsert({
+    chave: ESTADO_WHATSAPP, valor: ok ? 'true' : 'false', atualizado_em: new Date().toISOString(),
+  })
+}
 
 // Avisa o admin por e-mail (canal independente do WhatsApp — funciona mesmo
 // com o WhatsApp fora). Destinatário em ALERT_EMAIL; sem ele, não envia.
@@ -70,11 +89,11 @@ export async function whatsappRoutes(app: FastifyInstance) {
 
     const status = await statusInstancia()
     const ok = status.conectado
-    const mudou = ultimoWhatsappOk !== null && ultimoWhatsappOk !== ok
-    const caiuPrimeiraVez = ultimoWhatsappOk === null && !ok
+    const ultimoOk = await lerUltimoWhatsappOk()
+    const decisao = decidirAlertaWhatsapp(ultimoOk, ok)
 
-    if (!ok && (mudou || caiuPrimeiraVez)) {
-      adicionarAlerta({
+    if (decisao.transicao === 'caiu') {
+      await adicionarAlerta({
         id: `whatsapp-down-${Date.now()}`, alert_type: 'whatsapp', severity: 'critical', service: 'evolution',
         message: `WhatsApp desconectado (estado: ${status.estado ?? 'desconhecido'}). Reconecte o QR em Sistema → WhatsApp.`,
       })
@@ -82,16 +101,16 @@ export async function whatsappRoutes(app: FastifyInstance) {
         '🔴 WhatsApp do CheckFlow caiu',
         `O WhatsApp (Evolution) está <b>desconectado</b> (estado: ${status.estado ?? '—'}). Enquanto isso, códigos de acesso/reset NÃO chegam por WhatsApp. Reconecte escaneando o QR em <b>Sistema → WhatsApp</b>.`
       )
-    } else if (ok && mudou) {
-      adicionarAlerta({
+    } else if (decisao.transicao === 'voltou') {
+      await adicionarAlerta({
         id: `whatsapp-up-${Date.now()}`, alert_type: 'whatsapp', severity: 'warning', service: 'evolution',
         message: 'WhatsApp reconectado e operacional.',
       })
       await notificarAlertaEmail('🟢 WhatsApp do CheckFlow voltou', 'O WhatsApp (Evolution) reconectou e está operacional novamente.')
     }
 
-    ultimoWhatsappOk = ok
-    return reply.send({ conectado: ok, estado: status.estado, alertou: !ok && (mudou || caiuPrimeiraVez) })
+    await gravarUltimoWhatsappOk(ok)
+    return reply.send({ conectado: ok, estado: status.estado, alertou: decisao.alertar })
   })
 
   // POST /whatsapp/desconectar — encerra a sessão atual (troca de número):

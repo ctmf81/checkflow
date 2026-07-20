@@ -1,4 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
+import { supabase } from '../lib/supabase'
 
 interface RailwayAlert {
   id: string
@@ -23,17 +24,18 @@ interface AlertNotification {
   acked_at?: string
 }
 
-// In-memory store for recent alerts (in production, use database)
-const recentAlerts: Map<string, AlertNotification> = new Map()
+const JANELA_MS = 24 * 60 * 60 * 1000 // alertas com mais de 24h somem do painel
 
 // Registra um alerta no painel (/sistema/alertas). Usado por healthchecks
-// internos (ex: monitor do WhatsApp).
-export function adicionarAlerta(n: {
+// internos (ex: monitor do WhatsApp) e pelo webhook do Railway.
+// Persiste no banco (tabela `sistema_alertas`) para ser visível por TODAS as
+// réplicas da API — antes vivia num Map em memória (só a instância única via).
+export async function adicionarAlerta(n: {
   id: string; alert_type: string; severity: 'warning' | 'critical'; message: string; service: string
-}): void {
-  recentAlerts.set(n.id, {
+}): Promise<void> {
+  await supabase.from('sistema_alertas').upsert({
     id: n.id, alert_type: n.alert_type, severity: n.severity, message: n.message,
-    value: 0, threshold: 0, service: n.service, created_at: new Date().toISOString(), acked: false,
+    value: 0, threshold: 0, service: n.service, acked: false,
   })
 }
 
@@ -51,8 +53,7 @@ export async function alertsRoutes(app: FastifyInstance) {
       timestamp: alert.timestamp
     })
 
-    // Store alert notification
-    const notification: AlertNotification = {
+    await supabase.from('sistema_alertas').upsert({
       id: alert.id,
       alert_type: alert.type,
       severity: alert.severity,
@@ -60,53 +61,51 @@ export async function alertsRoutes(app: FastifyInstance) {
       value: alert.value,
       threshold: alert.threshold,
       service: alert.service,
-      created_at: new Date().toISOString(),
-      acked: false
-    }
-
-    recentAlerts.set(alert.id, notification)
+      acked: false,
+    })
 
     // TODO: In production, send notification via:
     // 1. Email (via Resend API)
     // 2. Slack webhook
-    // 3. Store in database for audit trail
 
     return reply.status(200).send({ received: true, id: alert.id })
   })
 
-  // Get recent alerts (for dashboard)
+  // Get recent alerts (for dashboard) — últimos 100 das últimas 24h.
   app.get<{ Reply: AlertNotification[] }>('/alerts', async (request: FastifyRequest, reply: FastifyReply) => {
-    const alerts = Array.from(recentAlerts.values())
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 100) // Last 100 alerts
+    const desde = new Date(Date.now() - JANELA_MS).toISOString()
+    const { data, error } = await supabase
+      .from('sistema_alertas')
+      .select('*')
+      .gte('created_at', desde)
+      .order('created_at', { ascending: false })
+      .limit(100)
 
-    return reply.send(alerts)
+    if (error) return reply.status(500).send([] as any)
+    return reply.send((data ?? []) as AlertNotification[])
   })
 
   // Acknowledge alert
   app.patch<{ Params: { id: string } }>('/alerts/:id/ack', async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string }
-    const alert = recentAlerts.get(id)
+    const { data, error } = await supabase
+      .from('sistema_alertas')
+      .update({ acked: true, acked_at: new Date().toISOString() })
+      .eq('id', id)
+      .select('*')
+      .maybeSingle()
 
-    if (!alert) {
-      return reply.status(404).send({ error: 'Alert not found' })
-    }
+    if (error) return reply.status(500).send({ error: error.message })
+    if (!data) return reply.status(404).send({ error: 'Alert not found' })
 
-    alert.acked = true
-    alert.acked_at = new Date().toISOString()
-
-    return reply.send(alert)
+    return reply.send(data)
   })
 
-  // Clear old alerts (older than 24 hours)
-  setInterval(() => {
-    const now = Date.now()
-    const oneDayMs = 24 * 60 * 60 * 1000
-
-    for (const [id, alert] of recentAlerts) {
-      if (now - new Date(alert.created_at).getTime() > oneDayMs) {
-        recentAlerts.delete(id)
-      }
-    }
-  }, 60 * 60 * 1000) // Check every hour
+  // Limpeza de alertas antigos (>24h). Best-effort a cada leitura do painel não
+  // é ideal; mantemos um GC leve na inicialização de cada réplica. A tabela é
+  // pequena e a JANELA na leitura já esconde os antigos; isto só evita crescer.
+  supabase.from('sistema_alertas')
+    .delete()
+    .lt('created_at', new Date(Date.now() - JANELA_MS).toISOString())
+    .then(() => {}, () => {})
 }
