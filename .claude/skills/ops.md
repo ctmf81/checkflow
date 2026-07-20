@@ -34,6 +34,19 @@ When debugging an error in logs: surface only the **last 20 lines** unless the u
 ## Capacidade & carga (load test 2026-07-20)
 `node pentest/load-test-simple.mjs` (100 VU · 30s) contra prod: **3.682 req, 0 erros**, média 720ms, **p95 2.182ms** (SLO de 2s estourou por pouco), máx 4s. Nada caiu — o gargalo é **latência sob concorrência**, não estabilidade. ⚠️ O script usa **token dummy** → as req batem na auth e voltam (401) **sem tocar o banco**; req autenticadas reais seriam mais lentas. **Causa = SPOF de instância única** (web+API sem escala horizontal no Railway). **Recomendação:** ligar **réplicas (2+)** no Railway p/ web e API antes de crescer. Teste **pesado** (`pentest/load-test-1000-vu.k6.js`, rampa até 1000 VU, ~11min) **NÃO rodado** — pode degradar/derrubar pros clientes; rodar só em **janela de madrugada** e depois das réplicas. Relatório: `docs/seguranca/RELATORIO_SEG_PERF_2026-07-19.md` §5.
 
+## Escala horizontal / réplicas no Railway (2026-07-20)
+**Objetivo:** resolver o gargalo de latência (p95 do load test) + o SPOF de instância única, ligando **2+ réplicas** dos serviços **web** e **API** no Railway.
+
+**Pré-requisito de código (✅ FEITO 2026-07-20 — branch `feat/ops/escala-horizontal-stateless`):** a API não pode guardar estado em memória de processo (cada réplica teria o seu). Auditado e corrigido:
+- `routes/alerts.ts` — o Map `recentAlerts` do painel `/sistema/alertas` virou a tabela **`sistema_alertas`** (todas as réplicas veem o mesmo). `adicionarAlerta` agora é async.
+- `routes/whatsapp.ts` — o `let ultimoWhatsappOk` do healthcheck virou **`sistema_estado`** (chave `whatsapp_ok`). Sem isso o anti-spam se perdia e o **e-mail de "WhatsApp caiu" repetia** a cada checagem que caísse numa réplica diferente. Decisão extraída para `lib/whatsappHealth.ts` (pura, 6 testes).
+- **Migration `20260720120000_sistema_alertas_estado.sql`** cria as 2 tabelas (RLS admin-only). ⚠️ APLICAR no SQL Editor antes de ligar as réplicas.
+- Restante já era stateless: **crons idempotentes por tabela** (documentado abaixo), web/Next stateless. Evolution (WhatsApp) é serviço à parte (instância única própria — não replicar).
+
+**Como ligar (no dashboard do Railway, ação do usuário):** serviço → **Settings → Deploy → Replicas** = 2 (web e API). Railway faz load-balance entre réplicas na mesma região; healthcheck `/health` já existe. Sem sticky session (o app é stateless). Confirmar que o plano (Hobby) permite o nº de réplicas desejado.
+
+**Depois das réplicas:** aí sim rodar o **teste pesado** `pentest/load-test-1000-vu.k6.js` (rampa até 1000 VU, ~11min) em **janela de madrugada** para reavaliar p95/p99 com a capacidade nova. Relatório base: `docs/seguranca/RELATORIO_SEG_PERF_2026-07-19.md` §5.
+
 ## Web Push / PWA (2026-07-17)
 Notificações push no aparelho, somadas ao WhatsApp/e-mail nos mesmos eventos (tickets/planos/tarefas). Envs **novas**: serviço **API** = `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (mailto), lidas em runtime. Serviço **Web** = `NEXT_PUBLIC_VAPID_PUBLIC_KEY` **não é necessária** (o build Docker não injeta NEXT_PUBLIC → a chave pública está hardcoded como fallback em `apps/web/lib/push.ts`; ver `/db` e a feature). Rotas: `POST /push/subscribe|unsubscribe` (reassocia device ao usuário logado) e `POST /push/testar` (botão de teste). Sem as VAPID na API, o envio é no-op silencioso (WA/e-mail seguem). Chaves geradas ficam em `VAPID_KEYS.local.txt` (gitignored). ⚠️ Ao adicionar env `NEXT_PUBLIC_*` nova no web, **setar no Railway não basta** — precisa de fallback no código.
 
