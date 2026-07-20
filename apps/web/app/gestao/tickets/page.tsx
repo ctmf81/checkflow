@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { usePolling } from '@/lib/usePolling'
 import NovoTicketModal from '@/components/tickets/NovoTicketModal'
+import { podeCriarConteudo, MSG_CRIACAO_BLOQUEADA } from '@/lib/entitlements/assinaturaFase'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
 import { ticketVisivel, slaStatus, STATUS_ABERTOS, STATUS_NAO_ACEITO, STATUS_EM_TRATAMENTO } from '@/lib/tickets'
@@ -59,7 +60,7 @@ const SLA_DOT: Record<string, string> = {
 const ABERTOS = STATUS_ABERTOS as readonly string[]
 
 export default function TicketsPage() {
-  const { unidadeAtiva, empresaAtiva } = useSession()
+  const { unidadeAtiva, empresaAtiva, faseAssinatura } = useSession()
   const supabase = createClient()
   const toast = useToast()
 
@@ -152,8 +153,9 @@ export default function TicketsPage() {
           <h1 className="text-xl font-semibold text-gray-800">Tickets</h1>
           <p className="hidden sm:block text-sm text-gray-500 mt-0.5">Chamados e ocorrências</p>
         </div>
-        <button onClick={() => setNovoOpen(true)}
-          className="flex items-center gap-2 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700">
+        <button onClick={() => setNovoOpen(true)} disabled={!podeCriarConteudo(faseAssinatura)}
+          title={!podeCriarConteudo(faseAssinatura) ? MSG_CRIACAO_BLOQUEADA : undefined}
+          className="flex items-center gap-2 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600">
           <Plus size={16} /> Novo Ticket
         </button>
       </div>

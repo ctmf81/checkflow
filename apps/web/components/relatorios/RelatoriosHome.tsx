@@ -10,6 +10,7 @@ import { useSession } from '@/contexts/SessionContext'
 import { useToast } from '@/components/ui/feedback'
 import { ehAdminDaEmpresa } from '@/lib/admin'
 import { resolverAcoesRelatorios } from '@/lib/entitlements/gating'
+import { podeCriarConteudo, MSG_CRIACAO_BLOQUEADA } from '@/lib/entitlements/assinaturaFase'
 
 interface ModeloOpt { id: string; nome: string }
 interface GeradoRow {
@@ -36,7 +37,7 @@ function dataHora(iso: string): string {
 }
 
 export function RelatoriosHome() {
-  const { unidadeAtiva, empresaAtiva, flagsHabilitadas } = useSession()
+  const { unidadeAtiva, empresaAtiva, flagsHabilitadas, faseAssinatura } = useSession()
   const iaHabilitada = flagsHabilitadas === null || flagsHabilitadas.has('ia')
   const toast = useToast()
 
@@ -157,8 +158,9 @@ export function RelatoriosHome() {
               <option value="">Selecione um modelo…</option>
               {modelos.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
             </select>
-            <button onClick={gerar} disabled={gerando || !modeloSel}
-              className="flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 transition-colors">
+            <button onClick={gerar} disabled={gerando || !modeloSel || !podeCriarConteudo(faseAssinatura)}
+              title={!podeCriarConteudo(faseAssinatura) ? MSG_CRIACAO_BLOQUEADA : undefined}
+              className="flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               {gerando ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
               Gerar
             </button>
