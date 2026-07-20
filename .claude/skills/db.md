@@ -88,7 +88,7 @@ foto:             {}   (no config needed)
 **Funções:**
 - `agendamento_calcular_proxima(referencia, unidade, valor, a_partir_de)` → loops adding interval until past target
 - `agendamento_set_proxima()` trigger → recalculates `proxima_execucao` on insert/update of recurrence fields
-- `agendamentos_processar()` → processes due schedules (`for update skip locked`), calls `workflow_iniciar()` or inserts `checklist_execucoes` (status `'em_andamento'`), recalculates next run. **Pula** (sem avançar `proxima_execucao`) quando fora dos `dias_semana`/faixa de horário (em `America/Sao_Paulo`), ou quando `nao_empilhar` e já há pendência aberta do agendamento (`agendamento_id=id`, `em_andamento`, `executado_por null`). Reescrita nas migrations 20260716140000 e 20260717120000.
+- `agendamentos_processar()` → processes due schedules (`for update skip locked`), calls `workflow_iniciar()` or inserts `checklist_execucoes` (status `'em_andamento'`), recalculates next run. **Pula** (sem avançar `proxima_execucao`) quando: a **empresa não tem o módulo Agendamentos no plano** (`empresa_libera_recurso(empresa,'agendamentos')` false — gate do cron no downgrade, já que service role ignora RLS; retoma ao religar, migration `20260720140000`); fora dos `dias_semana`/faixa de horário (em `America/Sao_Paulo`); ou `nao_empilhar` e já há pendência aberta do agendamento (`agendamento_id=id`, `em_andamento`, `executado_por null`). Reescrita nas migrations 20260716140000, 20260717120000 e 20260720140000.
 - **Disparo em produção via HTTP** `POST /cron/agendamentos/processar` (cron-job.org ~10 min) — pg_cron do Supabase free é instável. Idempotente (roda por pg_cron E HTTP sem duplicar). Ver `/ops`.
 
 ### Validação de troca de perfil (migration 20260607100800)
