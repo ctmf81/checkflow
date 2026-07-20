@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
+import { assertUrlPublica } from '../lib/urlExterna'
 
 export async function usuarioRoutes(app: FastifyInstance) {
 
@@ -48,7 +49,17 @@ export async function usuarioRoutes(app: FastifyInstance) {
           ...(empresa.importacao_api_headers ?? {}),
         }
 
-        const res = await fetch(empresa.importacao_api_url, { headers })
+        // Guard SSRF: a URL é configurada pela empresa — impede apontar para
+        // hosts internos (metadata de nuvem, loopback, redes privadas).
+        try {
+          await assertUrlPublica(empresa.importacao_api_url)
+        } catch (e: any) {
+          resultados.push({ empresa: empresa.nome, erro: `URL de importação insegura: ${e.message}` })
+          continue
+        }
+
+        // Timeout: uma URL que pendura não pode travar o processamento da fila.
+        const res = await fetch(empresa.importacao_api_url, { headers, signal: AbortSignal.timeout(10000) })
         if (!res.ok) {
           resultados.push({ empresa: empresa.nome, erro: `API retornou ${res.status}` })
           continue
