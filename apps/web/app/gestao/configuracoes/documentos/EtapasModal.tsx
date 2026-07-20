@@ -5,9 +5,9 @@ import { X, Plus, Trash2, ChevronRight, ImagePlus, Video, Eye, EyeOff, ChevronLe
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { ImageCropModal } from '@/components/ui/ImageCropModal'
-import { useConfirm } from '@/components/ui/feedback'
+import { useConfirm, useToast } from '@/components/ui/feedback'
 import { useSession } from '@/contexts/SessionContext'
-import { registrarUsoArmazenamento } from '@/lib/uso'
+import { registrarUsoArmazenamento, armazenamentoDisponivel, somaBytes, MSG_ARMAZENAMENTO_CHEIO } from '@/lib/uso'
 import { videoEmbedUrl } from '@/lib/videoEmbed'
 
 interface Etapa {
@@ -26,6 +26,7 @@ interface Props {
 
 export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
   const confirm = useConfirm()
+  const toast = useToast()
   const { empresaAtiva } = useSession()
   const [etapas, setEtapas] = useState<Etapa[]>([])
   const [busca, setBusca] = useState('')
@@ -102,6 +103,15 @@ export function EtapasModal({ documentoId, documentoNome, onClose }: Props) {
     if (!etapaAtiva) return
     setSalvando(true)
     const supabase = createClient()
+
+    // Freio de cota de armazenamento: bloqueia antes de salvar se as imagens
+    // novas da etapa não couberem no plano.
+    const novas = imagens.filter(i => i.blob)
+    if (!(await armazenamentoDisponivel(supabase, empresaAtiva?.id, somaBytes(novas.map(i => i.blob!))))) {
+      setSalvando(false)
+      toast.error(MSG_ARMAZENAMENTO_CHEIO)
+      return
+    }
 
     await supabase.from('documento_etapas').update({
       titulo: titulo || null, conteudo: conteudo || null, video_id: videoId || null
