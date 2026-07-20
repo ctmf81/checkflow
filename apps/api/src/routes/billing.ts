@@ -6,6 +6,10 @@ import {
   asaasPagamentosDaAssinatura, asaasDeletarCobranca, asaasAtualizarAssinatura,
   type BillingType, type Cycle,
 } from '../lib/asaas'
+import { enviarWhatsApp } from '../lib/whatsapp'
+import { enviarEmail } from '../lib/email'
+import { emailFaturaVencida } from '../lib/email-templates'
+import { buscarAdminsEmpresa, notificarAdmins } from '../lib/adminEmpresa'
 
 const ADMIN_SISTEMA_ID = '00000000-0000-0000-0000-000000000001'
 const ADMIN_EMPRESA_ID = '00000000-0000-0000-0000-000000000002'
@@ -325,6 +329,30 @@ export async function billingRoutes(app: FastifyInstance) {
       if (empresaId) {
         if (evento === 'PAYMENT_OVERDUE') {
           await supabase.from('empresa_assinaturas').update({ status: 'inadimplente', atualizado_em: new Date().toISOString() }).eq('empresa_id', empresaId)
+
+          // Alerta de gestão (Fase 2): avisa o admin da empresa que a fatura
+          // venceu, com link para pagar. Idempotente pelo dedup de event_id do
+          // webhook (cada evento é processado 1×). Best-effort — falha de canal
+          // não trava o retorno 200 ao Asaas.
+          try {
+            const { data: emp } = await supabase.from('empresas').select('nome').eq('id', empresaId).maybeSingle()
+            const nomeEmpresa = (emp as any)?.nome ?? 'sua empresa'
+            const admins = await buscarAdminsEmpresa(supabase, empresaId)
+            const baseUrl = process.env.APP_URL ?? 'https://app.checkflow.digital'
+            const link = `${baseUrl}/gestao/plano`
+            const invoiceUrl: string | null = pagamento.invoiceUrl ?? null
+            const valor: number | null = pagamento.value ?? null
+            const vencimento: string | null = pagamento.dueDate ?? null
+            const valorFmt = valor != null ? valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'sua fatura'
+            await notificarAdmins(
+              admins,
+              () => `🚫 *CheckFlow — fatura em atraso*\n\nA fatura da *${nomeEmpresa}* (${valorFmt}${vencimento ? `, venc. ${vencimento}` : ''}) consta como *não paga*. Regularize para manter a assinatura ativa.\n\n🔗 ${invoiceUrl || link}`,
+              (adm) => emailFaturaVencida({ nomeDestinatario: adm.nome, nomeEmpresa, valor, vencimento, invoiceUrl, link }),
+              enviarWhatsApp, enviarEmail,
+            )
+          } catch (notifErr: any) {
+            app.log.error(`[billing] falha ao notificar fatura vencida (empresa ${empresaId}): ${notifErr?.message}`)
+          }
         } else if (pago && ehAssinatura) {
           await supabase.from('empresa_assinaturas').update({ status: 'ativo', atualizado_em: new Date().toISOString() }).eq('empresa_id', empresaId)
         }
