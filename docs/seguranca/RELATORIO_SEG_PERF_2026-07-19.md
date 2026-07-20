@@ -4,6 +4,8 @@ Bateria completa executada contra **produção** (suítes que criam dados tempor
 
 **Veredito geral:** isolamento multi-tenant (RLS) **sólido**; nenhuma vulnerabilidade crítica confirmada. Achados: **1 MEDIUM (SSRF)**, **2 LOW**, e itens de robustez/perf. Detalhes abaixo.
 
+> ✅ **Atualização 2026-07-20:** os **3 achados foram corrigidos, mergeados e deployados** (SSRF → `assertUrlPublica` com DNS/anti-rebinding + timeout; galeria de templates → migration `20260719140000` exige autenticado; HTML em e-mails → `escapeHtml`). Ver `/security` (tabela de vulnerabilidades). Teste de carga leve executado (§5). Restam só recomendações de perf (§3, escala horizontal).
+
 ---
 
 ## 1. Suítes dinâmicas (contra produção)
@@ -21,7 +23,7 @@ Bateria completa executada contra **produção** (suítes que criam dados tempor
 | `http_probe` (black-box) | **24/26** | 2 warns = banner `Server: railway-hikari` (infra, risco residual aceito) |
 | `scale-quota-enforcement` | inconclusivo | Crash de teardown do `ws` no Windows (não é bug do app; insert de empresa verificado OK à parte) |
 | `blue-green-readiness` | 2 checks | Checagens de config estáticas (flag `WORKFLOWS_HABILITADO`, versionamento git) — não são segurança/perf |
-| `load-test-simple` (100 VU) | **NÃO EXECUTADO** | Flood sustentado em produção compartilhada com clientes reais — aguarda autorização explícita (ver §5) |
+| `load-test-simple` (100 VU) | ✅ **EXECUTADO 2026-07-20** | 3.682 req / 30s, **0 erros**; p95 2.182ms (acima do alvo 2s), média 720ms. Nada caiu — SLO de latência estourou, não estabilidade (ver §5) |
 
 ### Verificações pontuais ao vivo
 - **anon em `checklists`**: retorna 7 linhas, **todas `is_template=true`, publicadas** — 0 checklists de tenant. Sem vazamento cross-tenant.
@@ -84,8 +86,13 @@ Durante a auditoria, um grep inicial (sensível a espaços de alinhamento nas mi
 
 ---
 
-## 5. Pendente de autorização — teste de carga
-`load-test-simple.mjs` (100 VUs concorrentes, requisição a cada 100ms) e `load-tests/`/k6 (até 1000 VU) **não foram executados**: são flood sustentado contra a **produção compartilhada com clientes reais** e podem degradar/derrubar o serviço deles (free tier). Recomenda-se rodar contra um **ambiente de staging** ou em **janela combinada de baixa utilização**. Aguardando sua decisão.
+## 5. Teste de carga — EXECUTADO (leve) 2026-07-20
+**`load-test-simple.mjs` (100 VU · 30s)** rodado contra produção:
+- **3.682 requisições, 0 erros (0,00%)** — a instância única do Railway segurou 100 usuários simultâneos sem nenhum 5xx.
+- Latência: **média 720ms, p95 2.182ms** (acima do alvo de 2s por 182ms), máx 4.068ms. O "FALHOU" do script é só o **SLO de latência**, não queda.
+- ⚠️ **Nuance importante:** o script usa **token dummy** → as requisições batem na auth e voltam (401), **sem tocar o banco**. Mesmo esse caminho barato já leva ~720ms sob carga; requisições **autenticadas reais** (que consultam o Supabase) seriam **mais lentas**.
+- **Diagnóstico:** o gargalo é **latência sob concorrência**, causado pelo SPOF de **instância única** (web+API sem escala horizontal — §3). 100 VU é o teto confortável dessa config.
+- **Recomendação:** ligar **réplicas (2+) no Railway** para web e API resolve latência **e** o SPOF. Só **depois** disso vale rodar o **teste pesado (k6, rampa até 1000 VU)** — e em **janela de madrugada**, pois esse sim pode degradar/derrubar pros clientes. Não executado nesta rodada.
 
 ---
 
