@@ -369,8 +369,14 @@ export default function PlanoPage() {
                     <Check size={14} /> Plano atual
                   </Button>
                 ) : (
-                  <Button size="sm" className="w-full justify-center mt-3" onClick={() => assinar(p)} disabled={acaoEmProgresso === 'plano-' + p.id}>
-                    {acaoEmProgresso === 'plano-' + p.id ? <><Loader2 size={13} className="animate-spin" /> Processando…</> : assinaturaAtual?.plano_id && assinaturaAtual.status === 'ativo' ? <><Check size={14} /> Trocar para este</> : <><Check size={14} /> Assinar</>}
+                  <Button size="sm" className="w-full justify-center mt-3" onClick={() => assinar(p)} disabled={acaoEmProgresso === 'plano-' + p.id || !!pendentePlanoId}>
+                    {acaoEmProgresso === 'plano-' + p.id
+                      ? <><Loader2 size={13} className="animate-spin" /> Processando…</>
+                      : pendentePlanoId
+                        ? <>Aguardando pagamento…</>
+                        : assinaturaAtual?.plano_id && assinaturaAtual.status === 'ativo'
+                          ? <><Check size={14} /> Trocar para este</>
+                          : <><Check size={14} /> Assinar</>}
                   </Button>
                 )}
               </div>
