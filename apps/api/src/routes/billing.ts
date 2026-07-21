@@ -141,30 +141,18 @@ export async function billingRoutes(app: FastifyInstance) {
         externalReference: empresaId,
       })
 
-      // Snapshot dos termos + vínculo da assinatura Asaas
-      const hoje = new Date()
-      const periodoFim = new Date(hoje); periodoFim.setMonth(periodoFim.getMonth() + 1)
-      await supabase.from('empresa_assinaturas').upsert({
-        empresa_id: empresaId,
-        plano_id: plano.id,
-        plano_nome: plano.nome,
-        plano_tipo: plano.tipo,
-        valor: plano.valor,
-        ciclo: plano.ciclo,
-        limite_execucoes_mes: plano.limite_execucoes_mes,
-        limite_armazenamento_bytes: plano.limite_armazenamento_bytes,
-        limite_tokens_ia_mes: plano.limite_tokens_ia_mes,
-        status: 'ativo',
-        periodo_inicio: hoje.toISOString().slice(0, 10),
-        periodo_fim: periodoFim.toISOString().slice(0, 10),
-        execucoes_usadas: 0, tokens_ia_usados: 0, execucoes_extra: 0, tokens_ia_extra: 0,
-        trial_fim: null,
-        ja_usou_trial: assinAtual?.ja_usou_trial ?? false,
+      // NÃO ativa o plano ainda: guarda como PENDENTE de 1º pagamento + o vínculo
+      // Asaas. A empresa mantém o acesso atual (trial/carência) até pagar; o
+      // snapshot do plano (limites + status 'ativo') é aplicado no webhook quando
+      // o pagamento confirma (evita "usar sem pagar"). Assume que a linha existe
+      // (criada na abertura da empresa; garantirClienteAsaas já dependia disso).
+      await supabase.from('empresa_assinaturas').update({
+        pendente_plano_id: plano.id,
         proximo_plano_id: null, troca_efetiva_em: null,
         asaas_customer_id: customer,
         asaas_subscription_id: assinatura.id,
         atualizado_em: new Date().toISOString(),
-      }, { onConflict: 'empresa_id' })
+      }).eq('empresa_id', empresaId)
 
       // Busca a 1ª cobrança da assinatura para já devolver o link de pagamento
       // e semear o registro local (o webhook depois atualiza o status).
@@ -189,7 +177,7 @@ export async function billingRoutes(app: FastifyInstance) {
         }
       } catch { /* o webhook PAYMENT_CREATED registra a cobrança de qualquer forma */ }
 
-      return reply.send({ ok: true, subscriptionId: assinatura.id, invoiceUrl })
+      return reply.send({ ok: true, subscriptionId: assinatura.id, invoiceUrl, aguardandoPagamento: true })
     } catch (e: any) {
       app.log.error(e)
       return reply.status(502).send({ error: e?.message ?? 'Falha ao criar assinatura no Asaas' })
@@ -354,7 +342,37 @@ export async function billingRoutes(app: FastifyInstance) {
             app.log.error(`[billing] falha ao notificar fatura vencida (empresa ${empresaId}): ${notifErr?.message}`)
           }
         } else if (pago && ehAssinatura) {
-          await supabase.from('empresa_assinaturas').update({ status: 'ativo', atualizado_em: new Date().toISOString() }).eq('empresa_id', empresaId)
+          // Pagamento de assinatura confirmado. Se há um plano PENDENTE de 1º
+          // pagamento, é agora que ele é aplicado (snapshot + status ativo).
+          const { data: assin } = await supabase.from('empresa_assinaturas')
+            .select('pendente_plano_id').eq('empresa_id', empresaId).maybeSingle()
+
+          if ((assin as any)?.pendente_plano_id) {
+            const { data: plano } = await supabase.from('planos')
+              .select('id, nome, tipo, valor, ciclo, limite_execucoes_mes, limite_armazenamento_bytes, limite_tokens_ia_mes')
+              .eq('id', (assin as any).pendente_plano_id).maybeSingle()
+            if (plano) {
+              const p = plano as any
+              const hoje = new Date(); const fim = new Date(hoje); fim.setMonth(fim.getMonth() + 1)
+              await supabase.from('empresa_assinaturas').update({
+                plano_id: p.id, plano_nome: p.nome, plano_tipo: p.tipo,
+                valor: p.valor, ciclo: p.ciclo,
+                limite_execucoes_mes: p.limite_execucoes_mes,
+                limite_armazenamento_bytes: p.limite_armazenamento_bytes,
+                limite_tokens_ia_mes: p.limite_tokens_ia_mes,
+                status: 'ativo',
+                periodo_inicio: hoje.toISOString().slice(0, 10),
+                periodo_fim: fim.toISOString().slice(0, 10),
+                execucoes_usadas: 0, tokens_ia_usados: 0, execucoes_extra: 0, tokens_ia_extra: 0,
+                trial_fim: null, ja_usou_trial: true,
+                pendente_plano_id: null,
+                atualizado_em: new Date().toISOString(),
+              }).eq('empresa_id', empresaId)
+            }
+          } else {
+            // Pagamento recorrente → garante ativo (recupera de 'inadimplente').
+            await supabase.from('empresa_assinaturas').update({ status: 'ativo', atualizado_em: new Date().toISOString() }).eq('empresa_id', empresaId)
+          }
         }
       }
 

@@ -9,6 +9,9 @@ interface HealthStatus {
     rls: { status: boolean; latency_ms: number; error?: string }
     storage: { status: boolean; quota_used_gb: number; quota_limit_gb: number; error?: string }
   }
+  // Ambiente do gateway de pagamento (diagnóstico — sem segredos). Se aparecer
+  // 'sandbox' em produção, o serviço API não pegou ASAAS_ENV=production (redeploy).
+  asaas_env: 'production' | 'sandbox'
   uptime_seconds: number
 }
 
@@ -24,6 +27,7 @@ export async function healthRoutes(app: FastifyInstance) {
         rls: { status: false, latency_ms: 0 },
         storage: { status: false, quota_used_gb: 0, quota_limit_gb: 100 }
       },
+      asaas_env: process.env.ASAAS_ENV === 'production' ? 'production' : 'sandbox',
       uptime_seconds: Math.floor((Date.now() - startTime) / 1000)
     }
 
