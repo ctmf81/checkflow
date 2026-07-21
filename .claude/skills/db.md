@@ -107,19 +107,20 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 |-------|-------------|
 | `ticket_categorias` | Árvore self-ref por unidade (`pai_id`, `e_generica`, `ativo`). Unique index: máx 1 categoria genérica por unidade (`where e_generica = true`). Função `garantir_categoria_generica(unidade_id)` cria "Sem categoria" se não existir |
 | `ticket_sla_config` | Config de SLA por unidade+categoria+prioridade (`tempo_aceite_min`, `tempo_resolucao_min`). Unique em `(unidade_id, categoria_id, prioridade)` |
-| `tickets` | Chamado principal: `numero` (sequence), `titulo`, `descricao`, `prioridade` (enum), `status` (enum 9 valores), `aberto_por_id`, `assignee_id`, `sla_deadline_at`, `sla_pausado_em`, `sla_segundos_pausados`, `execucao_id` (origem opcional) |
+| `tickets` | Chamado principal: `numero` (sequence), `titulo`, `descricao`, `prioridade` (enum), `status` (enum), `aberto_por_id`, `assignee_id`, `sla_deadline_at`, `sla_pausado_em`, `sla_segundos_pausados`, `execucao_id` (origem opcional), **`ticket_pai_id`** (auto-FK; ≠ null = é duplicado de outro; `on delete set null`, migration `20260720160000`) |
 | `ticket_eventos` | Timeline imutável — bloqueada por `CREATE RULE ... DO INSTEAD NOTHING` em UPDATE e DELETE. `autor_id` **NOT NULL sem default** → o cliente SEMPRE passa `autor_id` (bug corrigido 2026-07-05). FK `autor_id` → `usuarios(id)` (repontada de auth.users em `20260703020000`, senão o embed `autor:usuarios` quebra a query) |
 | `ticket_evidencias` | Fotos/vídeos/documentos. `uploaded_by` **NOT NULL** e `evento_id` devem ser passados pelo cliente (bugs 2026-07-05). Sobe no bucket `execucoes` em `tickets/<ticket_id>/...` |
 
-**Enums:** `ticket_status` (aberto/em_tratamento/aguardando_informacao/aguardando_validacao/corrigido/nao_corrigido/corrigido_parcialmente/cancelado/improcedente — **`corrigido_parcialmente` e `improcedente` não são mais oferecidos na UI desde 2026-07-05, só histórico**), `ticket_prioridade` (critica/alta/media/baixa), `ticket_evento_tipo` (12 valores — **`conclusao` adicionado em `20260703010000`**; o fluxo direto emite esse tipo)
+**Enums:** `ticket_status` (aberto/em_tratamento/aguardando_informacao/aguardando_validacao/corrigido/nao_corrigido/corrigido_parcialmente/cancelado/improcedente/**`duplicado`** — este último adicionado em `20260720150000`; `corrigido_parcialmente` e `improcedente` não são mais oferecidos na UI desde 2026-07-05, só histórico), `ticket_prioridade` (critica/alta/media/baixa), `ticket_evento_tipo` (+ **`vinculo`/`desvinculo`** em `20260720150000`; `conclusao` em `20260703010000`)
 
 **Triggers:**
 - `trg_tickets_numero` — auto-incrementa `numero` via `ticket_numero_seq`
 - `trg_tickets_sla` — calcula `sla_deadline_at` no insert (categoria específica → genérica da unidade)
 - `trg_tickets_updated_at` — inline, sem `moddatetime()`
 - `trg_tickets_sla_pausa` — pausa SLA ao entrar em `aguardando_informacao`, acumula segundos ao sair
+- `trg_tickets_valida_vinculo` (`20260720160000`) — integridade do vínculo de duplicados: bloqueia auto-vínculo, cross-unidade, cadeia (principal que já é duplicado) e tornar duplicado um ticket que já é principal (mantém **flat**)
 
-**RLS:** via `usuario_unidade`. Escrita de categorias/SLA exige `usuario_tem_permissao('ticket','categorias_gerir')`.
+**RLS:** via `usuario_unidade`. Escrita de categorias/SLA exige `usuario_tem_permissao('ticket','categorias_gerir')`. **`tickets_leitura`** (recriada em `20260720160000`): admin, responsável, abridor, membros da unidade (se sem responsável) **e o abridor de qualquer duplicado deste ticket** (interessado enxerga o principal). ⚠️ **Duplicados: enum `20260720150000` aplica SEPARADO e ANTES da `20260720160000`** (ADD VALUE não pode ser usado na mesma transação em que é criado). (Des)vínculo é server-side em `apps/api` (`/tickets/vincular`, `/desvincular`, service role — o responsável do principal pode não ter UPDATE no duplicado pela RLS).
 
 ### Programa de Parceiros (migrations 20260610080000 + 20260611150000, ✅ aplicadas)
 | Table | Description |

@@ -365,6 +365,14 @@ Uma tela que responde "está rodando? · está conforme? · onde falha? · quão
 - **Decisão 2026-06-18: NÃO usar perfil em tickets** — o controle de acesso é por **subgrupo** (visibilidade por subgrupo + assumir só por membro) + papel (abridor/responsável). As permissões `ticket.*` do catálogo ficam sem enforcement (exceto `ticket.cancelar`, que já gateia improcedente/cancelar). Não enforçar `ticket.ver/criar/tratar`.
 - **Categoria é OBRIGATÓRIA** ao abrir ticket (validação no `NovoTicketModal`, 2026-06-20).
 
+### Tickets duplicados — vínculo a um principal (2026-07-20)
+Várias pessoas podem abrir chamados para a mesma coisa. **Quem assumiu** um ticket (o responsável) — ou um admin — pode **vincular duplicados**, escolhendo um **principal** e marcando os demais como **duplicados** dele. Feito no detalhe do ticket (bloco "Duplicados vinculados" / modal Vincular).
+- **Nos 2 sentidos**: "marcar outro como duplicado deste" (este vira principal) ou "marcar este como duplicado de outro" (o outro vira principal). Vínculo é **plano** (um duplicado nunca tem duplicados; escolher um principal que já é duplicado sobe para o pai real) e **só dentro da mesma unidade**.
+- **O duplicado CONGELA**: status `duplicado`, sai das filas "Em aberto"/"Em tratamento" e do SLA (semáforo some). Aparece na listagem com badge **"Duplicado"**. Ninguém trata o duplicado — todo trabalho acontece no principal.
+- **Quem abriu o duplicado vira "interessado" do principal**: (1) passa a **enxergar o principal** (RLS liberada) mesmo ele tendo responsável; (2) é **avisado (WA/e-mail/push) quando o principal é concluído** (corrigido/não corrigido) — respeitando férias/turno. Só na **conclusão** (sem ruído a cada movimentação). Na tela do duplicado, um banner aponta para o principal.
+- **Desvincular** (responsável do principal/admin): devolve o duplicado para "Aberto" (vínculo errado). Cada (des)vínculo grava evento imutável na timeline dos dois (`vinculo`/`desvinculo`).
+- **Onde**: (des)vínculo é **server-side** (`apps/api` `POST /tickets/vincular` e `/desvincular`, service role) porque o responsável do principal pode não ter permissão de UPDATE no duplicado pela RLS. Integridade garantida por trigger no banco. Ver `/db`, `/ops`.
+
 ### Tickets na OPERAÇÃO — novo (2026-07-05)
 - **Aba "Tickets" na operação** (`app/operacao/AbaTickets.tsx`, ao lado de Checklists/Tarefas) — some quando não há ticket. Seções: **Aguardando você** (abri e voltou como `aguardando_informacao` → preciso responder), **Para assumir** (abertos sem responsável do meu subgrupo), **Em tratamento · comigo** (assumidos por mim), **Encerrados recentes** (últimos 5). Operação NÃO lista tickets que abri para OUTRO subgrupo (edge fora).
 - **Tela de detalhe do ticket na operação** (`app/operacao/tickets/[id]/page.tsx`) — operador chega por link da notificação OU pela aba. Reusa `lib/tickets.acoesDisponiveis`.
