@@ -184,6 +184,51 @@ export async function billingRoutes(app: FastifyInstance) {
     }
   })
 
+  // ── POST /billing/cancelar-pendente ───────────────────────────────────────
+  // Desiste de uma assinatura que está AGUARDANDO o 1º pagamento (ex.: escolheu
+  // cartão e quer trocar por PIX). Cancela a assinatura no Asaas, apaga as
+  // cobranças ainda não pagas e limpa o plano pendente — a empresa volta ao
+  // estado anterior e pode assinar de novo com outra forma de pagamento.
+  // Não faz nada se já não há pendência (ex.: o pagamento acabou de confirmar).
+  app.post('/billing/cancelar-pendente', async (req, reply) => {
+    const { empresaId } = req.body as { empresaId?: string }
+    if (!empresaId) return reply.status(400).send({ error: 'empresaId é obrigatório' })
+
+    const supabase = sb()
+    const auth = await autorizarAdminEmpresa(supabase, req.headers.authorization, empresaId)
+    if (!auth) return reply.status(403).send({ error: 'Não autorizado' })
+
+    const { data: assin } = await supabase.from('empresa_assinaturas')
+      .select('pendente_plano_id, asaas_subscription_id').eq('empresa_id', empresaId).maybeSingle()
+    if (!(assin as any)?.pendente_plano_id) {
+      return reply.send({ ok: true, nada: true }) // sem pendência (talvez já pagou)
+    }
+
+    const sub = (assin as any).asaas_subscription_id as string | null
+    if (sub) {
+      try {
+        const pendentes = await asaasPagamentosDaAssinatura(sub)
+        for (const p of pendentes.data ?? []) {
+          if (['PENDING', 'OVERDUE', 'AWAITING_RISK_ANALYSIS'].includes(p.status)) {
+            try { await asaasDeletarCobranca(p.id) } catch { /* ignora */ }
+          }
+        }
+      } catch { /* ignora */ }
+      try { await asaasCancelarAssinatura(sub) } catch { /* ignora */ }
+      await supabase.from('empresa_cobrancas')
+        .update({ status: 'CANCELLED', atualizado_em: new Date().toISOString() })
+        .eq('asaas_subscription_id', sub).is('pago_em', null)
+    }
+
+    await supabase.from('empresa_assinaturas').update({
+      pendente_plano_id: null,
+      asaas_subscription_id: null,
+      atualizado_em: new Date().toISOString(),
+    }).eq('empresa_id', empresaId)
+
+    return reply.send({ ok: true })
+  })
+
   // ── POST /billing/comprar-pacote ──────────────────────────────────────────
   // Cobrança avulsa de um pacote. O crédito só é aplicado quando o pagamento
   // é confirmado (webhook) — evita liberar recurso sem pagamento.
