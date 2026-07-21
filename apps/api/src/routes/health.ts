@@ -12,6 +12,8 @@ interface HealthStatus {
   // Ambiente do gateway de pagamento (diagnóstico — sem segredos). Se aparecer
   // 'sandbox' em produção, o serviço API não pegou ASAAS_ENV=production (redeploy).
   asaas_env: 'production' | 'sandbox'
+  asaas_env_raw?: string
+  asaas_key_prod_set?: boolean
   uptime_seconds: number
 }
 
@@ -28,6 +30,10 @@ export async function healthRoutes(app: FastifyInstance) {
         storage: { status: false, quota_used_gb: 0, quota_limit_gb: 100 }
       },
       asaas_env: (process.env.ASAAS_ENV ?? '').trim().toLowerCase() === 'production' ? 'production' : 'sandbox',
+      // DEBUG temporário: o valor CRU que o processo lê (ASAAS_ENV não é segredo).
+      // Se vier '(unset)', a variável não está chegando no serviço API.
+      asaas_env_raw: JSON.stringify(process.env.ASAAS_ENV ?? '(unset)'),
+      asaas_key_prod_set: !!process.env.ASAAS_API_KEY_PROD,
       uptime_seconds: Math.floor((Date.now() - startTime) / 1000)
     }
 
