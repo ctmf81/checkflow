@@ -229,6 +229,92 @@ export async function billingRoutes(app: FastifyInstance) {
     return reply.send({ ok: true })
   })
 
+  // ── POST /billing/cancelar ────────────────────────────────────────────────
+  // Cancela uma assinatura PAGA ativa. Para as cobranças futuras no Asaas AGORA,
+  // mas o acesso continua até o FIM do período já pago (grava cancelar_em =
+  // periodo_fim); na virada, avancar_periodo_assinatura efetiva (status=cancelado
+  // → fase carência = somente leitura). Reversível via /billing/reativar.
+  app.post('/billing/cancelar', async (req, reply) => {
+    const { empresaId } = req.body as { empresaId?: string }
+    if (!empresaId) return reply.status(400).send({ error: 'empresaId é obrigatório' })
+
+    const supabase = sb()
+    const auth = await autorizarAdminEmpresa(supabase, req.headers.authorization, empresaId)
+    if (!auth) return reply.status(403).send({ error: 'Não autorizado' })
+
+    const { data: a } = await supabase.from('empresa_assinaturas')
+      .select('plano_tipo, status, asaas_subscription_id, periodo_fim, cancelar_em')
+      .eq('empresa_id', empresaId).maybeSingle()
+    if (!a) return reply.status(404).send({ error: 'Empresa sem assinatura' })
+    const at = a as any
+    if (at.plano_tipo !== 'pago' || !['ativo', 'inadimplente'].includes(at.status)) {
+      return reply.status(400).send({ error: 'Só uma assinatura paga ativa pode ser cancelada.' })
+    }
+    if (at.cancelar_em) return reply.send({ ok: true, jaAgendado: true, efetivaEm: at.periodo_fim })
+
+    // Para a recorrência no Asaas + apaga cobranças ainda não pagas (best-effort).
+    if (at.asaas_subscription_id) {
+      try {
+        const pend = await asaasPagamentosDaAssinatura(at.asaas_subscription_id)
+        for (const p of pend.data ?? []) {
+          if (['PENDING', 'OVERDUE', 'AWAITING_RISK_ANALYSIS'].includes(p.status)) {
+            try { await asaasDeletarCobranca(p.id) } catch { /* ignora */ }
+          }
+        }
+      } catch { /* ignora */ }
+      try { await asaasCancelarAssinatura(at.asaas_subscription_id) } catch { /* ignora */ }
+    }
+
+    await supabase.from('empresa_assinaturas').update({
+      cancelar_em: at.periodo_fim,
+      atualizado_em: new Date().toISOString(),
+    }).eq('empresa_id', empresaId)
+
+    return reply.send({ ok: true, efetivaEm: at.periodo_fim })
+  })
+
+  // ── POST /billing/reativar ────────────────────────────────────────────────
+  // Desfaz um cancelamento agendado (antes do período virar): recria a assinatura
+  // recorrente no Asaas com a 1ª cobrança só no FIM do período atual (sem cobrar
+  // de novo agora) e limpa cancelar_em.
+  app.post('/billing/reativar', async (req, reply) => {
+    const { empresaId, billingType } = req.body as { empresaId?: string; billingType?: BillingType }
+    if (!empresaId) return reply.status(400).send({ error: 'empresaId é obrigatório' })
+
+    const supabase = sb()
+    const auth = await autorizarAdminEmpresa(supabase, req.headers.authorization, empresaId)
+    if (!auth) return reply.status(403).send({ error: 'Não autorizado' })
+
+    const { data: a } = await supabase.from('empresa_assinaturas')
+      .select('plano_nome, valor, ciclo, periodo_fim, cancelar_em')
+      .eq('empresa_id', empresaId).maybeSingle()
+    const at = a as any
+    if (!at?.cancelar_em) return reply.send({ ok: true, nada: true })
+
+    const tipoCobranca: BillingType = ['PIX', 'CREDIT_CARD', 'BOLETO'].includes(billingType as string) ? billingType! : 'PIX'
+    try {
+      const customer = await garantirClienteAsaas(supabase, empresaId)
+      const nova = await asaasCriarAssinatura({
+        customer,
+        billingType: tipoCobranca,
+        value: Number(at.valor),
+        nextDueDate: at.periodo_fim,  // resume no fim do período atual (sem cobrança imediata)
+        cycle: at.ciclo === 'anual' ? 'YEARLY' : 'MONTHLY',
+        description: `CheckFlow — plano ${at.plano_nome}`,
+        externalReference: empresaId,
+      })
+      await supabase.from('empresa_assinaturas').update({
+        cancelar_em: null,
+        asaas_subscription_id: nova.id,
+        atualizado_em: new Date().toISOString(),
+      }).eq('empresa_id', empresaId)
+      return reply.send({ ok: true })
+    } catch (e: any) {
+      app.log.error(e)
+      return reply.status(502).send({ error: e?.message ?? 'Falha ao reativar no Asaas' })
+    }
+  })
+
   // ── POST /billing/comprar-pacote ──────────────────────────────────────────
   // Cobrança avulsa de um pacote. O crédito só é aplicado quando o pagamento
   // é confirmado (webhook) — evita liberar recurso sem pagamento.
