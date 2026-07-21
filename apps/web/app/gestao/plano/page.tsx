@@ -139,11 +139,12 @@ export default function PlanoPage() {
     if (!empresaAtiva?.id) return
 
     const trocaEntrePagos = status?.plano_tipo === 'pago' && status.status === 'ativo'
+    const metodoPag = billingType === 'CREDIT_CARD' ? 'Cartão de crédito' : 'PIX'
     const ok = await confirm({
       titulo: trocaEntrePagos ? `Trocar para o plano "${plano.nome}"?` : `Assinar o plano "${plano.nome}"?`,
       mensagem: trocaEntrePagos
         ? `A troca passa a valer no fim do período atual (${dataBR(status?.periodo_fim ?? null)}). Até lá seu plano atual continua; a próxima cobrança virá em ${moeda(plano.valor)}/${plano.ciclo === 'anual' ? 'ano' : 'mês'}.`
-        : `Será gerada uma cobrança recorrente de ${moeda(plano.valor)}/${plano.ciclo === 'anual' ? 'ano' : 'mês'} no Asaas. O plano é ativado assim que o pagamento for confirmado.`,
+        : `Forma de pagamento: ${metodoPag}. Será gerada uma cobrança recorrente de ${moeda(plano.valor)}/${plano.ciclo === 'anual' ? 'ano' : 'mês'} no Asaas. O plano é ativado assim que o pagamento for confirmado.`,
       confirmarLabel: trocaEntrePagos ? 'Agendar troca' : 'Assinar',
     })
     if (!ok) return
@@ -270,7 +271,7 @@ export default function PlanoPage() {
       {/* Forma de pagamento */}
       <div className="flex items-center gap-2 mb-5">
         <span className="text-xs text-gray-500">Forma de pagamento:</span>
-        {(['PIX', 'BOLETO', 'CREDIT_CARD'] as BillingType[]).map(bt => (
+        {(['PIX', 'CREDIT_CARD'] as BillingType[]).map(bt => (
           <button key={bt} onClick={() => setBillingType(bt)}
             className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${
               billingType === bt ? 'border-orange-300 bg-orange-50 text-orange-600' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
