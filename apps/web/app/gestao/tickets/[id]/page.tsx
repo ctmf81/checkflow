@@ -4,13 +4,14 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, CheckCircle2, XCircle, RotateCcw, MessageSquare,
-  AlertTriangle, Loader2, UserCheck, AlertCircle, ChevronDown, Info
+  AlertTriangle, Loader2, UserCheck, AlertCircle, ChevronDown, Info,
+  Link2, Unlink, Copy
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
-import { notificarTicket } from '@/lib/notificacoes'
+import { notificarTicket, vincularTicketDuplicado, desvincularTicketDuplicado } from '@/lib/notificacoes'
 import { registrarUsoArmazenamento, armazenamentoDisponivel, somaBytes, MSG_ARMAZENAMENTO_CHEIO } from '@/lib/uso'
-import { acoesDisponiveis as calcularAcoes, type Acao } from '@/lib/tickets'
+import { acoesDisponiveis as calcularAcoes, podeVincular, STATUS_ABERTOS, type Acao, type TicketStatus as TStatus } from '@/lib/tickets'
 import { ehAdminDaEmpresa } from '@/lib/admin'
 import { EvidenciaPicker } from '@/components/tickets/EvidenciaPicker'
 
@@ -19,7 +20,7 @@ import { EvidenciaPicker } from '@/components/tickets/EvidenciaPicker'
 type TicketStatus =
   | 'aberto' | 'em_tratamento' | 'aguardando_informacao'
   | 'aguardando_validacao' | 'corrigido' | 'nao_corrigido'
-  | 'corrigido_parcialmente' | 'cancelado' | 'improcedente'
+  | 'corrigido_parcialmente' | 'cancelado' | 'improcedente' | 'duplicado'
 
 interface Ticket {
   id: string; numero: number; titulo: string; descricao: string
@@ -27,11 +28,15 @@ interface Ticket {
   sla_deadline_at: string | null; sla_segundos_pausados: number; sla_pausado_em: string | null
   criado_em: string
   unidade_id: string; grupo_id: string; subgrupo_id: string
+  ticket_pai_id: string | null
   grupo: { nome: string }; subgrupo: { nome: string }
   categoria: { nome: string } | null
   aberto_por: { id: string; nome: string }
   assignee: { id: string; nome: string } | null
 }
+
+/** Ticket resumido para os blocos de vínculo (principal / duplicados / picker). */
+interface TicketResumo { id: string; numero: number; titulo: string; status: string }
 
 interface GrupoOpcao { id: string; nome: string }
 interface SubgrupoOpcao { id: string; nome: string; grupo_id: string }
@@ -58,6 +63,8 @@ const TIPO_EVENTO: Record<string, { label: string; cor: string }> = {
   cancelamento:       { label: 'Cancelado',                  cor: 'text-gray-400' },
   improcedencia:      { label: 'Improcedente',               cor: 'text-gray-400' },
   escalada:           { label: 'Escalado',                   cor: 'text-red-600' },
+  vinculo:            { label: 'Duplicado vinculado',        cor: 'text-indigo-600' },
+  desvinculo:         { label: 'Vínculo desfeito',           cor: 'text-gray-500' },
 }
 
 const PRIORIDADE_COR: Record<string, string> = {
@@ -96,6 +103,17 @@ export default function TicketDetalhe() {
   const [enviando, setEnviando] = useState(false)
   const [erro,     setErro]     = useState<string | null>(null)
 
+  // Vínculo de duplicados
+  const [principal, setPrincipal]   = useState<TicketResumo | null>(null)
+  const [duplicados, setDuplicados] = useState<TicketResumo[]>([])
+  const [vincOpen, setVincOpen]     = useState(false)
+  const [vincModo, setVincModo]     = useState<'anexar' | 'este_e_dup'>('anexar')
+  const [candidatos, setCandidatos] = useState<TicketResumo[]>([])
+  const [buscaVinc, setBuscaVinc]   = useState('')
+  const [alvoSel, setAlvoSel]       = useState('')
+  const [vinculando, setVinculando] = useState(false)
+  const [erroVinc, setErroVinc]     = useState<string | null>(null)
+
   // Transferência para outro grupo/subgrupo
   const [transferOpen, setTransferOpen] = useState(false)
   const [grupos,    setGrupos]    = useState<GrupoOpcao[]>([])
@@ -126,7 +144,7 @@ export default function TicketDetalhe() {
       supabase.from('tickets').select(`
         id, numero, titulo, descricao, prioridade, status, criado_em,
         sla_deadline_at, sla_segundos_pausados, sla_pausado_em,
-        unidade_id, grupo_id, subgrupo_id,
+        unidade_id, grupo_id, subgrupo_id, ticket_pai_id,
         grupo:grupos(nome), subgrupo:subgrupos(nome),
         categoria:ticket_categorias(nome),
         aberto_por:usuarios!tickets_aberto_por_id_fkey(id, nome),
@@ -141,6 +159,20 @@ export default function TicketDetalhe() {
     setTicket(t as any)
     setEventos((ev as any) ?? [])
     setLoading(false)
+
+    // Vínculos: se for duplicado, carrega o principal; se for principal, os duplicados.
+    const tt = t as any
+    if (tt?.ticket_pai_id) {
+      const { data: pai } = await supabase.from('tickets')
+        .select('id, numero, titulo, status').eq('id', tt.ticket_pai_id).single()
+      setPrincipal((pai as any) ?? null)
+    } else {
+      setPrincipal(null)
+    }
+    const { data: filhos } = await supabase.from('tickets')
+      .select('id, numero, titulo, status').eq('ticket_pai_id', id).order('numero', { ascending: true })
+    setDuplicados((filhos as any) ?? [])
+
     setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
   }
 
@@ -297,6 +329,41 @@ export default function TicketDetalhe() {
     carregar()
   }
 
+  const podeGerirVinc = !!ticket && podeVincular({ status: (ticket.status as any), ehAssignee, isAdmin })
+
+  async function abrirVincular() {
+    if (!ticket) return
+    setErroVinc(null); setAlvoSel(''); setBuscaVinc(''); setVincModo('anexar')
+    const { data } = await supabase.from('tickets')
+      .select('id, numero, titulo, status').eq('unidade_id', ticket.unidade_id)
+      .order('numero', { ascending: false })
+    // Só tickets ativos e diferentes deste (duplicados/encerrados não entram).
+    setCandidatos((data as any[] ?? []).filter(c => c.id !== ticket.id && STATUS_ABERTOS.includes(c.status)))
+    setVincOpen(true)
+  }
+
+  async function confirmarVincular() {
+    if (!ticket || !userId) return
+    if (!alvoSel) { setErroVinc('Selecione um ticket.'); return }
+    setVinculando(true); setErroVinc(null)
+    const principal_id = vincModo === 'anexar' ? ticket.id : alvoSel
+    const duplicado_id = vincModo === 'anexar' ? alvoSel : ticket.id
+    const r = await vincularTicketDuplicado({ principal_id, duplicado_id, ator_id: userId })
+    setVinculando(false)
+    if (!r.ok) { setErroVinc(r.error ?? 'Falha ao vincular.'); return }
+    setVincOpen(false)
+    // Se ESTE virou duplicado, vai para o principal (onde o trabalho acontece).
+    if (vincModo === 'este_e_dup' && r.principal_id) router.push(`/gestao/tickets/${r.principal_id}`)
+    else carregar()
+  }
+
+  async function desvincular(dupId: string) {
+    if (!userId) return
+    const r = await desvincularTicketDuplicado({ duplicado_id: dupId, ator_id: userId })
+    if (r.ok) carregar()
+    else setErro(r.error ?? 'Falha ao desvincular.')
+  }
+
   if (loading) return <div className="py-16 text-center text-sm text-gray-400">Carregando…</div>
   if (!ticket) return <div className="py-16 text-center text-sm text-red-400">Ticket não encontrado.</div>
 
@@ -306,6 +373,7 @@ export default function TicketDetalhe() {
   function motivoSemAcao(): string | null {
     if (acoes.length > 0 || !ticket) return null
     const s = ticket.status
+    if (s === 'duplicado') return null // o banner do vínculo já explica o estado
     const fechados = ['corrigido', 'nao_corrigido', 'corrigido_parcialmente', 'cancelado', 'improcedente']
     if (fechados.includes(s)) {
       return ehAbridor
@@ -360,6 +428,70 @@ export default function TicketDetalhe() {
           </div>
         )}
       </div>
+
+      {/* Este ticket É um duplicado → aponta para o principal */}
+      {principal && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
+          <div className="flex items-start gap-2">
+            <Copy size={15} className="text-indigo-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-indigo-900 font-medium">Este chamado foi vinculado como duplicado.</p>
+              <p className="text-xs text-indigo-700 mt-0.5">
+                O tratamento acontece no chamado principal. Você será avisado quando ele for concluído.
+              </p>
+              <button onClick={() => router.push(`/gestao/tickets/${principal.id}`)}
+                className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-indigo-700 hover:text-indigo-900">
+                <Link2 size={13} /> Ver o principal #{String(principal.numero).padStart(4, '0')} — {principal.titulo}
+              </button>
+              {(podeGerirVinc || isAdmin) && (
+                <button onClick={() => desvincular(ticket.id)}
+                  className="mt-2 ml-4 inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700">
+                  <Unlink size={12} /> Desvincular
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Este ticket É principal → lista duplicados/interessados + ação de vincular */}
+      {!principal && (duplicados.length > 0 || podeGerirVinc) && (
+        <div className="bg-white border border-gray-100 rounded-xl p-4 mb-4">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+              <Copy size={14} className="text-indigo-500" /> Duplicados vinculados
+              {duplicados.length > 0 && <span className="text-xs font-normal text-gray-400">({duplicados.length})</span>}
+            </h2>
+            {podeGerirVinc && (
+              <button onClick={abrirVincular}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800">
+                <Link2 size={13} /> Vincular duplicado
+              </button>
+            )}
+          </div>
+          {duplicados.length === 0 ? (
+            <p className="text-xs text-gray-400">Nenhum. Vincule chamados abertos para a mesma finalidade — quem os abriu acompanha por aqui.</p>
+          ) : (
+            <ul className="divide-y divide-gray-50">
+              {duplicados.map(d => (
+                <li key={d.id} className="flex items-center justify-between py-2 gap-2">
+                  <button onClick={() => router.push(`/gestao/tickets/${d.id}`)}
+                    className="text-left text-sm text-gray-700 hover:text-indigo-700 truncate">
+                    <span className="font-mono text-xs text-gray-400 mr-1.5">#{String(d.numero).padStart(4, '0')}</span>
+                    {d.titulo}
+                  </button>
+                  {podeGerirVinc && (
+                    <button onClick={() => desvincular(d.id)}
+                      className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 flex-shrink-0">
+                      <Unlink size={12} /> Desvincular
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Timeline */}
       <div className="space-y-3 mb-4">
@@ -497,6 +629,78 @@ export default function TicketDetalhe() {
                 className="text-sm font-medium px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5">
                 {transferindo && <Loader2 size={13} className="animate-spin" />}
                 Transferir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de vínculo de duplicado */}
+      {vincOpen && ticket && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5">
+            <h2 className="text-sm font-semibold text-gray-800 mb-1">Vincular chamado duplicado</h2>
+            <p className="text-xs text-gray-500 mb-4">
+              O duplicado congela e some das filas; quem o abriu passa a acompanhar por este chamado e é avisado na conclusão.
+            </p>
+
+            {/* Sentido do vínculo */}
+            <div className="flex flex-col gap-2 mb-3">
+              <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                <input type="radio" name="vincModo" className="mt-0.5" checked={vincModo === 'anexar'}
+                  onChange={() => setVincModo('anexar')} />
+                <span>Marcar <strong>outro chamado</strong> como duplicado <strong>deste</strong> (este vira o principal)</span>
+              </label>
+              <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                <input type="radio" name="vincModo" className="mt-0.5" checked={vincModo === 'este_e_dup'}
+                  onChange={() => setVincModo('este_e_dup')} />
+                <span>Marcar <strong>este chamado</strong> como duplicado de <strong>outro</strong> (o outro vira o principal)</span>
+              </label>
+            </div>
+
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              {vincModo === 'anexar' ? 'Chamado que é duplicado deste' : 'Chamado principal'}
+            </label>
+            <input value={buscaVinc} onChange={e => setBuscaVinc(e.target.value)}
+              placeholder="Buscar por número ou título…"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+
+            <div className="max-h-52 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-50 mb-3">
+              {candidatos
+                .filter(c => {
+                  const q = buscaVinc.trim().toLowerCase()
+                  if (!q) return true
+                  return c.titulo.toLowerCase().includes(q) || String(c.numero).padStart(4, '0').includes(q.replace('#', ''))
+                })
+                .slice(0, 50)
+                .map(c => (
+                  <button key={c.id} onClick={() => setAlvoSel(c.id)}
+                    className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-gray-50 ${alvoSel === c.id ? 'bg-indigo-50' : ''}`}>
+                    <span className="font-mono text-xs text-gray-400">#{String(c.numero).padStart(4, '0')}</span>
+                    <span className="text-gray-700 truncate">{c.titulo}</span>
+                    {alvoSel === c.id && <CheckCircle2 size={14} className="text-indigo-600 ml-auto flex-shrink-0" />}
+                  </button>
+                ))}
+              {candidatos.length === 0 && (
+                <p className="px-3 py-4 text-xs text-gray-400 text-center">Nenhum chamado ativo disponível para vincular nesta unidade.</p>
+              )}
+            </div>
+
+            {erroVinc && (
+              <div className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">
+                <AlertTriangle size={12} /> {erroVinc}
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setVincOpen(false)} disabled={vinculando}
+                className="text-sm font-medium px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-50">
+                Cancelar
+              </button>
+              <button onClick={confirmarVincular} disabled={vinculando || !alvoSel}
+                className="text-sm font-medium px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1.5">
+                {vinculando && <Loader2 size={13} className="animate-spin" />}
+                Vincular
               </button>
             </div>
           </div>
