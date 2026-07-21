@@ -55,6 +55,13 @@ Notificações push no aparelho, somadas ao WhatsApp/e-mail nos mesmos eventos (
 ## Env Vars (nomes — nunca valores no chat)
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `CRON_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`, `ALERT_EMAIL` (serviço API — destinatário dos alertas do healthcheck do WhatsApp; opcional), `EVOLUTION_API_KEY` (serviço API — obrigatória, sem fallback no código; URL/instância têm default), `EVOLUTION_API_URL`, `EVOLUTION_INSTANCE`, **`INTERNAL_API_SECRET`** (⚠️ nos serviços **api E web**, MESMO valor — autentica as rotas internas Fastify servidor-a-servidor; sem ele o OTP de reset de senha quebra. 2026-06-23)
 
+## Asaas (pagamentos) — EM PRODUÇÃO desde 2026-07-20
+Gateway de cobrança. `lib/asaas.ts` decide o ambiente por env; base prod `https://api.asaas.com/v3`, sandbox `https://api-sandbox.asaas.com/v3`.
+- **Envs (serviço API):** `ASAAS_ENV=production` · `ASAAS_API_KEY_PROD` (chave de produção `$aact_prod_...`; fallback antigo `ASAAS_API_KEY`) · `ASAAS_WEBHOOK_TOKEN`. A `ASAAS_API_KEY_SANDBOX` pode ficar (só usada quando `ASAAS_ENV`≠production).
+- **Webhook (painel de PRODUÇÃO do Asaas):** `POST <API>/billing/webhook/asaas`, header token = `ASAAS_WEBHOOK_TOKEN`, eventos `PAYMENT_CREATED/CONFIRMED/RECEIVED/OVERDUE`. Sandbox e prod são painéis separados.
+- **⚠️ Cutover feito (2026-07-20):** os `asaas_customer_id`/`asaas_subscription_id` gravados no sandbox foram **zerados** em `empresa_assinaturas` (SQL manual) — eram inválidos em prod. Empresas de teste re-assinam limpo (o fluxo cria cliente+assinatura novos quando os IDs estão nulos). **A partir daqui cobra dinheiro real.**
+- **Cliente Asaas exige CNPJ/CPF válido** (prod valida de verdade).
+
 ## Produção — gotchas conhecidos
 - **CORS da API + domínio de produção (2026-06-27):** a allowlist em `apps/api/src/server.ts` precisa conter `https://app.checkflow.digital` (o app roda nesse domínio, não no `web-production-*.railway.app`). Sem ele → navegador dá "Failed to fetch" em toda chamada DIRETA à API (WhatsApp QR, billing, impersonar). OTP/notificações são servidor-a-servidor (sem Origin) → não afetados. Extensão via env `CORS_EXTRA_ORIGINS` (csv).
 - **`/health` (2026-06-27):** a checagem de RLS consultava `usuario_subgrupo.select('id')`, mas a tabela tem chave composta (sem coluna `id`) → `/health` reportava `degraded`/503 falso. Corrigido p/ `usuario_id`. Se o `/health` voltar a dar 503, conferir se alguma checagem consulta coluna inexistente.
