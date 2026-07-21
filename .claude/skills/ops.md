@@ -61,6 +61,8 @@ Gateway de cobrança. `lib/asaas.ts` decide o ambiente por env; base prod `https
 - **Webhook (painel de PRODUÇÃO do Asaas):** `POST <API>/billing/webhook/asaas`, header token = `ASAAS_WEBHOOK_TOKEN`, eventos `PAYMENT_CREATED/CONFIRMED/RECEIVED/OVERDUE`. Sandbox e prod são painéis separados.
 - **⚠️ Cutover feito (2026-07-20):** os `asaas_customer_id`/`asaas_subscription_id` gravados no sandbox foram **zerados** em `empresa_assinaturas` (SQL manual) — eram inválidos em prod. Empresas de teste re-assinam limpo (o fluxo cria cliente+assinatura novos quando os IDs estão nulos). **A partir daqui cobra dinheiro real.**
 - **Cliente Asaas exige CNPJ/CPF válido** (prod valida de verdade).
+- **Diagnóstico do ambiente:** `GET <API>/health` → campo `asaas_env` (`production`/`sandbox`). Se a fatura sair em `sandbox.asaas.com` estando "em produção", é sinal de que a API não pegou `ASAAS_ENV=production` (grafia exata, serviço API, **falta redeploy**).
+- **Ativação só no pagamento (2026-07-20):** a 1ª contratação de pago não ativa no ato — o webhook `PAYMENT_CONFIRMED/RECEIVED` aplica o plano (ver `/biz` e migration `20260720180000`).
 
 ## Produção — gotchas conhecidos
 - **CORS da API + domínio de produção (2026-06-27):** a allowlist em `apps/api/src/server.ts` precisa conter `https://app.checkflow.digital` (o app roda nesse domínio, não no `web-production-*.railway.app`). Sem ele → navegador dá "Failed to fetch" em toda chamada DIRETA à API (WhatsApp QR, billing, impersonar). OTP/notificações são servidor-a-servidor (sem Origin) → não afetados. Extensão via env `CORS_EXTRA_ORIGINS` (csv).
