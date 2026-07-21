@@ -62,7 +62,7 @@ export default function PlanoPage() {
   const [autorizado, setAutorizado] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState<Status | null>(null)
-  const [assinaturaAtual, setAssinaturaAtual] = useState<{ plano_id: string | null; status: string } | null>(null)
+  const [assinaturaAtual, setAssinaturaAtual] = useState<{ plano_id: string | null; status: string; pendente_plano_id?: string | null } | null>(null)
   const [planos, setPlanos] = useState<Plano[]>([])
   const [pacotes, setPacotes] = useState<Pacote[]>([])
   const [servicos, setServicos] = useState<{ id: string; nome: string; descricao: string | null; padrao: boolean }[]>([])
@@ -97,7 +97,7 @@ export default function PlanoPage() {
     const sb = createClient()
     const [{ data: st, error: stErr }, { data: assin }, { data: ps }, { data: pks }, { data: cbs }] = await Promise.all([
       sb.rpc('billing_status', { p_empresa_id: empresaAtiva.id }),
-      sb.from('empresa_assinaturas').select('plano_id, status').eq('empresa_id', empresaAtiva.id).maybeSingle(),
+      sb.from('empresa_assinaturas').select('plano_id, status, pendente_plano_id').eq('empresa_id', empresaAtiva.id).maybeSingle(),
       sb.from('planos').select('id, nome, descricao, tipo, valor, ciclo, limite_execucoes_mes, limite_armazenamento_bytes, limite_tokens_ia_mes').eq('ativo', true).eq('selecionavel_empresa', true).order('ordem'),
       sb.from('pacotes_adicionais').select('id, nome, descricao, tipo, quantidade, valor').eq('ativo', true).order('ordem'),
       sb.from('empresa_cobrancas').select('id, tipo, descricao, valor, status, vencimento, invoice_url, criado_em').eq('empresa_id', empresaAtiva.id).order('criado_em', { ascending: false }).limit(10),
@@ -135,6 +135,14 @@ export default function PlanoPage() {
   const estaEmPago = status?.plano_tipo === 'pago' && status?.status === 'ativo'
   const planosVisiveis = planos.filter(p => !estaEmPago || p.tipo === 'pago')
 
+  // Assinatura aguardando o 1º pagamento (fluxo pendente→pago). Sobrevive a reload
+  // porque vem de empresa_assinaturas.pendente_plano_id.
+  const pendentePlanoId = assinaturaAtual?.pendente_plano_id ?? null
+  const planoPendente = pendentePlanoId ? (planos.find(p => p.id === pendentePlanoId) ?? null) : null
+  const faturaPendenteUrl = pendentePlanoId
+    ? (cobrancas.find(c => c.tipo === 'assinatura' && ['PENDING', 'OVERDUE', 'AWAITING_RISK_ANALYSIS'].includes(c.status) && !!c.invoice_url)?.invoice_url ?? faturaUrl)
+    : null
+
   async function assinar(plano: Plano) {
     if (!empresaAtiva?.id) return
 
@@ -168,6 +176,34 @@ export default function PlanoPage() {
       carregar()
     } catch {
       toast.error('Erro de conexão com o serviço de pagamento.')
+    } finally {
+      setAcaoEmProgresso(null)
+    }
+  }
+
+  async function cancelarPendente() {
+    if (!empresaAtiva?.id) return
+    const ok = await confirm({
+      titulo: 'Cancelar pagamento pendente?',
+      mensagem: 'A cobrança em aberto será cancelada e você poderá assinar de novo escolhendo outra forma de pagamento.',
+      confirmarLabel: 'Cancelar cobrança',
+    })
+    if (!ok) return
+    setAcaoEmProgresso('cancelar-pendente')
+    const t = await token()
+    try {
+      const res = await fetch(`${API_URL}/billing/cancelar-pendente`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify({ empresaId: empresaAtiva.id }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) { toast.error(json?.error ?? 'Falha ao cancelar.'); return }
+      setFaturaUrl(null)
+      toast.success('Cobrança cancelada. Escolha a forma de pagamento e assine novamente.')
+      carregar()
+    } catch {
+      toast.error('Erro de conexão.')
     } finally {
       setAcaoEmProgresso(null)
     }
@@ -256,6 +292,36 @@ export default function PlanoPage() {
         <div className="rounded-xl border border-dashed border-gray-200 p-5 text-center mb-6">
           <Package size={28} className="text-gray-300 mx-auto mb-2" />
           <p className="text-sm text-gray-500">Sua empresa ainda não tem um plano ativo.</p>
+        </div>
+      )}
+
+      {/* Aguardando o 1º pagamento (pendente→pago): reabrir fatura ou trocar forma */}
+      {pendentePlanoId && (
+        <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-start gap-2">
+            <Loader2 size={16} className="text-amber-600 animate-spin mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-amber-900">
+                Aguardando pagamento{planoPendente ? ` do plano ${planoPendente.nome}` : ''}.
+              </p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                O plano é ativado assim que o pagamento for confirmado. Pague a fatura em aberto ou troque a forma de pagamento.
+              </p>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
+                {faturaPendenteUrl && (
+                  <a href={faturaPendenteUrl} target="_blank" rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-800 hover:text-amber-900">
+                    <ExternalLink size={13} /> Reabrir fatura
+                  </a>
+                )}
+                <button onClick={cancelarPendente} disabled={acaoEmProgresso === 'cancelar-pendente'}
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-800 disabled:opacity-50">
+                  {acaoEmProgresso === 'cancelar-pendente' && <Loader2 size={13} className="animate-spin" />}
+                  Cancelar / trocar forma de pagamento
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
