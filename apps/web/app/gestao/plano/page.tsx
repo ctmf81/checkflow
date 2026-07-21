@@ -62,7 +62,7 @@ export default function PlanoPage() {
   const [autorizado, setAutorizado] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState<Status | null>(null)
-  const [assinaturaAtual, setAssinaturaAtual] = useState<{ plano_id: string | null; status: string; pendente_plano_id?: string | null } | null>(null)
+  const [assinaturaAtual, setAssinaturaAtual] = useState<{ plano_id: string | null; status: string; pendente_plano_id?: string | null; cancelar_em?: string | null } | null>(null)
   const [planos, setPlanos] = useState<Plano[]>([])
   const [pacotes, setPacotes] = useState<Pacote[]>([])
   const [servicos, setServicos] = useState<{ id: string; nome: string; descricao: string | null; padrao: boolean }[]>([])
@@ -97,7 +97,7 @@ export default function PlanoPage() {
     const sb = createClient()
     const [{ data: st, error: stErr }, { data: assin }, { data: ps }, { data: pks }, { data: cbs }] = await Promise.all([
       sb.rpc('billing_status', { p_empresa_id: empresaAtiva.id }),
-      sb.from('empresa_assinaturas').select('plano_id, status, pendente_plano_id').eq('empresa_id', empresaAtiva.id).maybeSingle(),
+      sb.from('empresa_assinaturas').select('plano_id, status, pendente_plano_id, cancelar_em').eq('empresa_id', empresaAtiva.id).maybeSingle(),
       sb.from('planos').select('id, nome, descricao, tipo, valor, ciclo, limite_execucoes_mes, limite_armazenamento_bytes, limite_tokens_ia_mes').eq('ativo', true).eq('selecionavel_empresa', true).order('ordem'),
       sb.from('pacotes_adicionais').select('id, nome, descricao, tipo, quantidade, valor').eq('ativo', true).order('ordem'),
       sb.from('empresa_cobrancas').select('id, tipo, descricao, valor, status, vencimento, invoice_url, criado_em').eq('empresa_id', empresaAtiva.id).order('criado_em', { ascending: false }).limit(10),
@@ -142,6 +142,9 @@ export default function PlanoPage() {
   const faturaPendenteUrl = pendentePlanoId
     ? (cobrancas.find(c => c.tipo === 'assinatura' && ['PENDING', 'OVERDUE', 'AWAITING_RISK_ANALYSIS'].includes(c.status) && !!c.invoice_url)?.invoice_url ?? faturaUrl)
     : null
+
+  // Cancelamento agendado para o fim do período (assinatura paga ativa).
+  const cancelarEm = assinaturaAtual?.cancelar_em ?? null
 
   async function assinar(plano: Plano) {
     if (!empresaAtiva?.id) return
@@ -207,6 +210,46 @@ export default function PlanoPage() {
     } finally {
       setAcaoEmProgresso(null)
     }
+  }
+
+  async function cancelarAssinatura() {
+    if (!empresaAtiva?.id) return
+    const ok = await confirm({
+      titulo: 'Cancelar assinatura?',
+      mensagem: `As cobranças futuras são interrompidas. Você continua com acesso até o fim do período já pago (${dataBR(status?.periodo_fim ?? null)}); depois disso o sistema fica em modo somente-leitura até você assinar de novo.`,
+      confirmarLabel: 'Cancelar assinatura',
+    })
+    if (!ok) return
+    setAcaoEmProgresso('cancelar-assinatura')
+    const t = await token()
+    try {
+      const res = await fetch(`${API_URL}/billing/cancelar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify({ empresaId: empresaAtiva.id }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) { toast.error(json?.error ?? 'Falha ao cancelar.'); return }
+      toast.success(`Assinatura cancelada. Acesso garantido até ${dataBR(json?.efetivaEm ?? null)}.`)
+      carregar()
+    } catch { toast.error('Erro de conexão.') } finally { setAcaoEmProgresso(null) }
+  }
+
+  async function reativarAssinatura() {
+    if (!empresaAtiva?.id) return
+    setAcaoEmProgresso('reativar-assinatura')
+    const t = await token()
+    try {
+      const res = await fetch(`${API_URL}/billing/reativar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify({ empresaId: empresaAtiva.id, billingType }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) { toast.error(json?.error ?? 'Falha ao reativar.'); return }
+      toast.success('Assinatura reativada. A recorrência continua a partir do próximo período.')
+      carregar()
+    } catch { toast.error('Erro de conexão.') } finally { setAcaoEmProgresso(null) }
   }
 
   async function comprarPacote(pacote: Pacote) {
@@ -287,6 +330,14 @@ export default function PlanoPage() {
             <Barra label="Tokens de IA (mês)" uso={status.tokens_ia} />
             <Barra label="Armazenamento" uso={status.armazenamento} />
           </div>
+          {estaEmPago && !cancelarEm && (
+            <div className="pt-1 text-right">
+              <button onClick={cancelarAssinatura} disabled={acaoEmProgresso === 'cancelar-assinatura'}
+                className="text-xs text-gray-400 hover:text-red-600 disabled:opacity-50">
+                Cancelar assinatura
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="rounded-xl border border-dashed border-gray-200 p-5 text-center mb-6">
@@ -321,6 +372,23 @@ export default function PlanoPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancelamento agendado para o fim do período (reversível) */}
+      {cancelarEm && (
+        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-red-900">Assinatura cancelada.</p>
+              <p className="text-xs text-red-700 mt-0.5">
+                Você mantém o acesso até <b>{dataBR(cancelarEm)}</b>. Depois disso, o sistema fica em modo somente-leitura até assinar de novo.
+              </p>
+            </div>
+            <Button size="sm" variant="outline" onClick={reativarAssinatura} disabled={acaoEmProgresso === 'reativar-assinatura'}>
+              {acaoEmProgresso === 'reativar-assinatura' && <Loader2 size={13} className="animate-spin" />} Reativar assinatura
+            </Button>
           </div>
         </div>
       )}
@@ -369,7 +437,7 @@ export default function PlanoPage() {
                     <Check size={14} /> Plano atual
                   </Button>
                 ) : (
-                  <Button size="sm" className="w-full justify-center mt-3" onClick={() => assinar(p)} disabled={acaoEmProgresso === 'plano-' + p.id || !!pendentePlanoId}>
+                  <Button size="sm" className="w-full justify-center mt-3" onClick={() => assinar(p)} disabled={acaoEmProgresso === 'plano-' + p.id || !!pendentePlanoId || !!cancelarEm}>
                     {acaoEmProgresso === 'plano-' + p.id
                       ? <><Loader2 size={13} className="animate-spin" /> Processando…</>
                       : pendentePlanoId
