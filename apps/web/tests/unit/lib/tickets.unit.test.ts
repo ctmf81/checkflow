@@ -15,6 +15,7 @@ import {
   ticketVisivel,
   acoesDisponiveis,
   slaStatus,
+  podeVincular,
   STATUS_ABERTOS,
   STATUS_FECHADOS,
   STATUS_NAO_ACEITO,
@@ -250,6 +251,53 @@ describe('acoesDisponiveis() — invariantes de cancelamento', () => {
       expect(t).not.toContain('cancelamento')
       expect(t).not.toContain('comentario')
     }
+  })
+})
+
+// ─── 4) Vínculo de duplicados ──────────────────────────────────────────────────
+
+describe('status "duplicado" — congelado, fora das filas ativas', () => {
+  it('não está entre os status abertos (sai de Em aberto / Em tratamento)', () => {
+    expect(STATUS_ABERTOS).not.toContain('duplicado' as TicketStatus)
+    expect(STATUS_NAO_ACEITO).not.toContain('duplicado' as TicketStatus)
+    expect(STATUS_EM_TRATAMENTO).not.toContain('duplicado' as TicketStatus)
+  })
+
+  it('conta como finalizado/congelado (STATUS_FECHADOS)', () => {
+    expect(STATUS_FECHADOS).toContain('duplicado' as TicketStatus)
+  })
+
+  it('não oferece nenhuma ação de fluxo (nem ao abridor/responsável)', () => {
+    expect(acoesDisponiveis(ctx({
+      status: 'duplicado', ehAbridor: true, ehAssignee: true, ehDoSubgrupo: true, podeCancelar: true,
+    }))).toEqual([])
+  })
+
+  it('SLA não se aplica a duplicado → semáforo null', () => {
+    const T0 = new Date('2026-01-01T08:00:00Z')
+    const deadline = new Date(T0.getTime() + 60 * 60_000).toISOString()
+    expect(slaStatus({
+      status: 'duplicado', criado_em: T0.toISOString(),
+      sla_deadline_at: deadline, sla_segundos_pausados: 0, sla_pausado_em: null,
+    }, T0.getTime() + 120 * 60_000)).toBeNull()
+  })
+})
+
+describe('podeVincular() — quem pode (des)vincular duplicados', () => {
+  it('responsável de um ticket ativo pode', () => {
+    expect(podeVincular({ status: 'em_tratamento', ehAssignee: true, isAdmin: false })).toBe(true)
+  })
+  it('admin pode mesmo sem ser responsável', () => {
+    expect(podeVincular({ status: 'aberto', ehAssignee: false, isAdmin: true })).toBe(true)
+  })
+  it('quem não é responsável nem admin não pode', () => {
+    expect(podeVincular({ status: 'em_tratamento', ehAssignee: false, isAdmin: false })).toBe(false)
+  })
+  it('ticket encerrado não permite vincular (nem admin)', () => {
+    expect(podeVincular({ status: 'corrigido', ehAssignee: true, isAdmin: true })).toBe(false)
+  })
+  it('ticket já duplicado não permite vincular a partir dele', () => {
+    expect(podeVincular({ status: 'duplicado', ehAssignee: true, isAdmin: true })).toBe(false)
   })
 })
 
