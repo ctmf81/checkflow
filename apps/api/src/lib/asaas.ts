@@ -3,7 +3,9 @@
 // Sandbox: https://api-sandbox.asaas.com/v3 · Produção: https://api.asaas.com/v3
 // Autenticação via header `access_token`.
 
-const IS_PROD = process.env.ASAAS_ENV === 'production'
+// Tolerante a espaço/maiúscula no valor da env (ex.: "Production", "production ")
+// — evita cair no sandbox por um caractere invisível no painel do Railway.
+const IS_PROD = (process.env.ASAAS_ENV ?? '').trim().toLowerCase() === 'production'
 
 const BASE_URL = IS_PROD
   ? 'https://api.asaas.com/v3'

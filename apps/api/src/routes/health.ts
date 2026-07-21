@@ -27,7 +27,7 @@ export async function healthRoutes(app: FastifyInstance) {
         rls: { status: false, latency_ms: 0 },
         storage: { status: false, quota_used_gb: 0, quota_limit_gb: 100 }
       },
-      asaas_env: process.env.ASAAS_ENV === 'production' ? 'production' : 'sandbox',
+      asaas_env: (process.env.ASAAS_ENV ?? '').trim().toLowerCase() === 'production' ? 'production' : 'sandbox',
       uptime_seconds: Math.floor((Date.now() - startTime) / 1000)
     }
 
