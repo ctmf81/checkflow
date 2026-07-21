@@ -173,6 +173,15 @@ export default function PlanoPage() {
       if (json?.agendado) {
         toast.success(`Troca agendada para ${dataBR(json.efetivaEm)}. O plano novo passa a valer no fim do período atual.`)
       } else {
+        // Reflete o estado "aguardando pagamento" NA HORA (banner + botões Assinar
+        // desabilitam) ANTES de abrir a aba do Asaas — que joga esta aba pro fundo
+        // e atrasaria o re-render do reload.
+        setAssinaturaAtual(prev => ({
+          plano_id: prev?.plano_id ?? null,
+          status: prev?.status ?? 'trial',
+          cancelar_em: prev?.cancelar_em ?? null,
+          pendente_plano_id: plano.id,
+        }))
         if (json?.invoiceUrl) { setFaturaUrl(json.invoiceUrl); window.open(json.invoiceUrl, '_blank', 'noopener') }
         toast.success('Fatura gerada. O plano é ativado assim que o pagamento for confirmado.')
       }
