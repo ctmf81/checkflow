@@ -143,7 +143,7 @@ export default function PlanoPage() {
       titulo: trocaEntrePagos ? `Trocar para o plano "${plano.nome}"?` : `Assinar o plano "${plano.nome}"?`,
       mensagem: trocaEntrePagos
         ? `A troca passa a valer no fim do período atual (${dataBR(status?.periodo_fim ?? null)}). Até lá seu plano atual continua; a próxima cobrança virá em ${moeda(plano.valor)}/${plano.ciclo === 'anual' ? 'ano' : 'mês'}.`
-        : `Será gerada uma cobrança recorrente de ${moeda(plano.valor)}/${plano.ciclo === 'anual' ? 'ano' : 'mês'} no Asaas. Você concluirá o pagamento na fatura.`,
+        : `Será gerada uma cobrança recorrente de ${moeda(plano.valor)}/${plano.ciclo === 'anual' ? 'ano' : 'mês'} no Asaas. O plano é ativado assim que o pagamento for confirmado.`,
       confirmarLabel: trocaEntrePagos ? 'Agendar troca' : 'Assinar',
     })
     if (!ok) return
@@ -162,7 +162,7 @@ export default function PlanoPage() {
         toast.success(`Troca agendada para ${dataBR(json.efetivaEm)}. O plano novo passa a valer no fim do período atual.`)
       } else {
         if (json?.invoiceUrl) { setFaturaUrl(json.invoiceUrl); window.open(json.invoiceUrl, '_blank', 'noopener') }
-        toast.success('Assinatura criada. Abra a fatura para concluir o pagamento.')
+        toast.success('Fatura gerada. O plano é ativado assim que o pagamento for confirmado.')
       }
       carregar()
     } catch {
