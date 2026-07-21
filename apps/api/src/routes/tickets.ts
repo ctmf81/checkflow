@@ -38,6 +38,28 @@ function formatarNumero(tel: string): string {
   return n.startsWith('55') ? n : `55${n}`
 }
 
+const PERFIL_ADMIN_EMPRESA = '00000000-0000-0000-0000-000000000002'
+
+/**
+ * Pode (des)vincular duplicados de um ticket = é o RESPONSÁVEL do principal, ou
+ * admin de sistema, ou admin da empresa do ticket. (A autoria do vínculo é do
+ * responsável — quem assumiu.)
+ */
+async function atorPodeGerirVinculo(
+  sb: any, atorId: string, principal: { unidade_id: string; assignee_id: string | null },
+): Promise<boolean> {
+  if (atorId && principal.assignee_id === atorId) return true
+  const { data: u } = await sb.auth.admin.getUserById(atorId)
+  if ((u?.user?.app_metadata as any)?.role === 'admin_sistema') return true
+  const empresaId = await empresaDeUnidade(sb, principal.unidade_id)
+  if (empresaId) {
+    const { data: ue } = await sb.from('usuario_empresa')
+      .select('perfil_id').eq('empresa_id', empresaId).eq('usuario_id', atorId).maybeSingle()
+    if ((ue as any)?.perfil_id === PERFIL_ADMIN_EMPRESA) return true
+  }
+  return false
+}
+
 // ─── Rota ────────────────────────────────────────────────────────────────────
 
 export async function ticketsRoutes(app: FastifyInstance) {
@@ -112,6 +134,20 @@ export async function ticketsRoutes(app: FastifyInstance) {
     } else {
       const candidatos = [t.aberto_por, t.assignee].filter(Boolean)
       destinatarios = candidatos.filter((u: any) => u?.id && u.id !== ator_id)
+    }
+
+    // Na CONCLUSÃO do principal, avisa também os "interessados": os abridores dos
+    // tickets duplicados vinculados a este. É como quem abriu um duplicado
+    // acompanha o desfecho (o duplicado dele fica congelado, não é tratado).
+    if (evento === 'conclusao') {
+      const { data: dups } = await sb.from('tickets').select('aberto_por_id').eq('ticket_pai_id', ticket_id)
+      const jaTem = new Set(destinatarios.map((u) => u.id))
+      const extraIds = [...new Set((dups ?? []).map((d: any) => d.aberto_por_id))]
+        .filter((uid): uid is string => !!uid && uid !== ator_id && !jaTem.has(uid))
+      if (extraIds.length) {
+        const { data: extras } = await sb.from('usuarios').select('id, nome, email, telefone').in('id', extraIds)
+        destinatarios = destinatarios.concat((extras ?? []) as any)
+      }
     }
 
     if (!destinatarios.length) return reply.send({ wa_enviados: 0, email_enviados: 0, motivo: 'Sem destinatários' })
@@ -266,6 +302,111 @@ export async function ticketsRoutes(app: FastifyInstance) {
       total_destinatarios: destinatarios.length,
       erros: erros.length ? erros : undefined,
     })
+  })
+
+  // POST /tickets/vincular — marca `duplicado_id` como duplicado de `principal_id`.
+  // Feito server-side (service role) porque quem vincula é o RESPONSÁVEL do
+  // principal, que pode não ter permissão de UPDATE no duplicado pela RLS.
+  app.post('/tickets/vincular', async (req, reply) => {
+    if (!await exigirAutorizacao(req, reply)) return
+    const { principal_id, duplicado_id, ator_id } = req.body as {
+      principal_id: string; duplicado_id: string; ator_id: string
+    }
+    if (!principal_id || !duplicado_id || !ator_id) {
+      return reply.status(400).send({ error: 'principal_id, duplicado_id e ator_id são obrigatórios' })
+    }
+    if (principal_id === duplicado_id) {
+      return reply.status(400).send({ error: 'Um ticket não pode ser duplicado de si mesmo' })
+    }
+
+    const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!,
+      { realtime: { transport: ws as any } })
+
+    const { data: rows } = await sb.from('tickets')
+      .select('id, numero, unidade_id, assignee_id, aberto_por_id, status, ticket_pai_id')
+      .in('id', [principal_id, duplicado_id])
+    let principal: any = (rows ?? []).find((r: any) => r.id === principal_id)
+    const duplicado: any = (rows ?? []).find((r: any) => r.id === duplicado_id)
+    if (!principal || !duplicado) return reply.status(404).send({ error: 'Ticket não encontrado' })
+
+    // Vínculo é plano: se o "principal" escolhido já é duplicado, sobe para o pai real.
+    if (principal.ticket_pai_id) {
+      const { data: raiz } = await sb.from('tickets')
+        .select('id, numero, unidade_id, assignee_id, aberto_por_id, ticket_pai_id')
+        .eq('id', principal.ticket_pai_id).single()
+      if (raiz) { principal = raiz }
+    }
+    if (principal.id === duplicado.id) {
+      return reply.status(400).send({ error: 'Um ticket não pode ser duplicado de si mesmo' })
+    }
+    if (principal.unidade_id !== duplicado.unidade_id) {
+      return reply.status(400).send({ error: 'Só é possível vincular tickets da mesma unidade' })
+    }
+    if (duplicado.status === 'duplicado' || duplicado.ticket_pai_id) {
+      return reply.status(409).send({ error: 'Este ticket já está vinculado como duplicado' })
+    }
+    const FECHADOS = ['corrigido', 'nao_corrigido', 'corrigido_parcialmente', 'cancelado', 'improcedente']
+    if (FECHADOS.includes(duplicado.status)) {
+      return reply.status(409).send({ error: 'Ticket encerrado não pode ser vinculado como duplicado' })
+    }
+    const { count: filhos } = await sb.from('tickets')
+      .select('id', { count: 'exact', head: true }).eq('ticket_pai_id', duplicado.id)
+    if (filhos && filhos > 0) {
+      return reply.status(409).send({ error: 'Este ticket já é principal de outros duplicados; não pode virar duplicado' })
+    }
+    if (!await atorPodeGerirVinculo(sb, ator_id, principal)) {
+      return reply.status(403).send({ error: 'Apenas o responsável do ticket principal (ou um admin) pode vincular duplicados' })
+    }
+
+    const { data: upd, error: upErr } = await sb.from('tickets')
+      .update({ ticket_pai_id: principal.id, status: 'duplicado' })
+      .eq('id', duplicado.id).select('id')
+    if (upErr || !upd?.length) {
+      return reply.status(500).send({ error: upErr?.message ?? 'Falha ao vincular' })
+    }
+
+    const nDup = String(duplicado.numero).padStart(4, '0')
+    const nPri = String(principal.numero).padStart(4, '0')
+    await sb.from('ticket_eventos').insert([
+      { ticket_id: duplicado.id, tipo: 'vinculo', autor_id: ator_id, texto: `Vinculado como duplicado do #${nPri}.`, meta: { principal_id: principal.id, principal_numero: principal.numero } },
+      { ticket_id: principal.id, tipo: 'vinculo', autor_id: ator_id, texto: `#${nDup} vinculado a este chamado como duplicado.`, meta: { duplicado_id: duplicado.id, duplicado_numero: duplicado.numero } },
+    ])
+
+    return reply.send({ ok: true, principal_id: principal.id, principal_numero: principal.numero, duplicado_id: duplicado.id })
+  })
+
+  // POST /tickets/desvincular — devolve o duplicado para 'aberto' (vínculo errado).
+  app.post('/tickets/desvincular', async (req, reply) => {
+    if (!await exigirAutorizacao(req, reply)) return
+    const { duplicado_id, ator_id } = req.body as { duplicado_id: string; ator_id: string }
+    if (!duplicado_id || !ator_id) return reply.status(400).send({ error: 'duplicado_id e ator_id são obrigatórios' })
+
+    const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!,
+      { realtime: { transport: ws as any } })
+
+    const { data: duplicado } = await sb.from('tickets')
+      .select('id, numero, unidade_id, ticket_pai_id, status').eq('id', duplicado_id).single()
+    if (!duplicado) return reply.status(404).send({ error: 'Ticket não encontrado' })
+    if (!(duplicado as any).ticket_pai_id) return reply.status(409).send({ error: 'Este ticket não está vinculado' })
+
+    const { data: principal } = await sb.from('tickets')
+      .select('id, numero, unidade_id, assignee_id').eq('id', (duplicado as any).ticket_pai_id).single()
+    if (principal && !await atorPodeGerirVinculo(sb, ator_id, principal as any)) {
+      return reply.status(403).send({ error: 'Apenas o responsável do ticket principal (ou um admin) pode desvincular' })
+    }
+
+    const { data: upd, error: upErr } = await sb.from('tickets')
+      .update({ ticket_pai_id: null, status: 'aberto' }).eq('id', duplicado_id).select('id')
+    if (upErr || !upd?.length) return reply.status(500).send({ error: upErr?.message ?? 'Falha ao desvincular' })
+
+    const nDup = String((duplicado as any).numero).padStart(4, '0')
+    const nPri = principal ? String((principal as any).numero).padStart(4, '0') : '—'
+    await sb.from('ticket_eventos').insert([
+      { ticket_id: duplicado_id, tipo: 'desvinculo', autor_id: ator_id, texto: `Desvinculado do #${nPri}; voltou para "Aberto".` },
+      ...(principal ? [{ ticket_id: (principal as any).id, tipo: 'desvinculo', autor_id: ator_id, texto: `#${nDup} foi desvinculado deste chamado.` }] : []),
+    ])
+
+    return reply.send({ ok: true })
   })
 }
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Search, Ticket, Clock, AlertCircle, CheckCircle2, XCircle, RotateCcw, Filter } from 'lucide-react'
+import { Plus, Search, Ticket, Clock, AlertCircle, CheckCircle2, XCircle, RotateCcw, Filter, Copy } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
@@ -42,6 +42,7 @@ const STATUS_CONFIG: Record<string, { label: string; cor: string; icon: any }> =
   corrigido_parcialmente: { label: 'Corrigido parcial',    cor: 'bg-teal-100 text-teal-700',     icon: CheckCircle2 },
   cancelado:              { label: 'Cancelado',            cor: 'bg-gray-100 text-gray-500',     icon: XCircle },
   improcedente:           { label: 'Improcedente',         cor: 'bg-gray-100 text-gray-500',     icon: XCircle },
+  duplicado:              { label: 'Duplicado',            cor: 'bg-indigo-100 text-indigo-700', icon: Copy },
 }
 
 const PRIORIDADE_CONFIG: Record<string, { label: string; cor: string }> = {

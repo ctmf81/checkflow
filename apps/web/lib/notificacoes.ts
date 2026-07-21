@@ -74,3 +74,34 @@ export function notificarTicket(params: {
 }): void {
   apiFetch('/tickets/notificar', { method: 'POST', body: JSON.stringify(params) }).catch(() => {}) // silencioso
 }
+
+/**
+ * Vincula um ticket como duplicado de um principal. NÃO é fire-and-forget: a UI
+ * precisa do resultado (sucesso → recarrega; erro → mostra a mensagem da API).
+ */
+export async function vincularTicketDuplicado(params: {
+  principal_id: string; duplicado_id: string; ator_id: string
+}): Promise<{ ok: boolean; error?: string; principal_numero?: number; principal_id?: string }> {
+  try {
+    const res = await apiFetch('/tickets/vincular', { method: 'POST', body: JSON.stringify(params) })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) return { ok: false, error: json?.error ?? 'Falha ao vincular' }
+    return { ok: true, principal_numero: json?.principal_numero, principal_id: json?.principal_id }
+  } catch {
+    return { ok: false, error: 'Não foi possível conectar ao servidor' }
+  }
+}
+
+/** Desfaz o vínculo de um duplicado (volta para "Aberto"). */
+export async function desvincularTicketDuplicado(params: {
+  duplicado_id: string; ator_id: string
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await apiFetch('/tickets/desvincular', { method: 'POST', body: JSON.stringify(params) })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) return { ok: false, error: json?.error ?? 'Falha ao desvincular' }
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'Não foi possível conectar ao servidor' }
+  }
+}

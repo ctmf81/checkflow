@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, AlertTriangle, Loader2, Info, ChevronDown,
-  ArrowLeftRight, X, Play, FileText,
+  ArrowLeftRight, X, Play, FileText, Copy, Link2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
@@ -16,12 +16,13 @@ import { EvidenciaPicker } from '@/components/tickets/EvidenciaPicker'
 type TicketStatus =
   | 'aberto' | 'em_tratamento' | 'aguardando_informacao'
   | 'aguardando_validacao' | 'corrigido' | 'nao_corrigido'
-  | 'corrigido_parcialmente' | 'cancelado' | 'improcedente'
+  | 'corrigido_parcialmente' | 'cancelado' | 'improcedente' | 'duplicado'
 
 interface Ticket {
   id: string; numero: number; titulo: string; descricao: string
   prioridade: string; status: TicketStatus; criado_em: string
   unidade_id: string; grupo_id: string; subgrupo_id: string
+  ticket_pai_id: string | null
   grupo: { nome: string }; subgrupo: { nome: string }
   categoria: { nome: string } | null
   aberto_por: { id: string; nome: string }
@@ -50,6 +51,8 @@ const TIPO_EVENTO: Record<string, { label: string; cor: string }> = {
   reabertura:         { label: 'Reaberto',                   cor: 'text-red-500' },
   cancelamento:       { label: 'Cancelado',                  cor: 'text-gray-400' },
   improcedencia:      { label: 'Improcedente',               cor: 'text-gray-400' },
+  vinculo:            { label: 'Duplicado vinculado',        cor: 'text-indigo-600' },
+  desvinculo:         { label: 'Vínculo desfeito',           cor: 'text-gray-500' },
 }
 
 const PRIORIDADE_COR: Record<string, string> = {
@@ -71,6 +74,7 @@ export default function TicketDetalheOperacao() {
   const endRef = useRef<HTMLDivElement>(null)
 
   const [ticket,  setTicket]  = useState<Ticket | null>(null)
+  const [principal, setPrincipal] = useState<{ id: string; numero: number; titulo: string } | null>(null)
   const [eventos, setEventos] = useState<Evento[]>([])
   const [loading, setLoading] = useState(true)
   const [userId,  setUserId]  = useState<string | null>(null)
@@ -117,7 +121,7 @@ export default function TicketDetalheOperacao() {
     const [{ data: t }, { data: ev }] = await Promise.all([
       supabase.from('tickets').select(`
         id, numero, titulo, descricao, prioridade, status, criado_em,
-        unidade_id, grupo_id, subgrupo_id,
+        unidade_id, grupo_id, subgrupo_id, ticket_pai_id,
         grupo:grupos(nome), subgrupo:subgrupos(nome),
         categoria:ticket_categorias(nome),
         aberto_por:usuarios!tickets_aberto_por_id_fkey(id, nome),
@@ -132,6 +136,14 @@ export default function TicketDetalheOperacao() {
     setTicket(t as any)
     setEventos((ev as any) ?? [])
     setLoading(false)
+
+    const paiId = (t as any)?.ticket_pai_id
+    if (paiId) {
+      const { data: pai } = await supabase.from('tickets').select('id, numero, titulo').eq('id', paiId).single()
+      setPrincipal((pai as any) ?? null)
+    } else {
+      setPrincipal(null)
+    }
     setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
   }
 
@@ -320,6 +332,7 @@ export default function TicketDetalheOperacao() {
   function motivoSemAcao(): string | null {
     if (acoesDisponiveis.length > 0 || !ticket) return null
     const s = ticket.status
+    if (s === 'duplicado') return null // banner do vínculo já explica
     const fechados = ['corrigido', 'nao_corrigido', 'corrigido_parcialmente', 'cancelado', 'improcedente']
     if (fechados.includes(s)) return 'Este ticket está encerrado.'
     if (s === 'aberto' && !ehDoSubgrupo) return `Aguardando alguém do ${subgrupoLabel.toLowerCase()} de destino assumir.`
@@ -355,6 +368,23 @@ export default function TicketDetalheOperacao() {
           {ticket.assignee && <span>Responsável: <strong>{ticket.assignee.nome}</strong></span>}
         </div>
       </div>
+
+      {/* Este chamado é duplicado → acompanhe o principal */}
+      {principal && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
+          <div className="flex items-start gap-2">
+            <Copy size={15} className="text-indigo-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm text-indigo-900 font-medium">Chamado vinculado como duplicado.</p>
+              <p className="text-xs text-indigo-700 mt-0.5">O tratamento acontece no principal. Você será avisado quando ele for concluído.</p>
+              <button onClick={() => router.push(`/operacao/tickets/${principal.id}`)}
+                className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-indigo-700 hover:text-indigo-900">
+                <Link2 size={13} /> Ver o principal #{String(principal.numero).padStart(4, '0')} — {principal.titulo}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Timeline */}
       <div className="space-y-3 mb-4">

@@ -16,9 +16,12 @@ export type TicketStatus =
   | 'aberto' | 'em_tratamento' | 'aguardando_informacao'
   | 'aguardando_validacao' | 'corrigido' | 'nao_corrigido'
   | 'corrigido_parcialmente' | 'cancelado' | 'improcedente'
+  | 'duplicado'
 // Obs.: 'aguardando_validacao' permanece só por compatibilidade com o enum
 // Postgres (ticket_status). O fluxo atual NÃO produz mais esse status — o
 // responsável conclui direto e o abridor reabre se discordar.
+// 'duplicado': ticket congelado, vinculado a um principal (ticket_pai_id). Sai
+// das filas ativas e do SLA; o trabalho acontece no principal.
 
 /** Status considerados "em aberto" (em fluxo, não finalizados). */
 export const STATUS_ABERTOS: TicketStatus[] = [
@@ -36,7 +39,20 @@ export const STATUS_EM_TRATAMENTO: TicketStatus[] = [
 /** Status finalizados (encerram o ciclo de vida do ticket). */
 export const STATUS_FECHADOS: TicketStatus[] = [
   'corrigido', 'nao_corrigido', 'corrigido_parcialmente', 'cancelado', 'improcedente',
+  // 'duplicado' entra aqui: congelado, fora das filas ativas, sem SLA. A
+  // listagem trata "não-aberto" como finalizado, então já cai no bucket certo.
+  'duplicado',
 ]
+
+/**
+ * O usuário pode (des)vincular duplicados a partir DESTE ticket?
+ * Regra: precisa ser o responsável (assumiu) ou admin, e o ticket precisa estar
+ * ATIVO (não encerrado nem já duplicado). A autorização final é revalidada na API.
+ */
+export function podeVincular(ctx: { status: TicketStatus; ehAssignee: boolean; isAdmin: boolean }): boolean {
+  if (STATUS_FECHADOS.includes(ctx.status)) return false
+  return ctx.ehAssignee || ctx.isAdmin
+}
 
 /** Status de conclusão que o abridor ainda pode reabrir. */
 export const STATUS_REABRIVEIS: TicketStatus[] = [
