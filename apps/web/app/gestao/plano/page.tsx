@@ -430,7 +430,7 @@ export default function PlanoPage() {
           <h2 className="text-sm font-semibold text-gray-700 mb-3">Planos disponíveis</h2>
           <div className="grid sm:grid-cols-2 gap-3">
             {planosVisiveis.map(p => (
-              <div key={p.id} className={`rounded-xl border p-4 ${pendentePlanoId === p.id ? 'border-amber-300 ring-2 ring-amber-200 bg-amber-50/40' : 'border-gray-200 bg-white'}`}>
+              <div key={p.id} className={`rounded-xl border p-4 ${pendentePlanoId === p.id ? 'border-amber-300 ring-2 ring-amber-200 bg-amber-50/40' : `border-gray-200 bg-white ${(pendentePlanoId || cancelarEm) ? 'opacity-60' : ''}`}`}>
                 <div className="flex items-baseline justify-between">
                   <h3 className="font-semibold text-gray-800">{p.nome}</h3>
                   <span className="text-sm font-semibold text-gray-700">{moeda(p.valor)}<span className="text-xs text-gray-400 font-normal">/{p.ciclo === 'anual' ? 'ano' : 'mês'}</span></span>
