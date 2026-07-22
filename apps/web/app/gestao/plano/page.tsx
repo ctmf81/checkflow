@@ -87,12 +87,13 @@ export default function PlanoPage() {
     return data?.perfil_id === ADMIN_EMPRESA_ID
   }
 
-  async function carregar() {
-    if (!empresaAtiva?.id) { setLoading(false); return }
-    setLoading(true)
+  async function carregar(opts?: { silent?: boolean }) {
+    const silent = !!opts?.silent
+    if (!empresaAtiva?.id) { if (!silent) setLoading(false); return }
+    if (!silent) setLoading(true)
     const ok = await verificarPermissao()
     setAutorizado(ok)
-    if (!ok) { setLoading(false); return }
+    if (!ok) { if (!silent) setLoading(false); return }
 
     const sb = createClient()
     const [{ data: st, error: stErr }, { data: assin }, { data: ps }, { data: pks }, { data: cbs }] = await Promise.all([
@@ -124,10 +125,25 @@ export default function PlanoPage() {
       setPlanoServicos(m)
     }
     setCobrancas((cbs ?? []) as Cobranca[])
-    setLoading(false)
+    if (!silent) setLoading(false)
   }
 
   useEffect(() => { carregar() }, [empresaAtiva?.id])
+
+  // Enquanto há pagamento pendente, atualiza sozinho até o webhook confirmar
+  // (o plano ativa) — sem precisar de refresh manual. Silencioso (não pisca o spinner).
+  useEffect(() => {
+    if (!assinaturaAtual?.pendente_plano_id) return
+    const iv = setInterval(() => carregar({ silent: true }), 10000)
+    return () => clearInterval(iv)
+  }, [assinaturaAtual?.pendente_plano_id, empresaAtiva?.id])
+
+  // Ao voltar para esta aba (ex.: depois de pagar na aba do Asaas), refaz a leitura.
+  useEffect(() => {
+    const onVis = () => { if (document.visibilityState === 'visible') carregar({ silent: true }) }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [empresaAtiva?.id])
 
   // Trava de downgrade: estando num plano PAGO ativo, a empresa não pode voltar
   // a um não-pago por conta própria (só o admin faz). Os selecionáveis não-pagos
@@ -340,9 +356,9 @@ export default function PlanoPage() {
             <Barra label="Armazenamento" uso={status.armazenamento} />
           </div>
           {estaEmPago && !cancelarEm && (
-            <div className="pt-1 text-right">
+            <div className="pt-2 mt-1 border-t border-gray-100 text-right">
               <button onClick={cancelarAssinatura} disabled={acaoEmProgresso === 'cancelar-assinatura'}
-                className="text-xs text-gray-400 hover:text-red-600 disabled:opacity-50">
+                className="text-xs font-medium text-red-600 hover:text-red-700 hover:underline disabled:opacity-50">
                 Cancelar assinatura
               </button>
             </div>
