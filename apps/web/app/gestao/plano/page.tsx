@@ -430,11 +430,16 @@ export default function PlanoPage() {
           <h2 className="text-sm font-semibold text-gray-700 mb-3">Planos disponíveis</h2>
           <div className="grid sm:grid-cols-2 gap-3">
             {planosVisiveis.map(p => (
-              <div key={p.id} className="rounded-xl border border-gray-200 p-4 bg-white">
+              <div key={p.id} className={`rounded-xl border p-4 ${pendentePlanoId === p.id ? 'border-amber-300 ring-2 ring-amber-200 bg-amber-50/40' : 'border-gray-200 bg-white'}`}>
                 <div className="flex items-baseline justify-between">
                   <h3 className="font-semibold text-gray-800">{p.nome}</h3>
                   <span className="text-sm font-semibold text-gray-700">{moeda(p.valor)}<span className="text-xs text-gray-400 font-normal">/{p.ciclo === 'anual' ? 'ano' : 'mês'}</span></span>
                 </div>
+                {pendentePlanoId === p.id && (
+                  <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                    <Loader2 size={10} className="animate-spin" /> Aguardando pagamento
+                  </span>
+                )}
                 {p.descricao && <p className="text-xs text-gray-500 mt-1">{p.descricao}</p>}
                 <ul className="text-xs text-gray-500 mt-2 space-y-0.5">
                   <li>Execuções/mês: {p.limite_execucoes_mes == null ? 'Ilimitado' : p.limite_execucoes_mes.toLocaleString('pt-BR')}</li>
