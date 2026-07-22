@@ -76,7 +76,18 @@ O gestor informa um **período de férias** (início/fim, opcional) na gestão d
 
 ## Alertas de gestão ao admin — Fases 2 e 3 IMPLEMENTADO 2026-07-19
 Continuação dos alertas de gestão ao admin da empresa (perfil `…002`), WhatsApp + e-mail, sempre ligados. (A Fase 1 = limites 80%/100% está na feature de `avisos-uso`.)
-- **Fase 2 — Cobrança/pagamento (event-driven, SEM cron)**: no **webhook Asaas** (`routes/billing.ts`), ao receber **`PAYMENT_OVERDUE`** (fatura em atraso), além de marcar a assinatura `inadimplente`, avisa o admin (WA+e-mail) com **link da fatura** (`invoiceUrl`) + valor/vencimento. Idempotente pelo **dedup de `event_id`** que o webhook já faz (cada evento processa 1×). Best-effort: falha de canal não muda o 200 ao Asaas. Template `emailFaturaVencida`.
+- **Fase 2 — Cobrança/pagamento (event-driven, SEM cron)**: no **webhook Asaas** (`routes/billing.ts`), ao receber **`PAYMENT_OVERDUE`** (fatura em atraso), além de marcar a assinatura `inadimplente`, avisa o admin (WA+e-mail) com **link da fatura** (`invoiceUrl`) + valor/vencimento **e a data-limite do corte**. Idempotente pelo **dedup de `event_id`** que o webhook já faz (cada evento processa 1×). Best-effort: falha de canal não muda o 200 ao Asaas. Template `emailFaturaVencida`.
+
+## Inadimplência corta acesso (2026-07-22, migration `20260722120000`)
+- **Regra**: plano **pago** cuja fatura recorrente vence e não é paga → webhook `PAYMENT_OVERDUE` marca `status='inadimplente'` **e grava `empresa_assinaturas.vencido_em`** (menor vencimento em aberto — âncora). Passados **7 dias** de `vencido_em` sem pagar, `empresa_fase_assinatura` retorna **`carencia`** (somente-leitura: bloqueia criação, o que existe segue acessível), **reusando o mecanismo do pós-trial**.
+- **Date-driven, SEM cron**: o corte acontece sozinho ao passar `vencido_em + 7` (a fase é reavaliada a cada checagem de RLS). Ordem na fase: `cancelado` → **inadimplente>7d** → pago/cortesia→ativa → trial. Cortesia não sofre (sem cobrança).
+- **Volta a ativa** assim que o pagamento confirma: o webhook zera `status='ativo'` + `vencido_em=null` (tanto no ramo recorrente quanto na ativação de plano pendente).
+- **UI** (`/gestao/plano`): banner vermelho de "fatura vencida" com a data-limite do corte (ou "sistema em somente-leitura" se já cortou) + botão "Pagar fatura" (usa a cobrança `OVERDUE`). `billing_status` agora devolve `vencido_em`.
+
+## Split de parceiro — repasse automático (2026-07-22, migration `20260722130000`)
+- **Fase 4 do billing**: sai a comissão manual/estimada, entra o **split real do Asaas**. Cada parceiro tem uma **subconta** (`parceiros.asaas_wallet_id`). Ao **assinar** ou **reativar** um plano pago (`routes/billing.ts`), se a empresa tem parceiro **ativo COM wallet** e `empresa.parceiro_percentual > 0`, a assinatura é criada com `split: [{ walletId, percentualValue }]` → o Asaas repassa a `%` da mensalidade a cada cobrança recorrente.
+- **Escopo**: só a **mensalidade** (assinatura). Pacotes avulsos **não** têm split. Helper `montarSplitParceiro(supabase, empresaId)`.
+- **Fallback seguro**: sem wallet / parceiro inativo / percentual 0 → sem split (cobra 100% CheckFlow, como antes). ⚠️ Para ligar de fato, é preciso **preencher `asaas_wallet_id`** de cada parceiro (subconta criada no Asaas).
 - **Fase 3 — Pré-cadastros pendentes (cron diário)**: `/cron/gestao/lembretes` (x-cron-secret) avisa o admin quando há `pre_cadastros` `status='pendente'` há **≥1 dia**. **Throttle de 3 dias por empresa** (tabela `empresa_gestao_lembretes`, chave `empresa+tipo`) para não spammar diariamente. Link para Acessos → Usuários. Template `emailPreCadastrosPendentes`.
 - Lógica pura + testes: `apps/api/src/lib/avisosGestao.ts`; helper de notificação reusável `apps/api/src/lib/adminEmpresa.ts` (`buscarAdminsEmpresa`/`notificarAdmins`). ⚠️ A Fase 3 precisa **agendar o cron no cron-job.org** (ver `/ops`). A Fase 2 não precisa de agendamento (dispara no webhook, que já está configurado).
 
