@@ -356,9 +356,10 @@ export default function PlanoPage() {
             <Barra label="Armazenamento" uso={status.armazenamento} />
           </div>
           {estaEmPago && !cancelarEm && (
-            <div className="pt-2 mt-1 border-t border-gray-100 text-right">
+            <div className="pt-3 mt-2 border-t border-gray-100">
               <button onClick={cancelarAssinatura} disabled={acaoEmProgresso === 'cancelar-assinatura'}
-                className="text-xs font-medium text-red-600 hover:text-red-700 hover:underline disabled:opacity-50">
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 rounded-lg px-3 py-1.5 disabled:opacity-50">
+                {acaoEmProgresso === 'cancelar-assinatura' && <Loader2 size={13} className="animate-spin" />}
                 Cancelar assinatura
               </button>
             </div>
