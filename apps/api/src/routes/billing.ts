@@ -4,7 +4,7 @@ import ws from 'ws'
 import {
   asaasCriarCliente, asaasCriarAssinatura, asaasCriarCobranca, asaasCancelarAssinatura,
   asaasPagamentosDaAssinatura, asaasDeletarCobranca, asaasAtualizarAssinatura,
-  type BillingType, type Cycle,
+  type BillingType, type Cycle, type SplitItem,
 } from '../lib/asaas'
 import { enviarWhatsApp } from '../lib/whatsapp'
 import { enviarEmail } from '../lib/email'
@@ -63,6 +63,20 @@ export async function billingRoutes(app: FastifyInstance) {
       .update({ asaas_customer_id: cliente.id, atualizado_em: new Date().toISOString() })
       .eq('empresa_id', empresaId)
     return cliente.id
+  }
+
+  // Monta o split de parceiro para a mensalidade, se a empresa tem parceiro
+  // ativo COM wallet Asaas e percentual > 0. Sem isso, retorna undefined
+  // (cobrança 100% CheckFlow — fallback seguro). Repasse só na assinatura.
+  async function montarSplitParceiro(supabase: SupabaseClient, empresaId: string): Promise<SplitItem[] | undefined> {
+    const { data: emp } = await supabase.from('empresas')
+      .select('parceiro_percentual, parceiros:parceiro_id ( asaas_wallet_id, status )')
+      .eq('id', empresaId).maybeSingle()
+    const pct = Number((emp as any)?.parceiro_percentual ?? 0)
+    const parc = (emp as any)?.parceiros
+    const wallet: string | null = parc?.asaas_wallet_id ?? null
+    if (!wallet || parc?.status !== 'ativo' || !(pct > 0)) return undefined
+    return [{ walletId: wallet, percentualValue: pct }]
   }
 
   // ── POST /billing/assinar ─────────────────────────────────────────────────
@@ -131,6 +145,7 @@ export async function billingRoutes(app: FastifyInstance) {
           .eq('asaas_subscription_id', subAntiga).is('pago_em', null)
       }
 
+      const split = await montarSplitParceiro(supabase, empresaId)
       const assinatura = await asaasCriarAssinatura({
         customer,
         billingType: tipoCobranca,
@@ -139,6 +154,7 @@ export async function billingRoutes(app: FastifyInstance) {
         cycle,
         description: `CheckFlow — plano ${plano.nome}`,
         externalReference: empresaId,
+        ...(split ? { split } : {}),
       })
 
       // NÃO ativa o plano ainda: guarda como PENDENTE de 1º pagamento + o vínculo
@@ -294,6 +310,7 @@ export async function billingRoutes(app: FastifyInstance) {
     const tipoCobranca: BillingType = ['PIX', 'CREDIT_CARD', 'BOLETO'].includes(billingType as string) ? billingType! : 'PIX'
     try {
       const customer = await garantirClienteAsaas(supabase, empresaId)
+      const split = await montarSplitParceiro(supabase, empresaId)
       const nova = await asaasCriarAssinatura({
         customer,
         billingType: tipoCobranca,
@@ -302,6 +319,7 @@ export async function billingRoutes(app: FastifyInstance) {
         cycle: at.ciclo === 'anual' ? 'YEARLY' : 'MONTHLY',
         description: `CheckFlow — plano ${at.plano_nome}`,
         externalReference: empresaId,
+        ...(split ? { split } : {}),
       })
       await supabase.from('empresa_assinaturas').update({
         cancelar_em: null,
@@ -447,7 +465,14 @@ export async function billingRoutes(app: FastifyInstance) {
       // Estado da assinatura conforme o pagamento
       if (empresaId) {
         if (evento === 'PAYMENT_OVERDUE') {
-          await supabase.from('empresa_assinaturas').update({ status: 'inadimplente', atualizado_em: new Date().toISOString() }).eq('empresa_id', empresaId)
+          // Marca inadimplente e ancora a carência no MENOR vencimento em aberto
+          // (a fase vira 'carencia'/somente-leitura em vencido_em + 7 dias).
+          const dueDate: string | null = pagamento.dueDate ?? null
+          const { data: aAtual } = await supabase.from('empresa_assinaturas')
+            .select('vencido_em').eq('empresa_id', empresaId).maybeSingle()
+          const venc = [(aAtual as any)?.vencido_em, dueDate].filter(Boolean).sort()[0] ?? null
+          await supabase.from('empresa_assinaturas').update({ status: 'inadimplente', vencido_em: venc, atualizado_em: new Date().toISOString() }).eq('empresa_id', empresaId)
+          const corteEm = venc ? new Date(new Date(venc + 'T00:00:00').getTime() + 7 * 86400000).toLocaleDateString('pt-BR') : null
 
           // Alerta de gestão (Fase 2): avisa o admin da empresa que a fatura
           // venceu, com link para pagar. Idempotente pelo dedup de event_id do
@@ -465,7 +490,7 @@ export async function billingRoutes(app: FastifyInstance) {
             const valorFmt = valor != null ? valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'sua fatura'
             await notificarAdmins(
               admins,
-              () => `🚫 *CheckFlow — fatura em atraso*\n\nA fatura da *${nomeEmpresa}* (${valorFmt}${vencimento ? `, venc. ${vencimento}` : ''}) consta como *não paga*. Regularize para manter a assinatura ativa.\n\n🔗 ${invoiceUrl || link}`,
+              () => `🚫 *CheckFlow — fatura em atraso*\n\nA fatura da *${nomeEmpresa}* (${valorFmt}${vencimento ? `, venc. ${vencimento}` : ''}) consta como *não paga*.${corteEm ? ` Se não for paga até *${corteEm}*, o sistema fica em modo *somente-leitura* até a regularização.` : ' Regularize para manter a assinatura ativa.'}\n\n🔗 ${invoiceUrl || link}`,
               (adm) => emailFaturaVencida({ nomeDestinatario: adm.nome, nomeEmpresa, valor, vencimento, invoiceUrl, link }),
               enviarWhatsApp, enviarEmail,
             )
@@ -496,13 +521,14 @@ export async function billingRoutes(app: FastifyInstance) {
                 periodo_fim: fim.toISOString().slice(0, 10),
                 execucoes_usadas: 0, tokens_ia_usados: 0, execucoes_extra: 0, tokens_ia_extra: 0,
                 trial_fim: null, ja_usou_trial: true,
-                pendente_plano_id: null,
+                pendente_plano_id: null, vencido_em: null,
                 atualizado_em: new Date().toISOString(),
               }).eq('empresa_id', empresaId)
             }
           } else {
-            // Pagamento recorrente → garante ativo (recupera de 'inadimplente').
-            await supabase.from('empresa_assinaturas').update({ status: 'ativo', atualizado_em: new Date().toISOString() }).eq('empresa_id', empresaId)
+            // Pagamento recorrente → garante ativo (recupera de 'inadimplente')
+            // e limpa a âncora de carência por inadimplência.
+            await supabase.from('empresa_assinaturas').update({ status: 'ativo', vencido_em: null, atualizado_em: new Date().toISOString() }).eq('empresa_id', empresaId)
           }
         }
       }
