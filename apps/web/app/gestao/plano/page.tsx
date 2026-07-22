@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Package, Boxes, Loader2, Check, ExternalLink, ShieldAlert } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Package, Boxes, Loader2, Check, ExternalLink, ShieldAlert, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { Button } from '@/components/ui/Button'
@@ -18,7 +18,7 @@ type BillingType = 'PIX' | 'BOLETO' | 'CREDIT_CARD'
 interface RecursoUso { usado: number; limite: number | null; extra: number }
 interface Status {
   plano_nome: string; plano_tipo: string; status: string; valor: number; ciclo: string | null
-  periodo_inicio: string; periodo_fim: string; trial_fim: string | null
+  periodo_inicio: string; periodo_fim: string; trial_fim: string | null; vencido_em: string | null
   proximo_plano_id: string | null; troca_efetiva_em: string | null
   execucoes: RecursoUso; tokens_ia: RecursoUso; armazenamento: RecursoUso
 }
@@ -71,6 +71,10 @@ export default function PlanoPage() {
   const [billingType, setBillingType] = useState<BillingType>('PIX')
   const [acaoEmProgresso, setAcaoEmProgresso] = useState<string | null>(null)
   const [faturaUrl, setFaturaUrl] = useState<string | null>(null)
+  // Detecta a transição "aguardando pagamento" → confirmado para dar um toast
+  // (o polling silencioso não avisaria; o banner só sumiria). Guarda por empresa
+  // pra não disparar toast falso ao trocar de empresa.
+  const pendenteAntesRef = useRef<{ emp?: string; pend: string | null }>({ pend: null })
 
   async function token(): Promise<string | null> {
     const { data: { session } } = await createClient().auth.getSession()
@@ -105,6 +109,15 @@ export default function PlanoPage() {
     ])
     if (stErr) toast.error('Não foi possível carregar os dados do plano.')
     setStatus((st as Status) ?? null)
+
+    // Transição pendente→confirmado: avisa que o plano ativou (só na mesma empresa).
+    const novoPendente = (assin as any)?.pendente_plano_id ?? null
+    const antes = pendenteAntesRef.current
+    if (antes.emp === empresaAtiva.id && antes.pend && !novoPendente) {
+      toast.success('Pagamento confirmado! Seu plano já está ativo. 🎉')
+    }
+    pendenteAntesRef.current = { emp: empresaAtiva.id, pend: novoPendente }
+
     setAssinaturaAtual((assin as any) ?? null)
     setPlanos((ps ?? []) as Plano[])
     setPacotes((pks ?? []) as Pacote[])
@@ -131,10 +144,16 @@ export default function PlanoPage() {
   useEffect(() => { carregar() }, [empresaAtiva?.id])
 
   // Enquanto há pagamento pendente, atualiza sozinho até o webhook confirmar
-  // (o plano ativa) — sem precisar de refresh manual. Silencioso (não pisca o spinner).
+  // (o plano ativa) — sem precisar de refresh manual. Silencioso (não pisca o
+  // spinner). Cap de ~5 min de polling ativo pra não rodar indefinidamente numa
+  // aba esquecida aberta; o refetch ao voltar o foco (abaixo) cobre o resto.
   useEffect(() => {
     if (!assinaturaAtual?.pendente_plano_id) return
-    const iv = setInterval(() => carregar({ silent: true }), 10000)
+    let n = 0
+    const iv = setInterval(() => {
+      if (++n > 30) { clearInterval(iv); return }
+      carregar({ silent: true })
+    }, 10000)
     return () => clearInterval(iv)
   }, [assinaturaAtual?.pendente_plano_id, empresaAtiva?.id])
 
@@ -161,6 +180,13 @@ export default function PlanoPage() {
 
   // Cancelamento agendado para o fim do período (assinatura paga ativa).
   const cancelarEm = assinaturaAtual?.cancelar_em ?? null
+
+  // Inadimplência: fatura recorrente vencida. Corte para somente-leitura em
+  // vencido_em + 7 dias (mesma regra da fase no banco).
+  const inadimplente = status?.status === 'inadimplente' && !!status?.vencido_em
+  const corteReadonlyEm = inadimplente ? new Date(new Date(status!.vencido_em! + 'T00:00:00').getTime() + 7 * 86400000) : null
+  const jaSomenteLeitura = corteReadonlyEm ? corteReadonlyEm.getTime() <= Date.now() : false
+  const faturaVencidaUrl = inadimplente ? (cobrancas.find(c => c.status === 'OVERDUE' && !!c.invoice_url)?.invoice_url ?? null) : null
 
   async function assinar(plano: Plano) {
     if (!empresaAtiva?.id) return
@@ -335,6 +361,31 @@ export default function PlanoPage() {
         <div className="mb-5 flex items-center gap-2 text-sm bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-4 py-2.5">
           <span className="flex-1">Fatura gerada. Se a aba não abriu, <a href={faturaUrl} target="_blank" rel="noreferrer" className="font-semibold underline">abra a fatura aqui</a>.</span>
           <button onClick={() => setFaturaUrl(null)} className="text-blue-400 hover:text-blue-700">✕</button>
+        </div>
+      )}
+
+      {/* Inadimplência — fatura vencida, aviso de corte para somente-leitura */}
+      {inadimplente && (
+        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4">
+          <div className="flex items-start gap-2">
+            <AlertTriangle size={16} className="text-red-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-red-900">
+                {jaSomenteLeitura ? 'Fatura vencida — sistema em modo somente-leitura.' : 'Fatura vencida.'}
+              </p>
+              <p className="text-xs text-red-700 mt-0.5">
+                {jaSomenteLeitura
+                  ? 'A criação de novos itens está bloqueada até o pagamento ser confirmado. O que já existe continua acessível normalmente.'
+                  : <>Regularize até <b>{corteReadonlyEm?.toLocaleDateString('pt-BR')}</b> para não perder o acesso de edição — depois disso o sistema fica somente-leitura até o pagamento ser confirmado.</>}
+              </p>
+              {faturaVencidaUrl && (
+                <a href={faturaVencidaUrl} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-red-800 hover:text-red-900 mt-2">
+                  <ExternalLink size={13} /> Pagar fatura
+                </a>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
