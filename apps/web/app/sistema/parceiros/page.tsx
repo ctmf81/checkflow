@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Handshake, Mail, ExternalLink, Send, Wallet, Check, QrCode, UserCheck, X } from 'lucide-react'
+import { Search, Handshake, Mail, ExternalLink, Send, Wallet, Check, QrCode, UserCheck, X, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { Badge } from '@/components/ui/Badge'
-import { ParceiroKycModal } from '@/components/modals/ParceiroKycModal'
+import { ParceiroEditarModal, type ParceiroEditavel } from '@/components/modals/ParceiroEditarModal'
 import { FormularioParceiroModal } from '@/components/modals/FormularioParceiroModal'
 import type { ParceiroKyc } from '@/components/modals/ParceiroKycFields'
 
@@ -64,7 +64,7 @@ export default function ParceirosPage() {
   const [reenviando, setReenviando] = useState<string | null>(null)
   const [avisoReenvio, setAvisoReenvio] = useState('')
   const [criandoConta, setCriandoConta] = useState<string | null>(null)
-  const [kycModal, setKycModal] = useState<Parceiro | null>(null)
+  const [editarModal, setEditarModal] = useState<Parceiro | null>(null)
   const [preCadastros, setPreCadastros] = useState<PreCadastro[]>([])
   const [moderando, setModerando] = useState<string | null>(null)
   const [formModal, setFormModal] = useState(false)
@@ -292,18 +292,18 @@ export default function ParceirosPage() {
                       {reenviando === p.id ? 'Enviando...' : 'Enviar boas-vindas'}
                     </button>
                   )}
-                  {p.asaas_wallet_id ? (
-                    <span className="inline-flex items-center gap-1 text-green-600" title={`walletId: ${p.asaas_wallet_id}`}>
-                      <Check size={12} /> Conta Asaas ativa (split ligado)
-                    </span>
-                  ) : (
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => setKycModal(p)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors"
-                      >
-                        Dados da conta
-                      </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setEditarModal(p)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors"
+                    >
+                      <Pencil size={12} /> Editar
+                    </button>
+                    {p.asaas_wallet_id ? (
+                      <span className="inline-flex items-center gap-1 text-green-600" title={`walletId: ${p.asaas_wallet_id}`}>
+                        <Check size={12} /> Conta Asaas ativa (split ligado)
+                      </span>
+                    ) : (
                       <button
                         onClick={() => criarContaAsaas(p)}
                         disabled={criandoConta === p.id}
@@ -312,8 +312,8 @@ export default function ParceirosPage() {
                         <Wallet size={12} />
                         {criandoConta === p.id ? 'Criando...' : 'Criar conta Asaas'}
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -351,13 +351,13 @@ export default function ParceirosPage() {
         </div>
       )}
 
-      {kycModal && (
-        <ParceiroKycModal
-          parceiro={kycModal}
-          onClose={() => setKycModal(null)}
-          onSaved={(kyc) => {
-            setParceiros(prev => prev.map(x => x.id === kycModal.id ? { ...x, ...kyc } : x))
-            setKycModal(null)
+      {editarModal && (
+        <ParceiroEditarModal
+          parceiro={editarModal as ParceiroEditavel}
+          onClose={() => setEditarModal(null)}
+          onSaved={(patch) => {
+            setParceiros(prev => prev.map(x => x.id === editarModal.id ? { ...x, ...patch } : x))
+            setEditarModal(null)
           }}
         />
       )}
