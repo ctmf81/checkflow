@@ -112,8 +112,13 @@ export async function billingRoutes(app: FastifyInstance) {
       // quando o período vira (avancar_periodo_assinatura aplica proximo_plano_id).
       if (assinAtual && assinAtual.plano_tipo === 'pago' && assinAtual.status === 'ativo' && assinAtual.asaas_subscription_id) {
         try {
+          // Split autoritativo: manda o estado ATUAL do parceiro. Com parceiro
+          // ativo+wallet, aplica/atualiza; sem parceiro, `[]` limpa um split
+          // antigo. Cobre o caso de parceiro associado DEPOIS da 1ª assinatura.
+          const splitTroca = await montarSplitParceiro(supabase, empresaId)
           await asaasAtualizarAssinatura(assinAtual.asaas_subscription_id, {
             value: Number(plano.valor), cycle, billingType: tipoCobranca, updatePendingPayments: false,
+            split: splitTroca ?? [],
           })
         } catch (e: any) {
           app.log.error(e)
@@ -332,6 +337,34 @@ export async function billingRoutes(app: FastifyInstance) {
     } catch (e: any) {
       app.log.error(e)
       return reply.status(502).send({ error: e?.message ?? 'Falha ao reativar no Asaas' })
+    }
+  })
+
+  // ── POST /billing/sincronizar-split ───────────────────────────────────────
+  // Empurra o estado ATUAL do split de parceiro para a assinatura Asaas já
+  // existente — sem trocar de plano. Chamado quando o vínculo empresa↔parceiro
+  // muda (aba Parceiro em /sistema/empresas/[id]): associar um parceiro DEPOIS
+  // da contratação passa a valer nas próximas cobranças; desassociar limpa (`[]`).
+  app.post('/billing/sincronizar-split', async (req, reply) => {
+    const { empresaId } = req.body as { empresaId?: string }
+    if (!empresaId) return reply.status(400).send({ error: 'empresaId é obrigatório' })
+
+    const supabase = sb()
+    const auth = await autorizarAdminEmpresa(supabase, req.headers.authorization, empresaId)
+    if (!auth) return reply.status(403).send({ error: 'Não autorizado' })
+
+    const { data: a } = await supabase.from('empresa_assinaturas')
+      .select('asaas_subscription_id').eq('empresa_id', empresaId).maybeSingle()
+    const sub = (a as any)?.asaas_subscription_id as string | null
+    if (!sub) return reply.send({ ok: true, semAssinatura: true })
+
+    try {
+      const split = await montarSplitParceiro(supabase, empresaId)
+      await asaasAtualizarAssinatura(sub, { split: split ?? [], updatePendingPayments: false })
+      return reply.send({ ok: true, aplicado: !!split })
+    } catch (e: any) {
+      app.log.error(e)
+      return reply.status(502).send({ error: e?.message ?? 'Falha ao sincronizar o split no Asaas' })
     }
   })
 
