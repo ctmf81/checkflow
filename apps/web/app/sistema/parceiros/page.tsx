@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Handshake, Mail, ExternalLink, Send, Wallet, Check } from 'lucide-react'
+import { Search, Handshake, Mail, ExternalLink, Send, Wallet, Check, QrCode, UserCheck, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { Badge } from '@/components/ui/Badge'
 import { ParceiroKycModal } from '@/components/modals/ParceiroKycModal'
+import { FormularioParceiroModal } from '@/components/modals/FormularioParceiroModal'
 import type { ParceiroKyc } from '@/components/modals/ParceiroKycFields'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api-production-5bce.up.railway.app'
@@ -33,6 +34,23 @@ interface Parceiro extends Partial<ParceiroKyc> {
   empresas: EmpresaVinculada[]
 }
 
+interface PreCadastro {
+  id: string
+  nome: string
+  documento: string
+  email: string
+  telefone: string | null
+  mensagem: string | null
+  criado_em: string
+}
+
+function formatarDoc(digits: string | null) {
+  if (!digits) return '—'
+  if (digits.length === 11) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`
+  if (digits.length === 14) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`
+  return digits
+}
+
 function formatarMoeda(v: number | null) {
   if (v == null) return '—'
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -47,6 +65,44 @@ export default function ParceirosPage() {
   const [avisoReenvio, setAvisoReenvio] = useState('')
   const [criandoConta, setCriandoConta] = useState<string | null>(null)
   const [kycModal, setKycModal] = useState<Parceiro | null>(null)
+  const [preCadastros, setPreCadastros] = useState<PreCadastro[]>([])
+  const [moderando, setModerando] = useState<string | null>(null)
+  const [formModal, setFormModal] = useState(false)
+
+  async function aprovarPre(pc: PreCadastro) {
+    setModerando(pc.id)
+    setAvisoReenvio('')
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: novo, error } = await supabase.from('parceiros').insert({
+      nome: pc.nome, email: pc.email, telefone: pc.telefone, documento: pc.documento,
+      criado_por: user?.id ?? null,
+    }).select('id, nome, email, telefone, documento, status, email_boasvindas_enviado_em, asaas_wallet_id').single()
+    if (error || !novo) {
+      setModerando(null)
+      setAvisoReenvio(error?.code === '23505'
+        ? `Já existe um parceiro com o CPF/CNPJ ou e-mail de ${pc.nome}.`
+        : `Não foi possível aprovar ${pc.nome}. Tente novamente.`)
+      return
+    }
+    await supabase.from('parceiro_pre_cadastros').update({
+      status: 'aprovado', parceiro_id: novo.id, moderado_por: user?.id ?? null, moderado_em: new Date().toISOString(),
+    }).eq('id', pc.id)
+    setParceiros(prev => [{ ...(novo as Parceiro), empresas: [] }, ...prev])
+    setPreCadastros(prev => prev.filter(x => x.id !== pc.id))
+    setModerando(null)
+  }
+
+  async function rejeitarPre(pc: PreCadastro) {
+    setModerando(pc.id)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('parceiro_pre_cadastros').update({
+      status: 'rejeitado', moderado_por: user?.id ?? null, moderado_em: new Date().toISOString(),
+    }).eq('id', pc.id)
+    setPreCadastros(prev => prev.filter(x => x.id !== pc.id))
+    setModerando(null)
+  }
 
   async function criarContaAsaas(p: Parceiro) {
     setCriandoConta(p.id)
@@ -118,6 +174,14 @@ export default function ParceirosPage() {
         }))
         setParceiros(comEmpresas)
       }
+
+      const { data: pcs } = await supabase
+        .from('parceiro_pre_cadastros')
+        .select('id, nome, documento, email, telefone, mensagem, criado_em')
+        .eq('status', 'pendente')
+        .order('criado_em', { ascending: false })
+      setPreCadastros((pcs ?? []) as PreCadastro[])
+
       setLoading(false)
     }
     carregar()
@@ -133,12 +197,47 @@ export default function ParceirosPage() {
   return (
     <>
       <Onboarding pageId={cfg.pageId} titulo={cfg.titulo} cards={cfg.cards} />
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Programa de parceiros</h1>
           <p className="hidden sm:block text-sm text-gray-500 mt-0.5">Parceiros que recebem comissão por indicação de empresas</p>
         </div>
+        <button onClick={() => setFormModal(true)}
+          className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-orange-200 text-orange-600 text-sm font-medium hover:bg-orange-50 transition-colors">
+          <QrCode size={14} /> Formulário de captação
+        </button>
       </div>
+
+      {/* Pré-cadastros pendentes de validação */}
+      {preCadastros.length > 0 && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <UserCheck size={15} className="text-amber-600" />
+            <h2 className="text-sm font-semibold text-amber-900">Interessados aguardando validação ({preCadastros.length})</h2>
+          </div>
+          <div className="space-y-2">
+            {preCadastros.map(pc => (
+              <div key={pc.id} className="bg-white rounded-lg border border-amber-100 p-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-800">{pc.nome}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{formatarDoc(pc.documento)} · {pc.email}{pc.telefone ? ` · ${pc.telefone}` : ''}</p>
+                  {pc.mensagem && <p className="text-xs text-gray-400 mt-1 italic">“{pc.mensagem}”</p>}
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button onClick={() => aprovarPre(pc)} disabled={moderando === pc.id}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-500 text-white text-xs font-medium hover:bg-green-600 disabled:opacity-50">
+                    <Check size={13} /> {moderando === pc.id ? '...' : 'Aprovar'}
+                  </button>
+                  <button onClick={() => rejeitarPre(pc)} disabled={moderando === pc.id}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 text-xs font-medium hover:bg-gray-50 disabled:opacity-50">
+                    <X size={13} /> Rejeitar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center gap-3 mb-6">
         <div className="relative">
@@ -261,6 +360,8 @@ export default function ParceirosPage() {
           }}
         />
       )}
+
+      {formModal && <FormularioParceiroModal onClose={() => setFormModal(false)} />}
     </>
   )
 }

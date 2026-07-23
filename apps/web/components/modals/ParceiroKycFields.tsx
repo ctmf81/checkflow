@@ -56,7 +56,7 @@ export function ParceiroKycFields({ documento, value, onChange }: {
       )}
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">{ehPj ? 'Faturamento mensal (R$)' : 'Renda mensal (R$)'}</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{ehPj ? 'Faturamento mensal (R$)' : 'Renda mensal (R$)'} <span className="text-gray-400 font-normal">(opcional — preenchido automaticamente se vazio)</span></label>
         <input type="number" min={0} step="0.01" inputMode="decimal"
           value={value.renda_mensal ?? ''} onChange={e => onChange({ renda_mensal: e.target.value === '' ? null : Number(e.target.value) })}
           placeholder="0,00" className={input} />
