@@ -32,6 +32,11 @@ const PLANO_LABELS: Record<string, string> = {
   escala: 'Escala',
 }
 
+// incomeValue é exigido pelo Asaas na criação da subconta, mas é friccional pro
+// parceiro. Quando não preenchido, mandamos este valor padrão (declaração
+// mínima; editável depois na própria subconta).
+const RENDA_MENSAL_MOCK = 5000
+
 export async function parceiroRoutes(app: FastifyInstance) {
   // Node 20 não tem WebSocket nativo — `ws` evita crash do RealtimeClient
   const sb = () => createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!,
@@ -128,7 +133,7 @@ export async function parceiroRoutes(app: FastifyInstance) {
         email: pp.email,
         cpfCnpj: doc,
         mobilePhone: fone,
-        ...(pp.renda_mensal != null ? { incomeValue: Number(pp.renda_mensal) } : {}),
+        incomeValue: pp.renda_mensal != null ? Number(pp.renda_mensal) : RENDA_MENSAL_MOCK,
         ...(pp.cep ? { postalCode: String(pp.cep).replace(/\D/g, '') } : {}),
         ...(pp.endereco ? { address: pp.endereco } : {}),
         ...(pp.endereco_numero ? { addressNumber: String(pp.endereco_numero) } : {}),
