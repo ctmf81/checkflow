@@ -109,24 +109,34 @@ export async function parceiroRoutes(app: FastifyInstance) {
     }
 
     const { data: p } = await supabase.from('parceiros')
-      .select('id, nome, email, telefone, documento, asaas_wallet_id').eq('id', id).maybeSingle()
+      .select('id, nome, email, telefone, documento, asaas_wallet_id, data_nascimento, tipo_empresa, renda_mensal, cep, endereco, endereco_numero, complemento, bairro')
+      .eq('id', id).maybeSingle()
     if (!p) return reply.status(404).send({ error: 'Parceiro não encontrado' })
-    if ((p as any).asaas_wallet_id) {
-      return reply.send({ ok: true, jaExiste: true, walletId: (p as any).asaas_wallet_id })
+    const pp = p as any
+    if (pp.asaas_wallet_id) {
+      return reply.send({ ok: true, jaExiste: true, walletId: pp.asaas_wallet_id })
     }
 
-    const doc = String((p as any).documento ?? '').replace(/\D/g, '')
+    const doc = String(pp.documento ?? '').replace(/\D/g, '')
     if (!doc) return reply.status(400).send({ error: 'Parceiro sem CPF/CNPJ — preencha o documento antes de criar a conta.' })
-    const fone = (p as any).telefone ? String((p as any).telefone).replace(/\D/g, '') : undefined
+    const fone = pp.telefone ? String(pp.telefone).replace(/\D/g, '') : undefined
+    const ehPj = doc.length === 14
 
     try {
       const conta = await asaasCriarSubconta({
-        name: (p as any).nome,
-        email: (p as any).email,
+        name: pp.nome,
+        email: pp.email,
         cpfCnpj: doc,
         mobilePhone: fone,
-        // CNPJ exige companyType; 'LIMITED' é o mais comum e editável na subconta.
-        ...(doc.length === 14 ? { companyType: 'LIMITED' } : {}),
+        ...(pp.renda_mensal != null ? { incomeValue: Number(pp.renda_mensal) } : {}),
+        ...(pp.cep ? { postalCode: String(pp.cep).replace(/\D/g, '') } : {}),
+        ...(pp.endereco ? { address: pp.endereco } : {}),
+        ...(pp.endereco_numero ? { addressNumber: String(pp.endereco_numero) } : {}),
+        ...(pp.complemento ? { complement: pp.complemento } : {}),
+        ...(pp.bairro ? { province: pp.bairro } : {}),
+        // PJ → companyType (default LIMITED, editável na subconta); PF → birthDate.
+        ...(ehPj ? { companyType: pp.tipo_empresa || 'LIMITED' } : {}),
+        ...(!ehPj && pp.data_nascimento ? { birthDate: String(pp.data_nascimento) } : {}),
       })
       await supabase.from('parceiros')
         .update({ asaas_wallet_id: conta.walletId, atualizado_em: new Date().toISOString() })

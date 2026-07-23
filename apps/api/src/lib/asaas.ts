@@ -88,6 +88,7 @@ export function asaasCriarSubconta(input: {
   birthDate?: string
   address?: string
   addressNumber?: string
+  complement?: string
   province?: string
   postalCode?: string
 }) {
