@@ -340,6 +340,18 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
       return
     }
 
+    // Empurra o split para a assinatura Asaas já existente (associar/trocar/
+    // remover parceiro passa a valer nas próximas cobranças, sem trocar plano).
+    // Best-effort: não bloqueia o salvamento do vínculo.
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      await fetch(`${API_URL}/billing/sincronizar-split`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+        body: JSON.stringify({ empresaId: id }),
+      })
+    } catch { /* sem assinatura ou Asaas fora — o split entra na próxima troca de plano */ }
+
     // Boas-vindas: só depois do vínculo estar de fato salvo no banco
     if (parceiroAtual && parceiroNovoPendente) {
       try {
