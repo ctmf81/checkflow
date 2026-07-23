@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { X, Search, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
+import { ParceiroKycFields, KYC_VAZIO, type ParceiroKyc } from './ParceiroKycFields'
 
 export interface ParceiroSelecionado {
   id: string
@@ -38,6 +39,8 @@ export function ParceiroModal({ onClose, onSelecionado }: Props) {
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [telefone, setTelefone] = useState('')
+  const [kyc, setKyc] = useState<ParceiroKyc>(KYC_VAZIO)
+  const [mostrarKyc, setMostrarKyc] = useState(false)
   const [salvando, setSalvando] = useState(false)
 
   const cpfDigits = cpf.replace(/\D/g, '')
@@ -82,6 +85,7 @@ export function ParceiroModal({ onClose, onSelecionado }: Props) {
       email: email.trim().toLowerCase(),
       telefone: telefone.trim() || null,
       documento: cpfDigits, // sempre só dígitos — é a chave de busca
+      ...kyc, // dados de KYC p/ a subconta Asaas (todos opcionais)
       criado_por: user?.id ?? null,
     }).select('id, nome, email').single()
 
@@ -168,6 +172,19 @@ export function ParceiroModal({ onClose, onSelecionado }: Props) {
                 <input value={telefone} onChange={e => setTelefone(e.target.value)} placeholder="(xx) xxxxx-xxxx"
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
               </div>
+
+              {/* KYC opcional — necessário só para criar a subconta Asaas (split) */}
+              {mostrarKyc ? (
+                <div className="pt-2 border-t border-gray-100">
+                  <ParceiroKycFields documento={cpfDigits} value={kyc} onChange={patch => setKyc(prev => ({ ...prev, ...patch }))} />
+                </div>
+              ) : (
+                <button type="button" onClick={() => setMostrarKyc(true)}
+                  className="text-xs text-orange-600 hover:text-orange-700 font-medium">
+                  + Dados para conta Asaas (split) — opcional
+                </button>
+              )}
+
               <div className="flex justify-end pt-1">
                 <Button type="submit" disabled={salvando}>
                   {salvando ? 'Cadastrando...' : 'Cadastrar e vincular'}

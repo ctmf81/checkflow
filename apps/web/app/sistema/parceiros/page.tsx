@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { Search, Handshake, Mail, ExternalLink, Send, Wallet, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { Badge } from '@/components/ui/Badge'
+import { ParceiroKycModal } from '@/components/modals/ParceiroKycModal'
+import type { ParceiroKyc } from '@/components/modals/ParceiroKycFields'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api-production-5bce.up.railway.app'
 import { Onboarding } from '@/components/onboarding/Onboarding'
@@ -19,11 +21,12 @@ interface EmpresaVinculada {
   parceiro_percentual: number | null
 }
 
-interface Parceiro {
+interface Parceiro extends Partial<ParceiroKyc> {
   id: string
   nome: string
   email: string
   telefone: string | null
+  documento: string | null
   status: 'ativo' | 'inativo'
   email_boasvindas_enviado_em: string | null
   asaas_wallet_id: string | null
@@ -43,6 +46,7 @@ export default function ParceirosPage() {
   const [reenviando, setReenviando] = useState<string | null>(null)
   const [avisoReenvio, setAvisoReenvio] = useState('')
   const [criandoConta, setCriandoConta] = useState<string | null>(null)
+  const [kycModal, setKycModal] = useState<Parceiro | null>(null)
 
   async function criarContaAsaas(p: Parceiro) {
     setCriandoConta(p.id)
@@ -94,7 +98,7 @@ export default function ParceirosPage() {
       const supabase = createClient()
       const { data: lista } = await supabase
         .from('parceiros')
-        .select('id, nome, email, telefone, status, email_boasvindas_enviado_em, asaas_wallet_id')
+        .select('id, nome, email, telefone, documento, status, email_boasvindas_enviado_em, asaas_wallet_id, data_nascimento, tipo_empresa, renda_mensal, cep, endereco, endereco_numero, complemento, bairro')
         .order('nome')
 
       if (lista) {
@@ -193,14 +197,22 @@ export default function ParceirosPage() {
                       <Check size={12} /> Conta Asaas ativa (split ligado)
                     </span>
                   ) : (
-                    <button
-                      onClick={() => criarContaAsaas(p)}
-                      disabled={criandoConta === p.id}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
-                    >
-                      <Wallet size={12} />
-                      {criandoConta === p.id ? 'Criando...' : 'Criar conta Asaas'}
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setKycModal(p)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors"
+                      >
+                        Dados da conta
+                      </button>
+                      <button
+                        onClick={() => criarContaAsaas(p)}
+                        disabled={criandoConta === p.id}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                      >
+                        <Wallet size={12} />
+                        {criandoConta === p.id ? 'Criando...' : 'Criar conta Asaas'}
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -237,6 +249,17 @@ export default function ParceirosPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {kycModal && (
+        <ParceiroKycModal
+          parceiro={kycModal}
+          onClose={() => setKycModal(null)}
+          onSaved={(kyc) => {
+            setParceiros(prev => prev.map(x => x.id === kycModal.id ? { ...x, ...kyc } : x))
+            setKycModal(null)
+          }}
+        />
       )}
     </>
   )
