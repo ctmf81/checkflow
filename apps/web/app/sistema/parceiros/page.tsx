@@ -112,6 +112,7 @@ export default function ParceirosPage() {
       const res = await fetch(`${API_URL}/parceiros/${p.id}/conta-asaas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+        body: '{}', // Fastify rejeita POST application/json com corpo vazio (400) antes do handler
       })
       const body = await res.json().catch(() => null)
       if (res.ok && body?.walletId) {
