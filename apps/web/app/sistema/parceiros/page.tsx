@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Handshake, Mail, ExternalLink, Send } from 'lucide-react'
+import { Search, Handshake, Mail, ExternalLink, Send, Wallet, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { Badge } from '@/components/ui/Badge'
 
@@ -26,6 +26,7 @@ interface Parceiro {
   telefone: string | null
   status: 'ativo' | 'inativo'
   email_boasvindas_enviado_em: string | null
+  asaas_wallet_id: string | null
   empresas: EmpresaVinculada[]
 }
 
@@ -41,6 +42,28 @@ export default function ParceirosPage() {
   const [loading, setLoading] = useState(true)
   const [reenviando, setReenviando] = useState<string | null>(null)
   const [avisoReenvio, setAvisoReenvio] = useState('')
+  const [criandoConta, setCriandoConta] = useState<string | null>(null)
+
+  async function criarContaAsaas(p: Parceiro) {
+    setCriandoConta(p.id)
+    setAvisoReenvio('')
+    try {
+      const { data: { session } } = await createClient().auth.getSession()
+      const res = await fetch(`${API_URL}/parceiros/${p.id}/conta-asaas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      })
+      const body = await res.json().catch(() => null)
+      if (res.ok && body?.walletId) {
+        setParceiros(prev => prev.map(x => x.id === p.id ? { ...x, asaas_wallet_id: body.walletId } : x))
+      } else {
+        setAvisoReenvio(`Não foi possível criar a conta Asaas de ${p.nome}: ${body?.error ?? res.statusText}`)
+      }
+    } catch {
+      setAvisoReenvio(`Falha ao criar a conta Asaas de ${p.nome}. Verifique a API.`)
+    }
+    setCriandoConta(null)
+  }
 
   async function reenviarBoasVindas(p: Parceiro) {
     setReenviando(p.id)
@@ -71,7 +94,7 @@ export default function ParceirosPage() {
       const supabase = createClient()
       const { data: lista } = await supabase
         .from('parceiros')
-        .select('id, nome, email, telefone, status, email_boasvindas_enviado_em')
+        .select('id, nome, email, telefone, status, email_boasvindas_enviado_em, asaas_wallet_id')
         .order('nome')
 
       if (lista) {
@@ -152,7 +175,7 @@ export default function ParceirosPage() {
                     {p.telefone}
                   </div>
                 </div>
-                <div className="text-right text-xs">
+                <div className="flex flex-col items-end gap-1.5 text-xs">
                   {p.email_boasvindas_enviado_em ? (
                     <span className="text-green-600">E-mail de boas-vindas enviado</span>
                   ) : (
@@ -163,6 +186,20 @@ export default function ParceirosPage() {
                     >
                       <Send size={12} />
                       {reenviando === p.id ? 'Enviando...' : 'Enviar boas-vindas'}
+                    </button>
+                  )}
+                  {p.asaas_wallet_id ? (
+                    <span className="inline-flex items-center gap-1 text-green-600" title={`walletId: ${p.asaas_wallet_id}`}>
+                      <Check size={12} /> Conta Asaas ativa (split ligado)
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => criarContaAsaas(p)}
+                      disabled={criandoConta === p.id}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                      <Wallet size={12} />
+                      {criandoConta === p.id ? 'Criando...' : 'Criar conta Asaas'}
                     </button>
                   )}
                 </div>

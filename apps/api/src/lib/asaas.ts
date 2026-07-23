@@ -58,6 +58,7 @@ export interface SplitItem {
 }
 
 export interface AsaasCustomer { id: string; name: string; cpfCnpj: string; email?: string }
+export interface AsaasSubconta { id: string; walletId: string; apiKey?: string }
 export interface AsaasSubscription { id: string; status: string; value: number; cycle: string }
 export interface AsaasPayment {
   id: string; status: string; value: number; billingType: string
@@ -69,6 +70,28 @@ export interface AsaasPayment {
 /** Cria (ou retorna) um cliente no Asaas. cpfCnpj só dígitos. */
 export function asaasCriarCliente(input: { name: string; cpfCnpj: string; email?: string; phone?: string; externalReference?: string }) {
   return asaasFetch<AsaasCustomer>('/customers', 'POST', input)
+}
+
+/**
+ * Cria uma SUBCONTA (white-label) sob a conta-mãe. Retorna o `walletId`, usado
+ * como destino do split de parceiro. A subconta pode precisar completar KYC no
+ * Asaas antes de poder RECEBER de fato; o Asaas valida os campos e retorna erro
+ * descritivo quando falta dado (ex.: endereço, incomeValue). cpfCnpj só dígitos.
+ */
+export function asaasCriarSubconta(input: {
+  name: string
+  email: string
+  cpfCnpj: string
+  mobilePhone?: string
+  companyType?: string
+  incomeValue?: number
+  birthDate?: string
+  address?: string
+  addressNumber?: string
+  province?: string
+  postalCode?: string
+}) {
+  return asaasFetch<AsaasSubconta>('/accounts', 'POST', input)
 }
 
 /** Assinatura recorrente. nextDueDate no formato YYYY-MM-DD. */

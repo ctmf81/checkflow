@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import { enviarEmail } from '../lib/email'
 import { emailParceiroBoasVindas, emailParceiroResumoMensal } from '../lib/email-templates'
+import { asaasCriarSubconta } from '../lib/asaas'
 
 const MESES = [
   'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -88,6 +89,53 @@ export async function parceiroRoutes(app: FastifyInstance) {
     )
 
     return reply.send({ ok: true })
+  })
+
+  // POST /parceiros/:id/conta-asaas — cria a SUBCONTA Asaas do parceiro (split).
+  // Reusa os dados do cadastro (nome/e-mail/documento/telefone) e grava o
+  // walletId retornado. Idempotente: se já existe wallet, devolve sem recriar.
+  // Restrito a admin de sistema (cria conta financeira real). Campos que o Asaas
+  // exige e o cadastro não tem (endereço, incomeValue, birthDate) fazem o Asaas
+  // retornar erro descritivo — repassado pro front pra o admin saber o que falta.
+  app.post('/parceiros/:id/conta-asaas', async (req, reply) => {
+    const { id } = req.params as { id: string }
+    const supabase = sb()
+
+    const token = String(req.headers['authorization'] ?? '').replace(/^Bearer\s+/i, '').trim()
+    if (!token) return reply.status(401).send({ error: 'Não autorizado' })
+    const { data: { user } } = await supabase.auth.getUser(token)
+    if (user?.app_metadata?.role !== 'admin_sistema') {
+      return reply.status(403).send({ error: 'Apenas admin de sistema pode criar a conta do parceiro.' })
+    }
+
+    const { data: p } = await supabase.from('parceiros')
+      .select('id, nome, email, telefone, documento, asaas_wallet_id').eq('id', id).maybeSingle()
+    if (!p) return reply.status(404).send({ error: 'Parceiro não encontrado' })
+    if ((p as any).asaas_wallet_id) {
+      return reply.send({ ok: true, jaExiste: true, walletId: (p as any).asaas_wallet_id })
+    }
+
+    const doc = String((p as any).documento ?? '').replace(/\D/g, '')
+    if (!doc) return reply.status(400).send({ error: 'Parceiro sem CPF/CNPJ — preencha o documento antes de criar a conta.' })
+    const fone = (p as any).telefone ? String((p as any).telefone).replace(/\D/g, '') : undefined
+
+    try {
+      const conta = await asaasCriarSubconta({
+        name: (p as any).nome,
+        email: (p as any).email,
+        cpfCnpj: doc,
+        mobilePhone: fone,
+        // CNPJ exige companyType; 'LIMITED' é o mais comum e editável na subconta.
+        ...(doc.length === 14 ? { companyType: 'LIMITED' } : {}),
+      })
+      await supabase.from('parceiros')
+        .update({ asaas_wallet_id: conta.walletId, atualizado_em: new Date().toISOString() })
+        .eq('id', id)
+      return reply.send({ ok: true, walletId: conta.walletId })
+    } catch (e: any) {
+      app.log.error(e)
+      return reply.status(502).send({ error: e?.message ?? 'Falha ao criar a subconta no Asaas' })
+    }
   })
 
   // POST /cron/parceiros/resumo-mensal — disparo agendado (último dia do mês)

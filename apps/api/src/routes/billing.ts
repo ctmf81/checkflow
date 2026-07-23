@@ -69,11 +69,13 @@ export async function billingRoutes(app: FastifyInstance) {
   // ativo COM wallet Asaas e percentual > 0. Sem isso, retorna undefined
   // (cobrança 100% CheckFlow — fallback seguro). Repasse só na assinatura.
   async function montarSplitParceiro(supabase: SupabaseClient, empresaId: string): Promise<SplitItem[] | undefined> {
-    const { data: emp } = await supabase.from('empresas')
+    // parceiro_id/percentual vivem em empresa_financeiro (migration 20260613002351
+    // moveu de empresas p/ tabela admin-only). Service role ignora RLS.
+    const { data: fin } = await supabase.from('empresa_financeiro')
       .select('parceiro_percentual, parceiros:parceiro_id ( asaas_wallet_id, status )')
-      .eq('id', empresaId).maybeSingle()
-    const pct = Number((emp as any)?.parceiro_percentual ?? 0)
-    const parc = (emp as any)?.parceiros
+      .eq('empresa_id', empresaId).maybeSingle()
+    const pct = Number((fin as any)?.parceiro_percentual ?? 0)
+    const parc = (fin as any)?.parceiros
     const wallet: string | null = parc?.asaas_wallet_id ?? null
     if (!wallet || parc?.status !== 'ativo' || !(pct > 0)) return undefined
     return [{ walletId: wallet, percentualValue: pct }]
