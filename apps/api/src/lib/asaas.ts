@@ -124,6 +124,8 @@ export function asaasAtualizarAssinatura(subscriptionId: string, input: {
   cycle?: Cycle
   billingType?: BillingType
   updatePendingPayments?: boolean
+  /** Estado desejado do split. `[]` LIMPA um split existente; omitir preserva. */
+  split?: SplitItem[]
 }) {
   return asaasFetch<AsaasSubscription>(`/subscriptions/${subscriptionId}`, 'PUT', {
     updatePendingPayments: false,
