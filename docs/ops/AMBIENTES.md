@@ -37,10 +37,19 @@ Estas etapas exigem os painéis, aos quais o Claude não tem acesso.
 ### 2.2 Criar `.env.migrations` na raiz do repo
 Arquivo **gitignorado** — nunca vai para o Git.
 
+> ⚠️ **Use o Session pooler, NÃO a conexão direta.** O host direto
+> (`db.<ref>.supabase.co`) só resolve por **IPv6** — em rede IPv4 dá
+> `no such host` e o `db push` falha. Pegue a string em **Connect → Direct →
+> "Session pooler"** (host `aws-N-<região>.pooler.supabase.com`, porta **5432**,
+> user `postgres.<ref>`). A porta 6543 (Transaction pooler) NÃO serve p/ migrations.
+
 ```
-SUPABASE_DB_URL_DEV=postgresql://postgres:SENHA@db.<ref-dev>.supabase.co:5432/postgres
-SUPABASE_DB_URL_PROD=postgresql://postgres:SENHA@db.pswdjdlirylxgscohcfi.supabase.co:5432/postgres
+# formato Session pooler (troque SENHA, ref e região pelos do seu projeto)
+SUPABASE_DB_URL_DEV=postgresql://postgres.<ref-dev>:SENHA@aws-1-us-east-2.pooler.supabase.com:5432/postgres
+SUPABASE_DB_URL_PROD=postgresql://postgres.<ref-prod>:SENHA@aws-N-<regiao>.pooler.supabase.com:5432/postgres
 ```
+
+Ambiente já montado (2026-07-24): dev = ref `yidewiphflurzqgczrxh`, região `us-east-2`.
 
 ### 2.3 Baseline do banco de PRODUÇÃO (uma vez, obrigatório)
 As 172 migrations existentes já foram aplicadas à mão, mas o banco não registra
@@ -183,3 +192,29 @@ para escrever em produção — proteção contra rodar no banco errado por enga
   integrações externas (Evolution/WhatsApp, Asaas) diferem.
 - **Deploy do Railway continua sendo por serviço**: promover código não aplica
   migration — são dois passos, de propósito.
+
+---
+
+## 6. O que já está montado (referência — 2026-07-24)
+
+- **DEV Supabase**: ref `yidewiphflurzqgczrxh` (região us-east-2, org cauvieira FREE).
+  Schema = réplica completa de produção (172 migrations aplicadas via `db push`).
+- **Railway** (no environment `production`, branch `develop`, com **App Sleeping**
+  ligado → dormem sozinhos, acordam ao abrir a URL):
+  - `api-dev` → https://api-dev-production-5724.up.railway.app (root `apps/api`)
+  - `web-dev` → https://web-dev-production-f3dd.up.railway.app (root `apps/web`)
+  - Vars de dev (Supabase dev, ASAAS sandbox); `api-dev` tem `CORS_EXTRA_ORIGINS`
+    + `APP_URL` = URL do web-dev. **Sem** WhatsApp/e-mail/Asaas-prod (dev não
+    dispara pra ninguém real).
+- **Login de teste** (admin_sistema) no banco dev: CPF **000.000.000-00** (a senha
+  foi definida no setup — não fica versionada). Recriar/trocar: Auth Admin API do
+  Supabase dev + linha em `usuarios` (id = auth uid, `cpf` no formato `000.000.000-00`
+  pois o RPC `buscar_email_por_cpf` casa exato).
+- **Produção**: auto-deploy DESLIGADO em `web` e `api` → só publica no clique manual.
+
+### Dois fixes que a 1ª replicação exigiu (já commitados em `develop`)
+O histórico não era 100% reproduzível do zero; corrigido em
+`fix(db): torna o histórico de migrations reproduzível do zero`:
+- `20260624000000_usuario_subgrupo_funcao` recriava coluna já existente → **no-op**.
+- `20260714120000_servico_ia_renomear` tinha timestamp duplicado → renomeado p/
+  `...120001`.
