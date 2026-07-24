@@ -78,18 +78,28 @@ Regra de ouro: **admin de sistema ignora tudo; admin da empresa segue o plano.**
 
 ---
 
-## 6. Ciclo de vida da assinatura (planos com tempo)
+## 6. Ciclo de vida da assinatura
 
-Para planos de **uso livre por N dias** (trial), depois que o período acaba a empresa passa por 3 fases:
+A empresa está sempre em uma de **duas fases** (não há mais corte total de acesso — a
+fase "Bloqueada" foi removida em 2026-07-13; pós-trial passou a ser somente-leitura):
 
 | Fase | Quando | O que acontece |
 |------|--------|----------------|
-| **Ativa** | Dentro do período livre, OU plano **pago/cortesia**, OU sem plano | Tudo normal |
-| **Carência** | Período livre acabou → **+ 30 dias** | **Criação bloqueada** (novos checklists, tarefas, tickets). Banner: *"O sistema se encontra com funcionalidades reduzidas. Procure o administrador do sistema da sua empresa para mais informações."* A **operação continua** (executar checklist, tratar ticket aberto). |
-| **Bloqueada** | Passados os 30 dias de carência | **Acesso cortado** para usuários comuns, com a tela: *"O sistema se encontra bloqueado, procure o administrador do sistema da sua empresa para mais informações."* O **admin da empresa mantém acesso** para regularizar. |
+| **Ativa** | Trial dentro do prazo; OU plano **pago/cortesia em dia**; OU sem plano | Tudo normal |
+| **Carência (somente-leitura)** | Trial vencido (**permanente**, sem prazo p/ corte); OU assinatura **cancelada**; OU **plano pago inadimplente há mais de 7 dias** do vencimento | **Criação bloqueada** (novos checklists, tarefas, tickets, agendamentos, workflows). Banner: *"O sistema se encontra com funcionalidades reduzidas..."*. A **operação continua** (executar checklist, tratar ticket aberto); o **admin regulariza** contratando/pagando. |
 
-- Planos **pago** e **cortesia** = sempre **Ativa** (não entram no ciclo).
-- O bloqueio de criação é aplicado no servidor (não dá pra driblar). A operação viva nunca é estrangulada.
+**Inadimplência (planos pagos)** — decisão 2026-07-22:
+- A fatura recorrente vence e não é paga → webhook `PAYMENT_OVERDUE` marca a assinatura
+  **inadimplente** e grava a data de vencimento; o admin é avisado (WhatsApp+e-mail) com
+  a **data-limite do corte**.
+- Passados **7 dias** do vencimento sem pagar → a empresa cai para **Carência**
+  (somente-leitura). É automático (date-driven), reusando o mecanismo do pós-trial.
+- Assim que o pagamento confirma → volta a **Ativa** na hora.
+- Na tela `/gestao/plano`, um banner vermelho mostra a fatura vencida e a data-limite.
+
+- Planos **pago/cortesia em dia** = **Ativa**. O bloqueio de criação é no servidor (RLS,
+  não dá pra driblar); a operação viva nunca é estrangulada.
+- Detalhes técnicos e de billing (split de parceiro, etc.): ver `/biz`.
 
 ---
 
