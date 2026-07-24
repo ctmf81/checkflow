@@ -9,3 +9,6 @@ dist/
 .DS_Store
 .claude/settings.local.json
 VAPID_KEYS.local.txt
+
+# Connection strings das migrations (Supabase CLI) — NUNCA commitar
+.env.migrations

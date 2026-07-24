@@ -7,7 +7,12 @@
   ],
   "scripts": {
     "dev:web": "npm run dev --workspace=apps/web",
-    "dev:api": "npm run dev --workspace=apps/api"
+    "dev:api": "npm run dev --workspace=apps/api",
+    "test": "npm run test --workspace=apps/api && npm run test --workspace=apps/web",
+    "db:status:dev": "node scripts/db.mjs status dev",
+    "db:status:prod": "node scripts/db.mjs status prod",
+    "db:push:dev": "node scripts/db.mjs push dev",
+    "db:push:prod": "node scripts/db.mjs push prod"
   },
   "engines": {
     "node": ">=20"

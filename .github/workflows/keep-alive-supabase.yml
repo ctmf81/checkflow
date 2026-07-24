@@ -1,0 +1,56 @@
+# Mantém os projetos Supabase ativos (anti-pausa do plano free)
+#
+# O plano free do Supabase PAUSA projetos sem atividade por ~7 dias. Este job
+# faz uma consulta trivial em cada projeto a cada 3 dias — margem folgada.
+#
+# Por que GitHub Actions e não um cron no Railway: o ambiente de DEV fica com os
+# serviços parados na maior parte do tempo (para não gastar). Se o ping saísse de
+# lá, o dev pausaria justamente quando não estivesse em uso. O Actions roda
+# independente de qualquer serviço nosso estar no ar.
+#
+# Secrets necessários (Settings → Secrets and variables → Actions):
+#   SUPABASE_PROD_URL / SUPABASE_PROD_ANON_KEY
+#   SUPABASE_DEV_URL  / SUPABASE_DEV_ANON_KEY
+# Alvo sem secret configurado é simplesmente pulado (dá para começar só com prod).
+# A anon key é publicável (não é segredo real), mas fica em secrets por higiene.
+
+name: Keep-alive Supabase
+
+on:
+  schedule:
+    - cron: '0 6 */3 * *' # a cada 3 dias, 06:00 UTC
+  workflow_dispatch: {}    # permite disparar na mão pelo painel do GitHub
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping projetos Supabase
+        env:
+          PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
+          PROD_KEY: ${{ secrets.SUPABASE_PROD_ANON_KEY }}
+          DEV_URL: ${{ secrets.SUPABASE_DEV_URL }}
+          DEV_KEY: ${{ secrets.SUPABASE_DEV_ANON_KEY }}
+        run: |
+          ping_projeto () {
+            local nome="$1" url="$2" key="$3"
+            if [ -z "$url" ] || [ -z "$key" ]; then
+              echo "· $nome: sem secrets configurados — pulando"
+              return 0
+            fi
+            # Consulta trivial (limit=1). Mesmo que a RLS devolva vazio ou 401, a
+            # query chegou no Postgres — que é o que conta como atividade.
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
+              "${url}/rest/v1/planos?select=id&limit=1" \
+              -H "apikey: ${key}" -H "Authorization: Bearer ${key}" || echo "000")
+            if [ "$code" = "000" ]; then
+              echo "✗ $nome: não respondeu (timeout/DNS) — verifique se o projeto não está pausado"
+              return 1
+            fi
+            echo "✓ $nome: HTTP $code"
+          }
+
+          falhou=0
+          ping_projeto "producao" "$PROD_URL" "$PROD_KEY" || falhou=1
+          ping_projeto "dev"      "$DEV_URL"  "$DEV_KEY"  || falhou=1
+          exit $falhou
