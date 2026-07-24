@@ -21,6 +21,7 @@ export interface ParceiroEditavel extends Partial<ParceiroKyc> {
   documento: string | null
   status: 'ativo' | 'inativo'
   asaas_wallet_id: string | null
+  asaas_wallet_criada_em: string | null
 }
 
 function formatDoc(value: string) {
@@ -62,10 +63,10 @@ export function ParceiroEditarModal({ parceiro, onClose, onSaved, onExcluido }: 
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
   const [excluindo, setExcluindo] = useState(false)
 
-  // Trava o documento pela subconta JÁ PERSISTIDA (não pelo campo em edição):
-  // uma vez criada a wallet, o CPF/CNPJ não muda mais — o documento é o que
-  // identifica a conta financeira real que recebe o repasse.
-  const temConta = !!parceiro.asaas_wallet_id
+  // "Teve wallet um dia, CPF nunca mais muda": a trava lê o carimbo, que nunca
+  // é limpo — então apagar o Wallet ID não destrava. O banco impõe a mesma
+  // regra por trigger (migration 20260724100000).
+  const temConta = !!parceiro.asaas_wallet_criada_em
   const docDigits = documento.replace(/\D/g, '')
 
   async function salvar() {
@@ -85,6 +86,11 @@ export function ParceiroEditarModal({ parceiro, onClose, onSaved, onExcluido }: 
       asaas_wallet_id: walletId.trim() || null,
       ...kyc,
       ...(temConta ? {} : { documento: docDigits }),
+    }
+    // Wallet informada à mão num parceiro que ainda não tinha: o trigger carimba
+    // no banco; espelha aqui para o documento travar sem precisar recarregar.
+    if (!temConta && walletId.trim()) {
+      patch.asaas_wallet_criada_em = new Date().toISOString()
     }
     const supabase = createClient()
     const { error } = await supabase.from('parceiros')
@@ -182,7 +188,7 @@ export function ParceiroEditarModal({ parceiro, onClose, onSaved, onExcluido }: 
             />
             {temConta && (
               <p className="text-xs text-amber-600 mt-1">
-                A subconta Asaas já foi criada com este documento — ele não pode mais ser alterado. É por ele que o Asaas identifica a conta que recebe o repasse.
+                Este parceiro já teve subconta Asaas criada com este documento — ele não pode mais ser alterado, nem limpando o Wallet ID. É por ele que o Asaas identifica a conta que recebe o repasse.
               </p>
             )}
           </div>
