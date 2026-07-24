@@ -10,6 +10,7 @@ import { enviarWhatsApp } from '../lib/whatsapp'
 import { enviarEmail } from '../lib/email'
 import { emailFaturaVencida } from '../lib/email-templates'
 import { buscarAdminsEmpresa, notificarAdmins } from '../lib/adminEmpresa'
+import { montarSplit, vencimentoAncora, dataCorteCarencia } from '../lib/billingParceiro'
 
 const ADMIN_SISTEMA_ID = '00000000-0000-0000-0000-000000000001'
 const ADMIN_EMPRESA_ID = '00000000-0000-0000-0000-000000000002'
@@ -74,11 +75,12 @@ export async function billingRoutes(app: FastifyInstance) {
     const { data: fin } = await supabase.from('empresa_financeiro')
       .select('parceiro_percentual, parceiros:parceiro_id ( asaas_wallet_id, status )')
       .eq('empresa_id', empresaId).maybeSingle()
-    const pct = Number((fin as any)?.parceiro_percentual ?? 0)
     const parc = (fin as any)?.parceiros
-    const wallet: string | null = parc?.asaas_wallet_id ?? null
-    if (!wallet || parc?.status !== 'ativo' || !(pct > 0)) return undefined
-    return [{ walletId: wallet, percentualValue: pct }]
+    return montarSplit({
+      percentual: (fin as any)?.parceiro_percentual,
+      walletId: parc?.asaas_wallet_id,
+      statusParceiro: parc?.status,
+    })
   }
 
   // ── POST /billing/assinar ─────────────────────────────────────────────────
@@ -505,9 +507,11 @@ export async function billingRoutes(app: FastifyInstance) {
           const dueDate: string | null = pagamento.dueDate ?? null
           const { data: aAtual } = await supabase.from('empresa_assinaturas')
             .select('vencido_em').eq('empresa_id', empresaId).maybeSingle()
-          const venc = [(aAtual as any)?.vencido_em, dueDate].filter(Boolean).sort()[0] ?? null
+          const venc = vencimentoAncora((aAtual as any)?.vencido_em, dueDate)
           await supabase.from('empresa_assinaturas').update({ status: 'inadimplente', vencido_em: venc, atualizado_em: new Date().toISOString() }).eq('empresa_id', empresaId)
-          const corteEm = venc ? new Date(new Date(venc + 'T00:00:00').getTime() + 7 * 86400000).toLocaleDateString('pt-BR') : null
+          const corteEm = venc
+            ? new Date(dataCorteCarencia(venc) + 'T00:00:00').toLocaleDateString('pt-BR')
+            : null
 
           // Alerta de gestão (Fase 2): avisa o admin da empresa que a fatura
           // venceu, com link para pagar. Idempotente pelo dedup de event_id do
