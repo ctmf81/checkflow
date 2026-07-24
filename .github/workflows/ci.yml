@@ -1,0 +1,47 @@
+# CI — roda os testes e o typecheck a cada mudança
+#
+# Objetivo: nada quebrado chega em produção. Este workflow roda a suíte inteira
+# (api + web) e a checagem de tipos. Quando ligado como "required status check" na
+# proteção do branch `main` (GitHub → Settings → Branches), ele BLOQUEIA o merge
+# de develop→main enquanto estiver vermelho — ou seja, só promove o que passou.
+#
+# Roda em: push nas branches develop e main, e em Pull Requests visando main.
+
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [main]
+
+# Cancela execuções antigas do mesmo branch/PR se vier commit novo (economia).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Testes + typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Typecheck (api)
+        run: npx tsc --noEmit
+        working-directory: apps/api
+
+      - name: Typecheck (web)
+        run: npx tsc --noEmit
+        working-directory: apps/web
+
+      - name: Testes (api + web)
+        run: npm test
