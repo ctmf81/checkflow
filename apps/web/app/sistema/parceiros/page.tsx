@@ -31,6 +31,7 @@ interface Parceiro extends Partial<ParceiroKyc> {
   status: 'ativo' | 'inativo'
   email_boasvindas_enviado_em: string | null
   asaas_wallet_id: string | null
+  asaas_wallet_criada_em: string | null
   empresas: EmpresaVinculada[]
 }
 
@@ -81,7 +82,7 @@ export default function ParceirosPage() {
       cep: pc.cep ?? null, endereco: pc.endereco ?? null, endereco_numero: pc.endereco_numero ?? null,
       complemento: pc.complemento ?? null, bairro: pc.bairro ?? null,
       criado_por: user?.id ?? null,
-    }).select('id, nome, email, telefone, documento, status, email_boasvindas_enviado_em, asaas_wallet_id, data_nascimento, tipo_empresa, renda_mensal, cep, endereco, endereco_numero, complemento, bairro').single()
+    }).select('id, nome, email, telefone, documento, status, email_boasvindas_enviado_em, asaas_wallet_id, asaas_wallet_criada_em, data_nascimento, tipo_empresa, renda_mensal, cep, endereco, endereco_numero, complemento, bairro').single()
     if (error || !novo) {
       setModerando(null)
       setAvisoReenvio(error?.code === '23505'
@@ -120,7 +121,11 @@ export default function ParceirosPage() {
       })
       const body = await res.json().catch(() => null)
       if (res.ok && body?.walletId) {
-        setParceiros(prev => prev.map(x => x.id === p.id ? { ...x, asaas_wallet_id: body.walletId } : x))
+        // Carimba o criada_em localmente também: o documento trava na hora, sem
+        // depender de recarregar a página (o banco carimba pelo trigger).
+        setParceiros(prev => prev.map(x => x.id === p.id
+          ? { ...x, asaas_wallet_id: body.walletId, asaas_wallet_criada_em: new Date().toISOString() }
+          : x))
       } else {
         setAvisoReenvio(`Não foi possível criar a conta Asaas de ${p.nome}: ${body?.error ?? res.statusText}`)
       }
@@ -159,7 +164,7 @@ export default function ParceirosPage() {
       const supabase = createClient()
       const { data: lista } = await supabase
         .from('parceiros')
-        .select('id, nome, email, telefone, documento, status, email_boasvindas_enviado_em, asaas_wallet_id, data_nascimento, tipo_empresa, renda_mensal, cep, endereco, endereco_numero, complemento, bairro')
+        .select('id, nome, email, telefone, documento, status, email_boasvindas_enviado_em, asaas_wallet_id, asaas_wallet_criada_em, data_nascimento, tipo_empresa, renda_mensal, cep, endereco, endereco_numero, complemento, bairro')
         .order('nome')
 
       if (lista) {
