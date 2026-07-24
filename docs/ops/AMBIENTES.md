@@ -80,22 +80,44 @@ secret é pulado — dá para começar só com produção.
 Para testar na hora: aba **Actions → Keep-alive Supabase → Run workflow**.
 
 ### 2.6 Serviços de DEV no Railway (etapa 2 — a que custa)
-1. No projeto do Railway: **New → GitHub Repo** → mesmo repo, **branch `develop`**.
-2. Crie dois serviços, apontando para os Dockerfiles existentes:
-   - `web-dev` → `apps/web/Dockerfile`
-   - `api-dev` → `apps/api/Dockerfile`
-3. Variáveis: copie as do serviço de produção equivalente e **troque**:
-   - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` → do projeto dev
-   - `SUPABASE_URL` / `SUPABASE_SECRET_KEY` → do projeto dev
-   - `ASAAS_ENV=sandbox` + `ASAAS_API_KEY_SANDBOX`
-   - `APP_URL` → URL do `web-dev`
-   - `NEXT_PUBLIC_API_URL` → URL do `api-dev`
-4. **Economia**: deixe os dois serviços **parados** quando não estiver testando.
-   O Railway cobra por recurso consumido enquanto rodam.
 
-> ⚠️ `NEXT_PUBLIC_*` **não é injetada no build Docker** do web — há fallback
-> hardcoded em `apps/web/lib/supabase.ts`. Ao criar o `web-dev`, confira se o
-> fallback não está fazendo o dev apontar para o banco de **produção**. Ver `/ops`.
+Plano do usuário: **Hobby**, ~US$ 6/mês. Regra combinada: **ligar só para
+testar** — deixar os serviços de dev **parados** o resto do tempo (o Railway cobra
+por recurso consumido enquanto rodam). Assim o custo extra fica em centavos a
+poucos dólares.
+
+1. No projeto do Railway: **New → GitHub Repo** → mesmo repo, **branch `develop`**.
+2. Crie dois serviços, cada um com **Root Directory** apontando para a pasta do
+   app (o Dockerfile de cada um é detectado ali):
+   - `web-dev` → root `apps/web`
+   - `api-dev` → root `apps/api`
+
+3. **Variáveis do `api-dev`** (lidas em RUNTIME — basta setar no painel):
+   - `SUPABASE_URL` / `SUPABASE_SECRET_KEY` → do projeto **dev**
+   - `ASAAS_ENV=sandbox` + `ASAAS_API_KEY_SANDBOX`
+   - `APP_URL` → URL pública do `web-dev`
+   - copie o resto do `api` de produção (CRON_SECRET, INTERNAL_API_SECRET,
+     ASAAS_WEBHOOK_TOKEN, VAPID_*, etc.) — pode reusar os mesmos em dev.
+
+4. **Variáveis do `web-dev`** — aqui está o pulo do gato. As `NEXT_PUBLIC_*` são
+   assadas no BUILD. O `apps/web/Dockerfile` já declara os `ARG`s
+   correspondentes, e **o Railway injeta as variáveis do serviço como build args
+   automaticamente**. Então basta setá-las no painel do `web-dev`:
+   - `NEXT_PUBLIC_SUPABASE_URL` → Project URL do **dev**
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` → anon key do **dev**
+   - `NEXT_PUBLIC_API_URL` → URL pública do `api-dev`
+   - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` → a mesma de produção (ou a chave dev)
+   - `SUPABASE_URL` / `SUPABASE_SECRET_KEY` do **dev** (as rotas server-side do
+     web usam em runtime)
+
+   > ✅ Correto por construção: se você **esquecer** de setar alguma `NEXT_PUBLIC_*`,
+   > o Dockerfile remove a vazia do ambiente e o build cai no fallback de
+   > `lib/supabase.ts` (produção) em vez de assar `""`. Ou seja, esquecer no dev
+   > = dev aponta pra prod (chato, mas visível); nunca gera build quebrada. Por
+   > isso confira as URLs no dev antes de confiar nos testes. Ver `/ops`.
+
+5. **Desligar quando terminar**: no serviço → **Settings** → parar/remover a
+   réplica ativa, ou usar o botão de stop. Religa em segundos quando for testar.
 
 ### 2.7 Desligar o auto-deploy de produção
 No Railway, nos serviços de **produção**: **Settings → Deploy** → desative o
