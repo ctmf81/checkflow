@@ -1,17 +1,15 @@
--- Adicionar coluna 'funcao' à tabela usuario_subgrupo
--- Funções: 'Operação', 'Nível 1', 'Nível 2'
--- Padrão: 'Operação' (operador comum, sem permissão de moderação)
-
-ALTER TABLE usuario_subgrupo
-ADD COLUMN funcao text NOT NULL DEFAULT 'Operação'
-CHECK (funcao IN ('Operação', 'Nível 1', 'Nível 2'));
-
--- Índice para queries rápidas por função
-CREATE INDEX idx_usuario_subgrupo_funcao ON usuario_subgrupo(funcao);
-
--- Comentário para documentação
-COMMENT ON COLUMN usuario_subgrupo.funcao IS
-'Função do usuário no subgrupo:
-- Operação: operador comum, executa checklists e tarefas
-- Nível 1: moderador Nível 1, aprova planos de ação
-- Nível 2: moderador Nível 2, aprova planos e escalações';
+-- ============================================================
+-- NO-OP intencional (2026-07-24) — migration abandonada
+-- ============================================================
+-- Esta migration tentava recriar usuario_subgrupo.funcao como NOT NULL com
+-- valores em maiúsculo/acento ('Operação','Nível 1','Nível 2'). Mas a coluna
+-- JÁ existia — criada em 20260606000008_plano_acao.sql como `text NULL` com
+-- valores minúsculos ('operacao','nivel_1','nivel_2'), que é o que o código e
+-- as políticas RLS usam de fato.
+--
+-- Em produção esta migration SEMPRE falhou ("column funcao already exists") e,
+-- por rodar em transação, fez rollback total — ou seja, NUNCA teve efeito algum
+-- (nem a coluna, nem o índice, nem o comentário). A versão minúscula é a
+-- autoritativa. Neutralizada para o histórico replicar do zero de forma fiel ao
+-- estado real de produção (a baseline em prod nunca reexecuta este arquivo).
+select 1;

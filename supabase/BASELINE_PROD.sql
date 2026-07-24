@@ -163,7 +163,7 @@ insert into supabase_migrations.schema_migrations (version, name) values
   ('20260713120000','plano_selecionavel_empresa'),
   ('20260713140000','pos_trial_readonly'),
   ('20260714120000','relatorios_ia'),
-  ('20260714120000','servico_ia_renomear'),
+  ('20260714120001','servico_ia_renomear'),
   ('20260714130000','ia_servico_descricao'),
   ('20260714140000','nao_execucao_no_servico_checklists'),
   ('20260715120000','avisos_fim_trial'),
