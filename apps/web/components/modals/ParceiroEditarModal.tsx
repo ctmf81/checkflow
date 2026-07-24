@@ -62,8 +62,10 @@ export function ParceiroEditarModal({ parceiro, onClose, onSaved, onExcluido }: 
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
   const [excluindo, setExcluindo] = useState(false)
 
-  // Trava o documento pelo estado ATUAL do wallet: limpar o campo destrava.
-  const temConta = walletId.trim().length > 0
+  // Trava o documento pela subconta JÁ PERSISTIDA (não pelo campo em edição):
+  // uma vez criada a wallet, o CPF/CNPJ não muda mais — o documento é o que
+  // identifica a conta financeira real que recebe o repasse.
+  const temConta = !!parceiro.asaas_wallet_id
   const docDigits = documento.replace(/\D/g, '')
 
   async function salvar() {
@@ -180,7 +182,7 @@ export function ParceiroEditarModal({ parceiro, onClose, onSaved, onExcluido }: 
             />
             {temConta && (
               <p className="text-xs text-amber-600 mt-1">
-                A subconta Asaas já existe com este documento. Para alterar, limpe o Wallet ID abaixo (a subconta antiga continua no Asaas).
+                A subconta Asaas já foi criada com este documento — ele não pode mais ser alterado. É por ele que o Asaas identifica a conta que recebe o repasse.
               </p>
             )}
           </div>
