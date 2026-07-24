@@ -37,10 +37,19 @@ Estas etapas exigem os painéis, aos quais o Claude não tem acesso.
 ### 2.2 Criar `.env.migrations` na raiz do repo
 Arquivo **gitignorado** — nunca vai para o Git.
 
+> ⚠️ **Use o Session pooler, NÃO a conexão direta.** O host direto
+> (`db.<ref>.supabase.co`) só resolve por **IPv6** — em rede IPv4 dá
+> `no such host` e o `db push` falha. Pegue a string em **Connect → Direct →
+> "Session pooler"** (host `aws-N-<região>.pooler.supabase.com`, porta **5432**,
+> user `postgres.<ref>`). A porta 6543 (Transaction pooler) NÃO serve p/ migrations.
+
 ```
-SUPABASE_DB_URL_DEV=postgresql://postgres:SENHA@db.<ref-dev>.supabase.co:5432/postgres
-SUPABASE_DB_URL_PROD=postgresql://postgres:SENHA@db.pswdjdlirylxgscohcfi.supabase.co:5432/postgres
+# formato Session pooler (troque SENHA, ref e região pelos do seu projeto)
+SUPABASE_DB_URL_DEV=postgresql://postgres.<ref-dev>:SENHA@aws-1-us-east-2.pooler.supabase.com:5432/postgres
+SUPABASE_DB_URL_PROD=postgresql://postgres.<ref-prod>:SENHA@aws-N-<regiao>.pooler.supabase.com:5432/postgres
 ```
+
+Ambiente já montado (2026-07-24): dev = ref `yidewiphflurzqgczrxh`, região `us-east-2`.
 
 ### 2.3 Baseline do banco de PRODUÇÃO (uma vez, obrigatório)
 As 172 migrations existentes já foram aplicadas à mão, mas o banco não registra
@@ -80,22 +89,44 @@ secret é pulado — dá para começar só com produção.
 Para testar na hora: aba **Actions → Keep-alive Supabase → Run workflow**.
 
 ### 2.6 Serviços de DEV no Railway (etapa 2 — a que custa)
-1. No projeto do Railway: **New → GitHub Repo** → mesmo repo, **branch `develop`**.
-2. Crie dois serviços, apontando para os Dockerfiles existentes:
-   - `web-dev` → `apps/web/Dockerfile`
-   - `api-dev` → `apps/api/Dockerfile`
-3. Variáveis: copie as do serviço de produção equivalente e **troque**:
-   - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` → do projeto dev
-   - `SUPABASE_URL` / `SUPABASE_SECRET_KEY` → do projeto dev
-   - `ASAAS_ENV=sandbox` + `ASAAS_API_KEY_SANDBOX`
-   - `APP_URL` → URL do `web-dev`
-   - `NEXT_PUBLIC_API_URL` → URL do `api-dev`
-4. **Economia**: deixe os dois serviços **parados** quando não estiver testando.
-   O Railway cobra por recurso consumido enquanto rodam.
 
-> ⚠️ `NEXT_PUBLIC_*` **não é injetada no build Docker** do web — há fallback
-> hardcoded em `apps/web/lib/supabase.ts`. Ao criar o `web-dev`, confira se o
-> fallback não está fazendo o dev apontar para o banco de **produção**. Ver `/ops`.
+Plano do usuário: **Hobby**, ~US$ 6/mês. Regra combinada: **ligar só para
+testar** — deixar os serviços de dev **parados** o resto do tempo (o Railway cobra
+por recurso consumido enquanto rodam). Assim o custo extra fica em centavos a
+poucos dólares.
+
+1. No projeto do Railway: **New → GitHub Repo** → mesmo repo, **branch `develop`**.
+2. Crie dois serviços, cada um com **Root Directory** apontando para a pasta do
+   app (o Dockerfile de cada um é detectado ali):
+   - `web-dev` → root `apps/web`
+   - `api-dev` → root `apps/api`
+
+3. **Variáveis do `api-dev`** (lidas em RUNTIME — basta setar no painel):
+   - `SUPABASE_URL` / `SUPABASE_SECRET_KEY` → do projeto **dev**
+   - `ASAAS_ENV=sandbox` + `ASAAS_API_KEY_SANDBOX`
+   - `APP_URL` → URL pública do `web-dev`
+   - copie o resto do `api` de produção (CRON_SECRET, INTERNAL_API_SECRET,
+     ASAAS_WEBHOOK_TOKEN, VAPID_*, etc.) — pode reusar os mesmos em dev.
+
+4. **Variáveis do `web-dev`** — aqui está o pulo do gato. As `NEXT_PUBLIC_*` são
+   assadas no BUILD. O `apps/web/Dockerfile` já declara os `ARG`s
+   correspondentes, e **o Railway injeta as variáveis do serviço como build args
+   automaticamente**. Então basta setá-las no painel do `web-dev`:
+   - `NEXT_PUBLIC_SUPABASE_URL` → Project URL do **dev**
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` → anon key do **dev**
+   - `NEXT_PUBLIC_API_URL` → URL pública do `api-dev`
+   - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` → a mesma de produção (ou a chave dev)
+   - `SUPABASE_URL` / `SUPABASE_SECRET_KEY` do **dev** (as rotas server-side do
+     web usam em runtime)
+
+   > ✅ Correto por construção: se você **esquecer** de setar alguma `NEXT_PUBLIC_*`,
+   > o Dockerfile remove a vazia do ambiente e o build cai no fallback de
+   > `lib/supabase.ts` (produção) em vez de assar `""`. Ou seja, esquecer no dev
+   > = dev aponta pra prod (chato, mas visível); nunca gera build quebrada. Por
+   > isso confira as URLs no dev antes de confiar nos testes. Ver `/ops`.
+
+5. **Desligar quando terminar**: no serviço → **Settings** → parar/remover a
+   réplica ativa, ou usar o botão de stop. Religa em segundos quando for testar.
 
 ### 2.7 Desligar o auto-deploy de produção
 No Railway, nos serviços de **produção**: **Settings → Deploy** → desative o
@@ -161,3 +192,29 @@ para escrever em produção — proteção contra rodar no banco errado por enga
   integrações externas (Evolution/WhatsApp, Asaas) diferem.
 - **Deploy do Railway continua sendo por serviço**: promover código não aplica
   migration — são dois passos, de propósito.
+
+---
+
+## 6. O que já está montado (referência — 2026-07-24)
+
+- **DEV Supabase**: ref `yidewiphflurzqgczrxh` (região us-east-2, org cauvieira FREE).
+  Schema = réplica completa de produção (172 migrations aplicadas via `db push`).
+- **Railway** (no environment `production`, branch `develop`, com **App Sleeping**
+  ligado → dormem sozinhos, acordam ao abrir a URL):
+  - `api-dev` → https://api-dev-production-5724.up.railway.app (root `apps/api`)
+  - `web-dev` → https://web-dev-production-f3dd.up.railway.app (root `apps/web`)
+  - Vars de dev (Supabase dev, ASAAS sandbox); `api-dev` tem `CORS_EXTRA_ORIGINS`
+    + `APP_URL` = URL do web-dev. **Sem** WhatsApp/e-mail/Asaas-prod (dev não
+    dispara pra ninguém real).
+- **Login de teste** (admin_sistema) no banco dev: CPF **000.000.000-00** (a senha
+  foi definida no setup — não fica versionada). Recriar/trocar: Auth Admin API do
+  Supabase dev + linha em `usuarios` (id = auth uid, `cpf` no formato `000.000.000-00`
+  pois o RPC `buscar_email_por_cpf` casa exato).
+- **Produção**: auto-deploy DESLIGADO em `web` e `api` → só publica no clique manual.
+
+### Dois fixes que a 1ª replicação exigiu (já commitados em `develop`)
+O histórico não era 100% reproduzível do zero; corrigido em
+`fix(db): torna o histórico de migrations reproduzível do zero`:
+- `20260624000000_usuario_subgrupo_funcao` recriava coluna já existente → **no-op**.
+- `20260714120000_servico_ia_renomear` tinha timestamp duplicado → renomeado p/
+  `...120001`.
