@@ -34,7 +34,7 @@ interface Parceiro extends Partial<ParceiroKyc> {
   empresas: EmpresaVinculada[]
 }
 
-interface PreCadastro {
+interface PreCadastro extends Partial<ParceiroKyc> {
   id: string
   nome: string
   documento: string
@@ -74,10 +74,14 @@ export default function ParceirosPage() {
     setAvisoReenvio('')
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
+    // Carrega o KYC que o próprio interessado preencheu no formulário público.
     const { data: novo, error } = await supabase.from('parceiros').insert({
       nome: pc.nome, email: pc.email, telefone: pc.telefone, documento: pc.documento,
+      data_nascimento: pc.data_nascimento ?? null, tipo_empresa: pc.tipo_empresa ?? null,
+      cep: pc.cep ?? null, endereco: pc.endereco ?? null, endereco_numero: pc.endereco_numero ?? null,
+      complemento: pc.complemento ?? null, bairro: pc.bairro ?? null,
       criado_por: user?.id ?? null,
-    }).select('id, nome, email, telefone, documento, status, email_boasvindas_enviado_em, asaas_wallet_id').single()
+    }).select('id, nome, email, telefone, documento, status, email_boasvindas_enviado_em, asaas_wallet_id, data_nascimento, tipo_empresa, renda_mensal, cep, endereco, endereco_numero, complemento, bairro').single()
     if (error || !novo) {
       setModerando(null)
       setAvisoReenvio(error?.code === '23505'
@@ -178,7 +182,7 @@ export default function ParceirosPage() {
 
       const { data: pcs } = await supabase
         .from('parceiro_pre_cadastros')
-        .select('id, nome, documento, email, telefone, mensagem, criado_em')
+        .select('id, nome, documento, email, telefone, mensagem, criado_em, data_nascimento, tipo_empresa, cep, endereco, endereco_numero, complemento, bairro')
         .eq('status', 'pendente')
         .order('criado_em', { ascending: false })
       setPreCadastros((pcs ?? []) as PreCadastro[])
@@ -357,6 +361,10 @@ export default function ParceirosPage() {
           onClose={() => setEditarModal(null)}
           onSaved={(patch) => {
             setParceiros(prev => prev.map(x => x.id === editarModal.id ? { ...x, ...patch } : x))
+            setEditarModal(null)
+          }}
+          onExcluido={(id) => {
+            setParceiros(prev => prev.filter(x => x.id !== id))
             setEditarModal(null)
           }}
         />

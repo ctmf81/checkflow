@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { CheckCircle2, Loader2, Handshake } from 'lucide-react'
 import { CheckFlowLogo } from '@/components/auth/CheckFlowLogo'
 import { createClient } from '@/lib/supabase'
+import { ParceiroKycFields, KYC_VAZIO, type ParceiroKyc } from '@/components/modals/ParceiroKycFields'
 
 function formatDoc(value: string) {
   const d = value.replace(/\D/g, '').slice(0, 14)
@@ -25,6 +26,7 @@ export default function SejaParceiroPage() {
   const [email, setEmail] = useState('')
   const [telefone, setTelefone] = useState('')
   const [mensagem, setMensagem] = useState('')
+  const [kyc, setKyc] = useState<ParceiroKyc>(KYC_VAZIO)
 
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState('')
@@ -41,12 +43,15 @@ export default function SejaParceiroPage() {
     if (telDigits && telDigits.length < 10) { setErro('Telefone inválido — informe com DDD.'); return }
 
     setEnviando(true)
+    // renda_mensal não existe no pré-cadastro (é mockada na subconta) — fora daqui.
+    const { renda_mensal: _renda, ...kycEnviado } = kyc
     const { error } = await createClient().from('parceiro_pre_cadastros').insert({
       nome: nome.trim(),
       documento: docDigits,
       email: email.trim().toLowerCase(),
       telefone: telDigits || null,
       mensagem: mensagem.trim() || null,
+      ...kycEnviado,
       status: 'pendente',
     })
     setEnviando(false)
@@ -98,6 +103,17 @@ export default function SejaParceiroPage() {
           <input value={telefone} onChange={e => setTelefone(formatTel(e.target.value))} placeholder="(00) 00000-0000" inputMode="tel"
             className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
         </div>
+        {/* Endereço + nascimento/tipo de empresa: o parceiro já entrega tudo que
+            a subconta Asaas precisa, sem o admin ter que perseguir depois. */}
+        <div className="pt-2 border-t border-gray-100">
+          <ParceiroKycFields
+            documento={documento}
+            value={kyc}
+            onChange={patch => setKyc(prev => ({ ...prev, ...patch }))}
+            ocultarRenda
+          />
+        </div>
+
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Mensagem <span className="text-gray-400 font-normal">(opcional)</span></label>
           <textarea value={mensagem} onChange={e => setMensagem(e.target.value)} rows={2} placeholder="Conte como pretende indicar empresas"
