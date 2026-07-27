@@ -6,7 +6,7 @@ CI obrigatório, deploy manual). Complementa `AMBIENTES.md` (infra) e as skills
 
 > **Cadência**: deploys de produção acontecem **às quartas-feiras**, em janela de
 > **baixo tráfego** (confirmar a melhor hora pelo uso real — evitar os picos de
-> operação dos clientes). Fora de quarta, só **hotfix** de bug crítico.
+> operação dos clientes). Fora de quarta, só **hotfix** de bug crítico (ver §5.5).
 
 ---
 
@@ -58,11 +58,21 @@ por ambiente. Disso saem 4 regras que evitam quebrar produção:
 
 ## 3. Validação no ambiente de DEV
 
-1. Subir/acordar `web-dev` e `api-dev` no Railway (App Sleeping acorda ao abrir a URL).
-2. Testar o fluxo **de verdade** no `web-dev` (não só os testes automáticos): a tela,
-   a permissão por perfil, o comportamento com/sem o entitlement, no mobile se aplicável.
-3. Conferir que o **CI está verde** no `develop` (581 testes + typecheck).
-4. Se achou bug → volta ao passo 2 da seção anterior.
+1. **Preparar os cenários de teste ANTES** — listar o que precisa ser exercitado:
+   caminho feliz, casos de borda, e o comportamento **por perfil** (admin de sistema,
+   admin da empresa, operação) e **com/sem o entitlement** do plano. Anotar o passo a
+   passo esperado de cada cenário.
+2. **Preparar os usuários de teste** que cada cenário exige (ex.: um admin da empresa,
+   um operador). Se não existirem no banco de dev, **criar** — via Auth Admin API do
+   Supabase dev + linha em `usuarios` (id = auth uid; `cpf` no formato `000.000.000-00`
+   pois o login casa exato via `buscar_email_por_cpf`). Guardar as credenciais de teste.
+3. Subir/acordar `web-dev` e `api-dev` no Railway (App Sleeping acorda ao abrir a URL).
+4. **Rodar os cenários** no `web-dev` — de verdade, com olho humano, não só CI: a tela,
+   a permissão por perfil, o com/sem entitlement, o mobile se aplicável.
+5. **Regressão automática**: o **CI roda a suíte INTEIRA (581 testes) a cada push/PR** —
+   é a checagem de que nada antigo quebrou. Garantir que está **verde** no `develop`.
+   (Pra rodar na mão local: `npm test`.)
+6. Se achou bug → volta ao passo 2 da seção anterior.
 
 ---
 
@@ -76,7 +86,9 @@ Só promove quando **todos** estiverem ✅:
       (regra 1 da seção 0). Se não for aditiva, foi quebrada em 2 fases.
 - [ ] **`/golive` completo**: permissão, perfil, RLS, entitlement/plano, billing,
       mobile, testes — o que se aplicar à feature.
-- [ ] **Validado no `web-dev`** por olho humano, não só CI.
+- [ ] **Cenários de teste** rodados no `web-dev` (por perfil e com/sem entitlement),
+      com os **usuários de teste** necessários criados. Validado por **olho humano**,
+      não só CI.
 - [ ] **Docs/skills atualizados** (`/biz`, `/db`, manual, o que a feature tocou).
 - [ ] **Plano de rollback pensado** (seção 5) — o que fazer se der ruim.
 - [ ] É **quarta-feira** (ou hotfix crítico justificado).
@@ -116,6 +128,61 @@ git checkout develop && git merge origin/main && git push
 
 ---
 
+## 5.5. Bug × Funcionalidade — o que sobe quando, e como isolar
+
+**A regra de ouro que faz tudo funcionar**: funcionalidade em andamento fica na
+**branch dela**; só entra em `develop` quando está **PRONTA e vai ser lançada**. Assim
+`develop` é sempre "o que sobe na próxima quarta" — nunca tem meia-feature que subiria
+sem querer.
+
+### Funcionalidade (novo)
+- Cada uma na sua `feat/<escopo>/<nome>`. Testa no dev, e **só mergeia em `develop`
+  quando terminou + validou**. Sobe na **quarta**, junto com o que mais estiver pronto.
+
+### Bug — depende da gravidade
+| Tipo | Exemplos | Quando sobe | Como |
+|------|----------|-------------|------|
+| **Crítico** | tela quebrada, cobrança/split errado, vazamento, dado corrompendo | **NA HORA** (não espera quarta) | **hotfix** (fluxo abaixo) |
+| **Não-crítico** | cosmético, contornável, texto errado | próxima **quarta** | como uma feature: `fix/*` → `develop` |
+
+### Fluxo de HOTFIX (subir só o bug, sem levar features pela metade)
+O segredo: o hotfix **sai de `main`** (o estado exato que está em produção), **não de
+`develop`**. Por isso ele não arrasta as features que estão em `develop`.
+
+```
+main       ●───────────────────────●   ← o hotfix entra aqui, SOZINHO
+            \                       ↑
+hotfix/bug   \──●────────────────────┘  (branch de main → corrige → PR de volta pra main)
+
+develop    ●──●──●──●   ← features em andamento continuam aqui, INTOCADAS
+```
+
+```bash
+# 1. branch a partir da PRODUÇÃO (main), não de develop
+git fetch origin && git checkout -b fix/<escopo>/<bug> origin/main
+
+# 2. corrige + testa (com teste que cubra o bug). Se tocar o banco, migration ADITIVA.
+
+# 3. PR direto pra main (o CI precisa ficar verde)
+gh pr create --base main --head fix/<escopo>/<bug> --title "Hotfix: <bug>" --fill
+gh pr merge --merge      # depois do CI verde
+
+# 4. deploy manual no Railway (web/api) → smoke test
+
+# 5. leva a correção de volta pra develop E pras branches de feature ativas
+git checkout develop && git merge origin/main && git push
+#   (em cada feat/* ativa: git merge origin/develop)
+```
+
+> **Resposta à pergunta "subo tudo?"**: **não.** Você sobe só o que está em `develop`
+> (features prontas) na quarta; e um bug crítico sobe sozinho via hotfix-de-`main`, sem
+> tocar nas 2 features em desenvolvimento. Separação garantida por branch.
+
+> **Limite honesto**: há **um** ambiente de dev (`web-dev`/`api-dev`, que segue a
+> `develop`). Dá pra validar bem **uma coisa de cada vez** ali. Testar 2 features
+> meio-prontas em isolamento **ao mesmo tempo** exigiria ambientes de preview por
+> branch — upgrade para outro momento, se e quando o time crescer.
+
 ## 6. Pós-deploy
 
 1. Ficar de olho nos primeiros minutos: `/health`, logs (`railway logs --tail 20`),
@@ -128,6 +195,7 @@ git checkout develop && git merge origin/main && git push
 
 ## Resumo de uma linha
 
-`necessidade` → `develop` (código + migration aditiva + testes) → **valida no web-dev** →
-checklist de pré-requisitos ✅ → **quarta, baixo tráfego**: banco→PR/CI→deploy manual→
-smoke test → pronto, com rollback a 1 clique.
+**Feature**: `feat/*` → (pronta) → `develop` → valida no web-dev com cenários+usuários →
+checklist ✅ → **quarta, baixo tráfego**: banco→PR/CI→deploy manual→smoke test.
+**Bug crítico**: `fix/*` **de `main`** → PR→CI→deploy **na hora**, sozinho, sem tocar as
+features em andamento → depois volta pra `develop`. Rollback sempre a 1 clique.
