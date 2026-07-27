@@ -16,9 +16,12 @@ description: Git workflow rules for CheckFlow — branching strategy and commit 
 
 Sempre criar sub-branch; mergear em `develop`, nunca direto em `main`.
 
-## Ambientes e promoção → ver `/ops` e `docs/ops/AMBIENTES.md`
+## Ambientes e promoção → ver `/ops`, `docs/ops/AMBIENTES.md` e `docs/ops/PROCESSO_NOVA_FUNCIONALIDADE.md`
 Fluxo: `feature/*` → `develop` (testa no ambiente dev) → **promoção via PR** para
-`main` (CI obrigatório) → **deploy manual** no Railway.
+`main` (CI obrigatório) → **deploy manual** no Railway. **Deploy às quartas-feiras**,
+janela de baixo tráfego (fora disso, só hotfix crítico). O processo completo (da
+necessidade ao pós-deploy, com as regras de não-interferência em produção) está em
+`docs/ops/PROCESSO_NOVA_FUNCIONALIDADE.md`.
 
 **Promover** (quando o usuário diz "sobe pra produção"):
 1. Banco PRIMEIRO se houver migration nova: `npm run db:push:prod --sim`.
