@@ -10,7 +10,7 @@ interface HealthStatus {
     storage: { status: boolean; quota_used_gb: number; quota_limit_gb: number; error?: string }
   }
   // Ambiente do gateway de pagamento (diagnóstico — sem segredos). Se aparecer
-  // 'sandbox' em produção, o serviço API não pegou ASAAS_ENV=production (redeploy).
+  // 'sandbox' em produção, o serviço API não pegou ASAAS_ENV=production (faltou redeploy).
   asaas_env: 'production' | 'sandbox'
   uptime_seconds: number
 }
