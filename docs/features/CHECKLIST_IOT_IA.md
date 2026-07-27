@@ -84,6 +84,47 @@ atividade é **sensor** (número direto) **ou** **imagem+IA** (interpreta e pree
 qualquer tipo de saída — texto cujo input é uma foto, câmera que vira sim/não, etc.).
 Reusa a IA-foto; não precisa de um tipo de atividade novo.
 
+## Arquitetura do agente (1 software, N instâncias)
+
+O agente **precisa rodar na rede local** do cliente (pra alcançar os dispositivos
+atrás do firewall). Portanto:
+
+- **Um único software** de agente; **uma instância por local** do cliente. A
+  sorveteria roda a sua, a farmácia a dela — **mesmo programa**, tokens diferentes.
+  Cada instância só enxerga os dispositivos daquele lugar.
+- **Cliente novo = configuração, não código** (se os dispositivos usam drivers já
+  suportados): instalar o agente + parear com um código + cadastrar os dispositivos
+  no CheckFlow.
+- **Drivers plugáveis por tipo de dispositivo** (RTSP, ONVIF, HTTP, Modbus, MQTT…).
+  Um driver feito **uma vez** serve **todos** os clientes com aquele tipo → o esforço
+  amortiza **por tipo de dispositivo, não por cliente**. Do 3º cliente em diante, se
+  usa dispositivos já suportados, o dev é ~zero (só instalação).
+- **Config vinda da nuvem**: o cliente cadastra os dispositivos no CheckFlow (qual
+  câmera/sensor, como alcançar); o agente **puxa** essa config e obedece. Gestão pela
+  tela, sem tocar no agente instalado.
+- **Custo escondido (produto/ops)**: instalação/pareamento fácil pro cliente
+  não-técnico — appliance pré-configurado (Raspberry Pi), container, ou instalador
+  com código de pareamento. Não é só código.
+
+## Drivers do v1 e esforço (relativo)
+
+Prioridade = o que cobre o mercado de **cadeia de frio / food safety / farma**
+(sorveteria, restaurante, frigorífico, farmácia).
+
+| Driver | Cobre | Esforço | Retrato do momento |
+|---|---|---|---|
+| Câmera **HTTP snapshot** | câmeras pro com URL `.jpg` direta | **Baixo** (já no protótipo) | GET agora |
+| Câmera **RTSP + ffmpeg** | iC5/Mibo e maioria das IP | **Médio** (tirar 1 frame) | frame do momento |
+| Sensor **HTTP/JSON** | sensores/gateways com endpoint HTTP | **Baixo** | GET agora |
+| Sensor **Modbus TCP** | temp/umidade industrial (cadeia de frio) | **Médio** (lib + mapa de registrador) | read agora |
+| Sensor **MQTT** | IoT que publica em broker local | **Médio** | ⚠️ pega o último valor — checar frescor / pedir leitura |
+
+**Fora do v1 (cauda longa)**: Serial/USB, BLE, 1-Wire, descoberta ONVIF automática.
+
+> Leitura de esforço: o investimento inicial é construir os ~5 drivers acima **uma
+> vez**. Depois, cada cliente novo com esses dispositivos é só instalar. Dispositivo
+> exótico = um driver novo (reutilizável).
+
 ## 9. Decisões FECHADAS
 Endpoint genérico · sensor+câmera no v1 · pedido→resposta com janela · não-conforme
 gera plano de ação · sem resposta = só alerta · `modo` escolhido no início · câmera é
@@ -91,9 +132,9 @@ fonte (reusa IA-foto) · há **tempo máximo de resposta** (janela) e o que não
 vira **"sem resposta automática" + motivo**.
 
 ## 10. Decisões TÉCNICAS a fechar no início do desenvolvimento
-- **Executor "sistema"** na execução (hoje toda execução tem `usuario_id`): usar
-  `origem = automatica` + `usuario_id` nulo? Como aparece no funil/histórico? (mexe em
-  modelo + RLS + relatórios).
+- ✅ **DECIDIDO — Executor = `automatico`**: a execução nasce com `origem =
+  automatico` e sem `usuario_id` humano. Falta detalhar como aparece no
+  funil/histórico e o ajuste de RLS (execução criada pelo sistema).
 - **Auth do dispositivo**: formato do token, rotação, escopo (1 token por dispositivo).
 - **Poll**: intervalo e contrato do `GET /iot/pendencias`; segurança (rate limit, replay).
 - **Imagem**: upload multipart vs URL; retenção (conta na cota de armazenamento?).
