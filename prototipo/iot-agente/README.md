@@ -34,21 +34,32 @@ curl -s localhost:4000/status
 Sem câmera/sensor real, o agente **sintetiza** uma foto (com o horário) e um valor
 fake — suficiente pra ver o ciclo. As imagens recebidas caem em `recebidas/`.
 
-## Apontar pra SUA câmera / sensor real
+## Capturar de uma CÂMERA REAL (drivers via ffmpeg)
 
-O agente aceita variáveis de ambiente:
+Requer o **ffmpeg** instalado (`winget install Gyan.FFmpeg`). O agente escolhe o
+driver por variável de ambiente. `FFMPEG` aponta pro executável (se não estiver no
+PATH).
 
-```bash
-# a URL de snapshot da sua câmera IP (varia por fabricante — procure "snapshot URL"
-# ou "ISAPI/CGI snapshot" do seu modelo). O agente precisa rodar NA MESMA REDE dela.
-SNAPSHOT_URL="http://usuario:senha@192.168.0.50/snapshot.jpg" node agente.mjs
+```powershell
+# --- WEBCAM local (testado ✅: capturou 1280x720 real) ---
+$env:FFMPEG="C:\...\ffmpeg.exe"; $env:WEBCAM_NAME="Integrated Webcam"; node agente.mjs
+#   (o nome exato vem de: ffmpeg -list_devices true -f dshow -i dummy)
 
-# um sensor que exponha um número via HTTP local
-SENSOR_URL="http://192.168.0.60/temp" node agente.mjs
+# --- CÂMERA IP por RTSP (ex.: Intelbras iC5/Mibo) ---
+$env:RTSP_URL="rtsp://usuario:senha@192.168.100.50:554/..."; node agente.mjs
+#   o agente tira 1 frame do stream no momento. Requisitos p/ a iC5:
+#   estar LIGADA + na MESMA rede do PC + RTSP habilitado (app Mibo) + IP/credenciais.
+
+# --- câmera com snapshot HTTP (.jpg direto) ---
+$env:SNAPSHOT_URL="http://usuario:senha@192.168.0.50/snapshot.jpg"; node agente.mjs
+
+# --- sensor HTTP que devolve um número ---
+$env:SENSOR_URL="http://192.168.0.60/temp"; node agente.mjs
 ```
 
-Se a câmera só der **RTSP** (vídeo), o próximo passo é o agente tirar um frame com
-`ffmpeg` — dá pra adicionar quando você testar com o equipamento real.
+> Prova de conceito rodada com a **webcam integrada** (câmera real): o agente
+> capturou um JPEG 1280x720 no momento do disparo e subiu pelo ciclo. Trocar
+> `WEBCAM_NAME` por `RTSP_URL` faz o mesmo com uma câmera IP — é a única diferença.
 
 ## Próximo passo
 Validado o conceito aqui, a implementação de verdade entra no CheckFlow seguindo
