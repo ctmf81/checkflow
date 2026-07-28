@@ -7,7 +7,7 @@ import { SidebarProvider, useSidebar } from '@/components/layout/SidebarContext'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { clsx } from 'clsx'
-import { Building2, MessageCircle, ShieldCheck, Compass, Handshake, Bot, Package, Boxes, LayoutGrid, BookOpen, ListChecks, X } from 'lucide-react'
+import { Building2, MessageCircle, ShieldCheck, Compass, Handshake, Bot, Package, Boxes, LayoutGrid, BookOpen, ListChecks, X, Cpu } from 'lucide-react'
 
 const SISTEMA_NAV = [
   { href: '/sistema',           label: 'Empresas',     icon: Building2 },
@@ -18,6 +18,7 @@ const SISTEMA_NAV = [
   { href: '/sistema/parceiros', label: 'Parceiros',    icon: Handshake },
   { href: '/sistema/whatsapp',  label: 'WhatsApp',     icon: MessageCircle },
   { href: '/sistema/integracoes-ia', label: 'IA',      icon: Bot },
+  { href: '/sistema/dispositivos', label: 'Dispositivos', icon: Cpu },
   { href: '/sistema/ajuda',     label: 'Ajuda',        icon: BookOpen },
   { href: '/sistema/termos',    label: 'Termo de Uso', icon: ShieldCheck },
   { href: '/sistema/onboarding', label: 'Onboarding',  icon: Compass },
