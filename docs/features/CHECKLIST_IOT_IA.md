@@ -125,6 +125,34 @@ Prioridade = o que cobre o mercado de **cadeia de frio / food safety / farma**
 > vez**. Depois, cada cliente novo com esses dispositivos é só instalar. Dispositivo
 > exótico = um driver novo (reutilizável).
 
+## Onboarding do cliente (o "custo escondido") — como levar pra cada local
+
+⚠️ **"Só instalar" vale pro software.** O que dá trabalho é **descobrir e destravar
+os dispositivos** (RTSP da câmera, IP/credenciais do sensor) — e isso varia por marca
+e o cliente não-técnico não vai (nem deve) fazer.
+
+**O que precisa no local:** um hospedeiro sempre ligado na **mesma rede** dos
+dispositivos (Raspberry Pi/mini-PC/PC existente) rodando o agente + os dispositivos
+acessíveis (câmera com RTSP ligado, sensor endereçável).
+
+**Dois modelos:**
+- **A) Faça-você-mesmo** — cliente instala e configura. Barato, mas **friccional**
+  pro não-técnico (mexe em RTSP/IP). Tende a travar.
+- **B) Kit plug-and-play (RECOMENDADO)** — envia-se um **aparelho pré-configurado**
+  (Raspberry Pi com o agente já instalado). O cliente só **liga na tomada + conecta na
+  rede**; o aparelho **auto-pareia** por código. O agente **escaneia a rede e descobre**
+  câmeras (**ONVIF discovery**) e sensores; **você configura pela nuvem, remotamente**,
+  na 1ª vez. O cliente não toca em RTSP/IP.
+
+**Custo por cliente novo (modelo B):** ~1 kit (Raspberry Pi ~R$300) + ~1h de setup
+remoto assistido na primeira vez; depois roda sozinho. A **descoberta automática
+(ONVIF)** encurta bastante esse setup — reforça a prioridade desse driver.
+
+**Resumo honesto:** não é self-service mágico; é **"ligar um aparelho + onboarding
+assistido remoto na 1ª vez"**. O software é trivial; o custo é destravar os
+dispositivos, minimizado pelo kit pré-configurado + descoberta automática + config
+pela nuvem.
+
 ## 9. Decisões FECHADAS
 Endpoint genérico · sensor+câmera no v1 · pedido→resposta com janela · não-conforme
 gera plano de ação · sem resposta = só alerta · `modo` escolhido no início · câmera é
