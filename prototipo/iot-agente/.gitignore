@@ -1,3 +1,5 @@
 recebidas/
 *.log
 *.err
+node_modules/
+package-lock.json
