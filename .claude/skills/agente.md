@@ -41,14 +41,20 @@ Guardar o **MAC** como identidade estável do dispositivo, não o IP.
 ### Câmeras
 | Driver | Como capturar 1 frame (no momento) | Auth / caminho | Status |
 |---|---|---|---|
-| **Intelbras Mibo** (iC3/iC5/iM3) | RTSP + ffmpeg (`-frames:v 1`) | user `admin`, senha = **código de 6 caracteres MAIÚSCULOS da etiqueta** (ou definido no app Mibo). Path `rtsp://admin:CODIGO@IP:554/live/mpeg4` | ✅ driver pronto no protótipo (falta testar ao vivo) |
+| **Intelbras Mibo** (iC3/iC5/iM3) | RTSP + ffmpeg (`-frames:v 1`) | user `admin`, senha = **CHAVE ACESSO da etiqueta** (ex.: iM3 = `RF6X3Q82`, 8 chars; varia por câmera). Path `rtsp://admin:CHAVE@IP:554/live/mpeg4` | ⚠️ ver gotchas Mibo abaixo |
 | **Intelbras/Dahua PRO** (VIP) | RTSP + ffmpeg | `rtsp://user:senha@IP:554/cam/realmonitor?channel=1&subtype=0` (porta privada 37777 costuma estar aberta) | driver = mesmo RTSP, path diferente |
 | **ONVIF genérica** | ONVIF `GetSnapshotUri`/`GetStreamUri` → snapshot/RTSP | credenciais ONVIF; descoberta automática na rede | planejado (ajuda no IP dinâmico) |
 | **Snapshot HTTP** | `GET http://user:senha@IP/snapshot.jpg` | varia por fabricante | ✅ no protótipo |
 | **Webcam local (dshow)** — só teste | ffmpeg `-f dshow -i video=<Nome>` | nome via `ffmpeg -list_devices true -f dshow -i dummy` | ✅ testado (JPEG 1280×720 real) |
 
 > RTSP (puxar) — **não** RTMP (empurrar). Requer **ffmpeg** no host do agente
-> (`winget install Gyan.FFmpeg`). Captura: `ffmpeg -rtsp_transport tcp -i "<url>" -frames:v 1 out.jpg`.
+> (`winget install Gyan.FFmpeg`). Captura: `ffmpeg -rtsp_transport tcp -rw_timeout 8000000 -i "<url>" -frames:v 1 out.jpg` (o `-rw_timeout` evita travar; **não** usar `-timeout`, que é listen-timeout e pendura).
+
+**⚠️ Gotchas Mibo (aprendidos na marra 2026-07-24):**
+- A **CHAVE ACESSO da etiqueta** é **por câmera** — 3 iC3 têm 3 chaves diferentes; a chave da iM3 (`RF6X3Q82`) **não** abre as iC3 (dá 401).
+- **RTSP pode precisar ser habilitado** no app Mibo; e a Mibo é historicamente **finicky** com RTSP (fóruns Intelbras "Senha inválida via RTSP").
+- **Bloqueio por tentativas**: após várias falhas de auth, a câmera **bloqueia a origem** — o 401 vira **timeout**. Se começar a dar timeout depois de vários 401, **PARE**, espere alguns minutos ou **reinicie a câmera**, e faça **uma** tentativa limpa com a chave certa.
+- Identidade estável = **MAC** (o IP muda por DHCP; a iM3/iC3 só têm porta 554; a VIP/pro tem 37777 também).
 
 ### Sensores (acesso local)
 | Driver | Como ler | Notas |
