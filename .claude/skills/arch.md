@@ -25,6 +25,18 @@ Pivô 2026-06-26: app web virou PWA instalável; execução de checklist funcion
 - **Submissão offline:** suporta execução simples **E plano de ação** (`syncQueue` replaya planos_acao + evidências + movimentação + causa_raiz, idempotente "criar-se-não-existe"). **Exigem conexão** (bloqueia offline): workflow e execução agendada (`?exec=`). Billing pulado offline; `execId` gerado no cliente (idempotência). Sync em `components/pwa/PendingSync.tsx` (operação layout).
 - **Flag por checklist:** `checklists.permite_offline` (opt-in) controla o que aparece na lista offline. Toggle no `ChecklistMontador`. Migration `20260626000000` ✅ aplicada (2026-06-26).
 
+## Páginas Públicas (Static/Marketing) — 2026-07-29
+**Servidas de `/public/`**, sem middleware auth, sem login. Rewritable (URL limpa em `next.config.ts`). Não usam Supabase auth/RLS (POST públicos usam service role + honeypot).
+
+- **Arquivo**: `apps/web/public/apresentacao_parceiro.html` (Programa de Parceiros — 7 segmentos negócio + form "Quero ser parceiro")
+- **Arquivo**: `apps/web/public/conheca-checkflow.html` (Conheça o CheckFlow — 6 seções de funcionalidades com dor/solução/links)
+- **Config**: `next.config.ts` → `async rewrites()` com entries:
+  ```
+  { source: "/apresentacao_parceiro", destination: "/apresentacao_parceiro.html" }
+  { source: "/conheca-checkflow", destination: "/conheca-checkflow.html" }
+  ```
+- **POST públicos**: rota `/parceiros/interesse` (sem auth) valida corpo + honeypot, insere em `parceiro_pre_cadastros` (status='pendente' sempre, via service role RLS). Responde `{ok:true}` mesmo se spam/erro (não sinaliza ao bot).
+
 ## Monorepo Layout
 ```
 checkFlow/
@@ -41,6 +53,11 @@ checkFlow/
 │   │   │   │           └── execucoes/page.tsx ← acompanhamento de execuções
 │   │   │   ├── operacao/     ← mobile-first execution area (no sidebar)
 │   │   │   └── sistema/      ← super-admin area
+│   │   ├── public/           ← Páginas estáticas abertas (HTML)
+│   │   │   ├── apresentacao_parceiro.html
+│   │   │   ├── conheca-checkflow.html
+│   │   │   ├── icon-*.png    ← PWA icons
+│   │   │   └── sw.js         ← Service worker
 │   │   ├── components/
 │   │   │   ├── checklists/   ← ChecklistMontador, AtividadeModal
 │   │   │   └── ui/           ← Button, etc.
@@ -51,6 +68,7 @@ checkFlow/
 │   └── api/          ← Fastify REST API
 │       └── src/
 │           ├── routes/whatsapp.ts
+│           ├── routes/parceiros.ts  ← POST /parceiros/interesse (público)
 │           └── lib/whatsapp.ts
 └── supabase/
     └── migrations/   ← ALL schema changes here (timestamped .sql)
