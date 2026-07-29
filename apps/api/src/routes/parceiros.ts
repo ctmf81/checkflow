@@ -4,10 +4,7 @@ import ws from 'ws'
 import { enviarEmail } from '../lib/email'
 import { emailParceiroBoasVindas, emailParceiroResumoMensal } from '../lib/email-templates'
 import { asaasCriarSubconta } from '../lib/asaas'
-import { validarInteresseParceiro, montarEmailInteresse } from '../lib/interesseParceiro'
-
-// Destino dos leads do formulário público de parceiros.
-const EMAIL_CONTATO = process.env.EMAIL_CONTATO ?? 'contato@checkflow.digital'
+import { validarInteresseParceiro } from '../lib/interesseParceiro'
 
 const MESES = [
   'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -48,7 +45,8 @@ export async function parceiroRoutes(app: FastifyInstance) {
 
   // POST /parceiros/interesse — formulário público da apresentação de parceiros.
   // SEM auth (chamado da página aberta /apresentacao_parceiro). Validação +
-  // honeypot contra spam; ao passar, dispara e-mail para o contato comercial.
+  // honeypot contra spam; ao passar, GRAVA um pré-cadastro PENDENTE (mesmo inbox
+  // do /seja-parceiro) → aparece em /sistema/parceiros para o admin validar.
   app.post('/parceiros/interesse', async (req, reply) => {
     const v = validarInteresseParceiro(req.body as any)
     if (!v.ok) {
@@ -56,11 +54,18 @@ export async function parceiroRoutes(app: FastifyInstance) {
       if (v.spam) return reply.send({ ok: true })
       return reply.status(400).send({ error: v.erro })
     }
-    const { assunto, html } = montarEmailInteresse(v.dados)
-    const r = await enviarEmail({ para: EMAIL_CONTATO, assunto, html })
-    if (!r.ok) {
-      req.log.error({ erro: r.erro }, 'falha ao enviar e-mail de interesse de parceiro')
-      return reply.status(502).send({ error: 'Não foi possível enviar agora. Tente novamente em instantes.' })
+    const { error } = await sb().from('parceiro_pre_cadastros').insert({
+      nome: v.dados.nome,
+      documento: v.dados.documento,
+      email: v.dados.email,
+      telefone: v.dados.telefone,
+      cep: v.dados.cep,
+      mensagem: v.dados.mensagem,
+      status: 'pendente',
+    })
+    if (error) {
+      req.log.error({ erro: error.message }, 'falha ao gravar interesse de parceiro')
+      return reply.status(502).send({ error: 'Não foi possível registrar agora. Tente novamente em instantes.' })
     }
     return reply.send({ ok: true })
   })

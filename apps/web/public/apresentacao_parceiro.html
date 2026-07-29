@@ -399,12 +399,18 @@
       <form class="pf-form" id="pf-form" novalidate>
         <div class="pf-field"><label for="pf-nome">Nome *</label><input id="pf-nome" name="nome" required maxlength="120"></div>
         <div class="pf-row">
-          <div class="pf-field"><label for="pf-cidade">Cidade</label><input id="pf-cidade" name="cidade" maxlength="120"></div>
+          <div class="pf-field"><label for="pf-doc">CPF / CNPJ *</label><input id="pf-doc" name="documento" required inputmode="numeric" maxlength="18"></div>
           <div class="pf-field"><label for="pf-tel">Telefone *</label><input id="pf-tel" name="telefone" required inputmode="tel" maxlength="40"></div>
         </div>
         <div class="pf-field"><label for="pf-email">E-mail *</label><input id="pf-email" name="email" type="email" required maxlength="200"></div>
+        <div class="pf-row">
+          <div class="pf-field"><label for="pf-cep">CEP *</label><input id="pf-cep" name="cep" required inputmode="numeric" maxlength="9" placeholder="00000-000"></div>
+          <div class="pf-field"><label for="pf-loc">Cidade / UF</label><input id="pf-loc" readonly placeholder="preenche pelo CEP" style="background:transparent;color:var(--muted)"></div>
+        </div>
         <div class="pf-field"><label for="pf-area">Área de atuação</label><input id="pf-area" name="area" maxlength="160" placeholder="ex.: consultoria de qualidade, processos, gestão"></div>
         <div class="pf-field"><label for="pf-obs">Observação</label><textarea id="pf-obs" name="observacao" rows="3" maxlength="2000"></textarea></div>
+        <input type="hidden" id="pf-cidade" name="cidade">
+        <input type="hidden" id="pf-estado" name="estado">
         <input class="pf-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
         <div class="pf-msg" id="pf-msg"></div>
         <button type="submit" class="btn btn-primary pf-submit" id="pf-submit">Enviar</button>
@@ -433,6 +439,29 @@
     const msg=document.getElementById('pf-msg');
     const submit=document.getElementById('pf-submit');
     const body=document.getElementById('pf-body');
+
+    // CEP → cidade/UF via ViaCEP (evita pedir cidade/estado à mão).
+    const cepEl=document.getElementById('pf-cep');
+    const locEl=document.getElementById('pf-loc');
+    const cidadeEl=document.getElementById('pf-cidade');
+    const estadoEl=document.getElementById('pf-estado');
+    async function buscarCep(){
+      const d=(cepEl.value||'').replace(/\D/g,'').slice(0,8);
+      cidadeEl.value='';estadoEl.value='';
+      if(d.length!==8){locEl.value='';return;}
+      locEl.value='buscando…';
+      try{
+        const r=await fetch('https://viacep.com.br/ws/'+d+'/json/');
+        const j=await r.json();
+        if(j&&!j.erro){cidadeEl.value=j.localidade||'';estadoEl.value=j.uf||'';locEl.value=(j.localidade||'')+(j.uf?' / '+j.uf:'');}
+        else{locEl.value='CEP não encontrado';}
+      }catch(e){locEl.value='';}
+    }
+    if(cepEl){
+      cepEl.addEventListener('blur',buscarCep);
+      cepEl.addEventListener('input',function(){if(cepEl.value.replace(/\D/g,'').length===8)buscarCep();});
+    }
+
     function show(){ov.classList.add('open');document.body.style.overflow='hidden';setTimeout(function(){var n=document.getElementById('pf-nome');if(n)n.focus();},40);}
     function hide(){ov.classList.remove('open');document.body.style.overflow='';}
     if(openBtn)openBtn.addEventListener('click',show);
