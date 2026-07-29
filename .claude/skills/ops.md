@@ -17,8 +17,8 @@ Existe **ambiente de DEV separado** de produção. Resumo (detalhes no runbook):
   connection string do **Session pooler** — a direta é IPv6-only e falha). Prod está
   **baselineado** (`supabase/BASELINE_PROD.sql`, 172 migrations).
 - **CI** (`.github/workflows/ci.yml`): 581 testes + typecheck em push/PR. **`main`
-  protegido** → só promove via **PR com CI verde**; **auto-deploy de produção
-  DESLIGADO** → publicar = clicar Deploy no Railway. Ver `/git` p/ o fluxo de promoção.
+  protegido** → só promove via **PR com CI verde**; **✅ auto-deploy RELIGADO em prod
+  e dev (2026-07-29)** → mergear em `main` publica sozinho, sem clique. Ver `/git`.
 - **Keep-alive** (`.github/workflows/keep-alive-supabase.yml`): pinga os 2 projetos
   Supabase a cada 3 dias (anti-pausa do plano free), via GitHub Actions.
 
@@ -29,8 +29,20 @@ railway status       # check service health
 railway logs         # stream live logs
 railway logs --tail 20  # last 20 lines only
 ```
-> ⚠️ Produção NÃO tem mais auto-deploy: depois de mergear em `main` (via PR), o
-> deploy é **manual** (Deploy/Redeploy no painel do `web` e `api`).
+> ✅ **Auto-deploy LIGADO (2026-07-29)** em `web`/`api` (branch `main`) e
+> `web-dev`/`api-dev` (branch `develop`) + **Wait for CI**. Mergear já publica —
+> não usar `railway up` nem pedir clique manual ao usuário.
+>
+> **Filtro por path (Root Directory)**: cada serviço só rebuilda quando muda a sua
+> pasta — `web` ⇒ `apps/web/**`, `api` ⇒ `apps/api/**`. Deployments marcados
+> "SKIPPED — No changes to watched files" são isso, não erro.
+>
+> ⚠️ O painel **não tem** botão "deploy latest commit"; o `⋮ → Redeploy` do
+> deployment ativo rebuilda o **commit antigo**. Para publicar código já mergeado
+> antes de o auto-deploy existir, faça um commit novo tocando a pasta do serviço.
+>
+> **Claude não consegue deployar**: não há `RAILWAY_TOKEN` nem CLI no ambiente
+> (verificado 2026-07-29) — o gatilho é sempre o merge no git.
 
 ## Log Triage Rule
 When debugging an error in logs: surface only the **last 20 lines** unless the user asks for more. Write a one-sentence summary of the error before showing raw lines.
@@ -48,7 +60,7 @@ When debugging an error in logs: surface only the **last 20 lines** unless the u
 | API (Fastify) | `https://api-production-5bce.up.railway.app` | 🟢 Live |
 | Evolution API (WhatsApp) | `evolution-api-production-d484.up.railway.app` — imagem `evoapicloud/evolution-api:v2.3.7` | 🟢 Live |
 
-**Status**: All services deployed, health checks passing, RLS isolation verified for 100+ companies. ⚠️ **Auto-deploy DESLIGADO em `web` e `api` (2026-07-24)** — deploy de produção agora é manual (após PR em `main`). Ver o topo desta skill.
+**Status**: All services deployed, health checks passing, RLS isolation verified for 100+ companies. ✅ **Auto-deploy RELIGADO em `web` e `api` (2026-07-29)** — mergear em `main` publica sozinho (+ Wait for CI). Ver o topo desta skill.
 
 ## Capacidade & carga (load test 2026-07-20)
 `node pentest/load-test-simple.mjs` (100 VU · 30s) contra prod: **3.682 req, 0 erros**, média 720ms, **p95 2.182ms** (SLO de 2s estourou por pouco), máx 4s. Nada caiu — o gargalo é **latência sob concorrência**, não estabilidade. ⚠️ O script usa **token dummy** → as req batem na auth e voltam (401) **sem tocar o banco**; req autenticadas reais seriam mais lentas. **Causa = SPOF de instância única** (web+API sem escala horizontal no Railway). **Recomendação:** ligar **réplicas (2+)** no Railway p/ web e API antes de crescer. Teste **pesado** (`pentest/load-test-1000-vu.k6.js`, rampa até 1000 VU, ~11min) **NÃO rodado** — pode degradar/derrubar pros clientes; rodar só em **janela de madrugada** e depois das réplicas. Relatório: `docs/seguranca/RELATORIO_SEG_PERF_2026-07-19.md` §5.

@@ -144,6 +144,15 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 |------|---------|
 | `ParceiroModal.tsx` | Busca parceiro existente por e-mail ou cadastra novo (`ParceiroSelecionado` com flag `novo`) — usado na aba "Parceiro" de `/sistema/empresas/[id]` |
 
+## Páginas públicas / marketing (`apps/web/public/*.html`) — sem login
+| File | Purpose |
+|------|---------|
+| `public/apresentacao_parceiro.html` | Deck **Programa de Parceiros** (7 segmentos de negócio) + modal "Quero ser parceiro" (nome, CPF/CNPJ, telefone, e-mail, CEP→cidade/UF via ViaCEP, área, observação) → `POST /parceiros/interesse`. URL limpa `/apresentacao_parceiro` |
+| `public/conheca-checkflow.html` | **Conheça o CheckFlow** — 6 seções de funcionalidades (Operação, IA, Gestão, Estrutura, Padrões, Billing/Parcerias); cada item traz dor → solução → link pra tela interna. URL limpa `/conheca-checkflow` |
+| `next.config.ts` (`rewrites()`) | URLs limpas das duas páginas acima (o `.html` segue como fallback) |
+
+> Editar o deck = editar o `.html` em `apps/web/public/`. Espelhos fora do app (raiz do repo, Artifact) são cópias — não são servidos.
+
 ## PWA & Offline (`components/pwa/`, `lib/`, `public/`) — só operação
 | File | Purpose |
 |------|---------|
@@ -193,7 +202,8 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 | `routes/whatsapp.ts` | POST /whatsapp/conectar, POST /whatsapp/status, POST /whatsapp/desconectar (troca de número), POST /whatsapp/enviar, POST /whatsapp/enviar-codigo (OTP WA+email), **POST /cron/whatsapp/health** (x-cron-secret — alerta+email na mudança de estado, `ALERT_EMAIL`) |
 | `routes/tickets.ts` | POST /tickets/notificar — template do banco (fallback hardcoded), WA+email. `aberto`→subgrupo; resto→abridor+assignee. **Link por perfil**: operador→`/operacao/tickets/[id]`, demais→`/gestao/tickets/[id]` |
 | `routes/planos-acao.ts` | POST /planos-acao/notificar — N1 somente para aberto, N2 somente para enviado_n2 |
-| `routes/parceiros.ts` | POST /parceiros/boas-vindas (1x por parceiro), POST /cron/parceiros/resumo-mensal (protegido por `x-cron-secret`, último dia do mês) |
+| `routes/parceiros.ts` | POST /parceiros/boas-vindas (1x por parceiro), POST /parceiros/:id/conta-asaas (admin_sistema), **POST /parceiros/interesse** (⚠️ **público, sem auth** — form da apresentação; grava `parceiro_pre_cadastros` status pendente), POST /cron/parceiros/resumo-mensal (`x-cron-secret`, último dia do mês) |
+| `lib/interesseParceiro.ts` (+ `.test.ts`, 16 testes) | Lógica pura do interesse de parceiro: `validarInteresseParceiro` (nome/e-mail/telefone/documento + honeypot `website`), **`cpfValido`/`cnpjValido`/`documentoValido`** (dígito verificador real) e `montarMensagem` (área + cidade/UF + observação → campo `mensagem`) |
 | `routes/avisos-uso.ts` | **POST /cron/billing/avisos-uso** (x-cron-secret) — alerta o admin da empresa (WA+email) em 80%/100% de execuções/tokens/armazenamento. Idempotente por período (`empresa_avisos_uso`). Lógica pura em `lib/avisosUso.ts` (+ testes). Ver `/biz`, `/ops` |
 | `routes/avisos-gestao.ts` | **POST /cron/gestao/lembretes** (x-cron-secret, Fase 3) — lembra o admin de **pré-cadastros pendentes** (WA+email), throttle 3d via `empresa_gestao_lembretes`. Lógica pura em `lib/avisosGestao.ts`; helper `lib/adminEmpresa.ts`. Ver `/biz`, `/ops` |
 | `routes/billing.ts` (Fase 2) | No webhook Asaas, `PAYMENT_OVERDUE` avisa o admin da **fatura vencida** (WA+email, link da fatura) — idempotente pelo dedup de `event_id`. Template `emailFaturaVencida` |
