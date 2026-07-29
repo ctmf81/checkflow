@@ -55,6 +55,7 @@ Guardar o **MAC** como identidade estável do dispositivo, não o IP.
 - **RTSP pode precisar ser habilitado** no app Mibo; e a Mibo é historicamente **finicky** com RTSP (fóruns Intelbras "Senha inválida via RTSP").
 - **Bloqueio por tentativas**: após várias falhas de auth, a câmera **bloqueia a origem** — o 401 vira **timeout**. Se começar a dar timeout depois de vários 401, **PARE**, espere alguns minutos ou **reinicie a câmera**, e faça **uma** tentativa limpa com a chave certa.
 - Identidade estável = **MAC** (o IP muda por DHCP; a iM3/iC3 só têm porta 554; a VIP/pro tem 37777 também).
+- **Referência p/ destravar RTSP da Mibo** (tutorial em vídeo): https://www.youtube.com/watch?v=I739O12eeqg — consultar ao retomar a captura da iM3.
 
 ### Sensores (acesso local)
 | Driver | Como ler | Notas |
