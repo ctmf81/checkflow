@@ -1,0 +1,16 @@
+{
+  "name": "iot-agente",
+  "version": "1.0.0",
+  "description": "Prova de conceito do **agente** que faz a ponte entre os dispositivos na rede do cliente (câmera IP, sensor) e a nuvem, no modelo **pedido→resposta com janela**.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "onvif": "^0.8.1"
+  }
+}

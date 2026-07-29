@@ -14,11 +14,12 @@ const nextConfig: NextConfig = {
   // Não expor o banner de versão (X-Powered-By: Next.js) — info disclosure
   // apontada pelo pentest HTTP (pentest/http_probe.mjs).
   poweredByHeader: false,
-  // URL limpa para a apresentação pública de parceiros (página de marketing
-  // estática servida de /public). O `.html` continua acessível como fallback.
+  // URLs limpas para apresentações públicas (páginas de marketing estáticas
+  // servidas de /public). O `.html` continua acessível como fallback.
   async rewrites() {
     return [
       { source: "/apresentacao_parceiro", destination: "/apresentacao_parceiro.html" },
+      { source: "/conheca-checkflow", destination: "/conheca-checkflow.html" },
     ];
   },
   async headers() {

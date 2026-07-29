@@ -18,6 +18,7 @@ This project has 12 active skills in `.claude/skills/`. They are **live** — up
 | `/launch` | **Pre-launch checklist** — bloqueadores técnicos, planos/precificação, WhatsApp, IA, onboarding |
 | `/queries` | Biblioteca de SQL pronto para gestão/suporte, organizado por tela/funcionalidade |
 | `/golive` | **Checklist de go-live** — definition of done para toda funcionalidade nova (permissão/perfil/RLS/entitlements/billing/mobile/testes) |
+| `/agente` | **Livro-mestre do agente IoT/IA** — drivers por tipo de dispositivo (câmera RTSP/ONVIF, sensor Modbus/MQTT, IoT de nuvem Tuya/Sonoff); como alcançar/autenticar/ler cada um |
 
 ## Meta-Rule: Skill Auto-Evolution
 

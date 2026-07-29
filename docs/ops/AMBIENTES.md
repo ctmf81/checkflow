@@ -143,23 +143,30 @@ deploy automático (ou fixe o branch em `main` e use "Deploy" manual).
 3. Você testa: se subiu os serviços do Railway, pela URL do `web-dev`.
 
 ### Promovendo para produção
-Você diz **"sobe para produção"**. O que acontece:
+Você diz **"sobe para produção"**. O `main` é **protegido**: não aceita push direto
+(nem de admin) e só mergeia via **Pull Request com o CI verde** (check
+"Testes + typecheck"). Fluxo:
 
 ```bash
-# 1. o que ainda falta no banco de produção?
-npm run db:status:prod
+# 1. banco PRIMEIRO (se houver migration nova) — evita o front pedir coluna
+#    que ainda não existe (já quebrou a tela de plano em prod fazendo o inverso)
+npm run db:status:prod            # o que falta aplicar
+npm run db:push:prod --sim        # aplica
 
-# 2. banco primeiro (evita o front pedir coluna que não existe)
-npm run db:push:prod --sim
+# 2. código via PR (o merge direto está BLOQUEADO pela proteção do branch)
+gh pr create --base main --head develop --title "Promoção: <resumo>" --fill
+#   → o CI roda no PR. Só quando ficar VERDE:
+gh pr merge --merge --delete-branch=false
 
-# 3. código
-git checkout main && git merge develop && git push
+# 3. re-sincroniza o develop com o merge commit criado em main
+git checkout develop && git merge origin/main && git push origin develop
 ```
 
-4. Se o auto-deploy estiver desligado: clicar **Deploy** no Railway.
+4. **Deploy manual no Railway**: nos serviços `web` e `api` de produção, clicar
+   **Deploy/Redeploy** (auto-deploy está desligado — nada vai pro ar sem esse clique).
 
-> **A ordem importa**: banco antes do código. O caminho inverso já quebrou a tela
-> de plano em produção (front pediu `cancelar_em` antes da migration existir).
+> **Trava de segurança**: se algum dos 581 testes ou o typecheck falhar, o PR fica
+> vermelho e **não deixa mergear** — impossível promover código quebrado.
 
 ### Antes de promover, sempre
 ```bash
