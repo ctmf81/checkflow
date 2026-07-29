@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CheckFlow — Conheça o Sistema</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      color: #1a1a1a;
+      line-height: 1.6;
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+
+    /* Header/Intro */
+    header {
+      padding: 80px 20px;
+      text-align: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    header h1 {
+      font-size: 3rem;
+      margin-bottom: 20px;
+      font-weight: 700;
+    }
+    header p {
+      font-size: 1.2rem;
+      opacity: 0.95;
+      max-width: 600px;
+      margin: 0 auto 30px;
+    }
+    .cta-button {
+      display: inline-block;
+      background: white;
+      color: #667eea;
+      padding: 14px 32px;
+      border-radius: 8px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      font-size: 1rem;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .cta-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+
+    /* Section Headers */
+    .section-header {
+      margin-top: 60px;
+      margin-bottom: 40px;
+      text-align: center;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 20px;
+    }
+    .section-header h2 {
+      font-size: 2.2rem;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .section-header p {
+      font-size: 1.1rem;
+      color: #666;
+    }
+
+    /* Feature Grid */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 30px;
+      margin-bottom: 60px;
+    }
+    .feature-card {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      transition: transform 0.3s, box-shadow 0.3s;
+      border-left: 5px solid #667eea;
+    }
+    .feature-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+    }
+    .feature-card h3 {
+      font-size: 1.4rem;
+      color: #333;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .feature-icon {
+      font-size: 1.8rem;
+      width: 40px;
+      text-align: center;
+    }
+
+    /* Problem/Solution rows */
+    .dor, .solucao {
+      margin-bottom: 15px;
+      padding: 12px 15px;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+    .dor {
+      background: #ffe5e5;
+      border-left: 4px solid #e74c3c;
+      color: #c0392b;
+    }
+    .dor::before { content: "❌ "; font-weight: bold; }
+
+    .solucao {
+      background: #e5ffe5;
+      border-left: 4px solid #27ae60;
+      color: #229954;
+    }
+    .solucao::before { content: "✅ "; font-weight: bold; }
+
+    /* CTA Link */
+    .feature-link {
+      margin-top: 15px;
+      display: inline-block;
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 600;
+      border-bottom: 2px solid #667eea;
+      transition: color 0.2s;
+    }
+    .feature-link:hover {
+      color: #764ba2;
+      border-bottom-color: #764ba2;
+    }
+
+    /* Padrões section */
+    .padroes-section {
+      background: #f9f9f9;
+      padding: 40px 20px;
+      border-radius: 12px;
+      margin-top: 60px;
+    }
+    .padroes-section h3 {
+      font-size: 1.8rem;
+      margin-bottom: 30px;
+      text-align: center;
+      color: #333;
+    }
+    .padroes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 25px;
+    }
+    .padrao-card {
+      background: white;
+      padding: 25px;
+      border-radius: 10px;
+      border: 2px solid #ddd;
+      text-align: center;
+    }
+    .padrao-card h4 {
+      font-size: 1.2rem;
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+    .padrao-card p {
+      font-size: 0.95rem;
+      color: #666;
+      line-height: 1.6;
+    }
+
+    /* Footer */
+    footer {
+      background: #2c3e50;
+      color: white;
+      text-align: center;
+      padding: 40px 20px;
+      margin-top: 80px;
+    }
+    footer h3 {
+      font-size: 1.4rem;
+      margin-bottom: 15px;
+    }
+    footer p {
+      font-size: 1rem;
+      opacity: 0.9;
+      margin-bottom: 20px;
+    }
+    .footer-cta {
+      display: inline-block;
+      background: #667eea;
+      color: white;
+      padding: 12px 28px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    .footer-cta:hover {
+      background: #764ba2;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      header h1 { font-size: 2rem; }
+      .section-header h2 { font-size: 1.6rem; }
+      .features { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="container">
+    <h1>🚀 Conheça o CheckFlow</h1>
+    <p>Plataforma completa de gestão de qualidade, conformidade e operação. Checklists inteligentes, IA integrada, e controle em tempo real — tudo no smartphone ou no painel.</p>
+    <button class="cta-button" onclick="document.location.href='/'">Começar Agora</button>
+  </div>
+</header>
+
+<!-- Main Content -->
+<div class="container" style="padding-top: 40px; padding-bottom: 40px;">
+
+<!-- SEÇÃO 1: OPERAÇÃO -->
+<section>
+  <div class="section-header">
+    <h2>📋 Operação & Execução</h2>
+    <p>Ferramentas para o time fazer bem o trabalho, onde e quando estiver.</p>
+  </div>
+  <div class="features">
+    <!-- Checklists -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">✓</span> Checklists Digitais</h3>
+      <div class="dor">Planilhas em papel perdem, não sintonizam, não rastreiam quando foi executado.</div>
+      <div class="solucao">Checklists digitais com múltiplos tipos de resposta (sim/não, número, foto, vídeo, localização, assinatura). Montador visual, templates reutilizáveis, versioning automático.</div>
+      <a href="/gestao/checklists" class="feature-link">→ Gerenciar Checklists</a>
+    </div>
+
+    <!-- Execução Offline -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">📱</span> Execução Offline (PWA)</h3>
+      <div class="dor">Sem WiFi, a operação para. Dados desincronizam. Foto perde.</div>
+      <div class="solucao">App instalável no smartphone. Funciona 100% offline: preenche checklist, captura foto/vídeo, GPS — tudo sincroniza quando volta online.</div>
+      <a href="/operacao" class="feature-link">→ Ir para Operação</a>
+    </div>
+
+    <!-- Documentos (POP/IT) -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">📖</span> Documentos (POP & IT)</h3>
+      <div class="dor">POPs em PDF ficam isolados. Operador não sabe que existe / não acha a versão nova.</div>
+      <div class="solucao">Biblioteca de Procedimentos e Instruções de Trabalho com etapas, imagens, vídeos. Selecionáveis por grupo/subgrupo. Versionadas e atualizáveis.</div>
+      <a href="/gestao/configuracoes/documentos" class="feature-link">→ Gerenciar Documentos</a>
+    </div>
+
+    <!-- Tarefas -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">📝</span> Tarefas & To-dos</h3>
+      <div class="dor">Tarefas por WhatsApp se perdem. Sem rastreio de conclusão. Sem evidência.</div>
+      <div class="solucao">Listas de tarefas digital, broadcast ou pontual. Cada um recebe sua cópia. Marcação com GPS, foto/vídeo de evidência. Check-in automático, indicadores por mapa.</div>
+      <a href="/gestao/tarefas" class="feature-link">→ Gerenciar Tarefas</a>
+    </div>
+
+    <!-- Tickets -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">🎫</span> Tickets (Chamados)</h3>
+      <div class="dor">Chamados avulsos não têm SLA. Perdem em fila do e-mail. Ninguém sabe quem está tratando.</div>
+      <div class="solucao">Ticket pelo smartphone (FAB abrir). Categorias com SLA automático. Atribuição, status, comentários. Relatório de tempo de resposta e resolução.</div>
+      <a href="/gestao/tickets" class="feature-link">→ Gerenciar Tickets</a>
+    </div>
+
+    <!-- Histórico -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">📊</span> Histórico & Auditoria</h3>
+      <div class="dor">Não temos registro de quem fez o quê e quando. Regulador pede prova.</div>
+      <div class="solucao">Histórico imutável de todas as execuções: foto, vídeo, hora, quem fez, aprovação/reprovação. Exportável em PDF. Rastreabilidade 100%.</div>
+      <a href="/operacao" class="feature-link">→ Ver Histórico</a>
+    </div>
+  </div>
+</section>
+
+<!-- SEÇÃO 2: INTELIGÊNCIA -->
+<section>
+  <div class="section-header">
+    <h2>🧠 Inteligência Artificial</h2>
+    <p>IA integrada para preencher, interpretar, ensinar e gerar relatórios.</p>
+  </div>
+  <div class="features">
+    <!-- IA por Foto -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">📸</span> IA por Foto</h3>
+      <div class="dor">Operador não sabe medir a temperatura / quantidade / status. Fraude de dados preenchidos errado.</div>
+      <div class="solucao">Tira foto do objeto. IA interpreta, preenche o campo automaticamente (temperatura, nível, cor, etc.). Foto fica como evidência. Resultado editável.</div>
+      <a href="/operacao" class="feature-link">→ Usar em Operação</a>
+    </div>
+
+    <!-- Consulta Inteligente -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">💬</span> Consulta Inteligente</h3>
+      <div class="dor">Operador não entende o POP. Tira dúvida pelo WhatsApp e ninguém responde rápido.</div>
+      <div class="solucao">Operador faz pergunta em linguagem natural sobre o documento (ex.: "qual é o valor máximo de pH?"). IA responde com base no conteúdo real do POP.</div>
+      <a href="/operacao" class="feature-link">→ Ir para Operação</a>
+    </div>
+
+    <!-- Relatórios por IA -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">📈</span> Relatórios por IA</h3>
+      <div class="dor">Relatório manual leva dias. Compila execuções, escreve análise, vira texto chapado.</div>
+      <div class="solucao">Escolhe checklist + período + prompt (ex.: "faça relatório de qualidade com foco em NC de temperatura"). IA compila dados, analisa tendências, gera texto em minutos.</div>
+      <a href="/gestao/configuracoes/relatorios" class="feature-link">→ Criar Relatório</a>
+    </div>
+
+    <!-- IA Montador Checklists -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">✨</span> IA Monta Checklist</h3>
+      <div class="dor">Montar checklist do zero é demorado. Esquece etapas. Redundância.</div>
+      <div class="solucao">Descreve o processo em linguagem natural. IA gera rascunho com seções, atividades e tipos de resposta. Você edita e publica.</div>
+      <a href="/gestao/checklists" class="feature-link">→ Criar Checklist</a>
+    </div>
+  </div>
+</section>
+
+<!-- SEÇÃO 3: GESTÃO & MODERAÇÃO -->
+<section>
+  <div class="section-header">
+    <h2>🎯 Gestão & Moderação</h2>
+    <p>Visão em tempo real do que está acontecendo e controle de não conformidades.</p>
+  </div>
+  <div class="features">
+    <!-- Dashboards -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">📺</span> Painéis (TV/Parede)</h3>
+      <div class="dor">Gerente não vê em tempo real se a operação está indo bem. Descoberta é por denúncia.</div>
+      <div class="solucao">Painel em tempo quase real (atualiza a cada 45s) com métricas vivas: últimas execuções, aprovação %, atividades reprovadas, tendências. Montador visual. Compartilhável.</div>
+      <a href="/gestao/configuracoes/dashboards" class="feature-link">→ Criar Painel</a>
+    </div>
+
+    <!-- Indicadores -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">📊</span> Indicadores & KPIs</h3>
+      <div class="dor">Gerente tira relatório manual. Faltam checklists reprovados e tickets em aberto.</div>
+      <div class="solucao">Dashboard de KPIs automático: execuções/aprovação/reprovação, tickets abertos/críticos, planos em moderação, tarefas pendentes. Filtro por período e unidade.</div>
+      <a href="/gestao/indicadores" class="feature-link">→ Ver Indicadores</a>
+    </div>
+
+    <!-- Planos de Ação -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">🔧</span> Planos de Ação & Causa Raiz</h3>
+      <div class="dor">Checklist reprova e ninguém sabe por que. Não há plano de ação.</div>
+      <div class="solucao">Ao reprovar, plano de ação obrigatório. Catálogo de causas raiz. Moderação 2-níveis (N1/N2). Evidência de correção. Workflow de aprovação/rejeição.</div>
+      <a href="/gestao/planos-acao" class="feature-link">→ Gerenciar Planos</a>
+    </div>
+
+    <!-- Home Visão Geral -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">🏠</span> Home & Visão Geral</h3>
+      <div class="dor">Não há um lugar que mostre "saúde geral" da operação.</div>
+      <div class="solucao">Home com funil de qualidade (executados → aprovados → em moderação → corrigidos), últimas execuções, alertas, guia de primeiros passos.</div>
+      <a href="/gestao" class="feature-link">→ Ir para Home</a>
+    </div>
+  </div>
+</section>
+
+<!-- SEÇÃO 4: ESTRUTURA & CONFIGURAÇÃO -->
+<section>
+  <div class="section-header">
+    <h2>⚙️ Estrutura & Configuração</h2>
+    <p>Base sólida: grupos, usuários, perfis, turnos. Padrões reutilizáveis para uniformidade.</p>
+  </div>
+  <div class="features">
+    <!-- Grupos & Subgrupos -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">🏢</span> Grupos & Hierarquia</h3>
+      <div class="dor">Empresa tem múltiplas filiais/áreas. Sem controle de visibilidade (alguém vê dado de outro grupo).</div>
+      <div class="solucao">Hierarquia: Unidade → Grupo → Subgrupo. Visibilidade de checklists/dados por subgrupo do usuário. RLS enforça tudo.</div>
+      <a href="/gestao/grupos" class="feature-link">→ Gerenciar Grupos</a>
+    </div>
+
+    <!-- Usuários & Perfis -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">👥</span> Usuários & Perfis</h3>
+      <div class="dor">Sem controle de quem acessa o quê. Operador vê gestão. Admin não consegue criar múltiplos perfis.</div>
+      <div class="solucao">Gestor cria usuário, atribui perfil (Admin/Gestor/Operador/Consultor) e unidades/subgrupos. Construtor visual de permissões por perfil. Férias (bloqueia notificações).</div>
+      <a href="/gestao/acessos/usuarios" class="feature-link">→ Gerenciar Usuários</a>
+    </div>
+
+    <!-- Turnos -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">🕐</span> Turnos & Horários</h3>
+      <div class="dor">Notificação chega no meio da madrugada. Operador offline recebe alerta desnecessário.</div>
+      <div class="solucao">Turnos: horários de trabalho. Notificações respeita turno (aviso fora → não envia realtime, acumula). Agendamento: libera checklists automaticamente em data/hora.</div>
+      <a href="/gestao/configuracoes/turnos" class="feature-link">→ Gerenciar Turnos</a>
+    </div>
+
+    <!-- Catálogos -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">📚</span> Catálogos (Dropdowns)</h3>
+      <div class="dor">Valores repetidos errado em cada checklist. Sem padronização (mesma coisa com nomes diferentes).</div>
+      <div class="solucao">Catálogos reutilizáveis: listas de valores, hierárquicas, com ícones. Um cadastro, usa em múltiplos checklists. Garantia de padronização.</div>
+      <a href="/gestao/configuracoes/catalogos" class="feature-link">→ Gerenciar Catálogos</a>
+    </div>
+  </div>
+</section>
+
+<!-- SEÇÃO 5: PADRÕES -->
+<section class="padroes-section">
+  <h3>📐 Padrões para Controles Complexos</h3>
+  <p style="text-align: center; margin-bottom: 30px; color: #666;">Defina faixas de aceitação e combine para criar lógicas robustas.</p>
+  <div class="padroes-grid">
+    <div class="padrao-card">
+      <h4>🌡️ Faixa Numérica</h4>
+      <p>Min/Max para atividades tipo "Número". Exemplo: temperatura 18–25°C é OK, fora disso reprova automaticamente.</p>
+    </div>
+    <div class="padrao-card">
+      <h4>🔢 Variáveis</h4>
+      <p>Nomeia faixas (ex.: "Temp_Sala_A", "pH_Ideal"). Combina em múltiplas instâncias e checklists sem duplicar.</p>
+    </div>
+    <div class="padrao-card">
+      <h4>🧩 Combinações</h4>
+      <p>Agrupa variáveis em um padrão reutilizável. Exemplo: "Validação_Água" = {Temperatura, pH, Cloro}. Usa em checklist de piscina de qualquer filial.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SEÇÃO 6: BILLING & PARCERIAS -->
+<section>
+  <div class="section-header">
+    <h2>💳 Planos & Parcerias</h2>
+    <p>Flexibilidade de modelos de negócio: SaaS, white-label, split de receita.</p>
+  </div>
+  <div class="features">
+    <!-- Planos -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">📦</span> Planos Flexíveis</h3>
+      <div class="dor">Precisa de features diferentes por unidade / cliente. Sem forma de cobrar por uso.</div>
+      <div class="solucao">Planos escalonados (Gratuito/Trial/Profissional/Escala) com features ativas por plano. Limites em execuções/mês, armazenamento, tokens IA. Ciclo mensal ou anual.</div>
+      <a href="/sistema/planos" class="feature-link">→ Ver Planos</a>
+    </div>
+
+    <!-- Parceiros & White-label -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">🤝</span> Parceiros & White-label</h3>
+      <div class="dor">Quer revender CheckFlow mas sem marca CheckFlow / sem aparência de genérico.</div>
+      <div class="solucao">Programa de parceiros com KYC. Criação de sub-conta automática no processador de pagamento. Split de receita automático. Pré-cadastro público e validação da equipe.</div>
+      <a href="/sistema/parceiros" class="feature-link">→ Parceiros</a>
+    </div>
+
+    <!-- Segurança & Compliance -->
+    <div class="feature-card">
+      <h3><span class="feature-icon">🔐</span> Segurança & Compliance</h3>
+      <div class="dor">Dado de clientes mistura. Não tem controle de acesso. Regulador quer evidência de segurança.</div>
+      <div class="solucao">Row-level security (RLS) por empresa/unidade. Cada empresa vê SÓ seu dado. Auditoria imutável. Conformidade multilocatário. Integração com auth moderno (SSO ready).</div>
+      <a href="/" class="feature-link">→ Saiba Mais</a>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<!-- Footer -->
+<footer>
+  <div class="container">
+    <h3>Pronto para começar?</h3>
+    <p>Teste CheckFlow grátis. Sem cartão. Sem compromisso.</p>
+    <a href="/" class="footer-cta">Criar Conta Gratuita</a>
+  </div>
+</footer>
+
+</body>
+</html>
