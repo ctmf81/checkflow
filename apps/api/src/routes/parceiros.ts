@@ -4,6 +4,10 @@ import ws from 'ws'
 import { enviarEmail } from '../lib/email'
 import { emailParceiroBoasVindas, emailParceiroResumoMensal } from '../lib/email-templates'
 import { asaasCriarSubconta } from '../lib/asaas'
+import { validarInteresseParceiro, montarEmailInteresse } from '../lib/interesseParceiro'
+
+// Destino dos leads do formulário público de parceiros.
+const EMAIL_CONTATO = process.env.EMAIL_CONTATO ?? 'contato@checkflow.digital'
 
 const MESES = [
   'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -41,6 +45,25 @@ export async function parceiroRoutes(app: FastifyInstance) {
   // Node 20 não tem WebSocket nativo — `ws` evita crash do RealtimeClient
   const sb = () => createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!,
     { realtime: { transport: ws as any } })
+
+  // POST /parceiros/interesse — formulário público da apresentação de parceiros.
+  // SEM auth (chamado da página aberta /apresentacao_parceiro). Validação +
+  // honeypot contra spam; ao passar, dispara e-mail para o contato comercial.
+  app.post('/parceiros/interesse', async (req, reply) => {
+    const v = validarInteresseParceiro(req.body as any)
+    if (!v.ok) {
+      // Honeypot: responde ok e descarta (não sinaliza ao bot que foi barrado).
+      if (v.spam) return reply.send({ ok: true })
+      return reply.status(400).send({ error: v.erro })
+    }
+    const { assunto, html } = montarEmailInteresse(v.dados)
+    const r = await enviarEmail({ para: EMAIL_CONTATO, assunto, html })
+    if (!r.ok) {
+      req.log.error({ erro: r.erro }, 'falha ao enviar e-mail de interesse de parceiro')
+      return reply.status(502).send({ error: 'Não foi possível enviar agora. Tente novamente em instantes.' })
+    }
+    return reply.send({ ok: true })
+  })
 
   // POST /parceiros/boas-vindas — dispara o email de boas-vindas (1x por parceiro)
   app.post('/parceiros/boas-vindas', async (req, reply) => {
