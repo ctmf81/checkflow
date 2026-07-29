@@ -14,6 +14,12 @@ const nextConfig: NextConfig = {
   // Não expor o banner de versão (X-Powered-By: Next.js) — info disclosure
   // apontada pelo pentest HTTP (pentest/http_probe.mjs).
   poweredByHeader: false,
+  async rewrites() {
+    return [
+      { source: "/apresentacao_parceiro", destination: "/apresentacao_parceiro.html" },
+      { source: "/conheca-checkflow", destination: "/conheca-checkflow.html" },
+    ];
+  },
   async headers() {
     return [
       {
