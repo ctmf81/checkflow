@@ -1,17 +1,35 @@
 import { describe, it, expect } from 'vitest'
-import { validarInteresseParceiro, montarEmailInteresse } from './interesseParceiro'
+import { validarInteresseParceiro, montarMensagem } from './interesseParceiro'
 
 describe('validarInteresseParceiro()', () => {
-  const base = { nome: 'Ana Consultora', email: 'ana@exemplo.com', telefone: '(11) 99999-8888' }
+  const base = {
+    nome: 'Ana Consultora',
+    documento: '123.456.789-09',
+    email: 'ana@exemplo.com',
+    telefone: '(11) 99999-8888',
+  }
 
-  it('aceita um envio válido e normaliza (trim + cap)', () => {
-    const r = validarInteresseParceiro({ ...base, nome: '  Ana  ', cidade: 'Recife', area: 'Qualidade' })
+  it('aceita um envio válido e normaliza documento/telefone', () => {
+    const r = validarInteresseParceiro({ ...base, nome: '  Ana  ', cep: '01001-000' })
     expect(r.ok).toBe(true)
     if (r.ok) {
       expect(r.dados.nome).toBe('Ana')
-      expect(r.dados.cidade).toBe('Recife')
+      expect(r.dados.documento).toBe('12345678909') // só dígitos
+      expect(r.dados.cep).toBe('01001000')
       expect(r.dados.email).toBe('ana@exemplo.com')
     }
+  })
+
+  it('aceita CNPJ (14 dígitos)', () => {
+    const r = validarInteresseParceiro({ ...base, documento: '11.222.333/0001-81' })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.dados.documento).toBe('11222333000181')
+  })
+
+  it('rejeita documento que não é CPF nem CNPJ', () => {
+    const r = validarInteresseParceiro({ ...base, documento: '123' })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.erro).toMatch(/CPF|CNPJ/i)
   })
 
   it('rejeita nome ausente', () => {
@@ -26,7 +44,7 @@ describe('validarInteresseParceiro()', () => {
     if (!r.ok) expect(r.erro).toMatch(/e-mail/i)
   })
 
-  it('rejeita telefone curto (menos de 8 dígitos)', () => {
+  it('rejeita telefone curto', () => {
     const r = validarInteresseParceiro({ ...base, telefone: '123' })
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.erro).toMatch(/telefone/i)
@@ -42,30 +60,28 @@ describe('validarInteresseParceiro()', () => {
     expect(validarInteresseParceiro(undefined).ok).toBe(false)
   })
 
-  it('limita o tamanho da observação', () => {
-    const r = validarInteresseParceiro({ ...base, observacao: 'x'.repeat(5000) })
+  it('compõe a mensagem com área, cidade/UF e observação', () => {
+    const r = validarInteresseParceiro({
+      ...base, area: 'Qualidade', cidade: 'Recife', estado: 'PE', observacao: 'Tenho 20 clientes',
+    })
     expect(r.ok).toBe(true)
-    if (r.ok) expect(r.dados.observacao.length).toBe(2000)
+    if (r.ok) {
+      expect(r.dados.mensagem).toContain('Área de atuação: Qualidade')
+      expect(r.dados.mensagem).toContain('Cidade/UF: Recife/PE')
+      expect(r.dados.mensagem).toContain('Observação: Tenho 20 clientes')
+      expect(r.dados.mensagem).toContain('[Interesse via apresentação]')
+    }
   })
 })
 
-describe('montarEmailInteresse()', () => {
-  it('inclui os campos preenchidos e escapa HTML', () => {
-    const { assunto, html } = montarEmailInteresse({
-      nome: 'Ana <b>', cidade: 'Recife', area: 'Qualidade',
-      observacao: '', telefone: '11999998888', email: 'ana@exemplo.com',
-    })
-    expect(assunto).toContain('Ana')
-    expect(html).toContain('ana@exemplo.com')
-    expect(html).toContain('Ana &lt;b&gt;') // escapado, não injeta tag
-    expect(html).not.toContain('<b>')
+describe('montarMensagem()', () => {
+  it('marca a origem mesmo sem campos opcionais', () => {
+    expect(montarMensagem({})).toBe('[Interesse via apresentação]')
   })
 
-  it('omite linhas de campos vazios', () => {
-    const { html } = montarEmailInteresse({
-      nome: 'Ana', cidade: '', area: '', observacao: '', telefone: '11999998888', email: 'ana@exemplo.com',
-    })
-    expect(html).not.toContain('Área de atuação')
-    expect(html).not.toContain('Observação')
+  it('omite cidade/UF quando não há CEP resolvido', () => {
+    const m = montarMensagem({ area: 'Processos' })
+    expect(m).toContain('Área de atuação: Processos')
+    expect(m).not.toContain('Cidade/UF')
   })
 })

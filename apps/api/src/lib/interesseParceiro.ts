@@ -1,39 +1,65 @@
 /**
  * Interesse de parceiro — formulário público da apresentação (/apresentacao_parceiro).
  *
- * Lógica pura (validação + montagem do e-mail) separada da rota para ser testável.
- * A rota `POST /parceiros/interesse` valida o corpo, monta o e-mail e dispara para
- * o endereço de contato. Público (sem auth) → validação + honeypot contra spam.
+ * Lógica pura (validação + montagem do registro) separada da rota para ser testável.
+ * A rota `POST /parceiros/interesse` valida o corpo e GRAVA um pré-cadastro PENDENTE
+ * em `parceiro_pre_cadastros` (mesmo inbox do /seja-parceiro; o admin valida e
+ * aprova em /sistema/parceiros). Público (sem auth) → validação + honeypot anti-spam.
+ *
+ * Não há colunas para "área de atuação" e "cidade/UF" na tabela — elas entram no
+ * campo livre `mensagem` (que o painel já exibe), evitando migration.
  */
 
 export interface InteresseParceiroInput {
   nome?: string
-  cidade?: string
-  area?: string
-  observacao?: string
-  telefone?: string
+  documento?: string      // CPF ou CNPJ
   email?: string
+  telefone?: string
+  cep?: string
+  cidade?: string         // derivada do CEP (ViaCEP) no cliente
+  estado?: string         // UF derivada do CEP
+  area?: string           // área de atuação
+  observacao?: string
   /** honeypot: campo escondido; se vier preenchido, é bot */
   website?: string
 }
 
-export interface InteresseParceiroLimpo {
+/** Linha pronta para inserir em `parceiro_pre_cadastros` (status pendente). */
+export interface PreCadastroParceiro {
   nome: string
-  cidade: string
-  area: string
-  observacao: string
-  telefone: string
+  documento: string
   email: string
+  telefone: string | null
+  cep: string | null
+  mensagem: string
 }
 
 export type ResultadoValidacao =
-  | { ok: true; dados: InteresseParceiroLimpo }
+  | { ok: true; dados: PreCadastroParceiro }
   | { ok: false; erro: string; spam?: boolean }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function cap(s: string | undefined, n: number): string {
   return (s ?? '').trim().slice(0, n)
+}
+
+function digitos(s: string | undefined): string {
+  return (s ?? '').replace(/\D/g, '')
+}
+
+/** Monta o texto que vai em `mensagem` (área, cidade/UF e observação livre). */
+export function montarMensagem(i: InteresseParceiroInput): string {
+  const area = cap(i.area, 160)
+  const cidade = cap(i.cidade, 120)
+  const estado = cap(i.estado, 40)
+  const obs = cap(i.observacao, 2000)
+
+  const partes = ['[Interesse via apresentação]']
+  if (area) partes.push(`Área de atuação: ${area}`)
+  if (cidade || estado) partes.push(`Cidade/UF: ${[cidade, estado].filter(Boolean).join('/')}`)
+  if (obs) partes.push(`Observação: ${obs}`)
+  return partes.join('\n')
 }
 
 export function validarInteresseParceiro(body: InteresseParceiroInput | undefined | null): ResultadoValidacao {
@@ -45,64 +71,25 @@ export function validarInteresseParceiro(body: InteresseParceiroInput | undefine
     return { ok: false, erro: 'spam', spam: true }
   }
 
-  const nome = (b.nome ?? '').trim()
+  const nome = cap(b.nome, 120)
   const email = (b.email ?? '').trim()
-  const telefone = (b.telefone ?? '').trim()
+  const doc = digitos(b.documento)
+  const tel = digitos(b.telefone)
 
   if (nome.length < 2) return { ok: false, erro: 'Informe seu nome.' }
   if (!EMAIL_RE.test(email)) return { ok: false, erro: 'Informe um e-mail válido.' }
-  if (telefone.replace(/\D/g, '').length < 8) return { ok: false, erro: 'Informe um telefone válido.' }
+  if (doc.length !== 11 && doc.length !== 14) return { ok: false, erro: 'Informe um CPF ou CNPJ válido.' }
+  if (tel.length < 8) return { ok: false, erro: 'Informe um telefone válido.' }
 
   return {
     ok: true,
     dados: {
-      nome: cap(nome, 120),
-      cidade: cap(b.cidade, 120),
-      area: cap(b.area, 160),
-      observacao: cap(b.observacao, 2000),
-      telefone: cap(telefone, 40),
+      nome,
+      documento: doc,
       email: cap(email, 200),
+      telefone: cap(b.telefone, 40) || null,
+      cep: digitos(b.cep) || null,
+      mensagem: montarMensagem(b),
     },
   }
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-export function montarEmailInteresse(d: InteresseParceiroLimpo): { assunto: string; html: string } {
-  const linha = (rotulo: string, valor: string) =>
-    valor
-      ? `<tr>
-           <td style="padding:8px 14px;color:#64748b;font:600 12px/1.4 -apple-system,Segoe UI,sans-serif;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;vertical-align:top">${rotulo}</td>
-           <td style="padding:8px 14px;color:#0f172a;font:14px/1.5 -apple-system,Segoe UI,sans-serif">${escapeHtml(valor)}</td>
-         </tr>`
-      : ''
-
-  const assunto = `Novo interesse de parceiro — ${d.nome}`
-  const html = `
-  <div style="background:#f1f5f9;padding:24px">
-    <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden">
-      <div style="background:#12a150;padding:18px 24px;color:#fff;font:700 16px -apple-system,Segoe UI,sans-serif">
-        CheckFlow · Novo interesse de parceiro
-      </div>
-      <table style="width:100%;border-collapse:collapse">
-        ${linha('Nome', d.nome)}
-        ${linha('E-mail', d.email)}
-        ${linha('Telefone', d.telefone)}
-        ${linha('Cidade', d.cidade)}
-        ${linha('Área de atuação', d.area)}
-        ${linha('Observação', d.observacao)}
-      </table>
-      <div style="padding:14px 24px;color:#94a3b8;font:12px -apple-system,Segoe UI,sans-serif;border-top:1px solid #e2e8f0">
-        Enviado pelo formulário da página /apresentacao_parceiro.
-      </div>
-    </div>
-  </div>`
-
-  return { assunto, html }
 }
