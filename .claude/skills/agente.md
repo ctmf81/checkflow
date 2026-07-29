@@ -80,3 +80,7 @@ Não têm acesso local por padrão. Três caminhos:
 ## Segurança
 - Só conexões de saída; **nunca** expor câmera/dispositivo na internet (sem port-forward).
 - Token por instância de agente. Credenciais de dispositivo ficam na config (nuvem), não no chat.
+- ⚠️ **Descoberta/varredura só em rede PRÓPRIA ou autorizada.** Port scan da sub-rede +
+  tentativas de credencial RTSP **parecem recon/ataque** e disparam o monitoramento de
+  segurança de redes corporativas. No produto, o agente roda **na rede do próprio cliente,
+  com consentimento** — nunca escanear rede de terceiros/empresa sem permissão da TI.
