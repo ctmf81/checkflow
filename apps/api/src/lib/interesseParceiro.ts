@@ -48,6 +48,47 @@ function digitos(s: string | undefined): string {
   return (s ?? '').replace(/\D/g, '')
 }
 
+function todosIguais(d: string): boolean {
+  return /^(\d)\1+$/.test(d)
+}
+
+/** Validação real (dígito verificador) de CPF. */
+export function cpfValido(valor: string): boolean {
+  const d = digitos(valor)
+  if (d.length !== 11 || todosIguais(d)) return false
+  const dv = (fim: number) => {
+    let soma = 0
+    for (let i = 0; i < fim; i++) soma += Number(d[i]) * (fim + 1 - i)
+    const r = (soma * 10) % 11
+    return r === 10 ? 0 : r
+  }
+  return dv(9) === Number(d[9]) && dv(10) === Number(d[10])
+}
+
+/** Validação real (dígito verificador) de CNPJ. */
+export function cnpjValido(valor: string): boolean {
+  const d = digitos(valor)
+  if (d.length !== 14 || todosIguais(d)) return false
+  const dv = (len: number) => {
+    const pesos = len === 12
+      ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+      : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    let soma = 0
+    for (let i = 0; i < len; i++) soma += Number(d[i]) * pesos[i]
+    const r = soma % 11
+    return r < 2 ? 0 : 11 - r
+  }
+  return dv(12) === Number(d[12]) && dv(13) === Number(d[13])
+}
+
+/** Aceita CPF (11) ou CNPJ (14) com dígito verificador correto. */
+export function documentoValido(valor: string): boolean {
+  const d = digitos(valor)
+  if (d.length === 11) return cpfValido(d)
+  if (d.length === 14) return cnpjValido(d)
+  return false
+}
+
 /** Monta o texto que vai em `mensagem` (área, cidade/UF e observação livre). */
 export function montarMensagem(i: InteresseParceiroInput): string {
   const area = cap(i.area, 160)
@@ -78,7 +119,7 @@ export function validarInteresseParceiro(body: InteresseParceiroInput | undefine
 
   if (nome.length < 2) return { ok: false, erro: 'Informe seu nome.' }
   if (!EMAIL_RE.test(email)) return { ok: false, erro: 'Informe um e-mail válido.' }
-  if (doc.length !== 11 && doc.length !== 14) return { ok: false, erro: 'Informe um CPF ou CNPJ válido.' }
+  if (!documentoValido(doc)) return { ok: false, erro: 'Informe um CPF ou CNPJ válido.' }
   if (tel.length < 8) return { ok: false, erro: 'Informe um telefone válido.' }
 
   return {

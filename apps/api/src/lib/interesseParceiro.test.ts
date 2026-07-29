@@ -1,5 +1,30 @@
 import { describe, it, expect } from 'vitest'
-import { validarInteresseParceiro, montarMensagem } from './interesseParceiro'
+import { validarInteresseParceiro, montarMensagem, cpfValido, cnpjValido, documentoValido } from './interesseParceiro'
+
+describe('validação de documento (dígito verificador)', () => {
+  it('CPF válido', () => {
+    expect(cpfValido('111.444.777-35')).toBe(true)
+    expect(cpfValido('12345678909')).toBe(true)
+  })
+  it('CPF inválido (dígito errado / todos iguais / tamanho)', () => {
+    expect(cpfValido('111.444.777-30')).toBe(false)
+    expect(cpfValido('11111111111')).toBe(false)
+    expect(cpfValido('123')).toBe(false)
+  })
+  it('CNPJ válido', () => {
+    expect(cnpjValido('11.222.333/0001-81')).toBe(true)
+  })
+  it('CNPJ inválido (dígito errado / todos iguais)', () => {
+    expect(cnpjValido('11.222.333/0001-99')).toBe(false)
+    expect(cnpjValido('00000000000000')).toBe(false)
+  })
+  it('documentoValido aceita CPF ou CNPJ e rejeita o resto', () => {
+    expect(documentoValido('12345678909')).toBe(true)
+    expect(documentoValido('11222333000181')).toBe(true)
+    expect(documentoValido('12345678900')).toBe(false) // 11 díg. mas DV errado
+    expect(documentoValido('123456789')).toBe(false)
+  })
+})
 
 describe('validarInteresseParceiro()', () => {
   const base = {
