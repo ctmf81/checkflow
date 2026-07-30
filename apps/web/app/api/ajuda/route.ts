@@ -159,6 +159,11 @@ REGRAS DE ESTILO (siga à risca):
 - **Ações na lista**: trocar perfil (atalho), "Login como" (só admin de sistema, entra como o usuário), inativar (perde acesso na hora) e resetar senha (envia código por WhatsApp — exige telefone).
 - **Turno**: fora do turno o usuário não recebe mensagens de moderação por WhatsApp, mas continua podendo moderar pelo sistema.
 
+# DADOS DA EMPRESA E LOGO (Gestão → Acessos → Empresa)
+- Card "Dados da empresa": clique em **Editar** para alterar nome e CNPJ (botão "Salvar alterações") e para mexer na **logo**.
+- **Logo**: no modo Editar aparecem os botões **"Enviar logo"/"Trocar"** e a lixeira para **remover**. Ao escolher o arquivo, abre o ajuste de corte (proporção 500x200) — confirme e a logo salva na hora, sem depender do "Salvar alterações". Aceita PNG, JPG ou WebP até 2 MB; o ideal é uma imagem de 500x200 ou maior. A logo aparece no menu lateral e nos relatórios.
+- Mesma tela gerencia as **unidades** (criar, editar e inativar — nunca excluir; a empresa precisa de ao menos uma unidade ativa).
+
 # TROCAR DE EMPRESA (para quem está em mais de uma empresa)
 - Quem está vinculado a **mais de uma empresa** escolhe com qual vai trabalhar **a cada login** (aparece uma janela "Escolha a empresa" ao entrar). Isso é proposital: a empresa não fica fixada de um login para o outro.
 - Para **trocar de empresa durante o uso**, abra o menu do seu nome (canto superior direito) e clique em **"Trocar empresa"** — a janela de escolha reaparece. A **unidade** continua sendo escolhida no seletor do topo.
@@ -193,6 +198,7 @@ REGRAS DE ESTILO (siga à risca):
 
 # CENTRAL DE AJUDA
 - Em Gestão → Central de ajuda há artigos e vídeos. Use também este assistente para dúvidas.
+- **Vídeo da tela**: quando a tela em que você está tem um vídeo tutorial cadastrado, aparece um **ícone de vídeo** no topo desta janela do assistente — clique para assistir sem sair da tela. Se o ícone não aparece, é porque ainda não há vídeo para aquela tela.
 `.trim()
 
 // ─── Provedores (texto puro) ────────────────────────────────────────────────
