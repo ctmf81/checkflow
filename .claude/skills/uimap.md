@@ -34,7 +34,7 @@ Layout: `gestao/layout.tsx` — sidebar + SessionProvider
 | `/gestao/grupos/[id]/subgrupos` | `gestao/grupos/[id]/subgrupos/page.tsx` | Subgrupos |
 | `/gestao/acessos/usuarios` | `gestao/acessos/usuarios/page.tsx` | User management + **QR pré-cadastro** (`QrPreCadastroModal`) e **moderação** de pendentes com contador (`ModeracaoPreCadastroModal` → aprovar escolhe perfil+unidades e reusa `/api/usuarios/criar`) |
 | `/gestao/acessos/perfis` | `gestao/acessos/perfis/page.tsx` | Access profiles |
-| `/gestao/acessos/empresa` | `gestao/acessos/empresa/page.tsx` | Company/units config |
+| `/gestao/acessos/empresa` | `gestao/acessos/empresa/page.tsx` | Company/units config — inclui **troca/remoção da logo** (`ImageCropModal` → `/api/empresa/logo`, lógica pura em `lib/logoEmpresa.ts`) |
 | `/gestao/acessos/turnos` | `gestao/acessos/turnos/page.tsx` | Turnos (shift windows) — TurnoModal.tsx |
 | `/gestao/configuracoes/documentos` | `gestao/configuracoes/documentos/page.tsx` | Document library |
 | `/gestao/configuracoes/nao-execucao` | `gestao/configuracoes/nao-execucao/page.tsx` | Non-execution reasons |

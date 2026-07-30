@@ -234,6 +234,7 @@ Visualização **somente-leitura** de uma execução já respondida, compartilha
 
 ## Acessos → Empresa (`/gestao/acessos/empresa`)
 Configuração da **própria empresa e suas unidades** (recurso core, nunca gateado por plano). Edita dados da empresa e gere unidades. É gestão da própria conta — não é vazamento entre tenants, só visibilidade (ver `/security`, RECURSOS_CORE).
+- **Logo** (2026-07-29): no modo Editar dá para **enviar/trocar** (crop 500x200 via `ImageCropModal`) e **remover** (com confirmação). Antes só era possível definir na criação da empresa. Salva na hora, independente do botão "Salvar alterações" (que segue cobrindo nome/CNPJ). Sobe por `POST /api/empresa/logo` (multipart) / `DELETE` — **nunca do browser direto**: a policy `upload_logo` do bucket `empresas` só libera `logos/%` para `is_admin_sistema()`. Limites: JPG/PNG/WebP até 2 MB; o arquivo antigo é apagado do bucket na troca.
 
 ## Operação — tela principal (`/operacao`)
 - Acesso restrito a usuários com **perfil de Operação** (ou perfil que permita a tela). Sem seletor de unidade na tela (unidade vem da sessão).
