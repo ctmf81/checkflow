@@ -5,6 +5,32 @@ description: Business rules and product logic for CheckFlow. Consult this skill 
 
 # Business Rules
 
+## Apresentações Públicas — Captação de Parceiros e Conhecimento de Produtos (2026-07-29)
+Páginas **estáticas abertas** servidas de `/public/`, sem login, com **rewrites** em `next.config.ts` para URL limpa. RLS não se aplica (não usa auth). Duas páginas vivas:
+
+### `/apresentacao_parceiro` — Programa de Parceiros
+- **URL**: `app.checkflow.digital/apresentacao_parceiro` (rewrite de `/apresentacao_parceiro.html`)
+- **Conteúdo**: 7 segmentos de negócio (Agronegócio, Qualidade, Condomínios, Varejo, Indústrias, Construção, Eventos). Cada um exibe dor (problema) + solução (como CheckFlow resolve).
+- **Modal "Quero ser parceiro"**: formulário de **interesse de parceiro** → `POST /parceiros/interesse` (rota **pública, sem auth**).
+  - **Campos**: nome* (≤120 car), **CPF/CNPJ*** (11 ou 14 dígitos, **validação real de dígito verificador**, rejeita falsos), telefone* (≥8 dígitos), e-mail* (regex), CEP (⇒ preenche cidade/UF via ViaCEP no cliente), área de atuação (≤160 car), observação (≤2000 car).
+  - **Validação**: `apps/api/src/lib/interesseParceiro.ts` (funções puras `cpfValido`, `cnpjValido`, `documentoValido` + `validarInteresseParceiro`). Honeypot (`website` field, invisível, rejeita como spam).
+  - **Fluxo**: formulário `→ POST /parceiros/interesse → INSERT parceiro_pre_cadastros (status='pendente')` (service role força sempre `'pendente'`, anon pode inserir via RLS). **Nenhum e-mail enviado** (antes era, mudou 2026-07-29).
+  - **Destino no sistema**: pré-cadastro cai em `/sistema/parceiros → "Interessados aguardando validação"`, onde o admin aprova (cria `parceiros` ativo) ou rejeita. **Mesmo inbox do `/seja-parceiro`**, sem aba separada (reutiliza estrutura existente).
+  - **Dados no banco**: documento (só dígitos, 11/14), CEP (só dígitos), **área+cidade/UF vão no campo `mensagem`** (texto livre, já exibido no painel, marca `[Interesse via apresentação]` pra distinguir de `/seja-parceiro`).
+
+### `/conheca-checkflow` — Conheça o CheckFlow (Feature Discovery)
+- **URL**: `app.checkflow.digital/conheca-checkflow` (rewrite de `/conheca-checkflow.html`)
+- **Conteúdo**: página de marketing com **todas as 40+ funcionalidades do CheckFlow** agrupadas em **6 seções**:
+  1. **Operação & Execução**: checklists, offline (PWA), documentos (POP/IT), tarefas, tickets, histórico.
+  2. **Inteligência Artificial**: IA por foto, Consulta Inteligente, Relatórios por IA, IA monta checklist.
+  3. **Gestão & Moderação**: painéis (dashboards), indicadores (KPIs), planos de ação, home/visão geral.
+  4. **Estrutura & Configuração**: grupos/hierarquia, usuários/perfis, turnos, catálogos.
+  5. **Padrões**: para controles numéricos/complexos (variáveis, faixas, combinações).
+  6. **Billing & Parcerias**: planos, white-label, segurança/compliance.
+- **Por funcionalidade**: dor (problema) em box vermelho + solução (como resolve) em box verde + link "Ver em ação" → página interna (/operacao, /gestao/*, /sistema/*, etc).
+- **Visual**: design corporativo (sem emojis, paleta azul #1a3a52/#2c5aa0, typography clean, cards com sombra sutil).
+- **Caso de uso**: visitante anônimo quer entender "o que CheckFlow faz" antes de se interessar como parceiro ou cliente.
+
 ## ⏳ BACKLOG — Funcionalidades modulares por empresa (pendente) — 2026-06-18
 O sistema é grande e pode confundir empresas pequenas. Ideia: cada empresa **habilita só as funcionalidades (telas) que usa**.
 - **Na criação da empresa**, o admin escolhe quais funcionalidades/telas ficam liberadas (começa enxuto).
@@ -208,6 +234,7 @@ Visualização **somente-leitura** de uma execução já respondida, compartilha
 
 ## Acessos → Empresa (`/gestao/acessos/empresa`)
 Configuração da **própria empresa e suas unidades** (recurso core, nunca gateado por plano). Edita dados da empresa e gere unidades. É gestão da própria conta — não é vazamento entre tenants, só visibilidade (ver `/security`, RECURSOS_CORE).
+- **Logo** (2026-07-29): no modo Editar dá para **enviar/trocar** (crop 500x200 via `ImageCropModal`) e **remover** (com confirmação). Antes só era possível definir na criação da empresa. O **admin de sistema** faz o mesmo em `\sistema\empresas\[id]` → aba **Configurações** (mesma rota). Salva na hora, independente do botão "Salvar alterações" (que segue cobrindo nome/CNPJ). Sobe por `POST /api/empresa/logo` (multipart) / `DELETE` — **nunca do browser direto**: a policy `upload_logo` do bucket `empresas` só libera `logos/%` para `is_admin_sistema()`. Limites: JPG/PNG/WebP até 2 MB; o arquivo antigo é apagado do bucket na troca.
 
 ## Operação — tela principal (`/operacao`)
 - Acesso restrito a usuários com **perfil de Operação** (ou perfil que permita a tela). Sem seletor de unidade na tela (unidade vem da sessão).
