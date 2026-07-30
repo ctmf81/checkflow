@@ -183,16 +183,15 @@ export function Sidebar() {
         'fixed inset-y-0 left-0 transition-transform duration-200 lg:static lg:translate-x-0 lg:min-h-screen',
         aberta ? 'translate-x-0 shadow-xl' : '-translate-x-full'
       )}>
-        <div className="px-4 mb-6 h-10 flex items-center justify-between">
-          {logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt="Logo" className="max-h-8 max-w-[180px] object-contain" />
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src="/logo-checkflow.png" alt="CheckFlow" className="max-h-8 max-w-[180px] object-contain" />
-          )}
+        {/* Logo centralizada: o "fechar" do mobile fica absoluto para não
+            deslocar o centro. */}
+        <div className="relative px-4 mb-6 h-10 flex items-center justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={logoUrl ?? '/logo-checkflow.png'} alt={logoUrl ? 'Logo' : 'CheckFlow'}
+            className="max-h-8 max-w-[150px] object-contain" />
           {/* Fechar — só no mobile */}
-          <button onClick={fechar} className="lg:hidden text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar menu">
+          <button onClick={fechar} aria-label="Fechar menu"
+            className="lg:hidden absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1">
             <X size={18} />
           </button>
         </div>
