@@ -335,6 +335,15 @@ Editado pelo admin em `/sistema/termos` (`TermosAdminPage`): salvar **insere uma
 
 Cadastrado em `\sistema\ajuda` → aba "Vídeos por tela". Conversão do link em URL de embed e resolução da rota (prefixo mais específico) em `apps/web/lib/ajudaVideos.ts`. Ver `/biz`.
 
+### Empresa demo / gerador de dados (migration 20260730150000)
+| Coluna/objeto | Descrição |
+|---------------|-----------|
+| `empresas.demo` (bool) | Empresa de demonstração. **Fonte da verdade**: (a) `empresa_fase_assinatura` tem curto-circuito no topo → demo **sempre `ativa`** (isenta de billing/bloqueio); (b) habilita o gerador. **NUNCA** marcar cliente pagante. |
+| `empresas.demo_vertical` (text) | Vertical: `fabrica_alimentos` \| `condominio` (registry em `apps/web/lib/demo/verticais`). |
+| plano **"Demonstração"** | `tipo='cortesia'`, limites `null` (ilimitado), não-padrão. Cortesia já resolve p/ `ativa` sem trial. |
+
+Gerador: `POST /api/empresa/demo/gerar` (service role, **blindado por `empresas.demo`**). Provisiona a vertical (idempotente: unidade→grupos→subgrupos, catálogos+valores, usuários com auth `<cpf>@demo.checkflow.local` senha `Demo@2026`, checklists **publicados** com `checklist_versoes` snapshot, `causa_raiz`, tickets, `tarefa_listas`) e **ACRESCENTA** (append, não apaga) execuções (`concluido`+`resultado`) + respostas (`{valor}`/`{valor_chave}`+`conforme`) + `planos_acao` na janela de 30 dias. Planos nascem com `aberto_notificado_em` (cron não dispara WhatsApp); sem foto/vídeo. Lógica pura testada em `lib/demo/` (motor, templates, validador, respostas). Ver `/biz`, `/uimap`.
+
 ### ⚠️ Unidades — NUNCA hard delete
 Quase toda a árvore referencia `unidades(id)` com **`on delete cascade`** (grupos, usuario_unidade, checklists, catalogos, documentos, causa_raiz, nao_execucao, tickets, tarefas, padroes, variaveis). Um `delete` de unidade apaga os dados da unidade inteira. Algumas FKs (checklist_execucoes, workflows, planos_acao) são restrict → bloqueiam. **Regra: inativar (`status='inativo'`), nunca deletar** — aplicado em `acessos/empresa/page.tsx` (2026-06-22, era hard delete).
 
