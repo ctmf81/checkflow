@@ -4,6 +4,7 @@ import ws from 'ws'
 import { enviarEmail } from '../lib/email'
 import { emailParceiroBoasVindas, emailParceiroResumoMensal } from '../lib/email-templates'
 import { asaasCriarSubconta } from '../lib/asaas'
+import { validarInteresseParceiro } from '../lib/interesseParceiro'
 
 const MESES = [
   'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -41,6 +42,33 @@ export async function parceiroRoutes(app: FastifyInstance) {
   // Node 20 não tem WebSocket nativo — `ws` evita crash do RealtimeClient
   const sb = () => createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!,
     { realtime: { transport: ws as any } })
+
+  // POST /parceiros/interesse — formulário público da apresentação de parceiros.
+  // SEM auth (chamado da página aberta /apresentacao_parceiro). Validação +
+  // honeypot contra spam; ao passar, GRAVA um pré-cadastro PENDENTE (mesmo inbox
+  // do /seja-parceiro) → aparece em /sistema/parceiros para o admin validar.
+  app.post('/parceiros/interesse', async (req, reply) => {
+    const v = validarInteresseParceiro(req.body as any)
+    if (!v.ok) {
+      // Honeypot: responde ok e descarta (não sinaliza ao bot que foi barrado).
+      if (v.spam) return reply.send({ ok: true })
+      return reply.status(400).send({ error: v.erro })
+    }
+    const { error } = await sb().from('parceiro_pre_cadastros').insert({
+      nome: v.dados.nome,
+      documento: v.dados.documento,
+      email: v.dados.email,
+      telefone: v.dados.telefone,
+      cep: v.dados.cep,
+      mensagem: v.dados.mensagem,
+      status: 'pendente',
+    })
+    if (error) {
+      req.log.error({ erro: error.message }, 'falha ao gravar interesse de parceiro')
+      return reply.status(502).send({ error: 'Não foi possível registrar agora. Tente novamente em instantes.' })
+    }
+    return reply.send({ ok: true })
+  })
 
   // POST /parceiros/boas-vindas — dispara o email de boas-vindas (1x por parceiro)
   app.post('/parceiros/boas-vindas', async (req, reply) => {

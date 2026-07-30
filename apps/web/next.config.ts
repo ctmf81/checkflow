@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
   // Não expor o banner de versão (X-Powered-By: Next.js) — info disclosure
   // apontada pelo pentest HTTP (pentest/http_probe.mjs).
   poweredByHeader: false,
+  // URLs limpas para apresentações públicas (páginas de marketing estáticas
+  // servidas de /public). O `.html` continua acessível como fallback.
   async rewrites() {
     return [
       { source: "/apresentacao_parceiro", destination: "/apresentacao_parceiro.html" },
