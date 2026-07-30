@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { MessageCircleQuestion, X, Send, Loader2, Sparkles, BookOpen } from 'lucide-react'
+import { MessageCircleQuestion, X, Send, Loader2, Sparkles, BookOpen, Video } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { AjudaVideo, embedUrlVideo, resolverVideoDaRota } from '@/lib/ajudaVideos'
 
 type Msg = { role: 'user' | 'assistant'; content: string }
 
@@ -132,7 +133,21 @@ export function AssistenteAjuda() {
   const [carregando, setCarregando] = useState(false)
   const fimRef = useRef<HTMLDivElement>(null)
 
+  // Vídeo tutorial da tela (cadastrado pelo admin em /sistema/ajuda → Vídeos por
+  // tela). Sem vídeo para a rota atual, o ícone não aparece.
+  const [videos, setVideos] = useState<AjudaVideo[]>([])
+  const [videoAberto, setVideoAberto] = useState(false)
+  const video = resolverVideoDaRota(pathname, videos)
+  const videoEmbed = embedUrlVideo(video?.url)
+
   useEffect(() => { fimRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, carregando])
+
+  useEffect(() => {
+    let ativo = true
+    createClient().from('ajuda_videos').select('rota, titulo, url').eq('ativo', true)
+      .then(({ data }) => { if (ativo && data) setVideos(data as AjudaVideo[]) })
+    return () => { ativo = false }
+  }, [])
 
   async function enviar(texto: string) {
     const pergunta = texto.trim()
@@ -175,6 +190,13 @@ export function AssistenteAjuda() {
               <span className="font-semibold text-gray-800 text-sm">Assistente CheckFlow</span>
             </div>
             <div className="flex items-center gap-2">
+              {videoEmbed && (
+                <button onClick={() => setVideoAberto(true)}
+                  className="text-gray-400 hover:text-orange-500" title={video?.titulo || 'Vídeo desta tela'}
+                  aria-label="Assistir ao vídeo desta tela">
+                  <Video size={16} />
+                </button>
+              )}
               <button onClick={() => { setAberto(false); router.push('/gestao/ajuda') }}
                 className="text-gray-400 hover:text-orange-500 inline-flex items-center gap-1 text-xs" title="Central de ajuda">
                 <BookOpen size={15} />
@@ -222,6 +244,31 @@ export function AssistenteAjuda() {
               <Send size={16} />
             </button>
           </form>
+        </div>
+      )}
+
+      {videoAberto && videoEmbed && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4"
+          onClick={() => setVideoAberto(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+              <div className="flex items-center gap-2 min-w-0">
+                <Video size={16} className="text-orange-500 flex-shrink-0" />
+                <span className="font-semibold text-gray-800 text-sm truncate">
+                  {video?.titulo || 'Vídeo desta tela'}
+                </span>
+              </div>
+              <button onClick={() => setVideoAberto(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="aspect-video w-full bg-black">
+              <iframe src={videoEmbed} title={video?.titulo || 'Vídeo desta tela'}
+                className="w-full h-full" allowFullScreen
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />
+            </div>
+          </div>
         </div>
       )}
     </>
