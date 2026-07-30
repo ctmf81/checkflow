@@ -108,7 +108,7 @@ Adiciona `permissoes` faltantes que existiam só na UI do `PerfilModal` (sem reg
 | `ticket_categorias` | Árvore self-ref por unidade (`pai_id`, `e_generica`, `ativo`). Unique index: máx 1 categoria genérica por unidade (`where e_generica = true`). Função `garantir_categoria_generica(unidade_id)` cria "Sem categoria" se não existir |
 | `ticket_sla_config` | Config de SLA por unidade+categoria+prioridade (`tempo_aceite_min`, `tempo_resolucao_min`). Unique em `(unidade_id, categoria_id, prioridade)` |
 | `tickets` | Chamado principal: `numero` (sequence), `titulo`, `descricao`, `prioridade` (enum), `status` (enum), `aberto_por_id`, `assignee_id`, `sla_deadline_at`, `sla_pausado_em`, `sla_segundos_pausados`, `execucao_id` (origem opcional), **`ticket_pai_id`** (auto-FK; ≠ null = é duplicado de outro; `on delete set null`, migration `20260720160000`) |
-| `ticket_eventos` | Timeline imutável — bloqueada por `CREATE RULE ... DO INSTEAD NOTHING` em UPDATE e DELETE. `autor_id` **NOT NULL sem default** → o cliente SEMPRE passa `autor_id` (bug corrigido 2026-07-05). FK `autor_id` → `usuarios(id)` (repontada de auth.users em `20260703020000`, senão o embed `autor:usuarios` quebra a query) |
+| `ticket_eventos` | Timeline imutável — bloqueada por `CREATE RULE ... DO INSTEAD NOTHING` em UPDATE e DELETE. ⚠️ **A RULE também quebra o cascade do FK**: `delete from tickets` falha com `referential integrity query on "tickets" from constraint "ticket_eventos_ticket_id_fkey" gave unexpected result`, porque o cascade tenta apagar a linha filha e a RULE engole o DELETE. Para apagar ticket é preciso SQL com `drop rule ticket_eventos_no_delete on ticket_eventos; ... ; create rule ...` (não dá pelo client Supabase — precisa de DDL no SQL Editor). Descoberto em 2026-07-29 limpando dados de demo da Amadê. `autor_id` **NOT NULL sem default** → o cliente SEMPRE passa `autor_id` (bug corrigido 2026-07-05). FK `autor_id` → `usuarios(id)` (repontada de auth.users em `20260703020000`, senão o embed `autor:usuarios` quebra a query) |
 | `ticket_evidencias` | Fotos/vídeos/documentos. `uploaded_by` **NOT NULL** e `evento_id` devem ser passados pelo cliente (bugs 2026-07-05). Sobe no bucket `execucoes` em `tickets/<ticket_id>/...` |
 
 **Enums:** `ticket_status` (aberto/em_tratamento/aguardando_informacao/aguardando_validacao/corrigido/nao_corrigido/corrigido_parcialmente/cancelado/improcedente/**`duplicado`** — este último adicionado em `20260720150000`; `corrigido_parcialmente` e `improcedente` não são mais oferecidos na UI desde 2026-07-05, só histórico), `ticket_prioridade` (critica/alta/media/baixa), `ticket_evento_tipo` (+ **`vinculo`/`desvinculo`** em `20260720150000`; `conclusao` em `20260703010000`)
@@ -327,6 +327,13 @@ Rota `/api/documentos/consultar` lê `ia_provedores` (ativo, por ordem) como fon
 
 `usuarios.termos_aceitos_em` (timestamptz) + `termos_versao_aceita` (text) — registra o aceite individual.
 Editado pelo admin em `/sistema/termos` (`TermosAdminPage`): salvar **insere uma nova versão** (não faz update), forçando reaceite de todos os usuários automaticamente — sem nova migration. RLS: leitura liberada a todos, escrita restrita a `is_admin_sistema()`.
+
+### Vídeo tutorial por tela (migration 20260730120000)
+| Table | Description |
+|-------|-------------|
+| `ajuda_videos` | Vídeo por tela, global p/ todas as empresas: `rota` (**unique** — uma tela = um vídeo; salva normalizada, ex `/gestao/checklists`), `titulo` (nullable), `url` (link YouTube/Drive), `ativo`. RLS: leitura = `ativo or is_admin_sistema()`; escrita = `is_admin_sistema()` |
+
+Cadastrado em `\sistema\ajuda` → aba "Vídeos por tela". Conversão do link em URL de embed e resolução da rota (prefixo mais específico) em `apps/web/lib/ajudaVideos.ts`. Ver `/biz`.
 
 ### ⚠️ Unidades — NUNCA hard delete
 Quase toda a árvore referencia `unidades(id)` com **`on delete cascade`** (grupos, usuario_unidade, checklists, catalogos, documentos, causa_raiz, nao_execucao, tickets, tarefas, padroes, variaveis). Um `delete` de unidade apaga os dados da unidade inteira. Algumas FKs (checklist_execucoes, workflows, planos_acao) são restrict → bloqueiam. **Regra: inativar (`status='inativo'`), nunca deletar** — aplicado em `acessos/empresa/page.tsx` (2026-06-22, era hard delete).
