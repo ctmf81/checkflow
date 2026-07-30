@@ -320,7 +320,10 @@ export default function GestaoHomePage() {
               const pa = e.resultado === 'reprovado' ? resumoPlanos(e.planos) : null
               return (
               <div key={e.id}
-                className="border border-gray-100 rounded-xl px-3 py-2.5 hover:bg-gray-50 transition-colors">
+                role="button" tabIndex={0}
+                onClick={() => router.push(`/gestao/execucoes/${e.id}`)}
+                onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); router.push(`/gestao/execucoes/${e.id}`) } }}
+                className="border border-gray-100 rounded-xl px-3 py-2.5 hover:bg-gray-50 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-200">
                 <div className="flex items-center gap-3">
                   {/* Ícone resultado */}
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
@@ -361,18 +364,13 @@ export default function GestaoHomePage() {
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     {e.planos_abertos > 0 && (
                       <button
-                        onClick={() => router.push(`/gestao/planos-acao?exec=${e.id}`)}
+                        onClick={ev => { ev.stopPropagation(); router.push(`/gestao/planos-acao?exec=${e.id}`) }}
                         title="Ver planos de ação"
                         className="w-7 h-7 flex items-center justify-center rounded-lg text-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-colors">
                         <TrendingDown size={14} />
                       </button>
                     )}
-                    <button
-                      onClick={() => router.push(`/gestao/execucoes/${e.id}`)}
-                      title="Abrir execução"
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors">
-                      <ChevronRight size={14} />
-                    </button>
+                    <ChevronRight size={14} className="text-gray-300 mr-1" aria-hidden="true" />
                   </div>
                 </div>
               </div>
