@@ -341,18 +341,20 @@ export default function GestaoHomePage() {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">{e.checklist_nome}</p>
-                    {/* Tempo e status cada um em sua própria linha */}
-                    <p className="text-xs text-gray-400 mt-0.5">{dataRelativa(e.data_execucao)}</p>
-                    {e.resultado === 'reprovado' && (
-                      <span className={`inline-block mt-1 text-xs px-1.5 py-0.5 rounded-full font-medium border ${
-                        pa?.cor === 'green'  ? 'bg-green-50 text-green-600 border-green-200' :
-                        pa?.cor === 'amber'  ? 'bg-amber-50 text-amber-600 border-amber-200' :
-                        pa?.cor === 'red'    ? 'bg-red-50 text-red-600 border-red-200' :
-                        'bg-red-50 text-red-500 border-red-200'
-                      }`}>
-                        {pa ? (pa.cor === 'amber' ? pa.label : `Reprovado · ${pa.label}`) : 'Reprovado'}
-                      </span>
-                    )}
+                    {/* Mobile: tempo e status empilhados. Desktop: lado a lado. */}
+                    <div className="mt-0.5 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
+                      <p className="text-xs text-gray-400">{dataRelativa(e.data_execucao)}</p>
+                      {e.resultado === 'reprovado' && (
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium border whitespace-nowrap ${
+                          pa?.cor === 'green'  ? 'bg-green-50 text-green-600 border-green-200' :
+                          pa?.cor === 'amber'  ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                          pa?.cor === 'red'    ? 'bg-red-50 text-red-600 border-red-200' :
+                          'bg-red-50 text-red-500 border-red-200'
+                        }`}>
+                          {pa ? (pa.cor === 'amber' ? pa.label : `Reprovado · ${pa.label}`) : 'Reprovado'}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Ações — PDF fica dentro da página de visualização da execução */}
