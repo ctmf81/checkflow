@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Plus, Pencil, Building2, PowerOff } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Plus, Pencil, Building2, PowerOff, ImagePlus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { ImageCropModal } from '@/components/ui/ImageCropModal'
 import { UnidadeModal } from './UnidadeModal'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
@@ -39,6 +40,12 @@ export default function EmpresaPage() {
   const [editando, setEditando] = useState(false)
   const [nome, setNome] = useState('')
   const [cnpj, setCnpj] = useState('')
+
+  // Logo (upload passa pela API — RLS do bucket não deixa o admin da empresa subir direto)
+  const inputLogoRef = useRef<HTMLInputElement>(null)
+  const [imagemSrc, setImagemSrc] = useState<string | null>(null)
+  const [cropAberto, setCropAberto] = useState(false)
+  const [salvandoLogo, setSalvandoLogo] = useState(false)
 
   // Modal unidade
   const [modalUnidade, setModalUnidade] = useState(false)
@@ -80,6 +87,59 @@ export default function EmpresaPage() {
     }
     setEditando(false)
     toast.success('Dados da empresa salvos.')
+    await carregar()
+  }
+
+  function selecionarLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => { setImagemSrc(reader.result as string); setCropAberto(true) }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  async function enviarLogo(blob: Blob) {
+    if (!empresa) return
+    setCropAberto(false)
+    setSalvandoLogo(true)
+    const { data: { session } } = await createClient().auth.getSession()
+    const form = new FormData()
+    form.append('empresaId', empresa.id)
+    form.append('arquivo', new File([blob], 'logo.jpg', { type: 'image/jpeg' }))
+    const res = await fetch('/api/empresa/logo', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: form,
+    })
+    setSalvandoLogo(false)
+    if (!res.ok) {
+      const json = await res.json().catch(() => null)
+      toast.error(json?.message ?? 'Não foi possível salvar a logo.')
+      return
+    }
+    setImagemSrc(null)
+    toast.success('Logo atualizada.')
+    await carregar()
+  }
+
+  async function removerLogo() {
+    if (!empresa) return
+    if (!await confirm({ titulo: 'Remover a logo?', mensagem: 'A empresa volta a aparecer sem logo no sistema e nos relatórios.', confirmarLabel: 'Remover', perigo: true })) return
+    setSalvandoLogo(true)
+    const { data: { session } } = await createClient().auth.getSession()
+    const res = await fetch('/api/empresa/logo', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: JSON.stringify({ empresaId: empresa.id }),
+    })
+    setSalvandoLogo(false)
+    if (!res.ok) {
+      const json = await res.json().catch(() => null)
+      toast.error(json?.message ?? 'Não foi possível remover a logo.')
+      return
+    }
+    toast.success('Logo removida.')
     await carregar()
   }
 
@@ -129,12 +189,42 @@ export default function EmpresaPage() {
 
           <div className="px-6 py-5">
             {/* Logo */}
-            {empresa?.logo_url && (
-              <div className="mb-4">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={empresa.logo_url} alt="Logo" className="h-12 object-contain" />
+            <div className="mb-5">
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">Logo</label>
+              <input ref={inputLogoRef} type="file" accept="image/png,image/jpeg,image/webp"
+                className="hidden" onChange={selecionarLogo} />
+
+              <div className="flex items-center gap-3">
+                {empresa?.logo_url ? (
+                  <div className="w-32 h-[52px] rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={empresa.logo_url} alt="Logo" className="max-w-full max-h-full object-contain" />
+                  </div>
+                ) : (
+                  <div className="w-32 h-[52px] rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center">
+                    <ImagePlus size={20} className="text-gray-300" />
+                  </div>
+                )}
+
+                {editando && (
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" disabled={salvandoLogo}
+                      onClick={() => inputLogoRef.current?.click()}>
+                      {salvandoLogo ? 'Salvando...' : empresa?.logo_url ? 'Trocar' : 'Enviar logo'}
+                    </Button>
+                    {empresa?.logo_url && (
+                      <button type="button" onClick={removerLogo} disabled={salvandoLogo} title="Remover logo"
+                        className="p-1.5 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40">
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
+              {editando && (
+                <p className="text-[11px] text-gray-400 mt-1.5">PNG, JPG ou WebP até 2 MB — ideal 500 x 200 ou maior.</p>
+              )}
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="col-span-1 sm:col-span-2">
@@ -212,6 +302,14 @@ export default function EmpresaPage() {
           )}
         </div>
       </div>
+
+      {cropAberto && imagemSrc && (
+        <ImageCropModal
+          imageSrc={imagemSrc}
+          onConfirm={enviarLogo}
+          onClose={() => { setCropAberto(false); setImagemSrc(null) }}
+        />
+      )}
 
       {modalUnidade && empresa && (
         <UnidadeModal
