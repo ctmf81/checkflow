@@ -182,7 +182,11 @@
   .fcard h4{font-size:.98rem}
   .fcard .tag{font-family:var(--mono); font-size:10px; letter-spacing:.03em; color:var(--brand-deep); background:var(--brand-soft); border-radius:100px; padding:2px 7px; margin-left:6px; vertical-align:middle}
   .fcard p{color:var(--muted); font-size:.85rem; margin-top:6px; line-height:1.45}
-  @media(max-width:640px){ .fcard{flex-basis:82vw} }
+  @media(max-width:640px){
+    .fcar-head{flex-direction:column; align-items:flex-start; gap:4px; margin:24px 0 12px}
+    .fcar-head .hint{font-size:10.5px}
+    .fcard{flex-basis:80vw}
+  }
 
   /* ---- negócio ---- */
   .biz-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:34px}
