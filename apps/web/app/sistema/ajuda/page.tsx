@@ -5,6 +5,7 @@ import { Plus, BookOpen, Pencil, Trash2, Loader2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
 import { useToast, useConfirm } from '@/components/ui/feedback'
+import { VideosPorTela } from './VideosPorTela'
 
 interface Artigo {
   id: string
@@ -23,6 +24,7 @@ export default function SistemaAjudaPage() {
   const [loading, setLoading] = useState(true)
   const [editando, setEditando] = useState<Artigo | null>(null)
   const [aberto, setAberto] = useState(false)
+  const [aba, setAba] = useState<'artigos' | 'videos'>('artigos')
 
   async function carregar() {
     setLoading(true)
@@ -44,11 +46,25 @@ export default function SistemaAjudaPage() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-gray-800">Central de ajuda</h1>
-          <p className="hidden sm:block text-sm text-gray-500 mt-0.5">Artigos e vídeos que aparecem para as empresas em Gestão → Ajuda.</p>
-        </div>
+      <div className="mb-4">
+        <h1 className="text-xl font-bold text-gray-800">Central de ajuda</h1>
+        <p className="hidden sm:block text-sm text-gray-500 mt-0.5">Artigos e vídeos que aparecem para as empresas em Gestão → Ajuda.</p>
+      </div>
+
+      <div className="flex items-center gap-1 border-b border-gray-200 mb-5">
+        {([['artigos', 'Artigos'], ['videos', 'Vídeos por tela']] as const).map(([id, label]) => (
+          <button key={id} onClick={() => setAba(id)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              aba === id ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {aba === 'videos' ? <VideosPorTela /> : (
+      <>
+      <div className="flex items-center justify-end mb-4">
         <Button size="sm" onClick={() => { setEditando(null); setAberto(true) }}><Plus size={14} /> Novo</Button>
       </div>
 
@@ -87,6 +103,8 @@ export default function SistemaAjudaPage() {
       )}
 
       {aberto && <ArtigoModal artigo={editando} onClose={() => setAberto(false)} onSaved={() => { setAberto(false); carregar() }} />}
+      </>
+      )}
     </>
   )
 }
