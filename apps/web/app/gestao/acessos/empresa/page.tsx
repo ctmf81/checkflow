@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Plus, Pencil, Building2, PowerOff, ImagePlus, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Building2, PowerOff, ImagePlus, Trash2, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { ImageCropModal } from '@/components/ui/ImageCropModal'
@@ -18,6 +18,8 @@ interface Empresa {
   cnpj: string | null
   logo_url: string | null
   status: 'ativo' | 'inativo' | 'pendente' | 'bloqueada'
+  demo: boolean
+  demo_vertical: string | null
 }
 
 interface Unidade {
@@ -51,11 +53,14 @@ export default function EmpresaPage() {
   const [modalUnidade, setModalUnidade] = useState(false)
   const [unidadeEditando, setUnidadeEditando] = useState<Unidade | undefined>()
 
+  // Gerador de dados de demonstração (só empresa demo)
+  const [gerandoDemo, setGerandoDemo] = useState(false)
+
   async function carregar() {
     if (!empresaAtiva?.id) { setLoading(false); return }
     const supabase = createClient()
 
-    const { data: emp } = await supabase.from('empresas').select('id, nome, cnpj, logo_url, status').eq('id', empresaAtiva.id).single()
+    const { data: emp } = await supabase.from('empresas').select('id, nome, cnpj, logo_url, status, demo, demo_vertical').eq('id', empresaAtiva.id).single()
     if (emp) {
       setEmpresa(emp)
       setNome(emp.nome)
@@ -141,6 +146,22 @@ export default function EmpresaPage() {
     }
     toast.success('Logo removida.')
     await carregar()
+  }
+
+  async function gerarDadosDemo() {
+    if (!empresa) return
+    if (!await confirm({ titulo: 'Gerar dados dos últimos 30 dias?', mensagem: 'Acrescenta execuções, planos de ação, tickets e tarefas de exemplo (não apaga o que já existe). Use para deixar a demonstração cheia.', confirmarLabel: 'Gerar' })) return
+    setGerandoDemo(true)
+    const { data: { session } } = await createClient().auth.getSession()
+    const res = await fetch('/api/empresa/demo/gerar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: JSON.stringify({ empresaId: empresa.id }),
+    })
+    const json = await res.json().catch(() => null)
+    setGerandoDemo(false)
+    if (!res.ok) { toast.error(json?.detalhe ?? json?.message ?? 'Não foi possível gerar os dados.'); return }
+    toast.success(`Dados gerados: ${json?.criados?.execucoes ?? 0} execuções, ${json?.criados?.planos ?? 0} planos de ação.`)
   }
 
   async function inativarUnidade(id: string) {
@@ -262,6 +283,28 @@ export default function EmpresaPage() {
             )}
           </div>
         </div>
+
+        {/* Card demonstração — só empresa demo */}
+        {empresa?.demo && (
+          <div className="bg-white rounded-xl border border-orange-200 overflow-hidden">
+            <div className="flex items-center gap-2 px-6 py-4 border-b border-orange-100 bg-orange-50">
+              <Sparkles size={15} className="text-orange-500" />
+              <span className="text-xs font-semibold text-orange-600 uppercase tracking-wider">Empresa de demonstração</span>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-sm text-gray-600">
+                Gera dados fictícios dos últimos 30 dias (execuções, planos de ação, tickets e tarefas) para deixar a demonstração cheia.
+                <span className="text-gray-400"> Acrescenta aos dados existentes — não apaga nada.</span>
+              </p>
+              <div className="flex justify-start mt-4">
+                <Button onClick={gerarDadosDemo} disabled={gerandoDemo} size="sm">
+                  <Sparkles size={14} />
+                  {gerandoDemo ? 'Gerando…' : 'Gerar dados dos últimos 30 dias'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Card unidades */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
