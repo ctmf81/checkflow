@@ -447,6 +447,13 @@ Várias pessoas podem abrir chamados para a mesma coisa. **Quem assumiu** um tic
 - **Cobertura do mapa (auditada 2026-07-13)**: checklists, tarefas, grupos, agendamentos, tickets, planos-acao, acessos/usuarios, acessos/perfis, acessos/turnos, catalogos, documentos, **dashboards**, workflows, padrao, nao-execucao, causa-raiz, notificacoes, formatacao, plano, indicadores. Telas sem entrada caíam no fallback genérico (perguntas de checklist) — foi o gap reportado (dashboards). **Regra viva: toda tela de gestão nova = entrada no `SUGESTOES_POR_TELA`** (junto do requisito do `/uimap`).
 - ⏳ Evolução p/ cortar tokens de verdade (quando o MANUAL crescer): enviar só a seção da tela com fallback, ou RAG (pgvector) — ver `/status`.
 
+## Assistente de IA — vídeo tutorial por tela (2026-07-30)
+- No header do assistente, um **ícone de vídeo** abre um modal com o player. **Só aparece se a tela atual tiver vídeo cadastrado e ativo** — sem cadastro, nenhum ícone (nada de placeholder/estado vazio).
+- **Cadastro**: admin de sistema em `\sistema\ajuda` → aba **"Vídeos por tela"** (`VideosPorTela.tsx`). Campos: **rota** (aceita a URL completa colada do navegador — é normalizada), **título** (opcional; default exibido "Vídeo desta tela") e **link**. Prévia do player no próprio modal de cadastro + toggle **Ativo**.
+- **Links aceitos**: YouTube (watch/youtu.be/shorts/embed/live) e Google Drive (`file/d/<id>`, `open?id=`, `uc?id=`) → convertidos p/ URL de embed em `lib/ajudaVideos.ts`. Link não reconhecido **bloqueia o salvamento** (nada de modal quebrado). No Drive o arquivo tem de estar "qualquer pessoa com o link".
+- **Uma tela = um vídeo** (índice único em `ajuda_videos.rota`; violação → mensagem pedindo pra editar o existente). **Telas filhas herdam** o vídeo do prefixo mais específico (`/gestao/checklists` vale p/ `/gestao/checklists/123`), mesma regra do `SUGESTOES_POR_TELA`.
+- O vídeo é **global** (igual p/ todas as empresas), como `ajuda_artigos` e `termos_uso`.
+
 ## Premissa de montagem (mental model) — 2026-06-17
 - Ao montar uma atividade, o que importa é o **tipo de resposta** desejado, não a pergunta. O usuário escolhe o **tipo** pela resposta que quer obter (sim ou não → Sim/Não; valor numérico → Número; escolher entre opções → Múltipla escolha; etc.). A pergunta vai no nome/descrição.
 - Entender as **dependências entre campos** é parte do desenho: a resposta de uma atividade-pai (Sim/Não ou Múltipla escolha) define quais dependentes serão exibidas. Montar = decidir o tipo de cada resposta + a ramificação.

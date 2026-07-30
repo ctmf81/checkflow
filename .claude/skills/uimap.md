@@ -230,7 +230,7 @@ See `/db` skill for full table index by migration file.
 | `/operacao/plano/[id]` | `operacao/plano/[id]/page.tsx` | Visão **somente-leitura** do plano de ação (mantém o operador na Operação) |
 | `/sistema/planos` · `/sistema/pacotes` | `sistema/planos|pacotes/page.tsx` | CRUD do catálogo de planos e pacotes (admin) |
 | `/sistema/templates` (+ `novo/montar`, `[id]/montar`) | `sistema/templates/**` | Curadoria de modelos (reusa `ChecklistMontador` em `modoTemplate`) + **"Gerar com IA"** |
-| `/sistema/ajuda` | `sistema/ajuda/page.tsx` | CRUD dos artigos da central de ajuda |
+| `/sistema/ajuda` | `sistema/ajuda/page.tsx` | 2 abas: **Artigos** (CRUD da central de ajuda) e **Vídeos por tela** (`VideosPorTela.tsx` — CRUD de `ajuda_videos`: rota + título opcional + link YouTube/Drive, com prévia) |
 | `/sistema/empresas/[id]` aba **Plano** | `sistema/empresas/[id]/AssinaturaEmpresa.tsx` | Admin atribui/troca plano da empresa (snapshot) + barras de uso |
 
 ⚠️ **Sistema agora tem menu lateral** (`sistema/layout.tsx` reescrito: `SistemaSidebar` + `SidebarProvider`, drawer mobile). O `ChecklistMontador` ganhou props `modoTemplate` + `baseRoute`.
@@ -239,7 +239,7 @@ See `/db` skill for full table index by migration file.
 | Arquivo | Propósito |
 |---------|-----------|
 | `components/onboarding/PrimeirosPassos.tsx` | Card "Primeiros passos" na Home (passos detectados do banco, dispensar via localStorage) |
-| `components/ajuda/AssistenteAjuda.tsx` | Chat flutuante do assistente de IA (gestão) |
+| `components/ajuda/AssistenteAjuda.tsx` | Chat flutuante do assistente de IA (gestão) — inclui o **ícone de vídeo da tela** (`lib/ajudaVideos.ts` + modal com iframe; só aparece se houver vídeo ativo p/ a rota) |
 | `components/onboarding/Onboarding.tsx` | **Mudou**: só 1ª visita, sem ícone "?" persistente (usa o assistente de IA) |
 
 ### Novas rotas de API (apps/web)
