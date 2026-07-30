@@ -9,6 +9,7 @@ import { useConfirm, useToast } from '@/components/ui/feedback'
 import { useSession } from '@/contexts/SessionContext'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { listarVerticais } from '@/lib/demo/verticais'
 import { UsuarioModal } from '@/app/gestao/acessos/usuarios/UsuarioModal'
 import { ExcluirEmpresaModal } from './ExcluirEmpresaModal'
 import { ParceiroModal, ParceiroSelecionado } from '@/components/modals/ParceiroModal'
@@ -41,6 +42,8 @@ interface Empresa {
   cnpj: string | null
   status: 'ativo' | 'inativo' | 'pendente' | 'bloqueada'
   logo_url: string | null
+  demo: boolean
+  demo_vertical: string | null
   criado_em: string
 }
 
@@ -96,6 +99,9 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
   const [nomeEmp, setNomeEmp] = useState('')
   const [cnpj, setCnpj] = useState('')
   const [statusEmp, setStatusEmp] = useState('')
+  const [demo, setDemo] = useState(false)
+  const [demoVertical, setDemoVertical] = useState('')
+  const [salvandoDemo, setSalvandoDemo] = useState(false)
 
   // Admin
   const [adminId, setAdminId] = useState('')
@@ -242,7 +248,7 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
       const supabase = createClient()
       const { data: emp } = await supabase
         .from('empresas')
-        .select('id, nome, cnpj, status, logo_url, criado_em, empresa_financeiro(plano, valor_mensalidade, pagamento_vencimento, status_pagamento, parceiro_percentual, parceiros(id, nome, email))')
+        .select('id, nome, cnpj, status, logo_url, demo, demo_vertical, criado_em, empresa_financeiro(plano, valor_mensalidade, pagamento_vencimento, status_pagamento, parceiro_percentual, parceiros(id, nome, email))')
         .eq('id', id)
         .single()
       if (emp) {
@@ -251,6 +257,8 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
         setNomeEmp(emp.nome)
         setCnpj(emp.cnpj ?? '')
         setStatusEmp(emp.status)
+        setDemo(emp.demo ?? false)
+        setDemoVertical(emp.demo_vertical ?? '')
         setPlano(fin?.plano ?? '')
         setValor(fin?.valor_mensalidade != null ? String(fin.valor_mensalidade) : '')
         setVencimento(fin?.pagamento_vencimento ?? '')
@@ -290,6 +298,18 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
     }
     // Reflete na UI na hora: selo de status + visibilidade da Zona de perigo.
     setEmpresa(prev => prev ? { ...prev, nome: nomeEmp, cnpj, status: statusEmp as Empresa['status'] } : prev)
+  }
+
+  async function salvarDemo() {
+    setSalvandoDemo(true)
+    const vertical = demo ? (demoVertical || null) : null
+    const { data, error } = await createClient().from('empresas')
+      .update({ demo, demo_vertical: vertical, atualizado_em: new Date().toISOString() })
+      .eq('id', id).select('id, demo, demo_vertical')
+    setSalvandoDemo(false)
+    if (error || !data?.length) { toast.error('Não foi possível salvar (só o administrador do sistema).'); return }
+    setEmpresa(prev => prev ? { ...prev, demo, demo_vertical: vertical } : prev)
+    toast.success(demo ? 'Empresa marcada como demonstração.' : 'Marcação de demonstração removida.')
   }
 
   function selecionarLogo(e: React.ChangeEvent<HTMLInputElement>) {
@@ -699,6 +719,37 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
               <Button onClick={salvarConfig} disabled={salvando}>
                 {salvando ? 'Salvando...' : 'Salvar configurações'}
               </Button>
+            </div>
+
+            {/* Empresa de demonstração (isenta de billing + gerador de dados fake) */}
+            <div className="mt-4 border border-orange-200 rounded-lg overflow-hidden">
+              <div className="px-4 py-3 bg-orange-50 border-b border-orange-100">
+                <span className="text-xs font-semibold text-orange-600 uppercase tracking-wider">Demonstração</span>
+              </div>
+              <div className="px-4 py-4 space-y-3">
+                <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input type="checkbox" checked={demo} onChange={e => setDemo(e.target.checked)} className="accent-orange-500 mt-0.5" />
+                  <span>
+                    Empresa de demonstração
+                    <span className="block text-xs text-gray-400">Isenta de cobrança (nunca bloqueia) e habilita o gerador de dados fake. Não marcar empresa de cliente pagante.</span>
+                  </span>
+                </label>
+                {demo && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Vertical</label>
+                    <select value={demoVertical} onChange={e => setDemoVertical(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200">
+                      <option value="">Selecione…</option>
+                      {listarVerticais().map(v => <option key={v.id} value={v.id}>{v.nome}</option>)}
+                    </select>
+                  </div>
+                )}
+                <div className="flex justify-end">
+                  <Button size="sm" variant="outline" onClick={salvarDemo} disabled={salvandoDemo || (demo && !demoVertical)}>
+                    {salvandoDemo ? 'Salvando…' : 'Salvar demonstração'}
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         )}
