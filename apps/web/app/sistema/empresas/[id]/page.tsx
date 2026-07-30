@@ -1,9 +1,11 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { use, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ExternalLink, UserPlus, AlertTriangle, Trash2, Handshake, X, HardDrive, ClipboardCheck, Cpu } from 'lucide-react'
+import { ChevronLeft, ExternalLink, UserPlus, AlertTriangle, Trash2, Handshake, X, HardDrive, ClipboardCheck, Cpu, ImagePlus } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { ImageCropModal } from '@/components/ui/ImageCropModal'
+import { useConfirm, useToast } from '@/components/ui/feedback'
 import { useSession } from '@/contexts/SessionContext'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -62,6 +64,14 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
   const [salvando, setSalvando] = useState(false)
   const [modalUsuario, setModalUsuario] = useState(false)
   const [modalExcluir, setModalExcluir] = useState(false)
+  const confirm = useConfirm()
+  const toast = useToast()
+
+  // Logo (mesma rota usada pelo admin da empresa em /gestao/acessos/empresa)
+  const inputLogoRef = useRef<HTMLInputElement>(null)
+  const [imagemSrc, setImagemSrc] = useState<string | null>(null)
+  const [cropAberto, setCropAberto] = useState(false)
+  const [salvandoLogo, setSalvandoLogo] = useState(false)
 
   // Pagamento
   const [plano, setPlano] = useState('')
@@ -280,6 +290,54 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
     }
     // Reflete na UI na hora: selo de status + visibilidade da Zona de perigo.
     setEmpresa(prev => prev ? { ...prev, nome: nomeEmp, cnpj, status: statusEmp as Empresa['status'] } : prev)
+  }
+
+  function selecionarLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => { setImagemSrc(reader.result as string); setCropAberto(true) }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  async function enviarLogo(blob: Blob) {
+    setCropAberto(false)
+    setSalvandoLogo(true)
+    const { data: { session } } = await createClient().auth.getSession()
+    const form = new FormData()
+    form.append('empresaId', id)
+    form.append('arquivo', new File([blob], 'logo.jpg', { type: 'image/jpeg' }))
+    const res = await fetch('/api/empresa/logo', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: form,
+    })
+    const json = await res.json().catch(() => null)
+    setSalvandoLogo(false)
+    if (!res.ok) { toast.error(json?.message ?? 'Não foi possível salvar a logo.'); return }
+    setImagemSrc(null)
+    setEmpresa(prev => prev ? { ...prev, logo_url: json?.logo_url ?? prev.logo_url } : prev)
+    toast.success('Logo atualizada.')
+  }
+
+  async function removerLogo() {
+    if (!await confirm({ titulo: 'Remover a logo?', mensagem: 'A empresa volta a aparecer sem logo no sistema e nos relatórios.', confirmarLabel: 'Remover', perigo: true })) return
+    setSalvandoLogo(true)
+    const { data: { session } } = await createClient().auth.getSession()
+    const res = await fetch('/api/empresa/logo', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: JSON.stringify({ empresaId: id }),
+    })
+    setSalvandoLogo(false)
+    if (!res.ok) {
+      const json = await res.json().catch(() => null)
+      toast.error(json?.message ?? 'Não foi possível remover a logo.')
+      return
+    }
+    setEmpresa(prev => prev ? { ...prev, logo_url: null } : prev)
+    toast.success('Logo removida.')
   }
 
   // Aceita "1.234,56", "1234,56" e "1234.56" — retorna null se inválido
@@ -583,6 +641,37 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
         {aba === 'configuracoes' && (
           <div className="space-y-4">
             <h2 className="font-semibold text-gray-700 mb-4">Configurações da empresa</h2>
+
+            {/* Logo — salva na hora, independente do botão "Salvar configurações" */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Logo</label>
+              <input ref={inputLogoRef} type="file" accept="image/png,image/jpeg,image/webp"
+                className="hidden" onChange={selecionarLogo} />
+              <div className="flex items-center gap-3">
+                {empresa.logo_url ? (
+                  <div className="w-32 h-[52px] rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={empresa.logo_url} alt="Logo" className="max-w-full max-h-full object-contain" />
+                  </div>
+                ) : (
+                  <div className="w-32 h-[52px] rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center">
+                    <ImagePlus size={20} className="text-gray-300" />
+                  </div>
+                )}
+                <Button size="sm" variant="outline" disabled={salvandoLogo}
+                  onClick={() => inputLogoRef.current?.click()}>
+                  {salvandoLogo ? 'Salvando...' : empresa.logo_url ? 'Trocar' : 'Enviar logo'}
+                </Button>
+                {empresa.logo_url && (
+                  <button type="button" onClick={removerLogo} disabled={salvandoLogo} title="Remover logo"
+                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40">
+                    <Trash2 size={15} />
+                  </button>
+                )}
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1.5">PNG, JPG ou WebP até 2 MB — ideal 500 x 200 ou maior.</p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Nome da empresa</label>
               <input value={nomeEmp} onChange={e => setNomeEmp(e.target.value)}
@@ -750,6 +839,14 @@ export default function EmpresaDetalhesPage({ params }: { params: Promise<{ id: 
           empresaNome={empresa.nome}
           onClose={() => setModalExcluir(false)}
           onExcluida={() => router.push('/sistema')}
+        />
+      )}
+
+      {cropAberto && imagemSrc && (
+        <ImageCropModal
+          imageSrc={imagemSrc}
+          onConfirm={enviarLogo}
+          onClose={() => { setCropAberto(false); setImagemSrc(null) }}
         />
       )}
     </>
