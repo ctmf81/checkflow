@@ -115,19 +115,42 @@ async function provisionarCatalogos(ctx: Ctx) {
 async function acharUsuario(ctx: Ctx, nome: string, cpf: string, perfilId: string, funcao: string): Promise<string> {
   const cpfDigits = so(cpf)
   const email = `${cpfDigits}@demo.checkflow.local`
-  // já existe?
+  // já existe na tabela usuarios?
   const { data: u } = await ctx.sb.from('usuarios').select('id').eq('email', email).maybeSingle()
   let authId = u?.id as string | undefined
+
   if (!authId) {
+    // tenta criar no auth; se já existe (email já registrado), busca o existente
     const { data: created, error } = await ctx.sb.auth.admin.createUser({
       email, password: SENHA_DEMO, email_confirm: true, user_metadata: { nome, demo: true },
     })
-    if (error || !created?.user) throw new Error(`auth "${nome}": ${error?.message}`)
-    authId = created.user.id
-    await ctx.sb.from('usuarios').insert({
-      id: authId, nome, email, cpf: cpfDigits, telefone: '11999990000', status: 'ativo', primeiro_acesso: false,
-    })
+
+    if (error?.message?.includes('already registered')) {
+      // usuário já existe no auth — busca pelo email usando admin API
+      const { data: users } = await ctx.sb.auth.admin.listUsers()
+      const existing = users?.users?.find(usr => usr.email === email)
+      if (existing?.id) {
+        authId = existing.id
+        // garante que existe na tabela usuarios (pode estar faltando)
+        const { data: check } = await ctx.sb.from('usuarios').select('id').eq('id', authId).maybeSingle()
+        if (!check) {
+          await ctx.sb.from('usuarios').insert({
+            id: authId, nome, email, cpf: cpfDigits, telefone: '11999990000', status: 'ativo', primeiro_acesso: false,
+          })
+        }
+      }
+    } else if (error || !created?.user) {
+      throw new Error(`auth "${nome}": ${error?.message}`)
+    } else {
+      authId = created.user.id
+      await ctx.sb.from('usuarios').insert({
+        id: authId, nome, email, cpf: cpfDigits, telefone: '11999990000', status: 'ativo', primeiro_acesso: false,
+      })
+    }
   }
+
+  if (!authId) throw new Error(`usuário "${nome}": não foi possível criar ou achar`)
+
   // vínculos (idempotentes via upsert/ignore)
   await ctx.sb.from('usuario_empresa').upsert({ usuario_id: authId, empresa_id: ctx.empresaId, perfil_id: perfilId }, { onConflict: 'usuario_id,empresa_id' })
   await ctx.sb.from('usuario_unidade').upsert({ usuario_id: authId, unidade_id: ctx.unidadeId }, { onConflict: 'usuario_id,unidade_id' })
