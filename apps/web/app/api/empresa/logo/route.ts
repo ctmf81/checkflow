@@ -10,9 +10,10 @@ import { caminhoLogo, validarArquivoLogo } from '@/lib/logoEmpresa'
 // admin da empresa bateria em RLS se subisse direto do browser.
 
 function admin(): SupabaseClient | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) return null
+  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+  const url = envUrl.includes('.supabase.co') ? envUrl : 'https://pswdjdlirylxgscohcfi.supabase.co'
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SECRET_KEY ?? ''
+  if (!key) return null
   return createClient(url, key)
 }
 
