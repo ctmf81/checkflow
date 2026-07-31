@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="150" viewBox="0 0 200 150" role="img" aria-label="Imagem padrão do catálogo">
+  <rect width="200" height="150" rx="10" fill="#eef2f7"/>
+  <rect x="26" y="26" width="148" height="98" rx="10" fill="none" stroke="#c7d2de" stroke-width="3"/>
+  <circle cx="66" cy="58" r="13" fill="#c7d2de"/>
+  <path d="M34 118l40-38 26 22 24-20 42 34z" fill="#c7d2de"/>
+</svg>
