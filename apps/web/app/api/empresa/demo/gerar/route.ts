@@ -111,6 +111,17 @@ async function provisionarCatalogos(ctx: Ctx) {
   }
 }
 
+/** Acha um usuário no auth pelo email, paginando (padrão do listUsers = 50/página). */
+async function acharAuthPorEmail(sb: SupabaseClient, email: string): Promise<string | undefined> {
+  for (let page = 1; page <= 40; page++) {
+    const { data } = await sb.auth.admin.listUsers({ page, perPage: 200 })
+    const hit = data?.users?.find(u => u.email === email)
+    if (hit?.id) return hit.id
+    if (!data?.users?.length || data.users.length < 200) break // última página
+  }
+  return undefined
+}
+
 /** Cria (ou acha) um usuário demo: auth + usuarios + vínculos. Retorna auth id. */
 async function acharUsuario(ctx: Ctx, nome: string, cpf: string, perfilId: string, funcao: string): Promise<string> {
   const cpfDigits = so(cpf)
@@ -126,11 +137,10 @@ async function acharUsuario(ctx: Ctx, nome: string, cpf: string, perfilId: strin
     })
 
     if (error?.message?.toLowerCase().includes('already') && error?.message?.toLowerCase().includes('registered')) {
-      // usuário já existe no auth — busca pelo email usando admin API
-      const { data: users } = await ctx.sb.auth.admin.listUsers()
-      const existing = users?.users?.find(usr => usr.email === email)
-      if (existing?.id) {
-        authId = existing.id
+      // usuário já existe no auth (ex.: tabela usuarios foi limpa mas o auth não)
+      // — acha pelo email paginando o admin API (não depende da 1ª página).
+      authId = await acharAuthPorEmail(ctx.sb, email)
+      if (authId) {
         // garante que existe na tabela usuarios (pode estar faltando)
         const { data: check } = await ctx.sb.from('usuarios').select('id').eq('id', authId).maybeSingle()
         if (!check) {
@@ -138,6 +148,8 @@ async function acharUsuario(ctx: Ctx, nome: string, cpf: string, perfilId: strin
             id: authId, nome, email, cpf: cpfDigits, telefone: '11999990000', status: 'ativo', primeiro_acesso: false,
           })
         }
+      } else {
+        throw new Error(`auth "${nome}": já registrado mas não encontrado pelo email`)
       }
     } else if (error || !created?.user) {
       throw new Error(`auth "${nome}": ${error?.message}`)
