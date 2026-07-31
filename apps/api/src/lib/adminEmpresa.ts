@@ -7,12 +7,12 @@ import { enviarTelegram } from './telegram'
 
 const PERFIL_ADMIN_EMPRESA = '00000000-0000-0000-0000-000000000002'
 
-export interface AdminContato { nome: string; email: string | null; telefone: string | null; telegram_chat_id?: string | null }
+export interface AdminContato { nome: string; email: string | null; telefone: string | null; telegram_chat_id?: string | null; telegram_primario?: boolean }
 
 /** Admins (perfil …002) vinculados à empresa, com contato. */
 export async function buscarAdminsEmpresa(sb: SupabaseClient, empresaId: string): Promise<AdminContato[]> {
   const { data } = await sb.from('usuario_empresa')
-    .select('usuarios(nome, email, telefone, telegram_chat_id)')
+    .select('usuarios(nome, email, telefone, telegram_chat_id, telegram_primario)')
     .eq('empresa_id', empresaId).eq('perfil_id', PERFIL_ADMIN_EMPRESA)
   return (data ?? []).map((v: any) => v.usuarios).filter(Boolean)
 }
@@ -45,10 +45,13 @@ export async function notificarAdmins(
   for (const adm of admins) {
     if (adm.telefone || adm.telegram_chat_id) {
       tinhaContato = true
+      const msg = msgWa(adm)
+      const wa = async () => adm.telefone ? (await enviarWhatsApp({ numero: formatarNumeroBR(adm.telefone), mensagem: msg })).ok : false
+      const tg = async () => adm.telegram_chat_id ? (await enviarTelegram(adm.telegram_chat_id, msg)).ok : false
+      // Ordem por preferência: quem escolheu Telegram recebe por ele primeiro.
+      const ordem = adm.telegram_primario ? [tg, wa] : [wa, tg]
       let ok = false
-      if (adm.telefone) ok = (await enviarWhatsApp({ numero: formatarNumeroBR(adm.telefone), mensagem: msgWa(adm) })).ok
-      // Fallback: se o WhatsApp não saiu e o admin tem Telegram, envia por lá.
-      if (!ok && adm.telegram_chat_id) ok = (await enviarTelegram(adm.telegram_chat_id, msgWa(adm))).ok
+      for (const envia of ordem) { if (!ok) ok = await envia() }
       if (ok) algumEnviado = true
     }
     if (adm.email && !adm.email.endsWith('@checkflow.local')) {

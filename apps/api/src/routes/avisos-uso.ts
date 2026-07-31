@@ -93,7 +93,7 @@ export async function avisosUsoRoutes(app: FastifyInstance) {
       const nomeEmpresa = (empresa as any)?.nome ?? 'sua empresa'
 
       const { data: vinc } = await supabase.from('usuario_empresa')
-        .select('usuarios(nome, email, telefone, telegram_chat_id)')
+        .select('usuarios(nome, email, telefone, telegram_chat_id, telegram_primario)')
         .eq('empresa_id', a.empresa_id).eq('perfil_id', PERFIL_ADMIN_EMPRESA)
       const admins = (vinc ?? []).map((v: any) => v.usuarios).filter(Boolean)
 
@@ -104,9 +104,12 @@ export async function avisosUsoRoutes(app: FastifyInstance) {
         for (const adm of admins) {
           if (adm.telefone || adm.telegram_chat_id) {
             tinhaContato = true
+            const msg = mensagemWa(nomeEmpresa, p.recurso, p.faixa, p.pct, link)
+            const wa = async () => adm.telefone ? (await enviarWhatsApp({ numero: formatarNumero(adm.telefone), mensagem: msg })).ok : false
+            const tg = async () => adm.telegram_chat_id ? (await enviarTelegram(adm.telegram_chat_id, msg)).ok : false
+            const ordem = adm.telegram_primario ? [tg, wa] : [wa, tg]
             let ok = false
-            if (adm.telefone) ok = (await enviarWhatsApp({ numero: formatarNumero(adm.telefone), mensagem: mensagemWa(nomeEmpresa, p.recurso, p.faixa, p.pct, link) })).ok
-            if (!ok && adm.telegram_chat_id) ok = (await enviarTelegram(adm.telegram_chat_id, mensagemWa(nomeEmpresa, p.recurso, p.faixa, p.pct, link))).ok
+            for (const envia of ordem) { if (!ok) ok = await envia() }
             if (ok) algumEnviado = true
           }
           if (adm.email && !adm.email.endsWith('@checkflow.local')) {

@@ -48,6 +48,54 @@ export async function enviarTelegram(
 }
 
 /**
+ * Envia uma foto (por URL) com legenda para um chat. Usado no fallback dos
+ * fluxos com evidência (plano de ação, ticket) para não perder a imagem. Se o
+ * sendPhoto falhar (ex.: URL inacessível), cai para uma mensagem de texto.
+ */
+export async function enviarTelegramFoto(
+  chatId: string,
+  imagemUrl: string,
+  legenda: string,
+): Promise<{ ok: boolean; erro?: string }> {
+  if (!TG_TOKEN) return { ok: false, erro: 'TELEGRAM_BOT_TOKEN ausente' }
+  try {
+    const res = await fetch(API('sendPhoto'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, photo: imagemUrl, caption: legenda }),
+    })
+    if (res.ok) return { ok: true }
+    // Fallback: manda só o texto (a legenda).
+    return enviarTelegram(chatId, legenda)
+  } catch {
+    return enviarTelegram(chatId, legenda)
+  }
+}
+
+/** Status do webhook do bot (para a tela de health): url, pendências, erro. */
+export async function statusTelegram(): Promise<{
+  configurado: boolean
+  webhookUrl?: string
+  pendentes?: number
+  ultimoErro?: string | null
+}> {
+  if (!TG_TOKEN) return { configurado: false }
+  try {
+    const res = await fetch(API('getWebhookInfo'))
+    const json: any = await res.json().catch(() => null)
+    const r = json?.result ?? {}
+    return {
+      configurado: true,
+      webhookUrl: r.url || undefined,
+      pendentes: r.pending_update_count ?? 0,
+      ultimoErro: r.last_error_message ?? null,
+    }
+  } catch (e: any) {
+    return { configurado: true, ultimoErro: e?.message ?? 'erro' }
+  }
+}
+
+/**
  * Registra a URL do webhook no Telegram (chamado uma vez no deploy/setup).
  * `webhookUrl` deve ser HTTPS público — ex.: https://api-.../telegram/webhook.
  * Um `secretToken` opcional é devolvido pelo Telegram no header

@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     // Consulta as duas variantes para não criar duplicatas.
     const cpfFormatado = cpfDigits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
     const { data: existente } = await supabaseAdmin
-      .from('usuarios').select('id, nome, email, telefone, primeiro_acesso')
+      .from('usuarios').select('id, nome, email, telefone, primeiro_acesso, telegram_chat_id, telegram_primario')
       .in('cpf', [cpfDigits, cpfFormatado]).maybeSingle()
 
     if (existente) {
