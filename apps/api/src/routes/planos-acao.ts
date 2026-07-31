@@ -2,7 +2,9 @@ import { FastifyInstance } from 'fastify'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import { exigirAutorizacao } from '../lib/apiAuth'
-import { enviarWhatsApp, enviarWhatsAppMidia } from '../lib/whatsapp'
+import { enviarWhatsAppMidia } from '../lib/whatsapp'
+import { enviarTelegram } from '../lib/telegram'
+import { enviarComFallback } from '../lib/mensageria'
 import { enviarEmail } from '../lib/email'
 import { enviarPush } from '../lib/push'
 import { emailPlanoAberto, emailPlanoEnviadoN2 } from '../lib/email-templates'
@@ -135,7 +137,7 @@ async function dispararNotificacaoPlano(
     : ['nivel_1']   // N1 recebe na abertura e quando N2 devolve
 
   const { data: membros } = await sb.from('usuario_subgrupo')
-    .select('usuario_id, funcao, usuarios(nome, email, telefone)')
+    .select('usuario_id, funcao, usuarios(nome, email, telefone, telegram_chat_id)')
     .eq('subgrupo_id', plano.subgrupo_id)
     .in('funcao', funcoesAlvo)
 
@@ -200,6 +202,7 @@ async function dispararNotificacaoPlano(
     const nome: string = usuario.nome ?? '—'
     const email: string | null = usuario.email ?? null
     const telefone: string | null = usuario.telefone ?? null
+    const telegramChatId: string | null = usuario.telegram_chat_id ?? null
     const vars = { ...varsBase, destinatario: nome }
 
     if (deFerias.has(m.usuario_id)) return // de férias: não recebe por nenhum canal
@@ -211,10 +214,11 @@ async function dispararNotificacaoPlano(
       await enviarPush(sb, [m.usuario_id], { titulo: tituloPush, corpo: `${nomeAtividade} · ${nomeSubgrupo}`, url: link, tag: `plano-${plano_id}` })
     }
 
-    // ── WhatsApp ──
-    if (telefone && !foraDoTurno.has(m.usuario_id)) {
-      const numero = telefone.replace(/\D/g, '').replace(/^0/, '')
-      const numeroFinal = numero.startsWith('55') ? numero : `55${numero}`
+    // ── WhatsApp (com fallback p/ Telegram) ──
+    if ((telefone || telegramChatId) && !foraDoTurno.has(m.usuario_id)) {
+      const numeroFinal = telefone
+        ? (() => { const n = telefone.replace(/\D/g, '').replace(/^0/, ''); return n.startsWith('55') ? n : `55${n}` })()
+        : null
 
       let mensagemWa: string | null = null
       if (tmplWa && tmplWa.ativo) {
@@ -228,11 +232,17 @@ async function dispararNotificacaoPlano(
       }
 
       if (mensagemWa) {
-        const { ok, erro } = primeiraFoto
-          ? await enviarWhatsAppMidia({ numero: numeroFinal, imagemUrl: primeiraFoto, caption: mensagemWa })
-          : await enviarWhatsApp({ numero: numeroFinal, mensagem: mensagemWa })
-        if (ok) waEnviados++
-        else erros.push(`WA ${nome}: ${erro}`)
+        // Com foto: tenta WhatsApp mídia; se falhar e houver Telegram, cai p/ texto.
+        // Sem foto: enviarComFallback (WhatsApp texto → Telegram).
+        let r: { ok: boolean; erro?: string }
+        if (primeiraFoto && numeroFinal) {
+          r = await enviarWhatsAppMidia({ numero: numeroFinal, imagemUrl: primeiraFoto, caption: mensagemWa })
+          if (!r.ok && telegramChatId) r = await enviarTelegram(telegramChatId, mensagemWa)
+        } else {
+          r = await enviarComFallback({ numero: numeroFinal, telegramChatId, mensagem: mensagemWa })
+        }
+        if (r.ok) waEnviados++
+        else erros.push(`msg ${nome}: ${r.erro}`)
       }
     }
 

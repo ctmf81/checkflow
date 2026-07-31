@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import { enviarWhatsApp } from '../lib/whatsapp'
+import { enviarTelegram } from '../lib/telegram'
 import { enviarEmail } from '../lib/email'
 import { emailLimiteUso } from '../lib/email-templates'
 import {
@@ -92,7 +93,7 @@ export async function avisosUsoRoutes(app: FastifyInstance) {
       const nomeEmpresa = (empresa as any)?.nome ?? 'sua empresa'
 
       const { data: vinc } = await supabase.from('usuario_empresa')
-        .select('usuarios(nome, email, telefone)')
+        .select('usuarios(nome, email, telefone, telegram_chat_id)')
         .eq('empresa_id', a.empresa_id).eq('perfil_id', PERFIL_ADMIN_EMPRESA)
       const admins = (vinc ?? []).map((v: any) => v.usuarios).filter(Boolean)
 
@@ -101,9 +102,11 @@ export async function avisosUsoRoutes(app: FastifyInstance) {
         let algumEnviado = false
         let tinhaContato = false
         for (const adm of admins) {
-          if (adm.telefone) {
+          if (adm.telefone || adm.telegram_chat_id) {
             tinhaContato = true
-            const { ok } = await enviarWhatsApp({ numero: formatarNumero(adm.telefone), mensagem: mensagemWa(nomeEmpresa, p.recurso, p.faixa, p.pct, link) })
+            let ok = false
+            if (adm.telefone) ok = (await enviarWhatsApp({ numero: formatarNumero(adm.telefone), mensagem: mensagemWa(nomeEmpresa, p.recurso, p.faixa, p.pct, link) })).ok
+            if (!ok && adm.telegram_chat_id) ok = (await enviarTelegram(adm.telegram_chat_id, mensagemWa(nomeEmpresa, p.recurso, p.faixa, p.pct, link))).ok
             if (ok) algumEnviado = true
           }
           if (adm.email && !adm.email.endsWith('@checkflow.local')) {
