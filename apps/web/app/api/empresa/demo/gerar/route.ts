@@ -23,9 +23,12 @@ const PERFIL_ADMIN_EMPRESA = '00000000-0000-0000-0000-000000000002'
 const SENHA_DEMO = 'Demo@2026'
 
 function admin(): SupabaseClient | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) return null
+  // Mesma resolução robusta do resto das rotas server (nomes de env variam por
+  // ambiente): URL com fallback, chave aceitando os dois nomes usados.
+  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+  const url = envUrl.includes('.supabase.co') ? envUrl : 'https://pswdjdlirylxgscohcfi.supabase.co'
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SECRET_KEY ?? ''
+  if (!key) return null
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
