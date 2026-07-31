@@ -20,6 +20,7 @@ interface Empresa {
   status: 'ativo' | 'inativo' | 'pendente' | 'bloqueada'
   demo: boolean
   demo_vertical: string | null
+  demo_provisionado: boolean
 }
 
 interface Unidade {
@@ -60,7 +61,7 @@ export default function EmpresaPage() {
     if (!empresaAtiva?.id) { setLoading(false); return }
     const supabase = createClient()
 
-    const { data: emp } = await supabase.from('empresas').select('id, nome, cnpj, logo_url, status, demo, demo_vertical').eq('id', empresaAtiva.id).single()
+    const { data: emp } = await supabase.from('empresas').select('id, nome, cnpj, logo_url, status, demo, demo_vertical, demo_provisionado').eq('id', empresaAtiva.id).single()
     if (emp) {
       setEmpresa(emp)
       setNome(emp.nome)
@@ -148,20 +149,34 @@ export default function EmpresaPage() {
     await carregar()
   }
 
-  async function gerarDadosDemo() {
+  async function chamarGerador(modo: 'estrutura' | 'dados') {
     if (!empresa) return
-    if (!await confirm({ titulo: 'Gerar dados dos últimos 30 dias?', mensagem: 'Acrescenta execuções, planos de ação, tickets e tarefas de exemplo (não apaga o que já existe). Use para deixar a demonstração cheia.', confirmarLabel: 'Gerar' })) return
     setGerandoDemo(true)
     const { data: { session } } = await createClient().auth.getSession()
     const res = await fetch('/api/empresa/demo/gerar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
-      body: JSON.stringify({ empresaId: empresa.id }),
+      body: JSON.stringify({ empresaId: empresa.id, modo }),
     })
     const json = await res.json().catch(() => null)
     setGerandoDemo(false)
-    if (!res.ok) { toast.error(json?.detalhe ?? json?.message ?? 'Não foi possível gerar os dados.'); return }
-    toast.success(`Dados gerados: ${json?.criados?.execucoes ?? 0} execuções, ${json?.criados?.planos ?? 0} planos de ação.`)
+    if (!res.ok) { toast.error(json?.detalhe ?? json?.message ?? 'Não foi possível gerar.'); return }
+    if (modo === 'estrutura') {
+      toast.success(`Estrutura criada: ${json?.criados?.checklists ?? 0} checklists, ${json?.criados?.usuarios ?? 0} usuários.`)
+      await carregar() // recarrega → some o botão de estrutura, aparece o de dados
+    } else {
+      toast.success(`Dados gerados: ${json?.criados?.execucoes ?? 0} execuções, ${json?.criados?.planos ?? 0} planos de ação.`)
+    }
+  }
+
+  async function gerarEstruturaDemo() {
+    if (!await confirm({ titulo: 'Gerar a estrutura da demonstração?', mensagem: 'Cria unidade, grupos, checklists, catálogos e usuários da vertical. Faça isto uma vez.', confirmarLabel: 'Gerar estrutura' })) return
+    await chamarGerador('estrutura')
+  }
+
+  async function gerarDadosDemo() {
+    if (!await confirm({ titulo: 'Gerar dados dos últimos 30 dias?', mensagem: 'Acrescenta 80 execuções e planos de ação (não apaga o que já existe). Pode repetir para deixar mais cheio.', confirmarLabel: 'Gerar' })) return
+    await chamarGerador('dados')
   }
 
   async function inativarUnidade(id: string) {
@@ -292,16 +307,32 @@ export default function EmpresaPage() {
               <span className="text-xs font-semibold text-orange-600 uppercase tracking-wider">Empresa de demonstração</span>
             </div>
             <div className="px-6 py-5">
-              <p className="text-sm text-gray-600">
-                Gera dados fictícios dos últimos 30 dias (execuções, planos de ação, tickets e tarefas) para deixar a demonstração cheia.
-                <span className="text-gray-400"> Acrescenta aos dados existentes — não apaga nada.</span>
-              </p>
-              <div className="flex justify-start mt-4">
-                <Button onClick={gerarDadosDemo} disabled={gerandoDemo} size="sm">
-                  <Sparkles size={14} />
-                  {gerandoDemo ? 'Gerando…' : 'Gerar dados dos últimos 30 dias'}
-                </Button>
-              </div>
+              {!empresa.demo_provisionado ? (
+                <>
+                  <p className="text-sm text-gray-600">
+                    Primeiro, gere a <strong>estrutura</strong> da vertical: unidade, grupos, checklists, catálogos e usuários. Faça isto uma vez.
+                  </p>
+                  <div className="flex justify-start mt-4">
+                    <Button onClick={gerarEstruturaDemo} disabled={gerandoDemo} size="sm">
+                      <Sparkles size={14} />
+                      {gerandoDemo ? 'Gerando…' : 'Gerar estrutura'}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-600">
+                    Gera <strong>80 execuções</strong> dos últimos 30 dias (com planos de ação) para deixar a demonstração cheia.
+                    <span className="text-gray-400"> Acrescenta aos dados existentes — não apaga nada; pode repetir.</span>
+                  </p>
+                  <div className="flex justify-start mt-4">
+                    <Button onClick={gerarDadosDemo} disabled={gerandoDemo} size="sm">
+                      <Sparkles size={14} />
+                      {gerandoDemo ? 'Gerando…' : 'Gerar dados dos últimos 30 dias'}
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

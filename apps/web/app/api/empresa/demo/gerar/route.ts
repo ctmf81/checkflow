@@ -4,11 +4,14 @@ import { autorizarPermissao } from '@/lib/apiAuth'
 import { verticalPorId } from '@/lib/demo/verticais'
 import { validarTemplate } from '@/lib/demo/validarTemplate'
 import {
-  criarRng, distribuirExecucoes, sortearDesfecho,
+  criarRng, sortearDatas, sortearStatus, sortearDesfecho,
   resultadoDoDesfecho, temPlano, statusPlanoDoDesfecho, escolher,
 } from '@/lib/demo/gerador'
 import { configAtividade, atividadeValida, gerarResposta } from '@/lib/demo/respostas'
-import type { VerticalTemplate, ChecklistTemplate, AtividadeTemplate } from '@/lib/demo/tipos'
+import type { VerticalTemplate, ChecklistTemplate, AtividadeTemplate, PapelDemo } from '@/lib/demo/tipos'
+
+// Total de execuções por rodada de "Gerar dados" (fixo, independe do nº de checklists).
+const TOTAL_EXECUCOES = 80
 
 // Gerador de dados de demonstração (append, janela 30 dias).
 // BLINDADO pela flag empresas.demo — nunca roda em empresa pagante.
@@ -46,6 +49,8 @@ interface Ctx {
   grupoIds: Map<string, string>
   catalogoValores: Map<string, string[]> // nome catálogo → chaves
   catalogoIds: Map<string, string>
+  perfilCoordenadorId: string
+  perfilGestaoId: string
 }
 
 // ── get-or-create helpers ──────────────────────────────────────────────────
@@ -128,19 +133,63 @@ async function acharUsuario(ctx: Ctx, nome: string, cpf: string, perfilId: strin
   return authId
 }
 
+/**
+ * Resolve os perfis dos usuários demo:
+ *  • Operação e Admin da empresa: perfis de SISTEMA (globais, ids fixos).
+ *  • Gestão do Grupo: semeado por trigger ao criar a empresa (per-empresa).
+ *  • Coordenador: criado aqui (idempotente), com as mesmas permissões do
+ *    Gestão do Grupo — é o moderador N1.
+ */
+async function resolverPerfis(ctx: Ctx) {
+  const { data: gg } = await ctx.sb.from('perfis').select('id')
+    .eq('empresa_id', ctx.empresaId).eq('nome', 'Gestão do Grupo').maybeSingle()
+  ctx.perfilGestaoId = gg?.id ?? PERFIL_ADMIN_EMPRESA
+
+  let { data: coord } = await ctx.sb.from('perfis').select('id')
+    .eq('empresa_id', ctx.empresaId).eq('nome', 'Coordenador').maybeSingle()
+  if (!coord) {
+    const { data: novo } = await ctx.sb.from('perfis').insert({
+      nome: 'Coordenador',
+      descricao: 'Coordenação de área — modera planos de ação (N1) e acompanha a operação.',
+      empresa_id: ctx.empresaId, is_system: false, publico: false,
+    }).select('id').single()
+    coord = novo
+    if (coord && gg?.id) {
+      const { data: perms } = await ctx.sb.from('perfil_permissoes').select('permissao_id').eq('perfil_id', gg.id)
+      if (perms?.length) {
+        await ctx.sb.from('perfil_permissoes').insert(
+          perms.map(p => ({ perfil_id: coord!.id, permissao_id: p.permissao_id })),
+        )
+      }
+    }
+  }
+  ctx.perfilCoordenadorId = coord?.id ?? PERFIL_ADMIN_EMPRESA
+}
+
 async function provisionarUsuarios(ctx: Ctx) {
-  const mapa: Record<string, { perfil: string; funcao: string }> = {
-    operacao: { perfil: PERFIL_OPERACAO, funcao: 'operacao' },
-    nivel_1: { perfil: PERFIL_ADMIN_EMPRESA, funcao: 'nivel_1' },
-    nivel_2: { perfil: PERFIL_ADMIN_EMPRESA, funcao: 'nivel_2' },
-    gestor: { perfil: PERFIL_ADMIN_EMPRESA, funcao: 'nivel_2' },
+  await resolverPerfis(ctx)
+  const mapa: Record<PapelDemo, { perfil: string; funcao: string }> = {
+    operador: { perfil: PERFIL_OPERACAO, funcao: 'operacao' },
+    coordenador: { perfil: ctx.perfilCoordenadorId, funcao: 'nivel_1' },
+    gestor: { perfil: ctx.perfilGestaoId, funcao: 'nivel_2' },
+    admin: { perfil: PERFIL_ADMIN_EMPRESA, funcao: 'nivel_2' },
   }
   for (const usr of ctx.tpl.usuarios) {
-    const cfg = mapa[usr.perfil]
+    const cfg = mapa[usr.papel]
     const authId = await acharUsuario(ctx, usr.nome, usr.cpf, cfg.perfil, cfg.funcao)
-    if (usr.perfil === 'operacao') { ctx.operadorAuthId = authId; ctx.operadorUsuarioId = authId }
+    if (usr.papel === 'operador') { ctx.operadorAuthId = authId; ctx.operadorUsuarioId = authId }
   }
   if (!ctx.operadorAuthId) throw new Error('template sem operador')
+}
+
+/** Em modo 'dados': acha o auth id do operador (autor das execuções/planos). */
+async function resolverOperador(ctx: Ctx) {
+  const op = ctx.tpl.usuarios.find(u => u.papel === 'operador')
+  if (!op) throw new Error('template sem operador')
+  const { data } = await ctx.sb.from('usuarios').select('id').eq('cpf', so(op.cpf)).maybeSingle()
+  if (!data) throw new Error('operador não encontrado — gere a estrutura primeiro')
+  ctx.operadorAuthId = data.id
+  ctx.operadorUsuarioId = data.id
 }
 
 interface ChecklistProvisionado { id: string; secaoId: string; atividades: { id: string; tpl: AtividadeTemplate }[]; tpl: ChecklistTemplate }
@@ -244,58 +293,56 @@ async function provisionarTicketsETarefas(ctx: Ctx) {
 async function gerarMassa(ctx: Ctx, checklists: ChecklistProvisionado[]): Promise<{ execucoes: number; planos: number }> {
   const agora = new Date()
   let nExec = 0, nPlano = 0
-  const seedBase = Date.now() & 0xffff
+  const rng = criarRng((Date.now() & 0xffff) + 7)
 
-  for (let ci = 0; ci < checklists.length; ci++) {
-    const cp = checklists[ci]
-    const rng = criarRng(seedBase + ci * 101)
-    const datas = distribuirExecucoes(
-      { agora, dias: 30, porDiaMin: cp.tpl.porDiaMin, porDiaMax: cp.tpl.porDiaMax, horaInicio: 8, horaFim: 18 },
-      rng,
-    )
+  // TOTAL_EXECUCOES execuções no total (não por checklist), espalhadas na janela.
+  const datas = sortearDatas(agora, 30, TOTAL_EXECUCOES, 8, 18, rng)
+
+  for (let i = 0; i < datas.length; i++) {
+    const cp = checklists[i % checklists.length] // distribui entre os checklists
+    const ts = datas[i]
     const subgrupoId = ctx.subgrupoIds.get(cp.tpl.subgrupo)!
 
-    for (const ts of datas) {
-      const desfecho = sortearDesfecho(rng, cp.tpl.pesos)
-      const resultado = resultadoDoDesfecho(desfecho)
+    // Status variado: maioria concluída; algumas em andamento / não executadas.
+    const status = sortearStatus(rng)
+    const desfecho = status === 'concluido' ? sortearDesfecho(rng, cp.tpl.pesos) : null
+    const resultado = desfecho ? resultadoDoDesfecho(desfecho) : null
 
-      const { data: exec } = await ctx.sb.from('checklist_execucoes').insert({
-        checklist_id: cp.id, unidade_id: ctx.unidadeId, executado_por: ctx.operadorAuthId,
-        data_execucao: ts.toISOString(), status: 'concluido', resultado,
+    const { data: exec } = await ctx.sb.from('checklist_execucoes').insert({
+      checklist_id: cp.id, unidade_id: ctx.unidadeId, executado_por: ctx.operadorAuthId,
+      data_execucao: ts.toISOString(), status, resultado,
+    }).select('id').single()
+    if (!exec) continue
+    nExec++
+
+    // Só a concluída tem respostas e (eventualmente) plano de ação.
+    if (status !== 'concluido' || !desfecho) continue
+
+    const validas = cp.atividades.filter(a => atividadeValida(a.tpl))
+    const idxReprova = resultado === 'reprovado' && validas.length ? escolher(rng, validas) : null
+    let respostaNaoConformeId: string | null = null
+    let atividadeNaoConformeId: string | null = null
+
+    for (const at of cp.atividades) {
+      const ehAReprovada = !!idxReprova && at.id === idxReprova.id
+      const r = gerarResposta(at.tpl, !ehAReprovada, rng, ctx.catalogoValores.get(at.tpl.catalogo ?? ''))
+      const { data: resp } = await ctx.sb.from('checklist_execucao_respostas').insert({
+        execucao_id: exec.id, atividade_id: at.id, resposta: r.resposta as object, conforme: r.conforme,
       }).select('id').single()
-      if (!exec) continue
-      nExec++
+      if (ehAReprovada && resp) { respostaNaoConformeId = resp.id; atividadeNaoConformeId = at.id }
+    }
 
-      // Se reprovada, escolhe UMA atividade que valida para ser a não conforme.
-      const validas = cp.atividades.filter(a => atividadeValida(a.tpl))
-      const idxReprova = resultado === 'reprovado' && validas.length ? escolher(rng, validas) : null
-
-      let respostaNaoConformeId: string | null = null
-      let atividadeNaoConformeId: string | null = null
-
-      for (const at of cp.atividades) {
-        const ehAReprovada = idxReprova && at.id === idxReprova.id
-        const conforme = !ehAReprovada
-        const r = gerarResposta(at.tpl, conforme, rng, ctx.catalogoValores.get(at.tpl.catalogo ?? ''))
-        const { data: resp } = await ctx.sb.from('checklist_execucao_respostas').insert({
-          execucao_id: exec.id, atividade_id: at.id, resposta: r.resposta as object, conforme: r.conforme,
-        }).select('id').single()
-        if (ehAReprovada && resp) { respostaNaoConformeId = resp.id; atividadeNaoConformeId = at.id }
-      }
-
-      // Plano de ação (aberto_notificado_em setado → cron não dispara WhatsApp).
-      if (temPlano(desfecho) && respostaNaoConformeId && atividadeNaoConformeId) {
-        const status = statusPlanoDoDesfecho(desfecho)!
-        await ctx.sb.from('planos_acao').insert({
-          unidade_id: ctx.unidadeId, subgrupo_id: subgrupoId,
-          checklist_execucao_id: exec.id, checklist_execucao_resposta_id: respostaNaoConformeId,
-          atividade_id: atividadeNaoConformeId, status,
-          observacao_abertura: escolher(rng, ctx.tpl.motivosNaoConformidade),
-          criado_por: ctx.operadorUsuarioId, aberto_notificado_em: new Date().toISOString(),
-          created_at: ts.toISOString(), updated_at: ts.toISOString(),
-        })
-        nPlano++
-      }
+    // Plano de ação (aberto_notificado_em setado → cron não dispara WhatsApp).
+    if (temPlano(desfecho) && respostaNaoConformeId && atividadeNaoConformeId) {
+      await ctx.sb.from('planos_acao').insert({
+        unidade_id: ctx.unidadeId, subgrupo_id: subgrupoId,
+        checklist_execucao_id: exec.id, checklist_execucao_resposta_id: respostaNaoConformeId,
+        atividade_id: atividadeNaoConformeId, status: statusPlanoDoDesfecho(desfecho)!,
+        observacao_abertura: escolher(rng, ctx.tpl.motivosNaoConformidade),
+        criado_por: ctx.operadorUsuarioId, aberto_notificado_em: new Date().toISOString(),
+        created_at: ts.toISOString(), updated_at: ts.toISOString(),
+      })
+      nPlano++
     }
   }
   return { execucoes: nExec, planos: nPlano }
@@ -308,16 +355,21 @@ export async function POST(req: NextRequest) {
     const authz = await autorizarPermissao(req, 'empresas', 'editar')
     if (!authz.ok) return NextResponse.json({ message: authz.message }, { status: authz.status })
 
-    const { empresaId } = await req.json()
+    const body = await req.json()
+    const empresaId = body?.empresaId as string | undefined
+    const modo = (body?.modo === 'dados' ? 'dados' : 'estrutura') as 'estrutura' | 'dados'
     if (!empresaId) return NextResponse.json({ message: 'empresaId é obrigatório.' }, { status: 400 })
 
     const sb = admin()
     if (!sb) return NextResponse.json({ message: 'Configuração ausente.' }, { status: 500 })
 
     // GUARD: só empresa demo.
-    const { data: empresa } = await sb.from('empresas').select('demo, demo_vertical').eq('id', empresaId).maybeSingle()
+    const { data: empresa } = await sb.from('empresas').select('demo, demo_vertical, demo_provisionado').eq('id', empresaId).maybeSingle()
     if (!empresa) return NextResponse.json({ message: 'Empresa não encontrada.' }, { status: 404 })
     if (!empresa.demo) return NextResponse.json({ message: 'Esta empresa não é de demonstração. O gerador não roda aqui.' }, { status: 403 })
+    if (modo === 'dados' && !empresa.demo_provisionado) {
+      return NextResponse.json({ message: 'Gere a estrutura primeiro.' }, { status: 409 })
+    }
 
     const tpl = verticalPorId(empresa.demo_vertical)
     if (!tpl) return NextResponse.json({ message: `Vertical de demo desconhecida: "${empresa.demo_vertical}".` }, { status: 400 })
@@ -327,9 +379,10 @@ export async function POST(req: NextRequest) {
     const ctx: Ctx = {
       sb, empresaId, tpl, unidadeId: '', operadorAuthId: '', operadorUsuarioId: '',
       subgrupoIds: new Map(), grupoIds: new Map(), catalogoValores: new Map(), catalogoIds: new Map(),
+      perfilCoordenadorId: PERFIL_ADMIN_EMPRESA, perfilGestaoId: PERFIL_ADMIN_EMPRESA,
     }
 
-    // Provisionamento (idempotente)
+    // Base comum aos 2 modos (get-or-create idempotente): unidade/grupos/subgrupos + catálogos.
     ctx.unidadeId = await acharUnidade(sb, empresaId, tpl.unidade)
     for (const g of tpl.estrutura) {
       const grupoId = await acharGrupo(sb, ctx.unidadeId, g.grupo)
@@ -337,20 +390,27 @@ export async function POST(req: NextRequest) {
       for (const sub of g.subgrupos) ctx.subgrupoIds.set(sub, await acharSubgrupo(sb, grupoId, sub))
     }
     await provisionarCatalogos(ctx)
-    await provisionarUsuarios(ctx)
+
+    if (modo === 'estrutura') {
+      // 1ª etapa: perfis, usuários, checklists publicados, causa raiz, tickets, tarefas.
+      await provisionarUsuarios(ctx)
+      const checklists: ChecklistProvisionado[] = []
+      for (const cl of tpl.checklists) checklists.push(await provisionarChecklist(ctx, cl))
+      await provisionarCausaRaiz(ctx)
+      await provisionarTicketsETarefas(ctx)
+      await sb.from('empresas').update({ demo_provisionado: true }).eq('id', empresaId)
+      return NextResponse.json({
+        ok: true, modo, vertical: tpl.nome,
+        criados: { checklists: checklists.length, usuarios: tpl.usuarios.length },
+      })
+    }
+
+    // 2ª etapa (repetível): só execuções + planos, sobre a estrutura existente.
+    await resolverOperador(ctx)
     const checklists: ChecklistProvisionado[] = []
     for (const cl of tpl.checklists) checklists.push(await provisionarChecklist(ctx, cl))
-    await provisionarCausaRaiz(ctx)
-    await provisionarTicketsETarefas(ctx)
-
-    // Geração (append)
     const { execucoes, planos } = await gerarMassa(ctx, checklists)
-
-    return NextResponse.json({
-      ok: true,
-      vertical: tpl.nome,
-      criados: { execucoes, planos, checklists: checklists.length, usuarios: tpl.usuarios.length },
-    })
+    return NextResponse.json({ ok: true, modo, vertical: tpl.nome, criados: { execucoes, planos } })
   } catch (e) {
     return NextResponse.json({ message: 'Erro ao gerar dados de demonstração.', detalhe: (e as Error).message }, { status: 500 })
   }

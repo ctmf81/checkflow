@@ -135,10 +135,10 @@ export const fabricaAlimentos: VerticalTemplate = {
   ],
 
   usuarios: [
-    { nome: 'Bruno Tavares Ramos', cpf: '318.472.650-09', perfil: 'operacao' },
-    { nome: 'Camila Nunes Ferraz', cpf: '425.981.370-12', perfil: 'nivel_1' },
-    { nome: 'Diego Almeida Prado', cpf: '537.204.918-66', perfil: 'nivel_2' },
-    { nome: 'Eduarda Lima Barros', cpf: '640.315.827-40', perfil: 'gestor' },
+    { nome: 'Bruno Tavares Ramos', cpf: '318.472.650-09', papel: 'operador' },
+    { nome: 'Camila Nunes Ferraz', cpf: '425.981.370-12', papel: 'coordenador' },
+    { nome: 'Diego Almeida Prado', cpf: '537.204.918-66', papel: 'gestor' },
+    { nome: 'Eduarda Lima Barros', cpf: '640.315.827-40', papel: 'admin' },
   ],
 
   motivosNaoConformidade: [
