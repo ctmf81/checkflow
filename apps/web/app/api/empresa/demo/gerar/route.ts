@@ -140,34 +140,31 @@ async function acharUsuario(ctx: Ctx, nome: string, cpf: string, perfilId: strin
       // usuário já existe no auth (ex.: tabela usuarios foi limpa mas o auth não)
       // — acha pelo email paginando o admin API (não depende da 1ª página).
       authId = await acharAuthPorEmail(ctx.sb, email)
-      if (authId) {
-        // garante que existe na tabela usuarios (pode estar faltando)
-        const { data: check } = await ctx.sb.from('usuarios').select('id').eq('id', authId).maybeSingle()
-        if (!check) {
-          await ctx.sb.from('usuarios').insert({
-            id: authId, nome, email, cpf: cpfDigits, telefone: '11999990000', status: 'ativo', primeiro_acesso: false,
-          })
-        }
-      } else {
-        throw new Error(`auth "${nome}": já registrado mas não encontrado pelo email`)
-      }
+      if (!authId) throw new Error(`auth "${nome}": já registrado mas não encontrado pelo email`)
     } else if (error || !created?.user) {
       throw new Error(`auth "${nome}": ${error?.message}`)
     } else {
       authId = created.user.id
-      await ctx.sb.from('usuarios').insert({
-        id: authId, nome, email, cpf: cpfDigits, telefone: '11999990000', status: 'ativo', primeiro_acesso: false,
-      })
     }
   }
 
   if (!authId) throw new Error(`usuário "${nome}": não foi possível criar ou achar`)
 
-  // vínculos (idempotentes via upsert/ignore)
-  await ctx.sb.from('usuario_empresa').upsert({ usuario_id: authId, empresa_id: ctx.empresaId, perfil_id: perfilId }, { onConflict: 'usuario_id,empresa_id' })
-  await ctx.sb.from('usuario_unidade').upsert({ usuario_id: authId, unidade_id: ctx.unidadeId }, { onConflict: 'usuario_id,unidade_id' })
+  // garante a linha em usuarios (upsert idempotente; checa erro — falha aqui deixa
+  // o usuário só no auth e ele nunca aparece nas telas).
+  const { error: eUsr } = await ctx.sb.from('usuarios').upsert({
+    id: authId, nome, email, cpf: cpfDigits, telefone: '11999990000', status: 'ativo', primeiro_acesso: false,
+  }, { onConflict: 'id' })
+  if (eUsr) throw new Error(`usuarios "${nome}": ${eUsr.message}`)
+
+  // vínculos (idempotentes via upsert) — checa erro em cada um.
+  const { error: eEmp } = await ctx.sb.from('usuario_empresa').upsert({ usuario_id: authId, empresa_id: ctx.empresaId, perfil_id: perfilId }, { onConflict: 'usuario_id,empresa_id' })
+  if (eEmp) throw new Error(`usuario_empresa "${nome}": ${eEmp.message}`)
+  const { error: eUni } = await ctx.sb.from('usuario_unidade').upsert({ usuario_id: authId, unidade_id: ctx.unidadeId }, { onConflict: 'usuario_id,unidade_id' })
+  if (eUni) throw new Error(`usuario_unidade "${nome}": ${eUni.message}`)
   for (const subId of ctx.subgrupoIds.values()) {
-    await ctx.sb.from('usuario_subgrupo').upsert({ usuario_id: authId, subgrupo_id: subId, funcao }, { onConflict: 'usuario_id,subgrupo_id' })
+    const { error: eSub } = await ctx.sb.from('usuario_subgrupo').upsert({ usuario_id: authId, subgrupo_id: subId, funcao }, { onConflict: 'usuario_id,subgrupo_id' })
+    if (eSub) throw new Error(`usuario_subgrupo "${nome}": ${eSub.message}`)
   }
   return authId
 }
