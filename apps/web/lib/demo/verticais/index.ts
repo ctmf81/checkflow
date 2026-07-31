@@ -2,10 +2,20 @@
 import type { VerticalTemplate } from '../tipos'
 import { fabricaAlimentos } from './fabricaAlimentos'
 import { condominio } from './condominio'
+import { redeLojas } from './redeLojas'
+import { hospital } from './hospital'
+import { agronegocio } from './agronegocio'
+import { fabricaTransformacao } from './fabricaTransformacao'
+import { agropecuaria } from './agropecuaria'
 
 export const VERTICAIS: Record<string, VerticalTemplate> = {
   [fabricaAlimentos.id]: fabricaAlimentos,
   [condominio.id]: condominio,
+  [redeLojas.id]: redeLojas,
+  [hospital.id]: hospital,
+  [agronegocio.id]: agronegocio,
+  [fabricaTransformacao.id]: fabricaTransformacao,
+  [agropecuaria.id]: agropecuaria,
 }
 
 /** Template de uma vertical pelo id (ex.: 'fabrica_alimentos'), ou null. */
