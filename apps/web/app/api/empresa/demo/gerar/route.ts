@@ -401,15 +401,53 @@ export async function POST(req: NextRequest) {
 
     if (modo === 'estrutura') {
       // 1ª etapa: perfis, usuários, checklists publicados, causa raiz, tickets, tarefas.
-      await provisionarUsuarios(ctx)
-      const checklists: ChecklistProvisionado[] = []
-      for (const cl of tpl.checklists) checklists.push(await provisionarChecklist(ctx, cl))
-      await provisionarTicketsETarefas(ctx)
-      await sb.from('empresas').update({ demo_provisionado: true }).eq('id', empresaId)
-      return NextResponse.json({
-        ok: true, modo, vertical: tpl.nome,
-        criados: { checklists: checklists.length, usuarios: tpl.usuarios.length },
-      })
+      // Retorna steps granulares para feedback visual e retry inteligente.
+      const steps: Record<string, { status: 'pending' | 'running' | 'completed' | 'error'; count?: number; message?: string }> = {
+        usuarios: { status: 'pending' },
+        checklists: { status: 'pending' },
+        ticketsETarefas: { status: 'pending' },
+        finalizacao: { status: 'pending' },
+      }
+
+      try {
+        steps.usuarios.status = 'running'
+        await provisionarUsuarios(ctx)
+        steps.usuarios.status = 'completed'
+        steps.usuarios.count = tpl.usuarios.length
+
+        steps.checklists.status = 'running'
+        const checklists: ChecklistProvisionado[] = []
+        for (const cl of tpl.checklists) checklists.push(await provisionarChecklist(ctx, cl))
+        steps.checklists.status = 'completed'
+        steps.checklists.count = checklists.length
+
+        steps.ticketsETarefas.status = 'running'
+        await provisionarTicketsETarefas(ctx)
+        steps.ticketsETarefas.status = 'completed'
+
+        steps.finalizacao.status = 'running'
+        await sb.from('empresas').update({ demo_provisionado: true }).eq('id', empresaId)
+        steps.finalizacao.status = 'completed'
+
+        return NextResponse.json({
+          ok: true, modo, vertical: tpl.nome, steps,
+        })
+      } catch (e) {
+        const err = e as Error
+        // Marca o step que falhou como erro
+        for (const key in steps) {
+          if (steps[key].status === 'running') {
+            steps[key].status = 'error'
+            steps[key].message = err.message
+            break
+          }
+        }
+        return NextResponse.json({
+          ok: false, modo, vertical: tpl.nome, steps,
+          message: 'Estrutura parcialmente criada. Tente novamente para continuar.',
+          detalhe: err.message,
+        }, { status: 500 })
+      }
     }
 
     // 2ª etapa (repetível): só execuções + planos, sobre a estrutura existente.
