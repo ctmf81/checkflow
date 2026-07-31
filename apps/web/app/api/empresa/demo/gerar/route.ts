@@ -125,7 +125,7 @@ async function acharUsuario(ctx: Ctx, nome: string, cpf: string, perfilId: strin
       email, password: SENHA_DEMO, email_confirm: true, user_metadata: { nome, demo: true },
     })
 
-    if (error?.message?.includes('already registered')) {
+    if (error?.message?.toLowerCase().includes('already') && error?.message?.toLowerCase().includes('registered')) {
       // usuário já existe no auth — busca pelo email usando admin API
       const { data: users } = await ctx.sb.auth.admin.listUsers()
       const existing = users?.users?.find(usr => usr.email === email)
