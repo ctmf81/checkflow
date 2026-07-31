@@ -5,6 +5,16 @@ description: Business rules and product logic for CheckFlow. Consult this skill 
 
 # Business Rules
 
+## Telegram — canal de mensageria alternativo (2026-07-31, EM PRODUÇÃO)
+Fallback do WhatsApp (que pode ser bloqueado). Bots: **dev `@checkflows_bot`**, **prod `@checkflowprd_bot`** (webhooks registrados). Regra dura do Telegram: o bot **só envia para quem deu `/start` nele** — não dá para enviar só com o número. Por isso o vínculo é por deep link (`t.me/<bot>?start=<code>`) → usuário toca "Iniciar" → webhook (`apps/api /telegram/webhook`) casa o `<code>` ao usuário e grava `telegram_chat_id`. UX: **2 toques, zero digitação, sem informar número.**
+- **Onde vincular:** menu do usuário → "Notificações (Telegram)" (link+QR, self-service). Gestor convida operadores pela tela de Usuários (ícone Telegram: azul=conectado/cinza=pendente → abre QR/link).
+- **Fallback:** `apps/api/src/lib/mensageria.ts` `enviarComFallback` — tenta WhatsApp, cai pro Telegram se falhar. Todos os fluxos usam (tarefas, planos, tickets, avisos trial/uso/gestão, billing, reset de senha/1º acesso). Preserva **foto** (sendPhoto) no fallback.
+- **Canal primário opcional:** `usuarios.telegram_primario` (toggle "receber sempre pelo Telegram" no modal) inverte a ordem (Telegram 1º, WhatsApp reserva).
+- **Health:** tela **Sistema → Telegram** (`GET /telegram/status` = getWebhookInfo). Env: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` (api) + `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` (web). ⚠️ Um bot = um webhook (por isso dev e prod usam bots diferentes).
+
+## Gerador de dados de demonstração por vertical (2026-07-31, EM PRODUÇÃO)
+Empresa marcada como **demo** (`empresas.demo`+`demo_vertical`, admin de sistema em `/sistema/empresas/[id]`) é isenta de billing e ganha, em `/gestao/acessos/empresa`, o card de demo: **"Gerar estrutura"** (1x, idempotente — unidade/grupos/subgrupos, catálogo, 4 usuários com perfis distintos senha `Demo@2026`, 5 checklists publicados, causa raiz, tickets, tarefas; modal de progresso com Retomar/Regerar) e **"Gerar dados"** (append de 80 execuções/30 dias + planos de ação em todos os status; repetível). Rota `POST /api/empresa/demo/gerar` (`modo: estrutura|dados`), blindada por `empresas.demo`. 8 verticais (fábrica de alimentos, condomínio, rede de lojas, hospital, agronegócio, transformação, agropecuária, hotelaria). Manual: `docs/MANUAL_VERTICAIS_DEMO.md`. Templates puros em `apps/web/lib/demo/`. ⚠️ Gotcha telefone: usuários demo usam o CPF como telefone (constraint unique).
+
 ## Apresentações Públicas — Captação de Parceiros e Conhecimento de Produtos (2026-07-29)
 Páginas **estáticas abertas** servidas de `/public/`, sem login, com **rewrites** em `next.config.ts` para URL limpa. RLS não se aplica (não usa auth). Duas páginas vivas:
 
@@ -201,7 +211,7 @@ Rule: **never mutate a published checklist structure** — create a new version 
 | `foto` | Sem validação — captura obrigatória se `obrigatoria = true` |
 | `video` | Sem validação — alerta se arquivo da galeria tem >1h (lastModified) |
 | `localizacao` | Sem validação — GPS only (Nominatim reverse geocoding), sem input manual |
-| `assinatura` | Sem validação — reservado para app móvel nativo |
+| `assinatura` | Sem validação — **canvas de desenho no web/PWA** (2026-07-31): `CampoAssinatura` em `apps/web/app/operacao/[id]/page.tsx` (pointer events mouse+toque, Limpar/Refazer), gera PNG e sobe ao storage igual foto (nos 2 caminhos de upload: salvar parcial + finalize). Antes era só placeholder "disponível no app móvel" |
 | `data_hora` | Sem validação — datetime-local input |
 
 ## Modo de execução do Checklist (continuar depois)
