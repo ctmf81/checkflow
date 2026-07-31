@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Plus, Pencil, Building2, PowerOff, ImagePlus, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Building2, PowerOff, ImagePlus, Trash2, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { ImageCropModal } from '@/components/ui/ImageCropModal'
@@ -18,6 +18,9 @@ interface Empresa {
   cnpj: string | null
   logo_url: string | null
   status: 'ativo' | 'inativo' | 'pendente' | 'bloqueada'
+  demo: boolean
+  demo_vertical: string | null
+  demo_provisionado: boolean
 }
 
 interface Unidade {
@@ -51,11 +54,17 @@ export default function EmpresaPage() {
   const [modalUnidade, setModalUnidade] = useState(false)
   const [unidadeEditando, setUnidadeEditando] = useState<Unidade | undefined>()
 
+  // Gerador de dados de demonstração (só empresa demo)
+  const [gerandoDemo, setGerandoDemo] = useState(false)
+  const [demoModo, setDemoModo] = useState<'estrutura' | 'dados' | null>(null)
+  const [demoSteps, setDemoSteps] = useState<Record<string, { status: 'pending' | 'running' | 'completed' | 'error'; count?: number; message?: string }> | null>(null)
+  const [demoErro, setDemoErro] = useState<string | null>(null)
+
   async function carregar() {
     if (!empresaAtiva?.id) { setLoading(false); return }
     const supabase = createClient()
 
-    const { data: emp } = await supabase.from('empresas').select('id, nome, cnpj, logo_url, status').eq('id', empresaAtiva.id).single()
+    const { data: emp } = await supabase.from('empresas').select('id, nome, cnpj, logo_url, status, demo, demo_vertical, demo_provisionado').eq('id', empresaAtiva.id).single()
     if (emp) {
       setEmpresa(emp)
       setNome(emp.nome)
@@ -141,6 +150,54 @@ export default function EmpresaPage() {
     }
     toast.success('Logo removida.')
     await carregar()
+  }
+
+  async function chamarGerador(modo: 'estrutura' | 'dados') {
+    if (!empresa) return
+    setGerandoDemo(true)
+    setDemoModo(modo)
+    setDemoSteps(null)
+    setDemoErro(null)
+
+    const { data: { session } } = await createClient().auth.getSession()
+
+    try {
+      const res = await fetch('/api/empresa/demo/gerar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+        body: JSON.stringify({ empresaId: empresa.id, modo }),
+      })
+      const json = await res.json().catch(() => null)
+
+      if (res.ok) {
+        setDemoSteps(json?.steps ?? {})
+        if (modo === 'estrutura') {
+          toast.success(`Estrutura criada com sucesso!`)
+          setTimeout(() => { setGerandoDemo(false); setDemoModo(null); carregar() }, 1500)
+        } else {
+          toast.success(`Dados gerados: ${json?.criados?.execucoes ?? 0} execuções, ${json?.criados?.planos ?? 0} planos de ação.`)
+          setGerandoDemo(false)
+          setDemoModo(null)
+        }
+      } else {
+        setDemoSteps(json?.steps ?? {})
+        setDemoErro(json?.detalhe ?? json?.message ?? 'Falha ao gerar. Tente novamente.')
+        setGerandoDemo(false)
+      }
+    } catch (e) {
+      setDemoErro((e as Error).message || 'Erro desconhecido.')
+      setGerandoDemo(false)
+    }
+  }
+
+  async function gerarEstruturaDemo() {
+    if (!await confirm({ titulo: 'Gerar a estrutura da demonstração?', mensagem: 'Cria unidade, grupos, checklists, catálogos e usuários da vertical. Faça isto uma vez.', confirmarLabel: 'Gerar estrutura' })) return
+    await chamarGerador('estrutura')
+  }
+
+  async function gerarDadosDemo() {
+    if (!await confirm({ titulo: 'Gerar dados dos últimos 30 dias?', mensagem: 'Acrescenta 80 execuções e planos de ação (não apaga o que já existe). Pode repetir para deixar mais cheio.', confirmarLabel: 'Gerar' })) return
+    await chamarGerador('dados')
   }
 
   async function inativarUnidade(id: string) {
@@ -263,6 +320,52 @@ export default function EmpresaPage() {
           </div>
         </div>
 
+        {/* Card demonstração — só empresa demo */}
+        {empresa?.demo && (
+          <div className="bg-white rounded-xl border border-orange-200 overflow-hidden">
+            <div className="flex items-center gap-2 px-6 py-4 border-b border-orange-100 bg-orange-50">
+              <Sparkles size={15} className="text-orange-500" />
+              <span className="text-xs font-semibold text-orange-600 uppercase tracking-wider">Empresa de demonstração</span>
+            </div>
+            <div className="px-6 py-5">
+              {!empresa.demo_provisionado ? (
+                <>
+                  <p className="text-sm text-gray-600">
+                    Primeiro, gere a <strong>estrutura</strong> da vertical: unidade, grupos, checklists, catálogos e usuários. Faça isto uma vez.
+                  </p>
+                  <div className="flex justify-start mt-4">
+                    <Button onClick={gerarEstruturaDemo} disabled={gerandoDemo} size="sm">
+                      <Sparkles size={14} />
+                      {gerandoDemo ? 'Gerando…' : 'Gerar estrutura'}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-600">
+                    Gera <strong>80 execuções</strong> dos últimos 30 dias (com planos de ação) para deixar a demonstração cheia.
+                    <span className="text-gray-400"> Acrescenta aos dados existentes — não apaga nada; pode repetir.</span>
+                  </p>
+                  <div className="flex items-center gap-3 mt-4">
+                    <Button onClick={gerarDadosDemo} disabled={gerandoDemo} size="sm">
+                      <Sparkles size={14} />
+                      {gerandoDemo ? 'Gerando…' : 'Gerar dados dos últimos 30 dias'}
+                    </Button>
+                    <button
+                      onClick={gerarEstruturaDemo}
+                      disabled={gerandoDemo}
+                      className="text-xs text-gray-400 hover:text-orange-500 underline underline-offset-2 transition-colors disabled:opacity-50"
+                      title="Recria/completa a estrutura (idempotente) — use se ficou incompleta"
+                    >
+                      Regerar estrutura
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Card unidades */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -302,6 +405,55 @@ export default function EmpresaPage() {
           )}
         </div>
       </div>
+
+      {/* Modal de progresso do gerador de demo */}
+      {demoModo && demoSteps && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              {demoModo === 'estrutura' ? 'Criando estrutura…' : 'Gerando dados…'}
+            </h3>
+            <div className="space-y-3">
+              {Object.entries(demoSteps).map(([key, step]) => (
+                <div key={key} className="flex items-center gap-3">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    step.status === 'completed' ? 'bg-green-100' :
+                    step.status === 'error' ? 'bg-red-100' :
+                    step.status === 'running' ? 'bg-orange-100' :
+                    'bg-gray-100'
+                  }`}>
+                    {step.status === 'completed' && <span className="text-green-600 text-xs">✓</span>}
+                    {step.status === 'error' && <span className="text-red-600 text-xs">✕</span>}
+                    {step.status === 'running' && <span className="text-orange-600 text-xs animate-spin">⟳</span>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${
+                      step.status === 'completed' ? 'text-green-700' :
+                      step.status === 'error' ? 'text-red-700' :
+                      'text-gray-700'
+                    }`}>
+                      {key.replace(/([A-Z])/g, ' $1').trim()}
+                      {step.count ? ` (${step.count})` : ''}
+                    </p>
+                    {step.message && <p className="text-xs text-red-600 mt-0.5 truncate">{step.message}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {demoErro && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-xs text-red-700">{demoErro}</p>
+                <button
+                  onClick={() => chamarGerador(demoModo)}
+                  className="mt-2 w-full px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                >
+                  Retomar
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {cropAberto && imagemSrc && (
         <ImageCropModal
