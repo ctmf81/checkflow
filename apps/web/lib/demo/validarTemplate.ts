@@ -84,9 +84,9 @@ export function validarTemplate(t: VerticalTemplate): string[] {
     if (totalPesos <= 0) problemas.push(`${ctx}: pesos de desfecho somam zero`)
   }
 
-  // Usuários: precisa de ao menos um operador (para ser autor das execuções).
-  if (!(t.usuarios ?? []).some(u => u.perfil === 'operacao')) {
-    problemas.push('template sem usuário de perfil operacao (autor das execuções)')
+  // Usuários: precisa de ao menos um operador (autor das execuções).
+  if (!(t.usuarios ?? []).some(u => u.papel === 'operador')) {
+    problemas.push('template sem usuário de papel operador (autor das execuções)')
   }
 
   return problemas

@@ -70,6 +70,47 @@ export function distribuirExecucoes(cfg: JanelaConfig, rng: Rng): Date[] {
   return out.sort((a, b) => a.getTime() - b.getTime())
 }
 
+/**
+ * Sorteia exatamente `n` timestamps em dias úteis dentro da janela [agora-dias,
+ * agora), no horário de expediente. Exclui o dia de hoje (evita cair no futuro).
+ * Ordenados do mais antigo ao mais recente. Usado para gerar um total fixo de
+ * execuções (ex.: 80), independente da quantidade de checklists.
+ */
+export function sortearDatas(
+  agora: Date, dias: number, n: number, horaInicio: number, horaFim: number, rng: Rng,
+): Date[] {
+  const hoje = new Date(agora); hoje.setHours(0, 0, 0, 0)
+  const inicio = new Date(hoje); inicio.setDate(inicio.getDate() - dias)
+  const uteis: Date[] = []
+  for (const d = new Date(inicio); d < hoje; d.setDate(d.getDate() + 1)) {
+    if (ehDiaUtil(d)) uteis.push(new Date(d))
+  }
+  if (uteis.length === 0) return []
+  const out: Date[] = []
+  for (let i = 0; i < n; i++) {
+    const dia = escolher(rng, uteis)
+    const ts = new Date(dia)
+    ts.setHours(inteiro(rng, horaInicio, horaFim - 1), inteiro(rng, 0, 59), inteiro(rng, 0, 59), 0)
+    out.push(ts)
+  }
+  return out.sort((a, b) => a.getTime() - b.getTime())
+}
+
+// ── Status da execução ───────────────────────────────────────────────────────
+
+export type StatusExecucao = 'concluido' | 'em_andamento' | 'nao_executado'
+
+/**
+ * Sorteia o status da execução para dar variedade à demo. Maioria concluída
+ * (tem resultado/respostas/planos); uma parcela em andamento e não executada.
+ */
+export function sortearStatus(rng: Rng): StatusExecucao {
+  const r = rng()
+  if (r < 0.78) return 'concluido'
+  if (r < 0.9) return 'em_andamento'
+  return 'nao_executado'
+}
+
 // ── Desfechos ────────────────────────────────────────────────────────────────
 
 export type Desfecho =

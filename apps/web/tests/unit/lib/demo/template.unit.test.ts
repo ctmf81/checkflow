@@ -61,8 +61,8 @@ describe('validarTemplate — pega templates quebrados', () => {
   it('sem usuário operador', () => {
     const ruim: VerticalTemplate = {
       ...fabricaAlimentos,
-      usuarios: fabricaAlimentos.usuarios.filter(u => u.perfil !== 'operacao'),
+      usuarios: fabricaAlimentos.usuarios.filter(u => u.papel !== 'operador'),
     }
-    expect(validarTemplate(ruim).some(p => p.includes('operacao'))).toBe(true)
+    expect(validarTemplate(ruim).some(p => p.includes('operador'))).toBe(true)
   })
 })

@@ -45,12 +45,14 @@ export interface CatalogoTemplate {
   itens: Record<string, string>[] // cada item tem o campoChave + atributos
 }
 
-export type PerfilDemo = 'operacao' | 'nivel_1' | 'nivel_2' | 'gestor'
+// Papel da persona demo → a rota resolve o perfil (Operação/Coordenador/Gestão
+// do Grupo/Admin da empresa) e a função no subgrupo (operacao/nivel_1/nivel_2).
+export type PapelDemo = 'operador' | 'coordenador' | 'gestor' | 'admin'
 
 export interface UsuarioTemplate {
   nome: string
   cpf: string // só dígitos ou formatado; a rota normaliza
-  perfil: PerfilDemo
+  papel: PapelDemo
 }
 
 export interface TicketTemplate {

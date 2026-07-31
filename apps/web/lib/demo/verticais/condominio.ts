@@ -134,10 +134,10 @@ export const condominio: VerticalTemplate = {
   ],
 
   usuarios: [
-    { nome: 'Sérgio Barbosa Pinto', cpf: '712.905.436-88', perfil: 'operacao' },
-    { nome: 'Tânia Rezende Moura', cpf: '824.617.093-21', perfil: 'nivel_1' },
-    { nome: 'Ubirajara Costa Neves', cpf: '935.208.741-05', perfil: 'nivel_2' },
-    { nome: 'Vanessa Duarte Rocha', cpf: '046.813.259-77', perfil: 'gestor' },
+    { nome: 'Sérgio Barbosa Pinto', cpf: '712.905.436-88', papel: 'operador' },
+    { nome: 'Tânia Rezende Moura', cpf: '824.617.093-21', papel: 'coordenador' },
+    { nome: 'Ubirajara Costa Neves', cpf: '935.208.741-05', papel: 'gestor' },
+    { nome: 'Vanessa Duarte Rocha', cpf: '046.813.259-77', papel: 'admin' },
   ],
 
   motivosNaoConformidade: [

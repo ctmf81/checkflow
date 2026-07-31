@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   criarRng, inteiro, escolher, ehDiaUtil,
-  distribuirExecucoes, sortearDesfecho,
+  distribuirExecucoes, sortearDatas, sortearStatus, sortearDesfecho,
   resultadoDoDesfecho, temPlano, statusPlanoDoDesfecho,
   type Desfecho,
 } from '@/lib/demo/gerador'
@@ -76,6 +76,41 @@ describe('distribuirExecucoes', () => {
     const a = distribuirExecucoes(cfg, criarRng(1)).map(d => d.getTime())
     const b = distribuirExecucoes(cfg, criarRng(1)).map(d => d.getTime())
     expect(a).toEqual(b)
+  })
+})
+
+describe('sortearDatas', () => {
+  const agora = new Date(2026, 6, 30, 14, 0, 0) // qui 2026-07-30 14:00
+
+  it('gera exatamente N datas, em dias úteis, no passado (exclui hoje)', () => {
+    const datas = sortearDatas(agora, 30, 80, 8, 18, criarRng(1))
+    expect(datas).toHaveLength(80)
+    const hoje0 = new Date(agora); hoje0.setHours(0, 0, 0, 0)
+    for (const d of datas) {
+      expect(ehDiaUtil(d)).toBe(true)
+      expect(d.getHours()).toBeGreaterThanOrEqual(8)
+      expect(d.getHours()).toBeLessThan(18)
+      expect(d.getTime()).toBeLessThan(hoje0.getTime()) // antes de hoje → nunca futuro
+    }
+  })
+  it('vem ordenado e é determinístico', () => {
+    const a = sortearDatas(agora, 30, 40, 8, 18, criarRng(9)).map(d => d.getTime())
+    const b = sortearDatas(agora, 30, 40, 8, 18, criarRng(9)).map(d => d.getTime())
+    expect(a).toEqual(b)
+    for (let i = 1; i < a.length; i++) expect(a[i]).toBeGreaterThanOrEqual(a[i - 1])
+  })
+})
+
+describe('sortearStatus', () => {
+  it('cobre os 3 status, com maioria concluído', () => {
+    const r = criarRng(3)
+    const cont: Record<string, number> = {}
+    for (let i = 0; i < 3000; i++) { const s = sortearStatus(r); cont[s] = (cont[s] ?? 0) + 1 }
+    expect(cont.concluido).toBeGreaterThan(cont.em_andamento ?? 0)
+    expect(cont.concluido).toBeGreaterThan(cont.nao_executado ?? 0)
+    expect(cont.em_andamento ?? 0).toBeGreaterThan(0)
+    expect(cont.nao_executado ?? 0).toBeGreaterThan(0)
+    expect(cont.concluido / 3000).toBeGreaterThan(0.7)
   })
 })
 
