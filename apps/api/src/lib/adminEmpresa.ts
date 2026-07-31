@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { enviarTelegram } from './telegram'
 
 // Helpers de notificação ao(s) admin(s) da empresa (perfil …002). O mesmo
 // padrão se repetia em avisos-trial e avisos-uso; aqui fica a versão única
@@ -6,12 +7,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 const PERFIL_ADMIN_EMPRESA = '00000000-0000-0000-0000-000000000002'
 
-export interface AdminContato { nome: string; email: string | null; telefone: string | null }
+export interface AdminContato { nome: string; email: string | null; telefone: string | null; telegram_chat_id?: string | null; telegram_primario?: boolean }
 
 /** Admins (perfil …002) vinculados à empresa, com contato. */
 export async function buscarAdminsEmpresa(sb: SupabaseClient, empresaId: string): Promise<AdminContato[]> {
   const { data } = await sb.from('usuario_empresa')
-    .select('usuarios(nome, email, telefone)')
+    .select('usuarios(nome, email, telefone, telegram_chat_id, telegram_primario)')
     .eq('empresa_id', empresaId).eq('perfil_id', PERFIL_ADMIN_EMPRESA)
   return (data ?? []).map((v: any) => v.usuarios).filter(Boolean)
 }
@@ -42,9 +43,15 @@ export async function notificarAdmins(
   let algumEnviado = false
   let tinhaContato = false
   for (const adm of admins) {
-    if (adm.telefone) {
+    if (adm.telefone || adm.telegram_chat_id) {
       tinhaContato = true
-      const { ok } = await enviarWhatsApp({ numero: formatarNumeroBR(adm.telefone), mensagem: msgWa(adm) })
+      const msg = msgWa(adm)
+      const wa = async () => adm.telefone ? (await enviarWhatsApp({ numero: formatarNumeroBR(adm.telefone), mensagem: msg })).ok : false
+      const tg = async () => adm.telegram_chat_id ? (await enviarTelegram(adm.telegram_chat_id, msg)).ok : false
+      // Ordem por preferência: quem escolheu Telegram recebe por ele primeiro.
+      const ordem = adm.telegram_primario ? [tg, wa] : [wa, tg]
+      let ok = false
+      for (const envia of ordem) { if (!ok) ok = await envia() }
       if (ok) algumEnviado = true
     }
     if (adm.email && !adm.email.endsWith('@checkflow.local')) {

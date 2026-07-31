@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { ChevronDown, LogOut, UserCircle, Building2, LayoutDashboard, Settings, Menu, User } from 'lucide-react'
+import { ChevronDown, LogOut, UserCircle, Building2, LayoutDashboard, Settings, Menu, User, Send } from 'lucide-react'
+import { ConectarTelegramModal } from '@/components/telegram/ConectarTelegramModal'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { useSidebarOptional } from './SidebarContext'
@@ -26,6 +27,7 @@ export function Header() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [dropUsuario, setDropUsuario] = useState(false)
   const refUsuario = useRef<HTMLDivElement>(null)
+  const [telegramAberto, setTelegramAberto] = useState(false)
   const [minhaContaAberta, setMinhaContaAberta] = useState(false)
   const [minhaContaDados, setMinhaContaDados] = useState<UsuarioParaModal | null>(null)
   const [minhaContaCarregando, setMinhaContaCarregando] = useState(false)
@@ -223,6 +225,11 @@ export function Header() {
                 <User size={16} className="text-orange-400" />
                 {minhaContaCarregando ? 'Carregando...' : 'Minha conta'}
               </button>
+              <button onClick={() => { setDropUsuario(false); setTelegramAberto(true) }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors">
+                <Send size={16} className="text-sky-400" />
+                Notificações (Telegram)
+              </button>
               <button onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors">
                 <LogOut size={16} />
@@ -239,6 +246,8 @@ export function Header() {
           <LogOut size={18} />
         </button>
       )}
+
+      {telegramAberto && <ConectarTelegramModal onClose={() => setTelegramAberto(false)} />}
 
       {minhaContaAberta && minhaContaDados && (
         <UsuarioModal

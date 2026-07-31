@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
     const { data: encontrados } = await supabaseAdmin
       .from('usuarios')
-      .select('id, nome, email, telefone, status')
+      .select('id, nome, email, telefone, status, telegram_chat_id, telegram_primario')
       .in('cpf', cpfVariantes(cpf))
       .limit(1)
     const usuario = encontrados?.[0]
@@ -36,11 +36,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(RESPOSTA_GENERICA)
     }
 
-    // Sem telefone não há como entregar o código — mas a resposta continua
-    // genérica para não revelar que o CPF existe (anti-enumeração).
-    // O usuário legado sem telefone aparece na view `usuarios_sem_contato`.
-    if (!usuario.telefone) {
-      console.warn(`[solicitar-codigo] usuário ${usuario.id} sem telefone — código não enviado`)
+    // Sem telefone E sem Telegram não há como entregar o código — mas a resposta
+    // continua genérica para não revelar que o CPF existe (anti-enumeração).
+    // O usuário legado sem contato aparece na view `usuarios_sem_contato`.
+    if (!usuario.telefone && !(usuario as any).telegram_chat_id) {
+      console.warn(`[solicitar-codigo] usuário ${usuario.id} sem telefone/telegram — código não enviado`)
       return NextResponse.json(RESPOSTA_GENERICA)
     }
 

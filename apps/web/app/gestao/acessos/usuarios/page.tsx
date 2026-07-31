@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Search, UserCircle, AlertCircle, Upload, PowerOff, ChevronDown, LogIn, Loader2, KeyRound, QrCode, UserCheck, RotateCcw, Eye, EyeOff } from 'lucide-react'
+import { Plus, Search, UserCircle, AlertCircle, Upload, PowerOff, ChevronDown, LogIn, Loader2, KeyRound, QrCode, UserCheck, RotateCcw, Eye, EyeOff, Send } from 'lucide-react'
+import { ConviteTelegramModal } from '@/components/telegram/ConviteTelegramModal'
 import { Button } from '@/components/ui/Button'
 import { UsuarioModal } from './UsuarioModal'
 import { ImportarUsuariosModal } from './ImportarUsuariosModal'
@@ -25,6 +26,7 @@ interface Usuario {
   unidades: { id: string; nome: string }[]
   turnoId?: string | null
   status?: string
+  telegramConectado?: boolean
 }
 
 interface Perfil { id: string; nome: string }
@@ -38,6 +40,7 @@ export default function UsuariosPage() {
   const [busca, setBusca] = useState('')
   const [modalAberto, setModalAberto] = useState(false)
   const [importarAberto, setImportarAberto] = useState(false)
+  const [conviteTelegram, setConviteTelegram] = useState<Usuario | null>(null)
   const [usuarioEditando, setUsuarioEditando] = useState<Usuario | undefined>()
   const [loading, setLoading] = useState(true)
   const [perfilDropdown, setPerfilDropdown] = useState<string | null>(null)
@@ -95,7 +98,7 @@ export default function UsuariosPage() {
 
     const [ueRes, perfisRes] = await Promise.all([
       supabase.from('usuario_empresa')
-        .select('usuario:usuario_id(id, nome, email, cpf, telefone, status, turno_id), perfil:perfil_id(id, nome)')
+        .select('usuario:usuario_id(id, nome, email, cpf, telefone, status, turno_id, telegram_chat_id), perfil:perfil_id(id, nome)')
         .eq('empresa_id', empresaAtiva.id),
       supabase.from('perfis').select('id, nome')
         .or(`empresa_id.eq.${empresaAtiva.id},empresa_id.is.null`).order('nome'),
@@ -115,6 +118,7 @@ export default function UsuariosPage() {
           unidades: [],
           turnoId: r.usuario.turno_id ?? null,
           status: r.usuario.status,
+          telegramConectado: !!r.usuario.telegram_chat_id,
         })))
     }
     if (perfisRes.data) setPerfis(perfisRes.data)
@@ -348,6 +352,15 @@ export default function UsuariosPage() {
                 </button>
               )}
 
+              {/* Telegram: verde = conectado, cinza = pendente (clique convida) */}
+              <button
+                onClick={() => setConviteTelegram(usuario)}
+                className={`transition-colors p-1 ${usuario.telegramConectado ? 'text-sky-500 hover:text-sky-600' : 'text-gray-300 hover:text-sky-400'}`}
+                title={usuario.telegramConectado ? 'Telegram conectado' : 'Telegram pendente — convidar'}
+              >
+                <Send size={15} />
+              </button>
+
               {/* Reset senha */}
               <button
                 onClick={() => resetarSenha(usuario)}
@@ -363,6 +376,14 @@ export default function UsuariosPage() {
           </div>
         ))}
       </div>
+
+      {conviteTelegram && (
+        <ConviteTelegramModal
+          usuarioId={conviteTelegram.id}
+          usuarioNome={conviteTelegram.nome}
+          onClose={() => setConviteTelegram(null)}
+        />
+      )}
 
       {importarAberto && empresaAtiva && (
         <ImportarUsuariosModal

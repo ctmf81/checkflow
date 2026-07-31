@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import { exigirAutorizacao } from '../lib/apiAuth'
-import { enviarWhatsApp } from '../lib/whatsapp'
+import { enviarComFallback } from '../lib/mensageria'
 import { enviarPush } from '../lib/push'
 import { buscarTemplate, renderizar, empresaDeUnidade } from '../lib/notificacao-templates'
 
@@ -55,22 +55,22 @@ export async function tarefasRoutes(app: FastifyInstance) {
     const grupoIds = (lg ?? []).map((r: any) => r.grupo_id)
 
     // 3. Destinatários: se há subgrupos, são os membros deles; senão, os membros dos grupos.
-    const destinatarios = new Map<string, { nome: string; telefone: string | null }>()
+    const destinatarios = new Map<string, { nome: string; telefone: string | null; telegramChatId: string | null; preferirTelegram: boolean }>()
     if (subgrupoIds.length > 0) {
       const { data } = await sb.from('usuario_subgrupo')
-        .select('usuario_id, usuarios(nome, telefone)')
+        .select('usuario_id, usuarios(nome, telefone, telegram_chat_id, telegram_primario)')
         .in('subgrupo_id', subgrupoIds)
       for (const m of (data ?? [])) {
         const u = (m as any).usuarios ?? {}
-        destinatarios.set((m as any).usuario_id, { nome: u.nome ?? '—', telefone: u.telefone ?? null })
+        destinatarios.set((m as any).usuario_id, { nome: u.nome ?? '—', telefone: u.telefone ?? null, telegramChatId: u.telegram_chat_id ?? null, preferirTelegram: !!u.telegram_primario })
       }
     } else if (grupoIds.length > 0) {
       const { data } = await sb.from('usuario_grupo')
-        .select('usuario_id, usuarios(nome, telefone)')
+        .select('usuario_id, usuarios(nome, telefone, telegram_chat_id, telegram_primario)')
         .in('grupo_id', grupoIds)
       for (const m of (data ?? [])) {
         const u = (m as any).usuarios ?? {}
-        destinatarios.set((m as any).usuario_id, { nome: u.nome ?? '—', telefone: u.telefone ?? null })
+        destinatarios.set((m as any).usuario_id, { nome: u.nome ?? '—', telefone: u.telefone ?? null, telegramChatId: u.telegram_chat_id ?? null, preferirTelegram: !!u.telegram_primario })
       }
     }
 
@@ -94,16 +94,15 @@ export async function tarefasRoutes(app: FastifyInstance) {
     const erros: string[] = []
     await Promise.all(ids.map(async (uid) => {
       if (foraDoTurno.has(uid)) return
-      const { nome, telefone } = destinatarios.get(uid)!
-      if (!telefone) return
-      const numero = telefone.replace(/\D/g, '').replace(/^0/, '')
-      const numeroFinal = numero.startsWith('55') ? numero : `55${numero}`
+      const { nome, telefone, telegramChatId, preferirTelegram } = destinatarios.get(uid)!
+      if (!telefone && !telegramChatId) return
+      const numero = telefone ? (() => { const n = telefone.replace(/\D/g, '').replace(/^0/, ''); return n.startsWith('55') ? n : `55${n}` })() : null
       const mensagem = tmplWa
         ? renderizar(tmplWa.corpo, { destinatario: nome, titulo: lista.titulo, link })
         : `📋 *Nova lista de tarefas*\n\n` +
           `Olá, ${nome}! Você tem uma nova lista para responder: *${lista.titulo}*.\n\n` +
           `Abra o app na aba *Tarefas* para responder.\n🔗 ${link}`
-      const { ok, erro } = await enviarWhatsApp({ numero: numeroFinal, mensagem })
+      const { ok, erro } = await enviarComFallback({ numero, telegramChatId, mensagem, preferirTelegram })
       if (ok) enviados++
       else erros.push(`${nome}: ${erro}`)
     }))

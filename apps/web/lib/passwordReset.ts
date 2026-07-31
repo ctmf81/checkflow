@@ -158,7 +158,7 @@ export async function criarSessaoResetAdmin(
 
 /** Envia link de primeiro acesso (sem código OTP) — usuário clica e vai direto para definir senha. */
 export async function enviarLinkPrimeiroAcesso(
-  usuario: { nome: string; telefone: string | null; email: string | null },
+  usuario: { nome: string; telefone: string | null; email: string | null; telegram_chat_id?: string | null; telegram_primario?: boolean },
   linkComToken: string
 ): Promise<{ enviado: boolean; erro?: string }> {
   const emailReal = usuario.email && !usuario.email.endsWith('@checkflow.local') ? usuario.email : undefined
@@ -172,6 +172,8 @@ export async function enviarLinkPrimeiroAcesso(
         email: emailReal,
         contexto: 'primeiro_acesso',
         linkPrimeiroAcesso: linkComToken,
+        telegram_chat_id: usuario.telegram_chat_id ?? undefined,
+        telegram_primario: usuario.telegram_primario,
       }),
     })
     if (!res.ok) return { enviado: false, erro: `Falha no envio (HTTP ${res.status}).` }
@@ -185,7 +187,7 @@ export async function enviarLinkPrimeiroAcesso(
 
 /** Notifica o usuário que o admin redefiniu sua senha — envia link com token embutido. */
 export async function enviarAvisoResetAdmin(
-  usuario: { nome: string; telefone: string | null; email: string | null },
+  usuario: { nome: string; telefone: string | null; email: string | null; telegram_chat_id?: string | null; telegram_primario?: boolean },
   linkComToken: string
 ): Promise<{ enviado: boolean; erro?: string }> {
   const emailReal = usuario.email && !usuario.email.endsWith('@checkflow.local') ? usuario.email : undefined
@@ -199,6 +201,8 @@ export async function enviarAvisoResetAdmin(
         email: emailReal,
         contexto: 'reset_admin',
         linkResetAdmin: linkComToken,
+        telegram_chat_id: usuario.telegram_chat_id ?? undefined,
+        telegram_primario: usuario.telegram_primario,
       }),
     })
     if (!res.ok) return { enviado: false, erro: `Falha no envio (HTTP ${res.status}).` }
@@ -213,7 +217,7 @@ export async function enviarAvisoResetAdmin(
 /** Envia o código via WhatsApp + e-mail (apps/api), respeitando templates da empresa. */
 export async function enviarCodigoUsuario(
   sb: SupabaseClient,
-  usuario: { id: string; nome: string; telefone: string | null; email: string | null },
+  usuario: { id: string; nome: string; telefone: string | null; email: string | null; telegram_chat_id?: string | null; telegram_primario?: boolean },
   codigo: string,
   contexto: 'primeiro_acesso' | 'reset_admin' | 'self_service'
 ): Promise<{ enviado: boolean; erro?: string }> {
@@ -238,6 +242,8 @@ export async function enviarCodigoUsuario(
         email: emailReal,
         empresa_id: (vinculo as any)?.empresa_id ?? undefined,
         contexto,
+        telegram_chat_id: usuario.telegram_chat_id ?? undefined,
+        telegram_primario: usuario.telegram_primario,
       }),
     })
     if (!res.ok) return { enviado: false, erro: `Falha no envio (HTTP ${res.status}). Verifique a conexão do WhatsApp.` }

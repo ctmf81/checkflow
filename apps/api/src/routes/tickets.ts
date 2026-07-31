@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import { exigirAutorizacao } from '../lib/apiAuth'
-import { enviarWhatsApp, enviarWhatsAppMidia } from '../lib/whatsapp'
+import { enviarComFallback } from '../lib/mensageria'
 import { enviarEmail } from '../lib/email'
 import { enviarPush } from '../lib/push'
 import { emailTicketAberto, emailTicketMovimentado } from '../lib/email-templates'
@@ -101,7 +101,7 @@ export async function ticketsRoutes(app: FastifyInstance) {
     // Busca aberto_por e assignee na tabela usuarios
     const idsUsuarios = [t.aberto_por_id, t.assignee_id].filter(Boolean)
     const { data: usuariosTicket } = idsUsuarios.length
-      ? await sb.from('usuarios').select('id, nome, email, telefone').in('id', idsUsuarios)
+      ? await sb.from('usuarios').select('id, nome, email, telefone, telegram_chat_id, telegram_primario').in('id', idsUsuarios)
       : { data: [] }
     const usuariosMap = new Map((usuariosTicket ?? []).map((u: any) => [u.id, u]))
     t.aberto_por = usuariosMap.get(t.aberto_por_id) ?? null
@@ -124,11 +124,11 @@ export async function ticketsRoutes(app: FastifyInstance) {
     const atorNome = (atorUser as any)?.nome ?? 'Sistema'
 
     // 4. Destinatários
-    let destinatarios: { id: string; nome: string; email: string | null; telefone: string | null }[] = []
+    let destinatarios: { id: string; nome: string; email: string | null; telefone: string | null; telegram_chat_id?: string | null; telegram_primario?: boolean }[] = []
 
     if (evento === 'aberto') {
       const { data: membros } = await sb.from('usuario_subgrupo')
-        .select('usuario_id, usuarios(id, nome, email, telefone)')
+        .select('usuario_id, usuarios(id, nome, email, telefone, telegram_chat_id, telegram_primario)')
         .eq('subgrupo_id', t.subgrupo_id)
       destinatarios = (membros ?? []).map((m: any) => m.usuarios).filter(Boolean).filter((u: any) => u.id !== ator_id)
     } else {
@@ -145,7 +145,7 @@ export async function ticketsRoutes(app: FastifyInstance) {
       const extraIds = [...new Set((dups ?? []).map((d: any) => d.aberto_por_id))]
         .filter((uid): uid is string => !!uid && uid !== ator_id && !jaTem.has(uid))
       if (extraIds.length) {
-        const { data: extras } = await sb.from('usuarios').select('id, nome, email, telefone').in('id', extraIds)
+        const { data: extras } = await sb.from('usuarios').select('id, nome, email, telefone, telegram_chat_id, telegram_primario').in('id', extraIds)
         destinatarios = destinatarios.concat((extras ?? []) as any)
       }
     }
@@ -231,9 +231,10 @@ export async function ticketsRoutes(app: FastifyInstance) {
         pushEnviados += (await enviarPush(sb, [u.id], { titulo, corpo, url: link, tag: `ticket-${ticket_id}` })).enviados
       }
 
-      // ── WhatsApp ──
-      if (u.telefone && !foraDoTurno.has(u.id)) {
-        const numero = formatarNumero(u.telefone)
+      // ── WhatsApp (com fallback p/ Telegram) ──
+      if ((u.telefone || u.telegram_chat_id) && !foraDoTurno.has(u.id)) {
+        const numero = u.telefone ? formatarNumero(u.telefone) : null
+        const telegramChatId = u.telegram_chat_id ?? null
 
         // Usa template do banco se disponível e ativo; senão, hardcoded
         let mensagemWa: string | null = null
@@ -248,11 +249,14 @@ export async function ticketsRoutes(app: FastifyInstance) {
         // tmplWa.ativo === false → não envia WA
 
         if (mensagemWa) {
-          const { ok, erro } = primeiraFoto && evento === 'aberto'
-            ? await enviarWhatsAppMidia({ numero, imagemUrl: primeiraFoto, caption: mensagemWa })
-            : await enviarWhatsApp({ numero, mensagem: mensagemWa })
-          if (ok) waEnviados++
-          else erros.push(`WA ${u.nome}: ${erro}`)
+          // Fallback trata ordem (preferência), foto (mídia/sendPhoto) e reserva.
+          const r = await enviarComFallback({
+            numero, telegramChatId, mensagem: mensagemWa,
+            imagemUrl: (primeiraFoto && evento === 'aberto') ? primeiraFoto : null,
+            preferirTelegram: !!(u as any).telegram_primario,
+          })
+          if (r.ok) waEnviados++
+          else erros.push(`msg ${u.nome}: ${r.erro}`)
         }
       }
 

@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import { enviarWhatsApp, statusInstancia } from '../lib/whatsapp'
+import { enviarComFallback } from '../lib/mensageria'
 import { enviarEmail } from '../lib/email'
 import { buscarTemplate, renderizar } from '../lib/notificacao-templates'
 import { exigirAutorizacao } from '../lib/apiAuth'
@@ -336,11 +337,13 @@ export async function whatsappRoutes(app: FastifyInstance) {
   // POST /whatsapp/enviar-codigo — envia código numérico (OTP) via WhatsApp + Email
   app.post('/whatsapp/enviar-codigo', async (req, reply) => {
     if (!await exigirAutorizacao(req, reply)) return
-    const { numero, nome, codigo, email, empresa_id, contexto, linkResetAdmin, linkPrimeiroAcesso } = req.body as {
+    const { numero, nome, codigo, email, empresa_id, contexto, linkResetAdmin, linkPrimeiroAcesso, telegram_chat_id, telegram_primario } = req.body as {
       numero?: string; nome: string; codigo?: string; email?: string; empresa_id?: string
       contexto?: 'primeiro_acesso' | 'reset_admin' | 'self_service'
       linkResetAdmin?: string
       linkPrimeiroAcesso?: string
+      telegram_chat_id?: string | null
+      telegram_primario?: boolean
     }
     const usandoLink = contexto === 'reset_admin' || (contexto === 'primeiro_acesso' && !!linkPrimeiroAcesso)
     if (!codigo && !usandoLink) return reply.status(400).send({ error: 'codigo é obrigatório' })
@@ -381,8 +384,8 @@ export async function whatsappRoutes(app: FastifyInstance) {
       return `Olá${nome ? ` ${nome}` : ''}! 👋\n\nVocê solicitou a recuperação de senha do *CheckFlow*.\n\nSeu código de verificação é:\n\n*${codigo}*\n\nClique no link abaixo para criar sua nova senha:\n${appUrl}/recuperar-senha\n\n_Este código expira em 15 minutos. Se você não solicitou, ignore esta mensagem._`
     })()
 
-    // WhatsApp
-    if (numero) {
+    // WhatsApp / Telegram (fallback conforme preferência)
+    if (numero || telegram_chat_id) {
       let mensagem: string
       if (tmplWa && tmplWa.ativo && tmplWa.corpo.includes('{{codigo}}')) {
         mensagem = renderizar(tmplWa.corpo, vars)
@@ -390,7 +393,9 @@ export async function whatsappRoutes(app: FastifyInstance) {
         mensagem = fallbackTexto
       }
       if (!tmplWa || tmplWa.ativo) {
-        resultados.whatsapp = await enviarWhatsApp({ numero, mensagem })
+        resultados.whatsapp = await enviarComFallback({
+          numero, telegramChatId: telegram_chat_id, mensagem, preferirTelegram: telegram_primario,
+        })
       }
     }
 

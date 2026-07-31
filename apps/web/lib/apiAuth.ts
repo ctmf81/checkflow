@@ -15,6 +15,22 @@ export type AutorizacaoResultado =
   | { ok: true; userId: string }
   | { ok: false; status: number; message: string }
 
+/**
+ * Autentica apenas: exige um Bearer válido e devolve o userId. Sem checagem de
+ * permissão — para ações que o próprio usuário faz sobre si (ex.: vincular o
+ * Telegram da própria conta).
+ */
+export async function autenticarUsuario(req: Request): Promise<AutorizacaoResultado> {
+  const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
+  if (!token) return { ok: false, status: 401, message: 'Não autorizado.' }
+  const caller = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE || SUPABASE_SECRET, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  })
+  const { data: { user }, error } = await caller.auth.getUser(token)
+  if (error || !user) return { ok: false, status: 401, message: 'Sessão inválida. Faça login novamente.' }
+  return { ok: true, userId: user.id }
+}
+
 export async function autorizarPermissao(
   req: Request,
   recurso: string,

@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 
     const { data: usuario } = await supabaseAdmin
       .from('usuarios')
-      .select('id, nome, email, telefone, status')
+      .select('id, nome, email, telefone, status, telegram_chat_id, telegram_primario')
       .eq('id', usuarioId)
       .maybeSingle()
 
