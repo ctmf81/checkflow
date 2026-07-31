@@ -24,6 +24,8 @@ export const maxDuration = 300
 const PERFIL_OPERACAO = '00000000-0000-0000-0000-000000000003'
 const PERFIL_ADMIN_EMPRESA = '00000000-0000-0000-0000-000000000002'
 const SENHA_DEMO = 'Demo@2026'
+// Imagem padrão dos itens de catálogo da demo (asset estático em /public).
+const IMAGEM_PADRAO_CATALOGO = '/catalogo-demo.svg'
 
 function admin(): SupabaseClient | null {
   // Mesma resolução robusta do resto das rotas server (nomes de env variam por
@@ -51,6 +53,7 @@ interface Ctx {
   catalogoIds: Map<string, string>
   perfilCoordenadorId: string
   perfilGestaoId: string
+  causaIdx: number // rotaciona tpl.causasRaiz entre as atividades
 }
 
 // ── get-or-create helpers ──────────────────────────────────────────────────
@@ -99,6 +102,7 @@ async function provisionarCatalogos(ctx: Ctx) {
         atributo_2: c.atributos[1] ? item[c.atributos[1]] ?? null : null,
         atributo_3: c.atributos[2] ? item[c.atributos[2]] ?? null : null,
         atributo_4: c.atributos[3] ? item[c.atributos[3]] ?? null : null,
+        imagem_url: IMAGEM_PADRAO_CATALOGO,
       }))
       if (linhas.length) await ctx.sb.from('catalogo_valores').insert(linhas)
     }
@@ -197,6 +201,7 @@ interface ChecklistProvisionado { id: string; secaoId: string; atividades: { id:
 /** Provisiona um checklist publicado com seções/atividades/opções/versão. */
 async function provisionarChecklist(ctx: Ctx, cl: ChecklistTemplate): Promise<ChecklistProvisionado> {
   const subgrupoId = ctx.subgrupoIds.get(cl.subgrupo)!
+  const grupoId = ctx.grupoIds.get(cl.grupo)!
   // já existe (por nome+subgrupo)?
   const { data: existente } = await ctx.sb.from('checklists').select('id').eq('unidade_id', ctx.unidadeId).eq('subgrupo_id', subgrupoId).eq('nome', cl.nome).maybeSingle()
 
@@ -229,6 +234,16 @@ async function provisionarChecklist(ctx: Ctx, cl: ChecklistTemplate): Promise<Ch
           const ops = a.opcoes.map((o, i) => ({ atividade_id: at!.id, label: o, valor: o, ordem: i, e_valido: (a.opcoesConformes ?? []).includes(o) }))
           await ctx.sb.from('checklist_atividade_opcoes').insert(ops)
         }
+        // Causa raiz pré-vinculada a cada atividade que PODE reprovar (o app só
+        // permite causa raiz em campo com validação). Nome rotaciona o banco.
+        if (valida && ctx.tpl.causasRaiz.length) {
+          const nome = ctx.tpl.causasRaiz[ctx.causaIdx % ctx.tpl.causasRaiz.length]
+          ctx.causaIdx++
+          await ctx.sb.from('causa_raiz').insert({
+            unidade_id: ctx.unidadeId, grupo_id: grupoId, subgrupo_id: subgrupoId,
+            checklist_id: checklistId, atividade_id: at!.id, nome, status: 'ativo',
+          })
+        }
       }
     }
     // snapshot de versão (publicação)
@@ -250,13 +265,6 @@ async function provisionarChecklist(ctx: Ctx, cl: ChecklistTemplate): Promise<Ch
 
   if (!checklistId) throw new Error(`checklist "${cl.nome}": id ausente`)
   return { id: checklistId, secaoId, atividades, tpl: cl }
-}
-
-async function provisionarCausaRaiz(ctx: Ctx) {
-  const { count } = await ctx.sb.from('causa_raiz').select('id', { count: 'exact', head: true }).eq('unidade_id', ctx.unidadeId)
-  if ((count ?? 0) > 0) return
-  const linhas = ctx.tpl.causasRaiz.map(nome => ({ unidade_id: ctx.unidadeId, nome, status: 'ativo' }))
-  if (linhas.length) await ctx.sb.from('causa_raiz').insert(linhas)
 }
 
 async function provisionarTicketsETarefas(ctx: Ctx) {
@@ -379,7 +387,7 @@ export async function POST(req: NextRequest) {
     const ctx: Ctx = {
       sb, empresaId, tpl, unidadeId: '', operadorAuthId: '', operadorUsuarioId: '',
       subgrupoIds: new Map(), grupoIds: new Map(), catalogoValores: new Map(), catalogoIds: new Map(),
-      perfilCoordenadorId: PERFIL_ADMIN_EMPRESA, perfilGestaoId: PERFIL_ADMIN_EMPRESA,
+      perfilCoordenadorId: PERFIL_ADMIN_EMPRESA, perfilGestaoId: PERFIL_ADMIN_EMPRESA, causaIdx: 0,
     }
 
     // Base comum aos 2 modos (get-or-create idempotente): unidade/grupos/subgrupos + catálogos.
@@ -396,7 +404,6 @@ export async function POST(req: NextRequest) {
       await provisionarUsuarios(ctx)
       const checklists: ChecklistProvisionado[] = []
       for (const cl of tpl.checklists) checklists.push(await provisionarChecklist(ctx, cl))
-      await provisionarCausaRaiz(ctx)
       await provisionarTicketsETarefas(ctx)
       await sb.from('empresas').update({ demo_provisionado: true }).eq('id', empresaId)
       return NextResponse.json({
