@@ -346,11 +346,19 @@ export default function EmpresaPage() {
                     Gera <strong>80 execuções</strong> dos últimos 30 dias (com planos de ação) para deixar a demonstração cheia.
                     <span className="text-gray-400"> Acrescenta aos dados existentes — não apaga nada; pode repetir.</span>
                   </p>
-                  <div className="flex justify-start mt-4">
+                  <div className="flex items-center gap-3 mt-4">
                     <Button onClick={gerarDadosDemo} disabled={gerandoDemo} size="sm">
                       <Sparkles size={14} />
                       {gerandoDemo ? 'Gerando…' : 'Gerar dados dos últimos 30 dias'}
                     </Button>
+                    <button
+                      onClick={gerarEstruturaDemo}
+                      disabled={gerandoDemo}
+                      className="text-xs text-gray-400 hover:text-orange-500 underline underline-offset-2 transition-colors disabled:opacity-50"
+                      title="Recria/completa a estrutura (idempotente) — use se ficou incompleta"
+                    >
+                      Regerar estrutura
+                    </button>
                   </div>
                 </>
               )}
