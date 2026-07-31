@@ -152,8 +152,10 @@ async function acharUsuario(ctx: Ctx, nome: string, cpf: string, perfilId: strin
 
   // garante a linha em usuarios (upsert idempotente; checa erro — falha aqui deixa
   // o usuário só no auth e ele nunca aparece nas telas).
+  // Telefone é UNIQUE → usa os dígitos do CPF (já único) para não colidir entre usuários.
+  const telefone = cpfDigits
   const { error: eUsr } = await ctx.sb.from('usuarios').upsert({
-    id: authId, nome, email, cpf: cpfDigits, telefone: '11999990000', status: 'ativo', primeiro_acesso: false,
+    id: authId, nome, email, cpf: cpfDigits, telefone, status: 'ativo', primeiro_acesso: false,
   }, { onConflict: 'id' })
   if (eUsr) throw new Error(`usuarios "${nome}": ${eUsr.message}`)
 
