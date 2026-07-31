@@ -7,6 +7,7 @@ import { hospital } from './hospital'
 import { agronegocio } from './agronegocio'
 import { fabricaTransformacao } from './fabricaTransformacao'
 import { agropecuaria } from './agropecuaria'
+import { hotel } from './hotel'
 
 export const VERTICAIS: Record<string, VerticalTemplate> = {
   [fabricaAlimentos.id]: fabricaAlimentos,
@@ -16,6 +17,7 @@ export const VERTICAIS: Record<string, VerticalTemplate> = {
   [agronegocio.id]: agronegocio,
   [fabricaTransformacao.id]: fabricaTransformacao,
   [agropecuaria.id]: agropecuaria,
+  [hotel.id]: hotel,
 }
 
 /** Template de uma vertical pelo id (ex.: 'fabrica_alimentos'), ou null. */
