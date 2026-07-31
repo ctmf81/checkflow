@@ -332,9 +332,10 @@ async function provisionarTicketsETarefas(ctx: Ctx) {
 
 // ── Geração da massa (append) ───────────────────────────────────────────────
 
-async function gerarMassa(ctx: Ctx, checklists: ChecklistProvisionado[]): Promise<{ execucoes: number; planos: number }> {
+async function gerarMassa(ctx: Ctx, checklists: ChecklistProvisionado[]): Promise<{ execucoes: number; planos: number; erroResposta?: string; erroPlano?: string }> {
   const agora = new Date()
   let nExec = 0, nPlano = 0
+  let erroResposta: string | undefined, erroPlano: string | undefined
   const rng = criarRng((Date.now() & 0xffff) + 7)
 
   // TOTAL_EXECUCOES execuções no total (não por checklist), espalhadas na janela.
@@ -368,15 +369,16 @@ async function gerarMassa(ctx: Ctx, checklists: ChecklistProvisionado[]): Promis
     for (const at of cp.atividades) {
       const ehAReprovada = !!idxReprova && at.id === idxReprova.id
       const r = gerarResposta(at.tpl, !ehAReprovada, rng, ctx.catalogoValores.get(at.tpl.catalogo ?? ''))
-      const { data: resp } = await ctx.sb.from('checklist_execucao_respostas').insert({
+      const { data: resp, error: eResp } = await ctx.sb.from('checklist_execucao_respostas').insert({
         execucao_id: exec.id, atividade_id: at.id, resposta: r.resposta as object, conforme: r.conforme,
       }).select('id').single()
+      if (eResp && !erroResposta) erroResposta = `${at.tpl.nome}: ${eResp.message}`
       if (ehAReprovada && resp) { respostaNaoConformeId = resp.id; atividadeNaoConformeId = at.id }
     }
 
     // Plano de ação (aberto_notificado_em setado → cron não dispara WhatsApp).
     if (temPlano(desfecho) && respostaNaoConformeId && atividadeNaoConformeId) {
-      await ctx.sb.from('planos_acao').insert({
+      const { error: ePlano } = await ctx.sb.from('planos_acao').insert({
         unidade_id: ctx.unidadeId, subgrupo_id: subgrupoId,
         checklist_execucao_id: exec.id, checklist_execucao_resposta_id: respostaNaoConformeId,
         atividade_id: atividadeNaoConformeId, status: statusPlanoDoDesfecho(desfecho)!,
@@ -384,10 +386,10 @@ async function gerarMassa(ctx: Ctx, checklists: ChecklistProvisionado[]): Promis
         criado_por: ctx.operadorUsuarioId, aberto_notificado_em: new Date().toISOString(),
         created_at: ts.toISOString(), updated_at: ts.toISOString(),
       })
-      nPlano++
+      if (ePlano) { if (!erroPlano) erroPlano = ePlano.message } else { nPlano++ }
     }
   }
-  return { execucoes: nExec, planos: nPlano }
+  return { execucoes: nExec, planos: nPlano, erroResposta, erroPlano }
 }
 
 // ── Handler ─────────────────────────────────────────────────────────────────
@@ -488,8 +490,8 @@ export async function POST(req: NextRequest) {
     await resolverOperador(ctx)
     const checklists: ChecklistProvisionado[] = []
     for (const cl of tpl.checklists) checklists.push(await provisionarChecklist(ctx, cl))
-    const { execucoes, planos } = await gerarMassa(ctx, checklists)
-    return NextResponse.json({ ok: true, modo, vertical: tpl.nome, criados: { execucoes, planos } })
+    const { execucoes, planos, erroResposta, erroPlano } = await gerarMassa(ctx, checklists)
+    return NextResponse.json({ ok: true, modo, vertical: tpl.nome, criados: { execucoes, planos }, diagnostico: { erroResposta, erroPlano } })
   } catch (e) {
     return NextResponse.json({ message: 'Erro ao gerar dados de demonstração.', detalhe: (e as Error).message }, { status: 500 })
   }
