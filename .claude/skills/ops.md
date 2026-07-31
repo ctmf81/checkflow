@@ -86,6 +86,9 @@ Notificações push no aparelho, somadas ao WhatsApp/e-mail nos mesmos eventos (
 ## Env Vars (nomes — nunca valores no chat)
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `CRON_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`, `ALERT_EMAIL` (serviço API — destinatário dos alertas do healthcheck do WhatsApp; opcional), `EVOLUTION_API_KEY` (serviço API — obrigatória, sem fallback no código; URL/instância têm default), `EVOLUTION_API_URL`, `EVOLUTION_INSTANCE`, **`INTERNAL_API_SECRET`** (⚠️ nos serviços **api E web**, MESMO valor — autentica as rotas internas Fastify servidor-a-servidor; sem ele o OTP de reset de senha quebra. 2026-06-23)
 
+## Telegram — mensageria alternativa (2026-07-31, EM PRODUÇÃO)
+Fallback do WhatsApp. Envs **serviço API**: `TELEGRAM_BOT_TOKEN` (secreto, sem fallback), `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` (só `[A-Za-z0-9_-]` — o Telegram recusa outros chars). Serviço **Web**: `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME`. ⚠️ **Um bot = um webhook**, por isso **dev e prod usam bots diferentes** (dev `@checkflows_bot`, prod `@checkflowprd_bot`). Registrar o webhook após deploy: `POST /telegram/setup` (admin) ou direto na API do Telegram (`setWebhook` com `secret_token`). Health: tela Sistema → Telegram / `GET /telegram/status`. Sem `TELEGRAM_BOT_TOKEN` o canal é no-op (WhatsApp/e-mail seguem). Decisão do usuário: **não regenerar os tokens** (2026-07-31).
+
 ## Asaas (pagamentos) — EM PRODUÇÃO desde 2026-07-20
 Gateway de cobrança. `lib/asaas.ts` decide o ambiente por env; base prod `https://api.asaas.com/v3`, sandbox `https://api-sandbox.asaas.com/v3`.
 - **Envs (serviço API):** `ASAAS_ENV=production` · `ASAAS_API_KEY_PROD` (chave de produção `$aact_prod_...`; fallback antigo `ASAAS_API_KEY`) · `ASAAS_WEBHOOK_TOKEN`. A `ASAAS_API_KEY_SANDBOX` pode ficar (só usada quando `ASAAS_ENV`≠production).
