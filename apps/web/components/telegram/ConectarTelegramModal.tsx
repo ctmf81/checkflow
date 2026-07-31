@@ -13,6 +13,7 @@ export function ConectarTelegramModal({ onClose }: { onClose: () => void }) {
   const [carregando, setCarregando] = useState(true)
   const [deepLink, setDeepLink] = useState<string | null>(null)
   const [vinculado, setVinculado] = useState(false)
+  const [primario, setPrimario] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [copiado, setCopiado] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -29,8 +30,17 @@ export function ConectarTelegramModal({ onClose }: { onClose: () => void }) {
     })
     const json = await res.json().catch(() => null)
     if (!res.ok) { setErro(json?.message ?? 'Falha ao gerar o link.'); return null }
-    return json as { deepLink: string; vinculado: boolean }
+    return json as { deepLink: string; vinculado: boolean; primario: boolean }
   }, [token])
+
+  async function alternarPrimario(novo: boolean) {
+    setPrimario(novo) // otimista
+    await fetch('/api/telegram/vincular', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await token()}` },
+      body: JSON.stringify({ primario: novo }),
+    })
+  }
 
   useEffect(() => {
     let vivo = true
@@ -39,6 +49,7 @@ export function ConectarTelegramModal({ onClose }: { onClose: () => void }) {
       if (!vivo || !j) { setCarregando(false); return }
       setDeepLink(j.deepLink)
       setVinculado(j.vinculado)
+      setPrimario(j.primario)
       setCarregando(false)
       // Enquanto não vinculado, verifica a cada 3s se o /start chegou.
       if (!j.vinculado) {
@@ -93,6 +104,14 @@ export function ConectarTelegramModal({ onClose }: { onClose: () => void }) {
               </div>
               <p className="text-sm font-semibold text-gray-800">Telegram conectado</p>
               <p className="text-xs text-gray-500 mt-1">Você recebe os avisos do CheckFlow por lá quando o WhatsApp falhar.</p>
+
+              {/* Preferência: receber SEMPRE pelo Telegram (não só no fallback) */}
+              <label className="mt-4 flex items-center justify-between gap-3 text-left bg-gray-50 rounded-xl px-3 py-2.5 cursor-pointer">
+                <span className="text-xs text-gray-600">Receber <strong>sempre</strong> pelo Telegram<br /><span className="text-gray-400">(em vez de só quando o WhatsApp falhar)</span></span>
+                <input type="checkbox" checked={primario} onChange={e => alternarPrimario(e.target.checked)}
+                  className="w-4 h-4 accent-sky-500 flex-shrink-0" />
+              </label>
+
               <button onClick={desconectar}
                 className="mt-4 text-xs text-red-500 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">
                 Desconectar

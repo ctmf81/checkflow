@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   const sb = admin()
   const { data: u } = await sb
     .from('usuarios')
-    .select('telegram_link_code, telegram_chat_id')
+    .select('telegram_link_code, telegram_chat_id, telegram_primario')
     .eq('id', auth.userId)
     .maybeSingle()
 
@@ -40,7 +40,22 @@ export async function POST(req: NextRequest) {
     deepLink: `https://t.me/${BOT_USERNAME}?start=${code}`,
     botUsername: BOT_USERNAME,
     vinculado: !!u?.telegram_chat_id,
+    primario: !!u?.telegram_primario,
   })
+}
+
+/**
+ * PATCH /api/telegram/vincular  { primario: boolean }
+ * Liga/desliga "receber sempre pelo Telegram" (canal primário) do usuário logado.
+ */
+export async function PATCH(req: NextRequest) {
+  const auth = await autenticarUsuario(req)
+  if (!auth.ok) return NextResponse.json({ message: auth.message }, { status: auth.status })
+  const { primario } = await req.json().catch(() => ({}))
+  const sb = admin()
+  const { error } = await sb.from('usuarios').update({ telegram_primario: !!primario }).eq('id', auth.userId)
+  if (error) return NextResponse.json({ message: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true, primario: !!primario })
 }
 
 /**
