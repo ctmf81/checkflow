@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import { exigirAutorizacao } from '../lib/apiAuth'
-import { enviarTelegram, configurarWebhook } from '../lib/telegram'
+import { enviarTelegram, configurarWebhook, statusTelegram } from '../lib/telegram'
 
 // Segredo compartilhado com o Telegram: ele devolve no header abaixo em cada
 // update, provando que a chamada veio mesmo do Telegram (e não de um terceiro).
@@ -85,5 +85,15 @@ export async function telegramRoutes(app: FastifyInstance) {
     const r = await configurarWebhook(url, WEBHOOK_SECRET || undefined)
     if (!r.ok) return reply.status(500).send({ error: r.erro })
     return reply.send({ ok: true, url })
+  })
+
+  /**
+   * GET /telegram/status  (health do canal — admin)
+   * Retorna se o token está configurado, a URL do webhook, pendências e o
+   * último erro reportado pelo Telegram. Alimenta a tela de saúde do sistema.
+   */
+  app.get('/telegram/status', async (req, reply) => {
+    if (!await exigirAutorizacao(req, reply)) return
+    return reply.send(await statusTelegram())
   })
 }

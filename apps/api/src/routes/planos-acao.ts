@@ -2,8 +2,6 @@ import { FastifyInstance } from 'fastify'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import { exigirAutorizacao } from '../lib/apiAuth'
-import { enviarWhatsAppMidia } from '../lib/whatsapp'
-import { enviarTelegram } from '../lib/telegram'
 import { enviarComFallback } from '../lib/mensageria'
 import { enviarEmail } from '../lib/email'
 import { enviarPush } from '../lib/push'
@@ -137,7 +135,7 @@ async function dispararNotificacaoPlano(
     : ['nivel_1']   // N1 recebe na abertura e quando N2 devolve
 
   const { data: membros } = await sb.from('usuario_subgrupo')
-    .select('usuario_id, funcao, usuarios(nome, email, telefone, telegram_chat_id)')
+    .select('usuario_id, funcao, usuarios(nome, email, telefone, telegram_chat_id, telegram_primario)')
     .eq('subgrupo_id', plano.subgrupo_id)
     .in('funcao', funcoesAlvo)
 
@@ -203,6 +201,7 @@ async function dispararNotificacaoPlano(
     const email: string | null = usuario.email ?? null
     const telefone: string | null = usuario.telefone ?? null
     const telegramChatId: string | null = usuario.telegram_chat_id ?? null
+    const preferirTelegram: boolean = !!usuario.telegram_primario
     const vars = { ...varsBase, destinatario: nome }
 
     if (deFerias.has(m.usuario_id)) return // de férias: não recebe por nenhum canal
@@ -232,15 +231,12 @@ async function dispararNotificacaoPlano(
       }
 
       if (mensagemWa) {
-        // Com foto: tenta WhatsApp mídia; se falhar e houver Telegram, cai p/ texto.
-        // Sem foto: enviarComFallback (WhatsApp texto → Telegram).
-        let r: { ok: boolean; erro?: string }
-        if (primeiraFoto && numeroFinal) {
-          r = await enviarWhatsAppMidia({ numero: numeroFinal, imagemUrl: primeiraFoto, caption: mensagemWa })
-          if (!r.ok && telegramChatId) r = await enviarTelegram(telegramChatId, mensagemWa)
-        } else {
-          r = await enviarComFallback({ numero: numeroFinal, telegramChatId, mensagem: mensagemWa })
-        }
+        // Fallback cuida da ordem (preferência), da foto (mídia/sendPhoto) e do
+        // canal de reserva. A evidência (primeiraFoto) é preservada nos dois canais.
+        const r = await enviarComFallback({
+          numero: numeroFinal, telegramChatId, mensagem: mensagemWa,
+          imagemUrl: primeiraFoto ?? null, preferirTelegram,
+        })
         if (r.ok) waEnviados++
         else erros.push(`msg ${nome}: ${r.erro}`)
       }
