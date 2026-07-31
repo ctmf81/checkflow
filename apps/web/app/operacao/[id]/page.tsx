@@ -1089,6 +1089,93 @@ function CampoVideo({ atividade, onChange }: { atividade: Atividade; onChange: (
   )
 }
 
+// Assinatura — canvas de desenho (mouse + toque). Gera um PNG e guarda como
+// { file, url, nome } igual foto; o finalize faz upload e salva { url }.
+function CampoAssinatura({ atividade, onChange }: { atividade: Atividade; onChange: (v: any) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const desenhando = useRef(false)
+  const temTraco = useRef(false)
+  const val = atividade.resposta
+
+  // Prepara o canvas: resolução real (devicePixelRatio), fundo branco e traço.
+  function initCanvas() {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ratio = window.devicePixelRatio || 1
+    const rect = canvas.getBoundingClientRect()
+    canvas.width = rect.width * ratio
+    canvas.height = rect.height * ratio
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.scale(ratio, ratio)
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, rect.width, rect.height)
+    ctx.lineWidth = 2
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.strokeStyle = '#111'
+  }
+
+  useEffect(() => { if (!val?.url) initCanvas() }, [val?.url])
+
+  function posicao(e: React.PointerEvent<HTMLCanvasElement>) {
+    const rect = canvasRef.current!.getBoundingClientRect()
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+  }
+  function iniciar(e: React.PointerEvent<HTMLCanvasElement>) {
+    const ctx = canvasRef.current?.getContext('2d'); if (!ctx) return
+    desenhando.current = true
+    const { x, y } = posicao(e)
+    ctx.beginPath(); ctx.moveTo(x, y)
+    try { canvasRef.current?.setPointerCapture(e.pointerId) } catch { /* noop */ }
+  }
+  function mover(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (!desenhando.current) return
+    const ctx = canvasRef.current?.getContext('2d'); if (!ctx) return
+    const { x, y } = posicao(e)
+    ctx.lineTo(x, y); ctx.stroke()
+    temTraco.current = true
+  }
+  function terminar() {
+    if (!desenhando.current) return
+    desenhando.current = false
+    if (!temTraco.current) return
+    canvasRef.current?.toBlob(blob => {
+      if (!blob) return
+      const file = new File([blob], `assinatura-${atividade.id}.png`, { type: 'image/png' })
+      onChange({ file, url: URL.createObjectURL(file), nome: file.name })
+    }, 'image/png')
+  }
+  function limpar() {
+    temTraco.current = false
+    initCanvas()
+    onChange(null)
+  }
+
+  if (val?.url) return (
+    <div className="space-y-2">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={val.url} alt="Assinatura" className="w-full max-h-48 object-contain rounded-xl border border-gray-200 bg-white" />
+      <button onClick={limpar}
+        className="w-full py-2 text-xs text-red-500 border border-red-200 rounded-xl hover:bg-red-50 transition-colors">
+        Refazer assinatura
+      </button>
+    </div>
+  )
+
+  return (
+    <div className="space-y-2">
+      <canvas ref={canvasRef}
+        className="w-full h-40 rounded-xl border-2 border-dashed border-gray-200 bg-white touch-none"
+        onPointerDown={iniciar} onPointerMove={mover} onPointerUp={terminar} onPointerLeave={terminar} />
+      <div className="flex items-center justify-between px-1">
+        <p className="text-xs text-gray-400 flex items-center gap-1"><PenLine size={12} />Assine no quadro acima</p>
+        <button onClick={limpar} className="text-xs text-gray-400 hover:text-gray-600">Limpar</button>
+      </div>
+    </div>
+  )
+}
+
 // Dispatcher
 function CampoResposta({ atividade, onChange }: { atividade: Atividade; onChange: (v: any) => void }) {
   const cfg = atividade.config ?? {}
@@ -1102,13 +1189,7 @@ function CampoResposta({ atividade, onChange }: { atividade: Atividade; onChange
     case 'localizacao':      return <CampoLocalizacao atividade={atividade} onChange={onChange} />
     case 'foto':             return <CampoFoto atividade={atividade} onChange={onChange} />
     case 'video':            return <CampoVideo atividade={atividade} onChange={onChange} />
-    case 'assinatura':
-      return (
-        <div className="border-2 border-dashed border-gray-200 rounded-xl p-5 text-center">
-          <PenLine size={22} className="text-gray-300 mx-auto mb-1" />
-          <p className="text-xs text-gray-400">Assinatura (disponível no app móvel)</p>
-        </div>
-      )
+    case 'assinatura':      return <CampoAssinatura atividade={atividade} onChange={onChange} />
     case 'data_hora':      return <CampoDataHora atividade={atividade} onChange={onChange} />
 
     default:
@@ -1871,6 +1952,10 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
           const url = await uploadArquivo(resposta.file, `${execId}/${a.id}.${ext}`)
           resposta = url ? { url, nome: resposta.nome, origem: resposta.origem, dataArquivo: resposta.dataArquivo } : { nome: resposta.nome }
         }
+        if (a.tipo === 'assinatura' && resposta?.file instanceof File) {
+          const url = await uploadArquivo(resposta.file, `${execId}/${a.id}.png`)
+          resposta = url ? { url, nome: resposta.nome } : { nome: resposta.nome }
+        }
         return { execucao_id: execId, atividade_id: a.id, resposta: JSON.parse(JSON.stringify(resposta)) }
       }))
 
@@ -2128,6 +2213,11 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
         const url = await uploadArquivo(resposta.file, `${execId}/${a.id}.${ext}`)
         if (!url && a.obrigatoria) falhasUpload.push(a.nome)
         resposta = url ? { url, nome: resposta.nome, origem: resposta.origem, dataArquivo: resposta.dataArquivo } : { nome: resposta.nome }
+      }
+      if (a.tipo === 'assinatura' && resposta?.file instanceof File) {
+        const url = await uploadArquivo(resposta.file, `${execId}/${a.id}.png`)
+        if (!url && a.obrigatoria) falhasUpload.push(a.nome)
+        resposta = url ? { url, nome: resposta.nome } : { nome: resposta.nome }
       }
       // IA por foto (texto/sim_nao/numero): sobe a foto como evidência e grava
       // { valor, foto_ia }. `conforme` vem do valor (calcularValidacao desempacota).
