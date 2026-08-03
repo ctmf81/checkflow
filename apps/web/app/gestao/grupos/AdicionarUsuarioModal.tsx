@@ -32,13 +32,24 @@ export function AdicionarUsuarioModal({ grupoId, grupoNome, subgrupoLabel, onClo
     async function carregar() {
       const supabase = createClient()
 
+      // Usuários já vinculados a este grupo (para excluir da lista)
+      const { data: jaNoGrupo } = await supabase
+        .from('usuario_grupo')
+        .select('usuario_id')
+        .eq('grupo_id', grupoId)
+      const idsNoGrupo = new Set((jaNoGrupo ?? []).map((r: any) => r.usuario_id))
+
       // Usuários da empresa
       if (empresaAtiva?.id) {
         const { data: ue } = await supabase
           .from('usuario_empresa')
           .select('usuario:usuario_id(id, nome, email)')
           .eq('empresa_id', empresaAtiva.id)
-        if (ue) setUsuarios(ue.map((r: any) => r.usuario).filter(Boolean))
+        if (ue) {
+          setUsuarios(
+            ue.map((r: any) => r.usuario).filter((u: any) => u && !idsNoGrupo.has(u.id))
+          )
+        }
       }
 
       // Subgrupos do grupo
