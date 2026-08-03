@@ -4,7 +4,7 @@ import { autorizarPermissao } from '@/lib/apiAuth'
 import { verticalPorId } from '@/lib/demo/verticais'
 import { validarTemplate } from '@/lib/demo/validarTemplate'
 import {
-  criarRng, sortearDatas, sortearStatus, sortearDesfecho,
+  criarRng, distribuirPorBuckets, sortearStatus, sortearDesfecho,
   resultadoDoDesfecho, temPlano, statusPlanoDoDesfecho, escolher,
 } from '@/lib/demo/gerador'
 import { configAtividade, atividadeValida, gerarResposta } from '@/lib/demo/respostas'
@@ -338,8 +338,9 @@ async function gerarMassa(ctx: Ctx, checklists: ChecklistProvisionado[]): Promis
   let erroResposta: string | undefined, erroPlano: string | undefined
   const rng = criarRng((Date.now() & 0xffff) + 7)
 
-  // TOTAL_EXECUCOES execuções no total (não por checklist), espalhadas na janela.
-  const datas = sortearDatas(agora, 30, TOTAL_EXECUCOES, 8, 18, rng)
+  // TOTAL_EXECUCOES distribuídas pelos buckets do funil (1h, 6h, 12h, 24h, 15d, 30d)
+  // pra demo ficar cheia em todos os intervalos.
+  const datas = distribuirPorBuckets(agora, TOTAL_EXECUCOES, rng)
 
   for (let i = 0; i < datas.length; i++) {
     const cp = checklists[i % checklists.length] // distribui entre os checklists

@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   criarRng, inteiro, escolher, ehDiaUtil,
-  distribuirExecucoes, sortearDatas, sortearStatus, sortearDesfecho,
+  distribuirExecucoes, sortearDatas, distribuirPorBuckets, sortearStatus, sortearDesfecho,
   resultadoDoDesfecho, temPlano, statusPlanoDoDesfecho,
   type Desfecho,
 } from '@/lib/demo/gerador'
@@ -154,5 +154,64 @@ describe('mapeamento de desfecho', () => {
     expect(statusPlanoDoDesfecho('plano_nao_corrigido')).toBe('nao_corrigido')
     expect(statusPlanoDoDesfecho('aprovada')).toBeNull()
     expect(statusPlanoDoDesfecho('reprovada_sem_plano')).toBeNull()
+  })
+})
+
+describe('distribuirPorBuckets', () => {
+  const HORA = 60 * 60 * 1000
+  const DIA = 24 * HORA
+  const agora = new Date('2026-08-03T15:00:00Z')
+
+  function contarPorBucket(datas: Date[]) {
+    let b1h = 0, b6h = 0, b12h = 0, b24h = 0, b15d = 0, b30d = 0
+    for (const d of datas) {
+      const atras = agora.getTime() - d.getTime()
+      if (atras < HORA) b1h++
+      else if (atras < 6 * HORA) b6h++
+      else if (atras < 12 * HORA) b12h++
+      else if (atras < 24 * HORA) b24h++
+      else if (atras < 15 * DIA) b15d++
+      else if (atras <= 30 * DIA) b30d++
+    }
+    return { b1h, b6h, b12h, b24h, b15d, b30d }
+  }
+
+  it('devolve exatamente `total` timestamps', () => {
+    const datas = distribuirPorBuckets(agora, 80, criarRng(1))
+    expect(datas).toHaveLength(80)
+  })
+
+  it('distribui 80 entre os 6 buckets (14/14/13/13/13/13 disjuntos)', () => {
+    const c = contarPorBucket(distribuirPorBuckets(agora, 80, criarRng(1)))
+    expect(c).toEqual({ b1h: 14, b6h: 14, b12h: 13, b24h: 13, b15d: 13, b30d: 13 })
+  })
+
+  it('cumulativo cresce em cada corte do funil', () => {
+    const c = contarPorBucket(distribuirPorBuckets(agora, 80, criarRng(2)))
+    const cum1h = c.b1h
+    const cum6h = cum1h + c.b6h
+    const cum12h = cum6h + c.b12h
+    const cum24h = cum12h + c.b24h
+    const cum15d = cum24h + c.b15d
+    const cum30d = cum15d + c.b30d
+    expect(cum1h).toBeGreaterThan(0)
+    expect(cum6h).toBeGreaterThan(cum1h)
+    expect(cum24h).toBeGreaterThan(cum12h)
+    expect(cum30d).toBe(80)
+  })
+
+  it('nenhum timestamp no futuro; todos dentro de 30 dias', () => {
+    const datas = distribuirPorBuckets(agora, 80, criarRng(3))
+    for (const d of datas) {
+      expect(d.getTime()).toBeLessThanOrEqual(agora.getTime())
+      expect(agora.getTime() - d.getTime()).toBeLessThanOrEqual(30 * DIA)
+    }
+  })
+
+  it('retornado ordenado do mais antigo ao mais recente', () => {
+    const datas = distribuirPorBuckets(agora, 80, criarRng(4))
+    for (let i = 1; i < datas.length; i++) {
+      expect(datas[i].getTime()).toBeGreaterThanOrEqual(datas[i - 1].getTime())
+    }
   })
 })
