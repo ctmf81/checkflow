@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
-import { MessageCircleQuestion, X, Send, Loader2, Sparkles, BookOpen, Video } from 'lucide-react'
+import { usePathname } from 'next/navigation'
+import { MessageCircleQuestion, X, Send, Loader2, Sparkles, Video } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { AjudaVideo, embedUrlVideo, resolverVideoDaRota } from '@/lib/ajudaVideos'
 
@@ -124,7 +124,6 @@ function resolverSugestoes(pathname: string | null): string[] {
 }
 
 export function AssistenteAjuda() {
-  const router = useRouter()
   const pathname = usePathname()
   const sugestoes = resolverSugestoes(pathname)
   const [aberto, setAberto] = useState(false)
@@ -196,15 +195,12 @@ export function AssistenteAjuda() {
             <div className="flex items-center gap-2">
               {videoEmbed && (
                 <button onClick={() => setVideoAberto(true)}
-                  className="text-gray-400 hover:text-orange-500" title={video?.titulo || 'Vídeo desta tela'}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold shadow-sm transition-colors"
+                  title={video?.titulo || 'Vídeo desta tela'}
                   aria-label="Assistir ao vídeo desta tela">
-                  <Video size={16} />
+                  <Video size={14} />Ver vídeo
                 </button>
               )}
-              <button onClick={() => { setAberto(false); router.push('/gestao/ajuda') }}
-                className="text-gray-400 hover:text-orange-500 inline-flex items-center gap-1 text-xs" title="Central de ajuda">
-                <BookOpen size={15} />
-              </button>
               <button onClick={() => setAberto(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
             </div>
           </div>
