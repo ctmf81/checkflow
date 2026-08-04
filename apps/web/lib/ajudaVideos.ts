@@ -7,6 +7,7 @@ export interface AjudaVideo {
   rota: string
   titulo: string | null
   url: string
+  ordem?: number | null
 }
 
 /**
@@ -61,35 +62,45 @@ function contarCoringas(rota: string): number {
 }
 
 /**
- * Escolhe o vídeo da tela atual. Casa rota exata, prefixo, ou padrão com
- * coringas `*` / `[nome]` no lugar de ids (ex.: `/gestao/grupos/[id]/subgrupos`).
- * Ranking: rota mais longa vence; empate, quem tem menos coringas vence.
- * Assim `/gestao/checklists/[id]` cede lugar pra `/gestao/checklists/novo`
- * quando o URL é exatamente esse.
+ * Todos os vídeos aplicáveis à tela atual, ordenados do mais específico ao mais
+ * genérico. Suporta rota exata, prefixo (filhas herdam) e coringas `*`/`[nome]`.
+ * Empate por especificidade → ordena por `ordem` asc, depois `titulo` asc.
+ *
+ * Ex.: uma tela com 3 vídeos cadastrados na mesma rota (fluxo, tipos de campo,
+ * opções) devolve os 3 na ordem definida pelo admin.
  */
-export function resolverVideoDaRota<T extends { rota: string }>(
+export function resolverVideosDaRota<T extends { rota: string; ordem?: number | null; titulo?: string | null }>(
   pathname: string | null | undefined,
   videos: T[],
-): T | null {
-  if (!pathname || !videos?.length) return null
+): T[] {
+  if (!pathname || !videos?.length) return []
   const atual = normalizarRota(pathname)
   const atualSegs = atual.split('/')
   const candidatos = videos.filter(v => {
     const rota = normalizarRota(v.rota)
     const rotaSegs = rota.split('/')
     if (rotaSegs.length > atualSegs.length) return false
-    // todos os segmentos da rota precisam casar com os da URL na mesma posição;
-    // se rota é mais curta, os segmentos extras da URL viram "filha herdando".
     for (let i = 0; i < rotaSegs.length; i++) {
       if (!segmentoCasa(rotaSegs[i], atualSegs[i])) return false
     }
     return true
   })
-  if (!candidatos.length) return null
   return candidatos.sort((a, b) => {
     const ra = normalizarRota(a.rota), rb = normalizarRota(b.rota)
     const sa = ra.split('/').length, sb = rb.split('/').length
-    if (sa !== sb) return sb - sa                        // mais segmentos = mais específico
-    return contarCoringas(ra) - contarCoringas(rb)       // desempate: menos coringas vence
-  })[0]
+    if (sa !== sb) return sb - sa                                     // mais segmentos = mais específico
+    const ca = contarCoringas(ra), cb = contarCoringas(rb)
+    if (ca !== cb) return ca - cb                                     // menos coringas vence
+    const oa = a.ordem ?? 0, ob = b.ordem ?? 0
+    if (oa !== ob) return oa - ob                                     // ordem manual
+    return (a.titulo ?? '').localeCompare(b.titulo ?? '')             // desempate final
+  })
+}
+
+/** Vídeo único (o primeiro da lista) — compat com o assistente anterior. */
+export function resolverVideoDaRota<T extends { rota: string; ordem?: number | null; titulo?: string | null }>(
+  pathname: string | null | undefined,
+  videos: T[],
+): T | null {
+  return resolverVideosDaRota(pathname, videos)[0] ?? null
 }

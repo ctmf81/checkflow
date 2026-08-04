@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { MessageCircleQuestion, X, Send, Loader2, Sparkles, Video } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { AjudaVideo, embedUrlVideo, resolverVideoDaRota } from '@/lib/ajudaVideos'
+import { AjudaVideo, embedUrlVideo, resolverVideosDaRota } from '@/lib/ajudaVideos'
 
 type Msg = { role: 'user' | 'assistant'; content: string }
 
@@ -132,12 +132,14 @@ export function AssistenteAjuda() {
   const [carregando, setCarregando] = useState(false)
   const fimRef = useRef<HTMLDivElement>(null)
 
-  // Vídeo tutorial da tela (cadastrado pelo admin em /sistema/ajuda → Vídeos por
-  // tela). Sem vídeo para a rota atual, o ícone não aparece.
+  // Vídeos tutoriais da tela (cadastrados em /sistema/ajuda). Múltiplos por rota
+  // suportados — modal vira carrossel de tabs. Sem vídeo, o botão não aparece.
   const [videos, setVideos] = useState<AjudaVideo[]>([])
   const [videoAberto, setVideoAberto] = useState(false)
-  const video = resolverVideoDaRota(pathname, videos)
-  const videoEmbed = embedUrlVideo(video?.url)
+  const [videoIdx, setVideoIdx] = useState(0)
+  const videosDaTela = resolverVideosDaRota(pathname, videos)
+  const videoAtual = videosDaTela[videoIdx] ?? videosDaTela[0] ?? null
+  const embedAtual = embedUrlVideo(videoAtual?.url)
 
   useEffect(() => { fimRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, carregando])
 
@@ -148,9 +150,9 @@ export function AssistenteAjuda() {
     return () => { ativo = false }
   }, [])
 
-  // Ao trocar de página, fecha a modal do vídeo — a modal aberta ficaria mostrando
-  // o vídeo da página anterior mesmo com o pathname já atualizado.
-  useEffect(() => { setVideoAberto(false) }, [pathname])
+  // Ao trocar de página, fecha a modal e volta pro 1º vídeo — a modal aberta
+  // mostraria o vídeo da tela anterior mesmo com o pathname já atualizado.
+  useEffect(() => { setVideoAberto(false); setVideoIdx(0) }, [pathname])
 
   async function enviar(texto: string) {
     const pergunta = texto.trim()
@@ -193,12 +195,13 @@ export function AssistenteAjuda() {
               <span className="font-semibold text-gray-800 text-sm">Assistente CheckFlow</span>
             </div>
             <div className="flex items-center gap-2">
-              {videoEmbed && (
-                <button onClick={() => setVideoAberto(true)}
+              {embedAtual && (
+                <button onClick={() => { setVideoIdx(0); setVideoAberto(true) }}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold shadow-sm transition-colors"
-                  title={video?.titulo || 'Vídeo desta tela'}
+                  title={videoAtual?.titulo || 'Vídeo desta tela'}
                   aria-label="Assistir ao vídeo desta tela">
-                  <Video size={14} />Ver vídeo
+                  <Video size={14} />
+                  {videosDaTela.length > 1 ? `Ver vídeos (${videosDaTela.length})` : 'Ver vídeo'}
                 </button>
               )}
               <button onClick={() => setAberto(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
@@ -247,7 +250,7 @@ export function AssistenteAjuda() {
         </div>
       )}
 
-      {videoAberto && videoEmbed && (
+      {videoAberto && embedAtual && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4"
           onClick={() => setVideoAberto(false)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden"
@@ -256,15 +259,32 @@ export function AssistenteAjuda() {
               <div className="flex items-center gap-2 min-w-0">
                 <Video size={16} className="text-orange-500 flex-shrink-0" />
                 <span className="font-semibold text-gray-800 text-sm truncate">
-                  {video?.titulo || 'Vídeo desta tela'}
+                  {videoAtual?.titulo || 'Vídeo desta tela'}
                 </span>
+                {videosDaTela.length > 1 && (
+                  <span className="text-xs text-gray-400 flex-shrink-0">· {videoIdx + 1} de {videosDaTela.length}</span>
+                )}
               </div>
               <button onClick={() => setVideoAberto(false)} className="text-gray-400 hover:text-gray-600">
                 <X size={18} />
               </button>
             </div>
+            {videosDaTela.length > 1 && (
+              <div className="flex gap-1.5 px-3 py-2 bg-gray-50 border-b border-gray-100 overflow-x-auto">
+                {videosDaTela.map((v, i) => (
+                  <button key={v.id ?? i} onClick={() => setVideoIdx(i)}
+                    className={`px-3 py-1.5 text-xs rounded-lg whitespace-nowrap transition-colors ${
+                      i === videoIdx
+                        ? 'bg-orange-500 text-white font-semibold shadow-sm'
+                        : 'bg-white border border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-600'
+                    }`}>
+                    {v.titulo || `Vídeo ${i + 1}`}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="aspect-video w-full bg-black">
-              <iframe key={videoEmbed} src={videoEmbed} title={video?.titulo || 'Vídeo desta tela'}
+              <iframe key={embedAtual} src={embedAtual} title={videoAtual?.titulo || 'Vídeo desta tela'}
                 className="w-full h-full" allowFullScreen
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />
             </div>

@@ -16,6 +16,7 @@ interface VideoTela {
   titulo: string | null
   url: string
   ativo: boolean
+  ordem: number
 }
 
 export function VideosPorTela() {
@@ -28,7 +29,7 @@ export function VideosPorTela() {
 
   async function carregar() {
     setLoading(true)
-    const { data } = await createClient().from('ajuda_videos').select('*').order('rota')
+    const { data } = await createClient().from('ajuda_videos').select('*').order('rota').order('ordem')
     setRows((data ?? []) as VideoTela[])
     setLoading(false)
   }
@@ -45,7 +46,7 @@ export function VideosPorTela() {
     <>
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-gray-500">
-          Vídeo tutorial por tela. O ícone de vídeo aparece no assistente de ajuda apenas nas telas cadastradas aqui.
+          Vídeos tutoriais por tela. Uma tela pode ter mais de um vídeo — o modal do assistente vira um carrossel, na ordem que você definir.
         </p>
         <Button size="sm" onClick={() => { setEditando(null); setAberto(true) }}><Plus size={14} /> Novo</Button>
       </div>
@@ -68,6 +69,7 @@ export function VideosPorTela() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium text-gray-800">{v.titulo || 'Vídeo tutorial'}</span>
                     <code className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{v.rota}</code>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-50 text-orange-600" title="Ordem no carrossel">#{v.ordem}</span>
                     {!v.ativo && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">Inativo</span>}
                     {!embed && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-600">Link não reconhecido</span>}
                   </div>
@@ -98,6 +100,7 @@ function VideoModal({ video, onClose, onSaved }: { video: VideoTela | null; onCl
   const [titulo, setTitulo] = useState(video?.titulo ?? '')
   const [url, setUrl] = useState(video?.url ?? '')
   const [ativo, setAtivo] = useState(video?.ativo ?? true)
+  const [ordem, setOrdem] = useState<number>(video?.ordem ?? 0)
 
   const rotaNormalizada = normalizarRota(rota)
   const embed = embedUrlVideo(url)
@@ -108,6 +111,7 @@ function VideoModal({ video, onClose, onSaved }: { video: VideoTela | null; onCl
     setSalvando(true)
     const payload = {
       rota: rotaNormalizada, titulo: titulo.trim() || null, url: url.trim(), ativo,
+      ordem: Number.isFinite(ordem) ? ordem : 0,
       atualizado_em: new Date().toISOString(),
     }
     const sb = createClient()
@@ -115,13 +119,7 @@ function VideoModal({ video, onClose, onSaved }: { video: VideoTela | null; onCl
       ? await sb.from('ajuda_videos').update(payload).eq('id', video.id)
       : await sb.from('ajuda_videos').insert(payload)
     setSalvando(false)
-    if (error) {
-      // Índice único em `rota`: uma tela = um vídeo.
-      toast.error(error.code === '23505'
-        ? 'Já existe um vídeo cadastrado para essa rota. Edite o existente.'
-        : 'Erro ao salvar o vídeo. Tente novamente.')
-      return
-    }
+    if (error) { toast.error('Erro ao salvar o vídeo. Tente novamente.'); return }
     toast.success(video ? 'Vídeo atualizado.' : 'Vídeo cadastrado.'); onSaved()
   }
 
@@ -147,10 +145,17 @@ function VideoModal({ video, onClose, onSaved }: { video: VideoTela | null; onCl
               Pra id no meio, use <code>[id]</code> ou <code>*</code> — ex.: <code>/gestao/grupos/[id]/subgrupos</code>.
             </p>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Título <span className="text-gray-400 font-normal">(opcional)</span></label>
-            <input value={titulo} onChange={e => setTitulo(e.target.value)} className={inputCls} placeholder="Ex: Como criar um checklist" />
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Título <span className="text-gray-400 font-normal">(opcional)</span></label>
+              <input value={titulo} onChange={e => setTitulo(e.target.value)} className={inputCls} placeholder="Ex: Como criar um checklist" />
+            </div>
+            <div className="w-24">
+              <label className="block text-xs font-medium text-gray-600 mb-1" title="Ordem no carrossel do modal quando a mesma rota tem vários vídeos">Ordem</label>
+              <input type="number" value={ordem} onChange={e => setOrdem(parseInt(e.target.value, 10) || 0)} className={inputCls} min={0} />
+            </div>
           </div>
+          <p className="text-[11px] text-gray-400 -mt-2">Rotas iguais podem ser cadastradas mais de uma vez — o modal vira carrossel na ordem definida.</p>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Link do vídeo (YouTube ou Google Drive)</label>
             <input value={url} onChange={e => setUrl(e.target.value)} className={inputCls} placeholder="https://youtu.be/... ou https://drive.google.com/file/d/.../view" />

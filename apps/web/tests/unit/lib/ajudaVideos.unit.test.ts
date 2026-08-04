@@ -2,7 +2,7 @@
 // normalização da rota cadastrada, conversão do link em URL de embed e
 // resolução do vídeo da tela atual.
 import { describe, it, expect } from 'vitest'
-import { normalizarRota, embedUrlVideo, resolverVideoDaRota } from '@/lib/ajudaVideos'
+import { normalizarRota, embedUrlVideo, resolverVideoDaRota, resolverVideosDaRota } from '@/lib/ajudaVideos'
 
 describe('normalizarRota', () => {
   it('aceita a URL completa colada do navegador', () => {
@@ -99,5 +99,37 @@ describe('resolverVideoDaRota', () => {
       ]
       expect(resolverVideoDaRota('/gestao/grupos/abc/subgrupos', mix)?.titulo).toBe('específico')
     })
+  })
+})
+
+describe('resolverVideosDaRota (múltiplos vídeos por tela)', () => {
+  const videos = [
+    { rota: '/gestao/checklists/novo/montar', titulo: 'Fluxo geral', url: 'https://youtu.be/a', ordem: 0 },
+    { rota: '/gestao/checklists/novo/montar', titulo: 'Tipos de campo', url: 'https://youtu.be/b', ordem: 1 },
+    { rota: '/gestao/checklists/novo/montar', titulo: 'Opções de cada campo', url: 'https://youtu.be/c', ordem: 2 },
+    { rota: '/gestao/checklists', titulo: 'Listagem', url: 'https://youtu.be/d', ordem: 0 },
+  ]
+  it('devolve todos os vídeos da rota, ordenados por ordem asc', () => {
+    const lista = resolverVideosDaRota('/gestao/checklists/novo/montar', videos)
+    expect(lista.map(v => v.titulo)).toEqual(['Fluxo geral', 'Tipos de campo', 'Opções de cada campo', 'Listagem'])
+  })
+  it('rota mais específica vem antes da herdada, mesmo empatando em ordem', () => {
+    const lista = resolverVideosDaRota('/gestao/checklists/novo/montar', videos)
+    expect(lista[0].titulo).toBe('Fluxo geral')
+    expect(lista.at(-1)?.titulo).toBe('Listagem')
+  })
+  it('sem videos → array vazio', () => {
+    expect(resolverVideosDaRota('/gestao/plano', videos)).toEqual([])
+    expect(resolverVideosDaRota(null, videos)).toEqual([])
+  })
+  it('resolverVideoDaRota (singular) devolve o primeiro da lista', () => {
+    expect(resolverVideoDaRota('/gestao/checklists/novo/montar', videos)?.titulo).toBe('Fluxo geral')
+  })
+  it('desempata por título quando ordem é igual (fallback)', () => {
+    const iguais = [
+      { rota: '/x', titulo: 'Beta', url: 'https://youtu.be/b', ordem: 0 },
+      { rota: '/x', titulo: 'Alfa', url: 'https://youtu.be/a', ordem: 0 },
+    ]
+    expect(resolverVideosDaRota('/x', iguais).map(v => v.titulo)).toEqual(['Alfa', 'Beta'])
   })
 })
