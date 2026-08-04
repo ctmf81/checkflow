@@ -34,7 +34,7 @@ Layout: `gestao/layout.tsx` — sidebar + SessionProvider
 | `/gestao/grupos/[id]/subgrupos` | `gestao/grupos/[id]/subgrupos/page.tsx` | Subgrupos |
 | `/gestao/acessos/usuarios` | `gestao/acessos/usuarios/page.tsx` | User management + **QR pré-cadastro** (`QrPreCadastroModal`) e **moderação** de pendentes com contador (`ModeracaoPreCadastroModal` → aprovar escolhe perfil+unidades e reusa `/api/usuarios/criar`) |
 | `/gestao/acessos/perfis` | `gestao/acessos/perfis/page.tsx` | Access profiles |
-| `/gestao/acessos/empresa` | `gestao/acessos/empresa/page.tsx` | Company/units config — **logo** (`ImageCropModal`→`/api/empresa/logo`, `lib/logoEmpresa.ts`) + botão **"Gerar dados dos últimos 30 dias"** (só empresa demo → `/api/empresa/demo/gerar`) |
+| `/gestao/acessos/empresa` | `gestao/acessos/empresa/page.tsx` | Company/units config — **logo** (`ImageCropModal`→`/api/empresa/logo`, `lib/logoEmpresa.ts`) + card demo com **"Gerar estrutura"** (modal de progresso, Retomar/Regerar) e **"Gerar dados"** (só empresa demo → `/api/empresa/demo/gerar` modo estrutura\|dados) |
 | gerador de demo | `lib/demo/` (`gerador.ts` motor · `tipos.ts` · `verticais/*` templates · `validarTemplate.ts` · `respostas.ts`) + `app/api/empresa/demo/gerar/route.ts` | Provisiona vertical + gera massa fake 30 dias (append). Marcar demo/vertical em `sistema/empresas/[id]` Config. Ver `/db`, `/biz` |
 | `/gestao/acessos/turnos` | `gestao/acessos/turnos/page.tsx` | Turnos (shift windows) — TurnoModal.tsx |
 | `/gestao/configuracoes/documentos` | `gestao/configuracoes/documentos/page.tsx` | Document library |
@@ -144,6 +144,13 @@ Tabela `onboarding_paginas` (migration `20260610030000_onboarding_paginas.sql`):
 | File | Purpose |
 |------|---------|
 | `ParceiroModal.tsx` | Busca parceiro existente por e-mail ou cadastra novo (`ParceiroSelecionado` com flag `novo`) — usado na aba "Parceiro" de `/sistema/empresas/[id]` |
+
+### `telegram/` (mensageria — ver `/biz`, `/db`)
+| File | Purpose |
+|------|---------|
+| `ConectarTelegramModal.tsx` | Vínculo self-service (menu do usuário → "Notificações (Telegram)"): link+QR, polling até o webhook confirmar, toggle "receber sempre pelo Telegram" (`PATCH /api/telegram/vincular`) |
+| `ConviteTelegramModal.tsx` | Gestor convida um operador (tela Usuários): QR+link do usuário-alvo (`POST /api/telegram/convite`) |
+| Telas/rotas | `app/sistema/telegram/page.tsx` (health do bot, `GET /telegram/status`) · `app/api/telegram/vincular` (POST/DELETE/PATCH) · `app/api/telegram/convite` · api `routes/telegram.ts` (webhook/setup/status) + `lib/telegram.ts` + `lib/mensageria.ts` (`enviarComFallback`) |
 
 ## Páginas públicas / marketing (`apps/web/public/*.html`) — sem login
 | File | Purpose |

@@ -96,6 +96,40 @@ export function sortearDatas(
   return out.sort((a, b) => a.getTime() - b.getTime())
 }
 
+/**
+ * Distribui `total` timestamps entre os 6 buckets do funil (1h, 6h, 12h, 24h,
+ * 15d, 30d), em slots **disjuntos** para que cada bucket cumulativo mostre
+ * dados: [agora-1h, agora], [agora-6h, agora-1h], [agora-12h, agora-6h],
+ * [agora-24h, agora-12h], [agora-15d, agora-24h], [agora-30d, agora-15d].
+ *
+ * Arredondamento favorece os buckets menores (recebem o ceil). Ordenados do
+ * mais antigo ao mais recente. Nunca gera timestamp no futuro.
+ */
+export function distribuirPorBuckets(agora: Date, total: number, rng: Rng): Date[] {
+  const HORA = 60 * 60 * 1000
+  const DIA = 24 * HORA
+  // [inicio, fim) em ms atrás — do mais recente ao mais antigo.
+  const slots: [number, number][] = [
+    [0, 1 * HORA],
+    [1 * HORA, 6 * HORA],
+    [6 * HORA, 12 * HORA],
+    [12 * HORA, 24 * HORA],
+    [24 * HORA, 15 * DIA],
+    [15 * DIA, 30 * DIA],
+  ]
+  const base = Math.floor(total / slots.length)
+  const extras = total - base * slots.length // sobra pros menores (primeiros)
+  const out: Date[] = []
+  slots.forEach(([antesInicio, antesFim], i) => {
+    const qtd = base + (i < extras ? 1 : 0)
+    for (let k = 0; k < qtd; k++) {
+      const atras = antesInicio + rng() * (antesFim - antesInicio)
+      out.push(new Date(agora.getTime() - atras))
+    }
+  })
+  return out.sort((a, b) => a.getTime() - b.getTime())
+}
+
 // ── Status da execução ───────────────────────────────────────────────────────
 
 export type StatusExecucao = 'concluido' | 'em_andamento' | 'nao_executado'
