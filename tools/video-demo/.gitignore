@@ -1,0 +1,6 @@
+node_modules/
+videos/*/audio/
+videos/*/video/
+videos/*/*.mp4
+videos/*/*.png
+videos/*/concat.txt
