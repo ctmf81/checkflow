@@ -46,9 +46,26 @@ export function embedUrlVideo(url: string | null | undefined): string | null {
 }
 
 /**
- * Escolhe o vídeo da tela atual: casa a rota exata e, na falta dela, o
- * prefixo MAIS específico (mesma regra das sugestões do assistente), para
- * `/gestao/checklists/123` herdar o vídeo de `/gestao/checklists`.
+ * Um segmento da rota cadastrada casa com um segmento da URL atual quando
+ * é igual OU é um coringa (`*` ou `[qualquerNome]`, no estilo Next.js).
+ * Usado por `resolverVideoDaRota` pra suportar id no meio (ex.:
+ * `/gestao/grupos/[id]/subgrupos` casa com `/gestao/grupos/abc-123/subgrupos`).
+ */
+function segmentoCasa(seg: string, atualSeg: string): boolean {
+  return seg === atualSeg || seg === '*' || (seg.startsWith('[') && seg.endsWith(']'))
+}
+
+/** Conta segmentos coringa na rota (menos = mais específico no ranking). */
+function contarCoringas(rota: string): number {
+  return rota.split('/').filter(s => s === '*' || (s.startsWith('[') && s.endsWith(']'))).length
+}
+
+/**
+ * Escolhe o vídeo da tela atual. Casa rota exata, prefixo, ou padrão com
+ * coringas `*` / `[nome]` no lugar de ids (ex.: `/gestao/grupos/[id]/subgrupos`).
+ * Ranking: rota mais longa vence; empate, quem tem menos coringas vence.
+ * Assim `/gestao/checklists/[id]` cede lugar pra `/gestao/checklists/novo`
+ * quando o URL é exatamente esse.
  */
 export function resolverVideoDaRota<T extends { rota: string }>(
   pathname: string | null | undefined,
@@ -56,10 +73,23 @@ export function resolverVideoDaRota<T extends { rota: string }>(
 ): T | null {
   if (!pathname || !videos?.length) return null
   const atual = normalizarRota(pathname)
+  const atualSegs = atual.split('/')
   const candidatos = videos.filter(v => {
     const rota = normalizarRota(v.rota)
-    return atual === rota || (rota !== '/' && atual.startsWith(rota + '/'))
+    const rotaSegs = rota.split('/')
+    if (rotaSegs.length > atualSegs.length) return false
+    // todos os segmentos da rota precisam casar com os da URL na mesma posição;
+    // se rota é mais curta, os segmentos extras da URL viram "filha herdando".
+    for (let i = 0; i < rotaSegs.length; i++) {
+      if (!segmentoCasa(rotaSegs[i], atualSegs[i])) return false
+    }
+    return true
   })
   if (!candidatos.length) return null
-  return candidatos.sort((a, b) => normalizarRota(b.rota).length - normalizarRota(a.rota).length)[0]
+  return candidatos.sort((a, b) => {
+    const ra = normalizarRota(a.rota), rb = normalizarRota(b.rota)
+    const sa = ra.split('/').length, sb = rb.split('/').length
+    if (sa !== sb) return sb - sa                        // mais segmentos = mais específico
+    return contarCoringas(ra) - contarCoringas(rb)       // desempate: menos coringas vence
+  })[0]
 }

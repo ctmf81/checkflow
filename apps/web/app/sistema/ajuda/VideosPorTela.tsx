@@ -142,7 +142,10 @@ function VideoModal({ video, onClose, onSaved }: { video: VideoTela | null; onCl
             {rotaNormalizada && rotaNormalizada !== rota.trim() && (
               <p className="text-[11px] text-gray-400 mt-1">Vai ser salva como <code className="text-gray-600">{rotaNormalizada}</code></p>
             )}
-            <p className="text-[11px] text-gray-400 mt-1">As telas filhas herdam o vídeo (ex.: /gestao/checklists vale para /gestao/checklists/123).</p>
+            <p className="text-[11px] text-gray-400 mt-1">
+              As telas filhas herdam o vídeo (ex.: <code>/gestao/checklists</code> vale para <code>/gestao/checklists/123</code>).
+              Pra id no meio, use <code>[id]</code> ou <code>*</code> — ex.: <code>/gestao/grupos/[id]/subgrupos</code>.
+            </p>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Título <span className="text-gray-400 font-normal">(opcional)</span></label>

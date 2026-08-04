@@ -71,4 +71,33 @@ describe('resolverVideoDaRota', () => {
     expect(resolverVideoDaRota('/gestao/plano', [])).toBeNull()
     expect(resolverVideoDaRota(null, videos)).toBeNull()
   })
+
+  describe('coringa no meio da rota (id dinâmico)', () => {
+    const comCoringa = [
+      { rota: '/gestao/grupos', titulo: 'Grupos', url: 'https://youtu.be/g1' },
+      { rota: '/gestao/grupos/[id]/subgrupos', titulo: 'Subgrupos', url: 'https://youtu.be/s1' },
+      { rota: '/gestao/checklists/*/execucoes', titulo: 'Execuções', url: 'https://youtu.be/e1' },
+    ]
+    it('[id] casa segmento arbitrário no meio', () => {
+      expect(resolverVideoDaRota('/gestao/grupos/abc-123/subgrupos', comCoringa)?.titulo).toBe('Subgrupos')
+    })
+    it('* também funciona como coringa', () => {
+      expect(resolverVideoDaRota('/gestao/checklists/999/execucoes', comCoringa)?.titulo).toBe('Execuções')
+    })
+    it('a rota com [id] deve continuar cobrindo suas filhas por herança', () => {
+      expect(resolverVideoDaRota('/gestao/grupos/abc-123/subgrupos/qualquer', comCoringa)?.titulo).toBe('Subgrupos')
+    })
+    it('sem match no padrão de coringa cai pro prefixo mais raso', () => {
+      // /gestao/grupos/123 (sem /subgrupos) não bate o padrão com [id]/subgrupos —
+      // herda de /gestao/grupos
+      expect(resolverVideoDaRota('/gestao/grupos/abc-123', comCoringa)?.titulo).toBe('Grupos')
+    })
+    it('rota exata (sem coringa) vence rota com coringa no ranking', () => {
+      const mix = [
+        { rota: '/gestao/grupos/[id]/subgrupos', titulo: 'genérico', url: 'https://youtu.be/x' },
+        { rota: '/gestao/grupos/abc/subgrupos', titulo: 'específico', url: 'https://youtu.be/y' },
+      ]
+      expect(resolverVideoDaRota('/gestao/grupos/abc/subgrupos', mix)?.titulo).toBe('específico')
+    })
+  })
 })
