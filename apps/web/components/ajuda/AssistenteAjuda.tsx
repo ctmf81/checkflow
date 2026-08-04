@@ -149,6 +149,10 @@ export function AssistenteAjuda() {
     return () => { ativo = false }
   }, [])
 
+  // Ao trocar de página, fecha a modal do vídeo — a modal aberta ficaria mostrando
+  // o vídeo da página anterior mesmo com o pathname já atualizado.
+  useEffect(() => { setVideoAberto(false) }, [pathname])
+
   async function enviar(texto: string) {
     const pergunta = texto.trim()
     if (!pergunta || carregando) return
@@ -264,7 +268,7 @@ export function AssistenteAjuda() {
               </button>
             </div>
             <div className="aspect-video w-full bg-black">
-              <iframe src={videoEmbed} title={video?.titulo || 'Vídeo desta tela'}
+              <iframe key={videoEmbed} src={videoEmbed} title={video?.titulo || 'Vídeo desta tela'}
                 className="w-full h-full" allowFullScreen
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />
             </div>
