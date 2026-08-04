@@ -24,15 +24,21 @@ export async function limparResiduos(page) {
 //   const player = criarPlayer(DUR, GAP_AFTER)
 //   player.iniciar()  // marca t0 (imediatamente antes da cena 1)
 //   await player.encena(1, async () => { ... setup pra cena 2 ... })
+// setupNext roda no GAP após a cena (troca de tela).
+// duringCena (opcional) roda EM PARALELO com o wait da cena — pra ações
+// visíveis durante a fala (ex.: clicar chips de filtro em sequência).
 export function criarPlayer(DUR, GAP_AFTER) {
   const CENA_MS = DUR.map(d => d * 1000)
   const GAP_MS = GAP_AFTER.map(g => g * 1000)
   let deadline = 0
   return {
     iniciar() { deadline = Date.now() },
-    async encena(n, setupNext) {
+    duracaoCenaMs(n) { return CENA_MS[n - 1] },
+    async encena(n, setupNext, duringCena) {
       deadline += CENA_MS[n - 1]
+      const acao = duringCena ? duringCena().catch(e => console.log(`  (during cena ${n}:`, e.message.split('\n')[0], ')')) : null
       await wait(Math.max(0, deadline - Date.now()))
+      if (acao) await acao
       deadline += GAP_MS[n - 1]
       if (setupNext) await setupNext()
       await wait(Math.max(0, deadline - Date.now()))
