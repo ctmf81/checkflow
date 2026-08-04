@@ -109,21 +109,25 @@ describe('resolverVideosDaRota (múltiplos vídeos por tela)', () => {
     { rota: '/gestao/checklists/novo/montar', titulo: 'Opções de cada campo', url: 'https://youtu.be/c', ordem: 2 },
     { rota: '/gestao/checklists', titulo: 'Listagem', url: 'https://youtu.be/d', ordem: 0 },
   ]
-  it('devolve todos os vídeos da rota, ordenados por ordem asc', () => {
+  it('devolve todos os vídeos do nível mais específico, ordenados por ordem asc', () => {
+    // A rota /gestao/checklists/novo/montar tem 3 vídeos específicos — o ancestral
+    // (/gestao/checklists) é ignorado pra não poluir o modal.
     const lista = resolverVideosDaRota('/gestao/checklists/novo/montar', videos)
-    expect(lista.map(v => v.titulo)).toEqual(['Fluxo geral', 'Tipos de campo', 'Opções de cada campo', 'Listagem'])
+    expect(lista.map(v => v.titulo)).toEqual(['Fluxo geral', 'Tipos de campo', 'Opções de cada campo'])
   })
-  it('rota mais específica vem antes da herdada, mesmo empatando em ordem', () => {
-    const lista = resolverVideosDaRota('/gestao/checklists/novo/montar', videos)
-    expect(lista[0].titulo).toBe('Fluxo geral')
-    expect(lista.at(-1)?.titulo).toBe('Listagem')
+  it('ancestral só aparece quando não há vídeo específico pra rota', () => {
+    // Sem vídeo pra /gestao/checklists/abc — herda de /gestao/checklists
+    const lista = resolverVideosDaRota('/gestao/checklists/abc', videos)
+    expect(lista.map(v => v.titulo)).toEqual(['Listagem'])
   })
   it('sem videos → array vazio', () => {
     expect(resolverVideosDaRota('/gestao/plano', videos)).toEqual([])
     expect(resolverVideosDaRota(null, videos)).toEqual([])
   })
-  it('resolverVideoDaRota (singular) devolve o primeiro da lista', () => {
+  it('resolverVideoDaRota (singular) devolve o primeiro do nível mais específico', () => {
     expect(resolverVideoDaRota('/gestao/checklists/novo/montar', videos)?.titulo).toBe('Fluxo geral')
+    // Sem vídeo específico → herda ancestral
+    expect(resolverVideoDaRota('/gestao/checklists/abc', videos)?.titulo).toBe('Listagem')
   })
   it('desempata por título quando ordem é igual (fallback)', () => {
     const iguais = [

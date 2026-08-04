@@ -62,12 +62,17 @@ function contarCoringas(rota: string): number {
 }
 
 /**
- * Todos os vídeos aplicáveis à tela atual, ordenados do mais específico ao mais
- * genérico. Suporta rota exata, prefixo (filhas herdam) e coringas `*`/`[nome]`.
- * Empate por especificidade → ordena por `ordem` asc, depois `titulo` asc.
+ * Vídeos aplicáveis à tela atual — devolve APENAS os do nível de especificidade
+ * mais alto que casa. Se a tela tem vídeos cadastrados exatamente pra ela (ou
+ * pra um padrão com coringa), ancestrais não são misturados. Só quando não
+ * existe nada específico é que a filha herda do prefixo mais próximo.
  *
- * Ex.: uma tela com 3 vídeos cadastrados na mesma rota (fluxo, tipos de campo,
- * opções) devolve os 3 na ordem definida pelo admin.
+ * Ex.: tela `/gestao/checklists/abc/montar` com vídeos cadastrados em
+ * `/gestao/checklists/*​/montar` (Parte 1, Parte 2) e em `/gestao/checklists`
+ * (Listagem) → devolve só Parte 1 + Parte 2 (o Listagem só apareceria em telas
+ * sem vídeo específico).
+ *
+ * Vários vídeos no mesmo nível ficam ordenados por `ordem` asc, depois `titulo`.
  */
 export function resolverVideosDaRota<T extends { rota: string; ordem?: number | null; titulo?: string | null }>(
   pathname: string | null | undefined,
@@ -85,15 +90,18 @@ export function resolverVideosDaRota<T extends { rota: string; ordem?: number | 
     }
     return true
   })
-  return candidatos.sort((a, b) => {
-    const ra = normalizarRota(a.rota), rb = normalizarRota(b.rota)
-    const sa = ra.split('/').length, sb = rb.split('/').length
-    if (sa !== sb) return sb - sa                                     // mais segmentos = mais específico
-    const ca = contarCoringas(ra), cb = contarCoringas(rb)
-    if (ca !== cb) return ca - cb                                     // menos coringas vence
+  if (!candidatos.length) return []
+  // Fica só com o nível mais específico: mais segmentos e, empate, menos coringas.
+  const segs = (v: T) => normalizarRota(v.rota).split('/').length
+  const cor = (v: T) => contarCoringas(normalizarRota(v.rota))
+  const maxSegs = Math.max(...candidatos.map(segs))
+  const nivel = candidatos.filter(v => segs(v) === maxSegs)
+  const minCor = Math.min(...nivel.map(cor))
+  const finalistas = nivel.filter(v => cor(v) === minCor)
+  return finalistas.sort((a, b) => {
     const oa = a.ordem ?? 0, ob = b.ordem ?? 0
-    if (oa !== ob) return oa - ob                                     // ordem manual
-    return (a.titulo ?? '').localeCompare(b.titulo ?? '')             // desempate final
+    if (oa !== ob) return oa - ob
+    return (a.titulo ?? '').localeCompare(b.titulo ?? '')
   })
 }
 
