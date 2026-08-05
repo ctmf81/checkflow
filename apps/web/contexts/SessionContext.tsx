@@ -173,14 +173,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       // selecionada" no login (bug histórico para admin da empresa / não-admins).
       let minhasEmpresas: Empresa[] = []
       if (isAdmin) {
-        const { data: emps } = await supabase.from('empresas').select('id, nome').order('nome')
+        const { data: emps } = await supabase.from('empresas').select('id, nome').eq('status', 'ativo').order('nome')
         minhasEmpresas = emps ?? []
       } else {
         const { data: ue } = await supabase
           .from('usuario_empresa')
-          .select('empresa:empresa_id(id, nome)')
+          .select('empresa:empresa_id(id, nome, status)')
           .eq('usuario_id', user.id)
-        minhasEmpresas = (ue ?? []).map((r: any) => r.empresa).filter(Boolean)
+        // Filtra empresas inativas — só ativas devem aparecer no modal de escolha.
+        minhasEmpresas = (ue ?? [])
+          .map((r: any) => r.empresa)
+          .filter((e: any) => e && e.status === 'ativo')
+          .map(({ status: _s, ...rest }: any) => rest)
       }
       setEmpresas(minhasEmpresas)
 
