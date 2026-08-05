@@ -73,7 +73,8 @@ export function ExcluirEmpresaModal({ empresaId, empresaNome, onClose, onExcluid
             <AlertTriangle size={20} className="text-red-500" />
             <h2 className="text-base font-semibold text-gray-800">Excluir empresa permanentemente</h2>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} disabled={excluindo}
+            className="text-gray-400 hover:text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed">
             <X size={18} />
           </button>
         </div>
