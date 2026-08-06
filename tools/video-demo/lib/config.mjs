@@ -10,7 +10,7 @@ export const EMPRESA_DEMO = {
 export const VIEWPORT = { width: 1280, height: 720 }
 
 export const VOZ = {
-  voice: 'pt-BR-FranciscaNeural',
+  voice: 'pt-BR-ThalitaNeural', // trocada 2026-08-05 — mais natural que a Francisca
   rate: '+6%',
 }
 

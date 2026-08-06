@@ -22,13 +22,16 @@ export function ajustarFonetica(texto) {
   return out
 }
 
-export async function gerarNarracoes(saveDir, textos) {
+// Opções: { voice, rate } — override por vídeo. Ex: { voice: 'pt-BR-ThalitaNeural' }.
+export async function gerarNarracoes(saveDir, textos, opts = {}) {
   fs.mkdirSync(saveDir, { recursive: true })
+  const voice = opts.voice ?? VOZ.voice
+  const rate = opts.rate ?? VOZ.rate
   for (let i = 0; i < textos.length; i++) {
     execFileSync('python', [
       '-m', 'edge_tts',
-      '--voice', VOZ.voice,
-      `--rate=${VOZ.rate}`,
+      '--voice', voice,
+      `--rate=${rate}`,
       '--text', ajustarFonetica(textos[i]),
       '--write-media', path.join(saveDir, `c${i}.mp3`),
     ], { stdio: 'inherit' })
