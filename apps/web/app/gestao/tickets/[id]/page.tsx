@@ -196,7 +196,12 @@ export default function TicketDetalhe() {
   }
 
   async function executarAcao(acao: Acao) {
-    if (!texto.trim()) { setErro('Observação é obrigatória para registrar a ação.'); return }
+    // Assumir não exige observação — se vazio, usa "Assumido para análise" como padrão.
+    // As demais ações continuam exigindo texto explícito.
+    const textoFinal = acao.tipo === 'aceite' && !texto.trim()
+      ? 'Assumido para análise'
+      : texto.trim()
+    if (!textoFinal) { setErro('Observação é obrigatória para registrar a ação.'); return }
     setEnviando(true); setErro(null)
 
     // Freio de cota de armazenamento: bloqueia antes de mexer no ticket se as
@@ -228,7 +233,7 @@ export default function TicketDetalhe() {
 
     // Cria evento
     const { data: evento, error: evErr } = await supabase.from('ticket_eventos').insert({
-      ticket_id: id, tipo: acao.tipo, texto: texto.trim(), autor_id: userId,
+      ticket_id: id, tipo: acao.tipo, texto: textoFinal, autor_id: userId,
     }).select('id').single()
 
     if (evErr) {
@@ -258,7 +263,7 @@ export default function TicketDetalhe() {
 
     // notifica as partes envolvidas (fire-and-forget)
     if (userId) {
-      notificarTicket({ ticket_id: id, evento: acao.tipo, ator_id: userId, texto: texto.trim() })
+      notificarTicket({ ticket_id: id, evento: acao.tipo, ator_id: userId, texto: textoFinal })
     }
 
     setTexto(''); setArquivos([]); setAcaoOpen(false); setEnviando(false)
@@ -534,7 +539,7 @@ export default function TicketDetalhe() {
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-40">
           <div className="max-w-2xl mx-auto flex flex-col gap-3">
             <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={2}
-              placeholder="Observação obrigatória para registrar qualquer ação…"
+              placeholder={ticket?.status === 'aberto' ? 'Assumido para análise (padrão — pode ajustar)' : 'Observação obrigatória para registrar a ação…'}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
 
             <div className="flex items-center gap-2 flex-wrap">
