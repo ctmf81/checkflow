@@ -130,9 +130,17 @@ describe('acoesDisponiveis() — status ABERTO', () => {
     expect(t).toContain('cancelamento')
   })
 
-  it('estranho sem papel só pode comentar (não cancela, não assume)', () => {
+  it('estranho sem papel pode comentar e transferir (não cancela, não assume)', () => {
     const t = tipos(ctx({ status: 'aberto' }))
-    expect(t).toEqual(['comentario'])
+    expect(t).toEqual(['transferencia', 'comentario'])
+  })
+
+  it('transferência aparece em ABERTO pra qualquer um que veja o ticket (padrão triagem)', () => {
+    const t = tipos(ctx({ status: 'aberto', ehDoSubgrupo: false }))
+    expect(t).toContain('transferencia')
+    // Membro do subgrupo também tem — pra transferir antes ou depois de assumir
+    const tSub = tipos(ctx({ status: 'aberto', ehDoSubgrupo: true }))
+    expect(tSub).toContain('transferencia')
   })
 })
 

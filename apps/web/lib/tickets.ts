@@ -117,6 +117,13 @@ export function acoesDisponiveis(ctx: AcoesCtx): Acao[] {
     acoes.push({ label: 'Assumir ticket', tipo: 'aceite', novoStatus: 'em_tratamento', variante: 'primary' })
   }
 
+  // Transferência: qualquer um que veja o ticket aberto pode redirecionar pra
+  // outro grupo/subgrupo — habilita o padrão de "grupo de triagem" que recebe
+  // tudo e distribui.
+  if (s === 'aberto') {
+    acoes.push({ label: `Transferir para outro ${ctx.grupoLabel.toLowerCase()}/${ctx.subgrupoLabel.toLowerCase()}`, tipo: 'transferencia', novoStatus: 'aberto', variante: 'ghost' })
+  }
+
   // Em tratamento: apenas o responsável movimenta.
   if (s === 'em_tratamento' && ehAssignee) {
     acoes.push({ label: 'Solicitar informação', tipo: 'devolucao', novoStatus: 'aguardando_informacao', variante: 'ghost' })
