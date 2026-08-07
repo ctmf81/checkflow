@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, Plus, Trash2, Save, Send, Loader2, Check, Lock, Info } from 'lucide-react'
+import { ChevronLeft, Plus, Trash2, Save, Send, Loader2, Check, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { apiFetch } from '@/lib/apiClient'
 import { createClient } from '@/lib/supabase'
@@ -37,7 +37,6 @@ export default function MontadorTarefaPage({ params }: { params: Promise<{ id: s
   const [status, setStatus] = useState<'rascunho' | 'publicada' | 'encerrada'>('rascunho')
   const [liberacaoEm, setLiberacaoEm] = useState('')
   const [dataLimite, setDataLimite] = useState('')
-  const [maxRespostas, setMaxRespostas] = useState('')
   const [edicaoHoras, setEdicaoHoras] = useState('')
   const [notificar, setNotificar] = useState(false)
 
@@ -62,7 +61,6 @@ export default function MontadorTarefaPage({ params }: { params: Promise<{ id: s
         // Liberação é obrigatória; se ainda não tem, pré-preenche com agora.
         setLiberacaoEm(lista.liberacao_em ? lista.liberacao_em.slice(0, 16) : agoraLocal())
         setDataLimite(lista.abertura_data_limite ? lista.abertura_data_limite.slice(0, 16) : '')
-        setMaxRespostas(lista.abertura_max_respostas != null ? String(lista.abertura_max_respostas) : '')
         setEdicaoHoras(lista.edicao_janela_horas != null ? String(lista.edicao_janela_horas) : '')
         setNotificar(lista.notificar_whatsapp)
       }
@@ -119,7 +117,6 @@ export default function MontadorTarefaPage({ params }: { params: Promise<{ id: s
       descricao: descricao.trim() || null,
       liberacao_em: new Date(liberacaoEm || agoraLocal()).toISOString(),
       abertura_data_limite: dataLimite ? new Date(dataLimite).toISOString() : null,
-      abertura_max_respostas: maxRespostas ? Number(maxRespostas) : null,
       edicao_janela_horas: edicaoHoras ? Number(edicaoHoras) : null,
       notificar_whatsapp: notificar,
       atualizado_em: new Date().toISOString(),
@@ -155,8 +152,8 @@ export default function MontadorTarefaPage({ params }: { params: Promise<{ id: s
     if (!titulo.trim()) { toast.error('Informe um título.'); return }
     if (itens.filter(i => i.titulo.trim()).length === 0) { toast.error('Adicione ao menos uma tarefa.'); return }
     if (subgruposSel.length === 0 && gruposSel.length === 0) { toast.error('Atribua a lista a ao menos um grupo ou subgrupo.'); return }
-    if (!dataLimite && !maxRespostas) {
-      if (!await confirm({ titulo: 'Publicar sem limite de encerramento?', mensagem: 'Sem data limite nem nº máximo de respostas, a lista fica aberta até você encerrá-la manualmente.', confirmarLabel: 'Publicar mesmo assim' })) return
+    if (!dataLimite) {
+      if (!await confirm({ titulo: 'Publicar sem data limite?', mensagem: 'Sem data limite, a lista fica aberta até você encerrá-la manualmente.', confirmarLabel: 'Publicar mesmo assim' })) return
     }
     setSalvando(true)
     const ok = await persistir()
@@ -234,26 +231,12 @@ export default function MontadorTarefaPage({ params }: { params: Promise<{ id: s
         </div>
 
         {/* Encerramento */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-gray-100 pt-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Aberta até (data limite)</label>
-            <input type="datetime-local" value={dataLimite} onChange={e => setDataLimite(e.target.value)} disabled={bloqueado}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
-          </div>
-          <div>
-            <label className="flex items-center gap-1 text-xs font-medium text-gray-600 mb-1">
-              Nº máximo de respostas
-              <span
-                title="Limita o TOTAL de respostas somando todos os operadores (cada pessoa responde 1 vez). Ao atingir esse número, a lista fecha para novas aberturas — quem já abriu continua podendo editar dentro do prazo."
-                className="text-gray-400 cursor-help">
-                <Info size={13} />
-              </span>
-            </label>
-            <input type="number" min={1} value={maxRespostas} onChange={e => setMaxRespostas(e.target.value)} disabled={bloqueado} placeholder="sem limite"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
-          </div>
+        <div className="border-t border-gray-100 pt-3">
+          <label className="block text-xs font-medium text-gray-600 mb-1">Aberta até (data limite)</label>
+          <input type="datetime-local" value={dataLimite} onChange={e => setDataLimite(e.target.value)} disabled={bloqueado}
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
+          <p className="text-xs text-gray-400 mt-1">Depois desta data, ninguém responde mais. Sem data = aberta até você encerrar manualmente.</p>
         </div>
-        <p className="text-xs text-gray-400">A lista encerra no que vier primeiro: a data limite ou o nº de respostas.</p>
 
         <div className="border-t border-gray-100 pt-3">
           <label className="block text-xs font-medium text-gray-600 mb-1">Janela de edição (horas após abrir)</label>
