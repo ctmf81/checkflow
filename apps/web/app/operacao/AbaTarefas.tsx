@@ -12,7 +12,6 @@ interface Lista {
   titulo: string
   descricao: string | null
   abertura_data_limite: string | null
-  abertura_max_respostas: number | null
   edicao_janela_horas: number | null
   total_respostas: number
   // Preenchidos só na seção "Concluídas" (execução do usuário encerrada ou com prazo expirado)
@@ -73,7 +72,7 @@ export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empres
     // + respostas vêm no join → dá para colorir por completude sem query extra.
     const agora = Date.now()
     const { data: execs } = await supabase.from('tarefa_execucoes')
-      .select('lista_id, status, atualizado_em, editavel_ate, respostas:tarefa_respostas(feito), tarefa_listas(id, titulo, descricao, abertura_data_limite, abertura_max_respostas, edicao_janela_horas, itens:tarefa_itens(id))')
+      .select('lista_id, status, atualizado_em, editavel_ate, respostas:tarefa_respostas(feito), tarefa_listas(id, titulo, descricao, abertura_data_limite, edicao_janela_horas, itens:tarefa_itens(id))')
       .eq('usuario_id', user.id).eq('unidade_id', unidadeId)
 
     const finalizadaPorLista = new Set<string>()  // encerrada OU prazo expirado (sai das Liberadas)
@@ -90,7 +89,7 @@ export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empres
       const cor: 'verde' | 'amarelo' | 'vermelho' = total > 0 && feitos >= total ? 'verde' : feitos > 0 ? 'amarelo' : 'vermelho'
       concluidasList.push({
         id: l.id, titulo: l.titulo, descricao: l.descricao,
-        abertura_data_limite: l.abertura_data_limite, abertura_max_respostas: l.abertura_max_respostas,
+        abertura_data_limite: l.abertura_data_limite,
         edicao_janela_horas: l.edicao_janela_horas, total_respostas: 0,
         concluida_em: e.atualizado_em, encerrada, cor, feitos, total,
       })
@@ -100,7 +99,7 @@ export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empres
     // Listas publicadas da unidade + atribuições + contagem de respostas
     const { data } = await supabase
       .from('tarefa_listas')
-      .select('id, titulo, descricao, liberacao_em, abertura_data_limite, abertura_max_respostas, edicao_janela_horas, grupos:tarefa_lista_grupos(grupo_id), subgrupos:tarefa_lista_subgrupos(subgrupo_id), respostas:tarefa_execucoes(id)')
+      .select('id, titulo, descricao, liberacao_em, abertura_data_limite, edicao_janela_horas, grupos:tarefa_lista_grupos(grupo_id), subgrupos:tarefa_lista_subgrupos(subgrupo_id), respostas:tarefa_execucoes(id)')
       .eq('unidade_id', unidadeId)
       .eq('status', 'publicada')
 
@@ -108,8 +107,6 @@ export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empres
       {
         liberacao_em: l.liberacao_em,
         abertura_data_limite: l.abertura_data_limite,
-        abertura_max_respostas: l.abertura_max_respostas,
-        total_respostas: (l.respostas ?? []).length,
         grupos: (l.grupos ?? []).map((g: any) => g.grupo_id),
         subgrupos: (l.subgrupos ?? []).map((s: any) => s.subgrupo_id),
       },
@@ -119,7 +116,7 @@ export function AbaTarefas({ unidadeId, empresaId }: { unidadeId: string; empres
       .filter((l: any) => !finalizadaPorLista.has(l.id))
       .map((l: any) => ({
         id: l.id, titulo: l.titulo, descricao: l.descricao,
-        abertura_data_limite: l.abertura_data_limite, abertura_max_respostas: l.abertura_max_respostas,
+        abertura_data_limite: l.abertura_data_limite,
         edicao_janela_horas: l.edicao_janela_horas, total_respostas: (l.respostas ?? []).length,
       }))
 
@@ -228,8 +225,7 @@ function ExecutarLista({ lista, unidadeId, empresaId, onVoltar }: { lista: Lista
 
   const expirado = edicaoExpirada(editavelAte, Date.now())
   // Também trava quando o PRAZO DE RESPOSTA da lista (abertura_data_limite) já
-  // passou — "só edita enquanto a lista está ativa". O max_respostas rege a
-  // abertura de NOVAS instâncias (já filtra em Liberadas), não a edição desta.
+  // passou — "só edita enquanto a lista está ativa".
   const aberturaVencida = lista.abertura_data_limite != null && Date.parse(lista.abertura_data_limite) <= Date.now()
   const bloqueado = expirado || aberturaVencida
 

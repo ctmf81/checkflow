@@ -4,7 +4,7 @@
 //
 // Centraliza as duas regras-chave da feature:
 //  1) JANELA DE ABERTURA — até quando se pode abrir uma nova instância da
-//     lista (encerra no que vier primeiro: data limite OU nº de respostas).
+//     lista (data limite; null = sem limite, encerra manualmente).
 //  2) JANELA DE EDIÇÃO — por quanto tempo, após abrir, a instância continua
 //     editável.
 // e a visibilidade por grupos/subgrupos.
@@ -12,8 +12,6 @@
 export interface ListaVisibilidade {
   liberacao_em?: string | null   // quando passa a aparecer (null/ausente = imediata)
   abertura_data_limite: string | null
-  abertura_max_respostas: number | null
-  total_respostas: number
   grupos: string[]      // grupo_ids atribuídos à lista
   subgrupos: string[]   // subgrupo_ids atribuídos à lista
 }
@@ -23,11 +21,9 @@ export function liberada(l: Pick<ListaVisibilidade, 'liberacao_em'>, agoraMs: nu
   return !l.liberacao_em || new Date(l.liberacao_em).getTime() <= agoraMs
 }
 
-/** A janela de abertura ainda está aberta? (data limite e nº de respostas) */
+/** A janela de abertura ainda está aberta? (data limite; null = sem limite) */
 export function aberturaAberta(l: ListaVisibilidade, agoraMs: number): boolean {
-  const dentroData = !l.abertura_data_limite || new Date(l.abertura_data_limite).getTime() > agoraMs
-  const dentroQtd = l.abertura_max_respostas == null || l.total_respostas < l.abertura_max_respostas
-  return dentroData && dentroQtd
+  return !l.abertura_data_limite || new Date(l.abertura_data_limite).getTime() > agoraMs
 }
 
 /**

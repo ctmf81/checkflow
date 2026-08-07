@@ -1,6 +1,6 @@
 // Testes da lógica pura das Listas de Tarefas (lib/tarefas.ts):
-// janela de abertura (data limite OU nº de respostas), visibilidade por
-// grupos/subgrupos e janela de edição da instância.
+// janela de abertura (data limite), visibilidade por grupos/subgrupos
+// e janela de edição da instância.
 import { describe, it, expect } from 'vitest'
 import {
   aberturaAberta, visivelPara, listaDisponivel, liberada, statusTarefa,
@@ -14,8 +14,6 @@ const PASSADO = '2026-06-16T12:00:00.000Z'
 function lista(over: Partial<ListaVisibilidade> = {}): ListaVisibilidade {
   return {
     abertura_data_limite: null,
-    abertura_max_respostas: null,
-    total_respostas: 0,
     grupos: [],
     subgrupos: [],
     ...over,
@@ -23,7 +21,7 @@ function lista(over: Partial<ListaVisibilidade> = {}): ListaVisibilidade {
 }
 
 describe('aberturaAberta', () => {
-  it('aberta quando não há limite de data nem de quantidade', () => {
+  it('aberta quando não há data limite', () => {
     expect(aberturaAberta(lista(), AGORA)).toBe(true)
   })
 
@@ -33,22 +31,6 @@ describe('aberturaAberta', () => {
 
   it('fechada quando a data limite já passou', () => {
     expect(aberturaAberta(lista({ abertura_data_limite: PASSADO }), AGORA)).toBe(false)
-  })
-
-  it('aberta enquanto o nº de respostas está abaixo do máximo', () => {
-    expect(aberturaAberta(lista({ abertura_max_respostas: 5, total_respostas: 4 }), AGORA)).toBe(true)
-  })
-
-  it('fechada quando atingiu o nº máximo de respostas', () => {
-    expect(aberturaAberta(lista({ abertura_max_respostas: 5, total_respostas: 5 }), AGORA)).toBe(false)
-  })
-
-  it('encerra no que vier primeiro — data ok mas quantidade estourada', () => {
-    expect(aberturaAberta(lista({ abertura_data_limite: FUTURO, abertura_max_respostas: 2, total_respostas: 2 }), AGORA)).toBe(false)
-  })
-
-  it('encerra no que vier primeiro — quantidade ok mas data passou', () => {
-    expect(aberturaAberta(lista({ abertura_data_limite: PASSADO, abertura_max_respostas: 10, total_respostas: 1 }), AGORA)).toBe(false)
   })
 })
 

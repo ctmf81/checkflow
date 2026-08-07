@@ -1191,13 +1191,12 @@ export default function OperacaoPage() {
 
       // Tarefas (mesma regra do AbaTarefas)
       const { data: listas } = await sb.from('tarefa_listas')
-        .select('id, liberacao_em, abertura_data_limite, abertura_max_respostas, grupos:tarefa_lista_grupos(grupo_id), subgrupos:tarefa_lista_subgrupos(subgrupo_id), respostas:tarefa_execucoes(id)')
+        .select('id, liberacao_em, abertura_data_limite, grupos:tarefa_lista_grupos(grupo_id), subgrupos:tarefa_lista_subgrupos(subgrupo_id)')
         .eq('unidade_id', unidadeAtiva!.id).eq('status', 'publicada')
       const agora = Date.now()
       const temTar = (listas ?? []).some((l: any) => listaDisponivel({
         liberacao_em: l.liberacao_em,
-        abertura_data_limite: l.abertura_data_limite, abertura_max_respostas: l.abertura_max_respostas,
-        total_respostas: (l.respostas ?? []).length,
+        abertura_data_limite: l.abertura_data_limite,
         grupos: (l.grupos ?? []).map((g: any) => g.grupo_id),
         subgrupos: (l.subgrupos ?? []).map((s: any) => s.subgrupo_id),
       }, agora, meusGrupos, meusSubgrupos, isAdmin))
