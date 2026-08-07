@@ -18,7 +18,6 @@ interface Lista {
   status: 'rascunho' | 'publicada' | 'encerrada'
   liberacao_em: string | null
   abertura_data_limite: string | null
-  abertura_max_respostas: number | null
   total_itens: number
   total_respostas: number
 }
@@ -41,7 +40,7 @@ const FILTROS: { valor: StatusTarefa | 'todas'; label: string }[] = [
 function derivar(l: Lista): StatusTarefa {
   return statusTarefa(
     { status: l.status, liberacao_em: l.liberacao_em, abertura_data_limite: l.abertura_data_limite,
-      abertura_max_respostas: l.abertura_max_respostas, total_respostas: l.total_respostas, grupos: [], subgrupos: [] },
+      grupos: [], subgrupos: [] },
     Date.now(),
   )
 }
@@ -63,7 +62,7 @@ export default function TarefasPage() {
     const supabase = createClient()
     const { data } = await supabase
       .from('tarefa_listas')
-      .select('id, titulo, status, liberacao_em, abertura_data_limite, abertura_max_respostas')
+      .select('id, titulo, status, liberacao_em, abertura_data_limite')
       .eq('unidade_id', unidadeAtiva.id)
       .order('criado_em', { ascending: false })
 
@@ -119,7 +118,6 @@ export default function TarefasPage() {
       status: 'rascunho',
       liberacao_em: orig.liberacao_em,
       abertura_data_limite: orig.abertura_data_limite,
-      abertura_max_respostas: orig.abertura_max_respostas,
       edicao_janela_horas: orig.edicao_janela_horas,
       notificar_whatsapp: orig.notificar_whatsapp,
       criado_por: user?.id,
@@ -202,7 +200,7 @@ export default function TarefasPage() {
                   <span className="text-xs text-gray-400">{l.total_itens} tarefas</span>
                   <span className="text-xs text-gray-300">·</span>
                   <span className="text-xs text-gray-400">
-                    {l.total_respostas}{l.abertura_max_respostas ? `/${l.abertura_max_respostas}` : ''} respostas
+                    {l.total_respostas} respostas
                   </span>
                 </div>
               </div>
