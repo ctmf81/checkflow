@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, AlertTriangle, Loader2 } from 'lucide-react'
+import { X, AlertTriangle, Loader2, Check } from 'lucide-react'
 import { EvidenciaPicker } from './EvidenciaPicker'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
@@ -44,11 +44,14 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
   const [arquivos,   setArquivos]   = useState<File[]>([])
   const [salvando,   setSalvando]   = useState(false)
   const [erro,       setErro]       = useState<string | null>(null)
+  // Toggle "Já resolvido — apenas registrar": cria o ticket já como 'corrigido',
+  // sem responsável, sem SLA rodando. Timeline recebe abertura + conclusão em bloco.
+  const [jaResolvido, setJaResolvido] = useState(false)
 
   useEffect(() => {
     if (!open || !unidadeAtiva) return
     setGrupoId(''); setSubgrupoId(''); setCategoriaId(''); setSubcategoriaId('')
-    setTitulo(''); setDescricao(''); setArquivos([]); setErro(null)
+    setTitulo(''); setDescricao(''); setArquivos([]); setErro(null); setJaResolvido(false)
 
     supabase.from('grupos').select('id, nome').eq('unidade_id', unidadeAtiva.id).eq('status', 'ativo').order('nome')
       .then(({ data }) => setGrupos(data ?? []))
@@ -107,6 +110,9 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
       prioridade,
       execucao_id:  execucaoId ?? null,
       aberto_por_id: user.id,
+      // Já resolvido: nasce fechado como 'corrigido', sem assignee.
+      // slaStatus() ignora status fechado, então a bolinha de SLA não aparece.
+      ...(jaResolvido ? { status: 'corrigido' } : {}),
     }).select('id').single()
 
     if (error || !ticket) {
@@ -116,11 +122,22 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
       return
     }
 
-    // evento de abertura (captura o id para vincular as evidências a ele —
-    // sem isso a foto fica órfã e não aparece na timeline, que mostra por evento)
+    // Timeline:
+    //  - fluxo normal: 1 evento 'abertura' com o texto da descrição
+    //  - já resolvido: 'abertura' + 'conclusao', o texto da descrição vira o
+    //    "o que foi feito" (dentro da conclusão) e a abertura vira uma marca
+    //    curta pra deixar claro que foi registrado assim.
+    const textoAbertura = jaResolvido
+      ? 'Registrado pelo próprio abridor como já resolvido.'
+      : descricao.trim()
     const { data: eventoAbertura } = await supabase.from('ticket_eventos').insert({
-      ticket_id: ticket.id, tipo: 'abertura', texto: descricao.trim(), autor_id: user.id,
+      ticket_id: ticket.id, tipo: 'abertura', texto: textoAbertura, autor_id: user.id,
     }).select('id').single()
+    if (jaResolvido) {
+      await supabase.from('ticket_eventos').insert({
+        ticket_id: ticket.id, tipo: 'conclusao', texto: descricao.trim(), autor_id: user.id,
+      })
+    }
 
     // upload de evidências
     for (const file of arquivos) {
@@ -137,8 +154,11 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
       }
     }
 
-    // notifica grupo/subgrupo destino (fire-and-forget)
-    notificarTicket({ ticket_id: ticket.id, evento: 'aberto', ator_id: user.id, texto: descricao.trim() })
+    // notifica grupo/subgrupo destino (fire-and-forget) — só no fluxo normal;
+    // ticket auto-registrado como resolvido não aciona ninguém.
+    if (!jaResolvido) {
+      notificarTicket({ ticket_id: ticket.id, evento: 'aberto', ator_id: user.id, texto: descricao.trim() })
+    }
 
     setSalvando(false)
     onCriado?.(ticket.id)
@@ -152,12 +172,30 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
       <div className="bg-white w-full sm:max-w-lg sm:rounded-xl rounded-t-xl shadow-xl flex flex-col max-h-[92dvh]">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b">
-          <h2 className="font-semibold text-gray-800">Abrir Ticket</h2>
+          <h2 className="font-semibold text-gray-800">{jaResolvido ? 'Registrar ocorrência' : 'Abrir Ticket'}</h2>
           <button onClick={onClose} className="p-1 rounded hover:bg-gray-100"><X size={18} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-0 overflow-y-auto">
           <div className="px-4 py-4 flex flex-col gap-4">
+
+            {/* Toggle: já resolvido — apenas registrar (sem responsável, sem SLA) */}
+            <label className={`flex items-start gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${
+              jaResolvido ? 'bg-orange-50 border-orange-300' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+            }`}>
+              <input type="checkbox" checked={jaResolvido} onChange={e => setJaResolvido(e.target.checked)}
+                className="mt-0.5 accent-orange-500 shrink-0" />
+              <div className="min-w-0">
+                <p className={`text-sm font-medium ${jaResolvido ? 'text-orange-800' : 'text-gray-700'}`}>
+                  Já resolvido — apenas registrar
+                </p>
+                <p className={`text-xs mt-0.5 ${jaResolvido ? 'text-orange-700' : 'text-gray-500'}`}>
+                  {jaResolvido
+                    ? 'Abre como Corrigido, sem responsável, sem SLA. Ninguém é notificado.'
+                    : 'Marque quando você mesmo já resolveu — o ticket entra fechado como registro.'}
+                </p>
+              </div>
+            </label>
 
             {/* Prioridade */}
             <div>
@@ -221,11 +259,13 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
 
-            {/* Descrição */}
+            {/* Descrição / O que foi feito */}
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Descrição *</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                {jaResolvido ? 'O que foi feito *' : 'Descrição *'}
+              </label>
               <textarea value={descricao} onChange={e => setDescricao(e.target.value)} required rows={3}
-                placeholder="Descreva o que aconteceu, onde e quando…"
+                placeholder={jaResolvido ? 'Descreva a resolução…' : 'Descreva o que aconteceu, onde e quando…'}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
             </div>
 
@@ -262,9 +302,11 @@ export default function NovoTicketModal({ open, onClose, execucaoId, onCriado }:
               Cancelar
             </button>
             <button type="submit" disabled={salvando}
-              className="flex-1 bg-blue-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
-              {salvando && <Loader2 size={14} className="animate-spin" />}
-              {salvando ? 'Enviando…' : 'Abrir Ticket'}
+              className={`flex-1 text-white text-sm font-medium py-2.5 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2 ${
+                jaResolvido ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'
+              }`}>
+              {salvando ? <Loader2 size={14} className="animate-spin" /> : jaResolvido ? <Check size={14} /> : null}
+              {salvando ? 'Enviando…' : jaResolvido ? 'Registrar como resolvido' : 'Abrir Ticket'}
             </button>
           </div>
         </form>
