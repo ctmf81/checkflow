@@ -203,6 +203,7 @@ function SubgruposUsuarioModal({ usuario, grupoId, subgrupoLabel, onClose, onSal
   const [subgrupos, setSubgrupos] = useState<Subgrupo[]>([])
   const [selecionados, setSelecionados] = useState<string[]>(usuario.subgrupos)
   const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -216,23 +217,38 @@ function SubgruposUsuarioModal({ usuario, grupoId, subgrupoLabel, onClose, onSal
   }
 
   async function salvar() {
+    setErro('')
     setSalvando(true)
     const supabase = createClient()
 
     // Remove todos os vínculos atuais do usuário neste grupo
     const subgrupoIds = subgrupos.map(s => s.id)
     if (subgrupoIds.length > 0) {
-      await supabase.from('usuario_subgrupo')
+      const { error: errDel } = await supabase.from('usuario_subgrupo')
         .delete()
         .eq('usuario_id', usuario.id)
         .in('subgrupo_id', subgrupoIds)
+      if (errDel) {
+        setSalvando(false)
+        setErro(`Não foi possível limpar os vínculos anteriores: ${errDel.message}`)
+        return
+      }
     }
 
-    // Reinsere os selecionados
+    // Reinsere os selecionados. .select() força retorno — se RLS bloquear
+    // silenciosamente, o array vazio expõe o problema em vez de fechar tudo
+    // como se tivesse dado certo.
     if (selecionados.length > 0) {
-      await supabase.from('usuario_subgrupo').upsert(
-        selecionados.map(sid => ({ usuario_id: usuario.id, subgrupo_id: sid }))
-      )
+      const { data: novos, error: errIns } = await supabase.from('usuario_subgrupo')
+        .upsert(selecionados.map(sid => ({ usuario_id: usuario.id, subgrupo_id: sid })))
+        .select()
+      if (errIns || !novos || novos.length === 0) {
+        setSalvando(false)
+        setErro(errIns?.message
+          ? `Não foi possível vincular aos ${subgrupoLabel.toLowerCase()}: ${errIns.message}`
+          : `Você não tem permissão para vincular aos ${subgrupoLabel.toLowerCase()} deste grupo.`)
+        return
+      }
     }
 
     setSalvando(false)
@@ -272,6 +288,7 @@ function SubgruposUsuarioModal({ usuario, grupoId, subgrupoLabel, onClose, onSal
             </div>
           )}
           <p className="text-xs text-gray-400 mb-4">Se nenhum for selecionado, o usuário terá acesso a todos.</p>
+          {erro && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg mb-3">{erro}</p>}
           <div className="flex justify-end gap-2">
             <button onClick={onClose} className="text-sm text-gray-500 px-3 py-2">Cancelar</button>
             <Button onClick={salvar} disabled={salvando || loading}>
