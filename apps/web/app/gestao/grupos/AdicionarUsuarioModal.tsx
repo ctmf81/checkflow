@@ -80,17 +80,35 @@ export function AdicionarUsuarioModal({ grupoId, grupoNome, subgrupoLabel, onClo
 
     const supabase = createClient()
 
-    // Vincula usuário ao grupo
-    await supabase.from('usuario_grupo')
+    // Vincula usuário ao grupo. .select() força retorno — se a RLS bloquear
+    // silenciosamente, error ou array vazio deixam o problema VISÍVEL em vez
+    // de fechar o modal como se tivesse dado certo.
+    const { data: linkGrupo, error: errGrupo } = await supabase.from('usuario_grupo')
       .upsert({ usuario_id: usuarioId, grupo_id: grupoId })
+      .select()
+    if (errGrupo || !linkGrupo || linkGrupo.length === 0) {
+      setSalvando(false)
+      setErro(errGrupo?.message
+        ? `Não foi possível vincular ao grupo: ${errGrupo.message}`
+        : 'Você não tem permissão para adicionar usuários a este grupo.')
+      return
+    }
 
     // Vincula aos subgrupos selecionados (sem função — definida no subgrupo)
     if (subgruposSelecionados.length > 0) {
-      await supabase.from('usuario_subgrupo')
+      const { data: linkSubs, error: errSubs } = await supabase.from('usuario_subgrupo')
         .upsert(subgruposSelecionados.map(sid => ({
           usuario_id: usuarioId,
           subgrupo_id: sid,
         })))
+        .select()
+      if (errSubs || !linkSubs || linkSubs.length === 0) {
+        setSalvando(false)
+        setErro(errSubs?.message
+          ? `Usuário vinculado ao grupo, mas falhou ao vincular aos subgrupos: ${errSubs.message}`
+          : 'Usuário vinculado ao grupo, mas você não tem permissão para vincular aos subgrupos.')
+        return
+      }
     }
 
     setSalvando(false)

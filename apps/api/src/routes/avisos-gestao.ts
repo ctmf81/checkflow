@@ -33,9 +33,13 @@ export async function avisosGestaoRoutes(app: FastifyInstance) {
     const supabase = sb()
 
     // Pré-cadastros pendentes há ≥ idade mínima, agrupados por empresa.
+    // Ignora empresas que não estão ativas — inativa/bloqueada/pendente NÃO
+    // recebem lembretes (o admin desativou a empresa, não é razoável continuar
+    // avisando pra ele responder pré-cadastros).
     let q = supabase.from('pre_cadastros')
-      .select('empresa_id')
+      .select('empresa_id, empresas!inner(status)')
       .eq('status', 'pendente')
+      .eq('empresas.status', 'ativo')
       .lte('criado_em', limiteIdadePreCadastro(agora))
     if (empresa_id) q = q.eq('empresa_id', empresa_id)
     const { data: pendentes } = await q
