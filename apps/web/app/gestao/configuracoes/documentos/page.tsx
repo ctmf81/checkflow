@@ -36,13 +36,16 @@ const TIPO_COR: Record<string, string> = {
   consulta_inteligente: 'bg-green-50 text-green-600',
 }
 
-function DocMenu({ doc, onEditar, onEtapas, onDuplicar, onExcluir }: {
+function DocMenu({ doc, podeEditar = true, podeExcluir = true, onEditar, onEtapas, onDuplicar, onExcluir }: {
   doc: Documento
+  podeEditar?: boolean
+  podeExcluir?: boolean
   onEditar: () => void
   onEtapas: () => void
   onDuplicar: () => void
   onExcluir: () => void
 }) {
+  if (!podeEditar && !podeExcluir) return null
   const [aberto, setAberto] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -60,32 +63,38 @@ function DocMenu({ doc, onEditar, onEtapas, onDuplicar, onExcluir }: {
       {aberto && (
         <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
           <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b border-gray-100 truncate">{doc.nome}</div>
-          <button onClick={() => { setAberto(false); onEditar() }}
-            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-            <Pencil size={14} className="text-gray-400" />Editar documento
-          </button>
-          {(doc.tipo === 'pop' || doc.tipo === 'it') && (
+          {podeEditar && (
+            <button onClick={() => { setAberto(false); onEditar() }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+              <Pencil size={14} className="text-gray-400" />Editar documento
+            </button>
+          )}
+          {podeEditar && (doc.tipo === 'pop' || doc.tipo === 'it') && (
             <button onClick={() => { setAberto(false); onEtapas() }}
               className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
               <Layers size={14} className="text-gray-400" />Editar etapas
             </button>
           )}
-          {doc.tipo === 'consulta_inteligente' && (
+          {podeEditar && doc.tipo === 'consulta_inteligente' && (
             <button onClick={() => { setAberto(false); onEtapas() }}
               className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
               <Pencil size={14} className="text-gray-400" />Editar conteúdo
             </button>
           )}
-          <button onClick={() => { setAberto(false); onDuplicar() }}
-            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-            <Copy size={14} className="text-gray-400" />Duplicar documento
-          </button>
-          <div className="border-t border-gray-100 mt-1">
-            <button onClick={() => { setAberto(false); onExcluir() }}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50">
-              <PowerOff size={14} />Excluir documento
+          {podeEditar && (
+            <button onClick={() => { setAberto(false); onDuplicar() }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+              <Copy size={14} className="text-gray-400" />Duplicar documento
             </button>
-          </div>
+          )}
+          {podeExcluir && (
+            <div className={podeEditar ? 'border-t border-gray-100 mt-1' : ''}>
+              <button onClick={() => { setAberto(false); onExcluir() }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50">
+                <PowerOff size={14} />Excluir documento
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -111,13 +120,14 @@ export default function DocumentosPage() {
   const [docDuplicando, setDocDuplicando] = useState<Documento | null>(null)
   const [docEtapas, setDocEtapas] = useState<Documento | null>(null)
   const [docConsulta, setDocConsulta] = useState<Documento | null>(null)
-  // Gate visual pelo perfil. Admin_sistema/admin_empresa recebem via seed;
-  // mesmo check unifica todos os perfis.
+  // Gate visual pelo perfil (criar e excluir são permissões separadas em documentos).
   const [podeCriar, setPodeCriar] = useState(false)
+  const [podeExcluir, setPodeExcluir] = useState(false)
   useEffect(() => {
-    if (!empresaAtiva?.id) { setPodeCriar(false); return }
-    createClient().rpc('usuario_tem_permissao', { p_recurso: 'documentos', p_acao: 'criar' })
-      .then(({ data }) => setPodeCriar(!!data))
+    if (!empresaAtiva?.id) { setPodeCriar(false); setPodeExcluir(false); return }
+    const sb = createClient()
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'documentos', p_acao: 'criar' }).then(({ data }) => setPodeCriar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'documentos', p_acao: 'excluir' }).then(({ data }) => setPodeExcluir(!!data))
   }, [empresaAtiva?.id])
 
   async function carregar() {
@@ -264,6 +274,8 @@ export default function DocumentosPage() {
               </span>
               <DocMenu
                 doc={doc}
+                podeEditar={podeCriar}
+                podeExcluir={podeExcluir}
                 onEditar={() => setDocEditando(doc)}
                 onEtapas={() => doc.tipo === 'consulta_inteligente' ? setDocConsulta(doc) : setDocEtapas(doc)}
                 onDuplicar={() => setDocDuplicando(doc)}

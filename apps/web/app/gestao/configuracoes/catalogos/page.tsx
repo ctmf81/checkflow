@@ -15,12 +15,15 @@ import { DuplicarCatalogoModal } from './DuplicarCatalogoModal'
 
 interface CatalogoCard extends Catalogo { totalValores: number }
 
-function CardMenu({ catalogo, onEditar, onDuplicar, onExcluir }: {
+function CardMenu({ catalogo, podeEditar = true, podeExcluir = true, onEditar, onDuplicar, onExcluir }: {
   catalogo: Catalogo
+  podeEditar?: boolean
+  podeExcluir?: boolean
   onEditar: () => void
   onDuplicar: () => void
   onExcluir: () => void
 }) {
+  if (!podeEditar && !podeExcluir) return null
   const [aberto, setAberto] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -39,20 +42,26 @@ function CardMenu({ catalogo, onEditar, onDuplicar, onExcluir }: {
       {aberto && (
         <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
           <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b border-gray-100 truncate">{catalogo.nome}</div>
-          <button onClick={() => { setAberto(false); onEditar() }}
-            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-            <Pencil size={13} className="text-gray-400" />Editar
-          </button>
-          <button onClick={() => { setAberto(false); onDuplicar() }}
-            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-            <Copy size={13} className="text-gray-400" />Duplicar
-          </button>
-          <div className="border-t border-gray-100 mt-1">
-            <button onClick={() => { setAberto(false); onExcluir() }}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50">
-              <Trash2 size={13} />Excluir
+          {podeEditar && (
+            <button onClick={() => { setAberto(false); onEditar() }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+              <Pencil size={13} className="text-gray-400" />Editar
             </button>
-          </div>
+          )}
+          {podeEditar && (
+            <button onClick={() => { setAberto(false); onDuplicar() }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+              <Copy size={13} className="text-gray-400" />Duplicar
+            </button>
+          )}
+          {podeExcluir && (
+            <div className={podeEditar ? 'border-t border-gray-100 mt-1' : ''}>
+              <button onClick={() => { setAberto(false); onExcluir() }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50">
+                <Trash2 size={13} />Excluir
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -69,12 +78,16 @@ export default function CatalogosPage() {
   const [editando, setEditando] = useState<Catalogo | undefined>()
   const [valoresCatalogo, setValoresCatalogo] = useState<Catalogo | null>(null)
   const [duplicando, setDuplicando] = useState<Catalogo | null>(null)
-  // Gate visual pelo perfil — RLS já honra catalogos.criar (migration 20260620140000).
+  // Gate visual pelo perfil (catalogos tem criar/editar/excluir separadas).
   const [podeCriar, setPodeCriar] = useState(false)
+  const [podeEditar, setPodeEditar] = useState(false)
+  const [podeExcluir, setPodeExcluir] = useState(false)
   useEffect(() => {
-    if (!empresaAtiva?.id) { setPodeCriar(false); return }
-    createClient().rpc('usuario_tem_permissao', { p_recurso: 'catalogos', p_acao: 'criar' })
-      .then(({ data }) => setPodeCriar(!!data))
+    if (!empresaAtiva?.id) { setPodeCriar(false); setPodeEditar(false); setPodeExcluir(false); return }
+    const sb = createClient()
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'catalogos', p_acao: 'criar' }).then(({ data }) => setPodeCriar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'catalogos', p_acao: 'editar' }).then(({ data }) => setPodeEditar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'catalogos', p_acao: 'excluir' }).then(({ data }) => setPodeExcluir(!!data))
   }, [empresaAtiva?.id])
 
   async function carregar() {
@@ -177,6 +190,8 @@ export default function CatalogosPage() {
                 </div>
                 <CardMenu
                   catalogo={cat}
+                  podeEditar={podeEditar}
+                  podeExcluir={podeExcluir}
                   onEditar={() => { setEditando(cat); setModalNovo(true) }}
                   onDuplicar={() => setDuplicando(cat)}
                   onExcluir={() => excluir(cat.id, cat.nome)}

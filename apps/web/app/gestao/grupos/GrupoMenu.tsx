@@ -6,11 +6,15 @@ import { MoreVertical, Pencil, PowerOff } from 'lucide-react'
 interface Props {
   grupoId: string
   grupoNome: string
+  podeEditar?: boolean
+  podeDesativar?: boolean
   onEditar: () => void
   onExcluir: () => void
 }
 
-export function GrupoMenu({ grupoNome, onEditar, onExcluir }: Props) {
+export function GrupoMenu({ grupoNome, podeEditar = true, podeDesativar = true, onEditar, onExcluir }: Props) {
+  // Sem nenhuma ação permitida, esconde o menu inteiro (regra: se não pode, não vê).
+  if (!podeEditar && !podeDesativar) return null
   const [aberto, setAberto] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -37,23 +41,27 @@ export function GrupoMenu({ grupoNome, onEditar, onExcluir }: Props) {
             {grupoNome}
           </div>
 
-          <button
-            onClick={() => { setAberto(false); onEditar() }}
-            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <Pencil size={14} className="text-gray-400" />
-            Editar grupo
-          </button>
-
-          <div className="border-t border-gray-100 mt-1">
+          {podeEditar && (
             <button
-              onClick={() => { setAberto(false); onExcluir() }}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+              onClick={() => { setAberto(false); onEditar() }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
             >
-              <PowerOff size={14} />
-              Desativar grupo
+              <Pencil size={14} className="text-gray-400" />
+              Editar grupo
             </button>
-          </div>
+          )}
+
+          {podeDesativar && (
+            <div className={podeEditar ? 'border-t border-gray-100 mt-1' : ''}>
+              <button
+                onClick={() => { setAberto(false); onExcluir() }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+              >
+                <PowerOff size={14} />
+                Desativar grupo
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
