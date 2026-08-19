@@ -11,7 +11,7 @@ import { useConfirm, useToast } from '@/components/ui/feedback'
 interface Categoria { id: string; nome: string; pai_id: string | null; e_generica: boolean; ativo: boolean }
 
 export default function TicketCategoriasPage() {
-  const { unidadeAtiva } = useSession()
+  const { unidadeAtiva, empresaAtiva } = useSession()
   const confirm = useConfirm()
   const toast = useToast()
   const supabase = createClient()
@@ -23,6 +23,14 @@ export default function TicketCategoriasPage() {
   const [paiId,   setPaiId]   = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [mostrando, setMostrando] = useState<'form' | null>(null)
+  // Gate visual pelo perfil — RLS já honra ticket.categorias_gerir (20260620180000).
+  // Sem essa permissão, a tela vira read-only (lista, sem CRUD).
+  const [podeGerir, setPodeGerir] = useState(false)
+  useEffect(() => {
+    if (!empresaAtiva?.id) { setPodeGerir(false); return }
+    supabase.rpc('usuario_tem_permissao', { p_recurso: 'ticket', p_acao: 'categorias_gerir' })
+      .then(({ data }) => setPodeGerir(!!data))
+  }, [empresaAtiva?.id])
 
   async function carregar() {
     if (!unidadeAtiva) return
@@ -75,10 +83,12 @@ export default function TicketCategoriasPage() {
           <h1 className="text-xl font-semibold text-gray-800">Categorias de Tickets</h1>
           <p className="hidden sm:block text-sm text-gray-500 mt-0.5">Árvore de categorias para classificar os chamados</p>
         </div>
-        <button onClick={() => iniciarNova(null)}
-          className="flex items-center gap-2 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700">
-          <Plus size={15} /> Nova
-        </button>
+        {podeGerir && (
+          <button onClick={() => iniciarNova(null)}
+            className="flex items-center gap-2 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700">
+            <Plus size={15} /> Nova
+          </button>
+        )}
       </div>
 
       {mostrando === 'form' && (
@@ -113,7 +123,7 @@ export default function TicketCategoriasPage() {
               <div className="flex items-center px-4 py-3 gap-2">
                 <span className="flex-1 text-sm font-medium text-gray-800">{cat.nome}</span>
                 {cat.e_generica && <span className="text-xs text-gray-400 italic">padrão</span>}
-                {!cat.e_generica && (
+                {!cat.e_generica && podeGerir && (
                   <>
                     <button onClick={() => iniciarNova(cat.id)}
                       className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50">
@@ -134,14 +144,18 @@ export default function TicketCategoriasPage() {
                 <div key={sub.id} className="flex items-center pl-8 pr-4 py-2.5 gap-2 bg-gray-50/50">
                   <ChevronRight size={12} className="text-gray-300 shrink-0" />
                   <span className="flex-1 text-sm text-gray-600">{sub.nome}</span>
-                  <button onClick={() => iniciarEditar(sub)}
-                    className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600">
-                    <Pencil size={13} />
-                  </button>
-                  <button onClick={() => excluir(sub)}
-                    className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
-                    <Trash2 size={13} />
-                  </button>
+                  {podeGerir && (
+                    <>
+                      <button onClick={() => iniciarEditar(sub)}
+                        className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+                        <Pencil size={13} />
+                      </button>
+                      <button onClick={() => excluir(sub)}
+                        className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
+                        <Trash2 size={13} />
+                      </button>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
