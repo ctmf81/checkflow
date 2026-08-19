@@ -18,11 +18,19 @@ interface PadraoCard {
 }
 
 export default function PadroesPage() {
-  const { unidadeAtiva } = useSession()
+  const { unidadeAtiva, empresaAtiva } = useSession()
   const confirm = useConfirm()
   const toast = useToast()
   const [padroes, setPadroes] = useState<PadraoCard[]>([])
   const [loading, setLoading] = useState(true)
+  // Gate visual pelo perfil — RLS já honra padrao.editar (20260709140000).
+  // Sem essa permissão a tela é read-only (lista, sem Novo/Excluir).
+  const [podeGerir, setPodeGerir] = useState(false)
+  useEffect(() => {
+    if (!empresaAtiva?.id) { setPodeGerir(false); return }
+    createClient().rpc('usuario_tem_permissao', { p_recurso: 'padrao', p_acao: 'editar' })
+      .then(({ data }) => setPodeGerir(!!data))
+  }, [empresaAtiva?.id])
 
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
@@ -64,7 +72,9 @@ export default function PadroesPage() {
           <h1 className="text-xl font-semibold text-gray-900">Padrões</h1>
           <p className="hidden sm:block text-sm text-gray-500 mt-0.5">Padrões de validação numérica baseados em combinações de variáveis</p>
         </div>
-        <Link href="/gestao/padrao/criar"><Button><Plus size={16} />Novo</Button></Link>
+        {podeGerir && (
+          <Link href="/gestao/padrao/criar"><Button><Plus size={16} />Novo</Button></Link>
+        )}
       </div>
 
       {loading && padroes.length === 0 ? (
@@ -88,8 +98,10 @@ export default function PadroesPage() {
                 </p>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={e => { e.preventDefault(); excluir(p.id, p.nome) }}
-                  className="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50"><Trash2 size={15} /></button>
+                {podeGerir && (
+                  <button onClick={e => { e.preventDefault(); excluir(p.id, p.nome) }}
+                    className="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50"><Trash2 size={15} /></button>
+                )}
                 <ChevronRight size={16} className="text-gray-300 group-hover:text-orange-400" />
               </div>
             </Link>
