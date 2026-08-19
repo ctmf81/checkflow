@@ -50,6 +50,19 @@ function WorkflowsConteudo() {
   const [menuAberto, setMenuAberto] = useState<string | null>(null)
   const [iniciando, setIniciando] = useState<string | null>(null)
 
+  const [podeCriar, setPodeCriar] = useState(false)
+  const [podeEditar, setPodeEditar] = useState(false)
+  const [podeIniciar, setPodeIniciar] = useState(false)
+  const [podeExcluir, setPodeExcluir] = useState(false)
+  useEffect(() => {
+    if (!empresaAtiva?.id) { setPodeCriar(false); setPodeEditar(false); setPodeIniciar(false); setPodeExcluir(false); return }
+    const sb = createClient()
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'workflows', p_acao: 'criar'   }).then(({ data }) => setPodeCriar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'workflows', p_acao: 'editar'  }).then(({ data }) => setPodeEditar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'workflows', p_acao: 'iniciar' }).then(({ data }) => setPodeIniciar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'workflows', p_acao: 'excluir' }).then(({ data }) => setPodeExcluir(!!data))
+  }, [empresaAtiva?.id])
+
   useEffect(() => { carregar() }, [empresaAtiva?.id])
 
   async function carregar() {
@@ -119,12 +132,14 @@ function WorkflowsConteudo() {
           <h1 className="text-xl font-semibold text-gray-800">Workflows</h1>
           <p className="hidden sm:block text-xs text-gray-400 mt-0.5">Pipelines de checklists com estágios e dependências</p>
         </div>
-        {!podeCriarConteudo(faseAssinatura) ? (
-          <Button disabled title={MSG_CRIACAO_BLOQUEADA}><Plus size={16} />Novo workflow</Button>
-        ) : (
-          <Link href="/gestao/workflows/novo">
-            <Button><Plus size={16} />Novo workflow</Button>
-          </Link>
+        {podeCriar && (
+          !podeCriarConteudo(faseAssinatura) ? (
+            <Button disabled title={MSG_CRIACAO_BLOQUEADA}><Plus size={16} />Novo workflow</Button>
+          ) : (
+            <Link href="/gestao/workflows/novo">
+              <Button><Plus size={16} />Novo workflow</Button>
+            </Link>
+          )
         )}
       </div>
 
@@ -171,7 +186,7 @@ function WorkflowsConteudo() {
                 </span>
 
                 <div className="flex items-center gap-1">
-                  {w.status === 'publicado' && (
+                  {w.status === 'publicado' && podeIniciar && (
                     <button
                       onClick={() => iniciarExecucao(w.id)}
                       disabled={iniciando === w.id}
@@ -184,31 +199,37 @@ function WorkflowsConteudo() {
                     </button>
                   )}
 
-                  <div className="relative">
-                    <button
-                      onClick={() => setMenuAberto(menuAberto === w.id ? null : w.id)}
-                      className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-                    >
-                      <MoreVertical size={15} />
-                    </button>
-                    {menuAberto === w.id && (
-                      <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-36">
-                        <Link href={`/gestao/workflows/${w.id}`}
-                          className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                          Editar
-                        </Link>
-                        <Link href={`/gestao/workflows/${w.id}/execucoes`}
-                          className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                          Execuções
-                        </Link>
-                        <button
-                          onClick={() => inativar(w.id)}
-                          className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50">
-                          Inativar
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  {(podeEditar || podeExcluir) && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setMenuAberto(menuAberto === w.id ? null : w.id)}
+                        className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        <MoreVertical size={15} />
+                      </button>
+                      {menuAberto === w.id && (
+                        <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-36">
+                          {podeEditar && (
+                            <Link href={`/gestao/workflows/${w.id}`}
+                              className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                              Editar
+                            </Link>
+                          )}
+                          <Link href={`/gestao/workflows/${w.id}/execucoes`}
+                            className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                            Execuções
+                          </Link>
+                          {podeExcluir && (
+                            <button
+                              onClick={() => inativar(w.id)}
+                              className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50">
+                              Inativar
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )
