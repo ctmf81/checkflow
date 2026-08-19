@@ -26,15 +26,26 @@ export function NovoGrupoModal({ onClose, onCriado }: Props) {
     setErro('')
     setSalvando(true)
 
-    const { error } = await createClient().from('grupos').insert({
+    const { data, error } = await createClient().from('grupos').insert({
       nome,
       descricao: descricao || null,
       unidade_id: unidadeAtiva.id,
       status: 'ativo',
-    })
+    }).select()
 
     setSalvando(false)
-    if (error) { setErro('Erro ao criar grupo. Tente novamente.'); return }
+    // RLS silent-fail: sem erro mas data vazio (permission denied via WITH CHECK)
+    if (!error && (!data || data.length === 0)) {
+      setErro('Você não tem permissão para criar grupos nesta unidade.')
+      return
+    }
+    if (error) {
+      // Mostra a razão real (RLS, unique constraint, etc.) em vez de mascarar
+      setErro(error.message?.includes('row-level security')
+        ? 'Você não tem permissão para criar grupos nesta unidade.'
+        : `Erro ao criar grupo: ${error.message}`)
+      return
+    }
 
     toast.success('Grupo criado.')
     onCriado?.()
