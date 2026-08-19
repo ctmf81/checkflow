@@ -286,6 +286,25 @@ export default function PlanoPage() {
     } catch { toast.error('Erro de conexão.') } finally { setAcaoEmProgresso(null) }
   }
 
+  // Abre a fatura Asaas onde o cliente troca a forma de pagamento (cartão vencido,
+  // migração PIX→cartão etc.). Se não houver cobrança em aberto (cartão automático
+  // acabou de debitar, próxima só na virada), backend devolve 409 com mensagem.
+  async function atualizarPagamento() {
+    if (!empresaAtiva?.id) return
+    setAcaoEmProgresso('atualizar-pagamento')
+    const t = await token()
+    try {
+      const res = await fetch(`${API_URL}/billing/link-atualizar-pagamento`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify({ empresaId: empresaAtiva.id }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) { toast.info(json?.error ?? 'Não foi possível abrir a fatura.'); return }
+      if (json?.invoiceUrl) window.open(json.invoiceUrl, '_blank', 'noopener')
+    } catch { toast.error('Erro de conexão.') } finally { setAcaoEmProgresso(null) }
+  }
+
   async function reativarAssinatura() {
     if (!empresaAtiva?.id) return
     setAcaoEmProgresso('reativar-assinatura')
@@ -407,7 +426,12 @@ export default function PlanoPage() {
             <Barra label="Armazenamento" uso={status.armazenamento} />
           </div>
           {estaEmPago && !cancelarEm && (
-            <div className="pt-3 mt-2 border-t border-gray-100">
+            <div className="pt-3 mt-2 border-t border-gray-100 flex flex-wrap items-center gap-2">
+              <button onClick={atualizarPagamento} disabled={acaoEmProgresso === 'atualizar-pagamento'}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-700 border border-gray-200 hover:bg-gray-50 rounded-lg px-3 py-1.5 disabled:opacity-50">
+                {acaoEmProgresso === 'atualizar-pagamento' ? <Loader2 size={13} className="animate-spin" /> : <ExternalLink size={13} />}
+                Atualizar forma de pagamento
+              </button>
               <button onClick={cancelarAssinatura} disabled={acaoEmProgresso === 'cancelar-assinatura'}
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 rounded-lg px-3 py-1.5 disabled:opacity-50">
                 {acaoEmProgresso === 'cancelar-assinatura' && <Loader2 size={13} className="animate-spin" />}

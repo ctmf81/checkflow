@@ -370,6 +370,45 @@ export async function billingRoutes(app: FastifyInstance) {
     }
   })
 
+  // ── POST /billing/link-atualizar-pagamento ────────────────────────────────
+  // Devolve a URL de uma fatura do Asaas onde o cliente pode atualizar a forma
+  // de pagamento (trocar cartão vencido, pagar com PIX no lugar de cartão etc.).
+  // Preferência: OVERDUE > PENDING > AWAITING_RISK_ANALYSIS da assinatura ativa.
+  // Se não houver nenhuma cobrança em aberto (ex.: cartão foi debitado sozinho e
+  // a próxima só é gerada no fim do período), devolve 409 com mensagem amigável.
+  app.post('/billing/link-atualizar-pagamento', async (req, reply) => {
+    const { empresaId } = req.body as { empresaId?: string }
+    if (!empresaId) return reply.status(400).send({ error: 'empresaId é obrigatório' })
+
+    const supabase = sb()
+    const auth = await autorizarAdminEmpresa(supabase, req.headers.authorization, empresaId)
+    if (!auth) return reply.status(403).send({ error: 'Não autorizado' })
+
+    const { data: a } = await supabase.from('empresa_assinaturas')
+      .select('asaas_subscription_id, plano_tipo, status').eq('empresa_id', empresaId).maybeSingle()
+    const at = a as any
+    if (!at?.asaas_subscription_id) return reply.status(400).send({ error: 'Empresa sem assinatura ativa no Asaas.' })
+    if (at.plano_tipo !== 'pago') return reply.status(400).send({ error: 'Sem assinatura paga.' })
+
+    try {
+      const pagamentos = await asaasPagamentosDaAssinatura(at.asaas_subscription_id)
+      const prioridade = ['OVERDUE', 'PENDING', 'AWAITING_RISK_ANALYSIS']
+      const emAberto = (pagamentos.data ?? [])
+        .filter(p => prioridade.includes(p.status) && !!p.invoiceUrl)
+        .sort((x, y) => prioridade.indexOf(x.status) - prioridade.indexOf(y.status))
+      const escolhida = emAberto[0]
+      if (!escolhida) {
+        return reply.status(409).send({
+          error: 'Sem cobrança em aberto no momento. Você poderá atualizar a forma de pagamento na próxima fatura (perto do vencimento do período atual).',
+        })
+      }
+      return reply.send({ ok: true, invoiceUrl: escolhida.invoiceUrl, status: escolhida.status })
+    } catch (e: any) {
+      app.log.error(e)
+      return reply.status(502).send({ error: e?.message ?? 'Falha ao consultar cobranças no Asaas' })
+    }
+  })
+
   // ── POST /billing/comprar-pacote ──────────────────────────────────────────
   // Cobrança avulsa de um pacote. O crédito só é aplicado quando o pagamento
   // é confirmado (webhook) — evita liberar recurso sem pagamento.
