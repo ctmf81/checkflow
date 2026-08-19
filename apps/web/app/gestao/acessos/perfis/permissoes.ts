@@ -86,6 +86,16 @@ const recursosTodos: Recurso[] = [
     ],
   },
   {
+    key: 'unidades',
+    label: 'Unidades',
+    acoes: [
+      { key: 'criar',     label: 'Criar unidade' },
+      { key: 'editar',    label: 'Editar unidade' },
+      { key: 'deletar',   label: 'Inativar unidade' },
+      { key: 'gerenciar', label: 'Gerenciar unidades (super-conjunto)' },
+    ],
+  },
+  {
     key: 'turnos',
     label: 'Turnos',
     acoes: [
