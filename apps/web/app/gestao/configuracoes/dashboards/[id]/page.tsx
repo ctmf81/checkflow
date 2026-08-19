@@ -30,7 +30,14 @@ interface Painel {
 export default function EditorDashboardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
-  const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
+  const { unidadeAtiva, empresaAtiva, grupoLabel, subgrupoLabel } = useSession()
+  // Gate visual pelo perfil — RLS já honra dashboards.criar.
+  const [podeEditar, setPodeEditar] = useState(false)
+  useEffect(() => {
+    if (!empresaAtiva?.id) { setPodeEditar(false); return }
+    createClient().rpc('usuario_tem_permissao', { p_recurso: 'dashboards', p_acao: 'criar' })
+      .then(({ data }) => setPodeEditar(!!data))
+  }, [empresaAtiva?.id])
   const toast = useToast()
   const confirm = useConfirm()
 
@@ -232,7 +239,9 @@ export default function EditorDashboardPage({ params }: { params: Promise<{ id: 
       <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
         <div className="flex items-center justify-between">
           <label className="block text-sm font-medium text-gray-700">Painéis</label>
-          <button onClick={() => setAddOpen(v => !v)} className="text-xs font-medium text-orange-600 flex items-center gap-1"><Plus size={13} />Adicionar painel</button>
+          {podeEditar && (
+            <button onClick={() => setAddOpen(v => !v)} className="text-xs font-medium text-orange-600 flex items-center gap-1"><Plus size={13} />Adicionar painel</button>
+          )}
         </div>
 
         {paineis.length === 0 && <p className="text-xs text-gray-400">Nenhum painel ainda. Cada painel monitora o histórico de uma atividade.</p>}
