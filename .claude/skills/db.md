@@ -453,6 +453,40 @@ create policy "usuario_grupo_propria"   on usuario_grupo   for select using (usu
 ```
 `usuario_subgrupo` já tinha (`usuario_subgrupo_propria`, 20260622210000) — os irmãos `usuario_empresa`/`usuario_grupo` ficaram de fora. **Lição: ao criar policy admin-only numa tabela de vínculo do usuário, sempre adicionar também a self-select `usuario_id = auth.uid()`.**
 
+## RLS: permissão da UI ≠ policy do banco (padrão consolidado 2026-08-18)
+Vários perfis per-empresa (ex.: **"Gestão do Grupo"**) recebem permissões na UI de perfis (`grupos.adicionar_usuario`, `grupos.gerenciar_usuario`, `grupos.editar`, `subgrupos.editar`, `subgrupos.criar`, `subgrupos.gerenciar_funcoes`), mas as RLS históricas de `usuario_grupo`, `usuario_subgrupo`, `grupos`, `subgrupos` só honravam `admin_sistema` e `admin_empresa`. Efeito: silent-fail — modal fecha como se tivesse salvo, toast diz "sucesso", nada muda. **Corrigido** em duas migrations (`20260818225748` e `20260818230557`) via helpers SECURITY DEFINER:
+
+- `usuario_pode_gerir_grupo(uuid)` / `usuario_pode_gerir_subgrupo(uuid)` → SELECT/INSERT/DELETE em `usuario_grupo`/`usuario_subgrupo`
+- `usuario_pode_editar_grupo(uuid)` → UPDATE em `grupos`
+- `usuario_pode_editar_subgrupo(uuid)` → UPDATE/DELETE em `subgrupos`
+- `usuario_pode_criar_subgrupo_no_grupo(uuid)` → INSERT em `subgrupos`
+
+Todos escopam a empresa: `join usuario_empresa ue on ue.empresa_id = u.empresa_id where ue.usuario_id = auth.uid()`. Cross-empresa bloqueado.
+
+**Lição — checklist obrigatório ao criar permissão nova na UI de perfis:**
+1. Existe alguma policy que chama `usuario_tem_permissao(<recurso>, <acao>)` na tabela sensível? Se não, o checkbox é decoração — a permissão não faz nada.
+2. `.select()` no cliente (`.update().select()`, `.insert().select()`, `.upsert().select()`) — se `data.length === 0` sem `error`, mostrar mensagem "Você não tem permissão" em vez de silent-fail.
+
+## 🔥 RLS Gotcha: recursão em subqueries de policy (revertida `20260818223259`, 2026-08-18 quebrou prod)
+A 1ª tentativa do fix acima (`20260818095330`) criou `usuario_grupo_permissao` com subquery em `grupos`. Mas `grupos` já tem policy `grupos_membro` com subquery em `usuario_grupo`. Uma referenciando a outra em loop → Postgres detecta **recursão infinita em RLS** → **500 em qualquer query envolvendo essas tabelas ou tabelas com JOIN nelas** (tickets, checklists, planos_acao, tarefa_execucoes). Toda a operação de VM Bahamas ficou como se estivesse vazia — inclusive pra admin_sistema, porque a query nunca completava.
+
+**Checklist obrigatório antes de escrever/aplicar RLS:**
+1. **Vou consultar outra tabela pra checar escopo?** → **SECURITY DEFINER function**, nunca subquery direta. `security definer` bypassa RLS na consulta interna e fecha a porta pra recursão. Padrões no repo: `subgrupo_tem_n2` (20260703050000), `is_admin_empresa_grupo/unidade/subgrupo` (20260620120000), `usuario_pode_gerir_grupo/subgrupo` e `usuario_pode_editar_grupo/subgrupo` (20260818225748/230557).
+2. **Antes de commitar:** smoke SQL contra a tabela — `select count(*) from <tabela> limit 1` como usuário normal (sem service role). Se der 500 = recursão. Aborta antes do commit. Ver `scratchpad/smoke-rls-*.mjs` como template.
+3. **Nunca aplicar RLS direto em prod:** dev → smoke em web-dev-production-f3dd.up.railway.app → prod. Typecheck e teste unitário NÃO pegam recursão.
+
+Ver [[../../.claude/projects/C--Users-t-mesha92-Desktop-projeto-checkFlow/memory/feedback-rls-checklist.md]] pro debrief completo.
+
+## 🔥 RLS Gotcha: recursão em subqueries de policy (revertida `20260818223259`, 2026-08-18 quebrou prod)
+A migration `20260818095330` acima criou `usuario_grupo_permissao` com subquery em `grupos`. Mas `grupos` já tem policy `grupos_membro` com subquery em `usuario_grupo`. Uma referenciando a outra em loop → Postgres detecta **recursão infinita em RLS** → **500 em qualquer query envolvendo essas tabelas ou tabelas com JOIN nelas** (tickets, checklists, planos_acao, tarefa_execucoes). Toda a operação de VM Bahamas ficou como se estivesse vazia — inclusive pra admin_sistema, porque a query nunca completava.
+
+**Checklist obrigatório antes de escrever/aplicar RLS:**
+1. **Vou consultar outra tabela pra checar escopo?** → **SECURITY DEFINER function**, nunca subquery direta. `security definer` bypassa RLS na consulta interna e fecha a porta pra recursão. Padrões no repo: `subgrupo_tem_n2` (20260703050000), `is_admin_empresa_grupo/unidade/subgrupo` (20260620120000).
+2. **Antes de commitar:** smoke SQL contra a tabela — `select count(*) from <tabela> limit 1` como usuário normal (sem service role). Se der 500 = recursão. Aborta antes do commit.
+3. **Nunca aplicar RLS direto em prod:** dev → smoke em web-dev-production-f3dd.up.railway.app → prod. Typecheck e teste unitário NÃO pegam recursão.
+
+Ver [[../../.claude/projects/C--Users-t-mesha92-Desktop-projeto-checkFlow/memory/feedback-rls-checklist.md]] pro debrief completo.
+
 ## RLS Gotcha: admin_sistema sem linha em `usuario_unidade` (migration 20260614040000, ✅ aplicada)
 Mesmo com a policy acima, um `admin_sistema` pode não ter nenhuma linha em `usuario_unidade` (ele normalmente acessa tudo via `is_admin_sistema()`). Qualquer policy que dependa **só** de `exists (select 1 from usuario_unidade ...)` sem `or is_admin_sistema()` bloqueia o admin. Corrigido em `tickets_leitura`, `tickets_criar`, `ticket_eventos_*`, `ticket_evidencias_*`, `ticket_categorias_leitura`, `ticket_sla_leitura`. **Ao criar policy nova baseada em `usuario_unidade`, sempre adicionar `is_admin_sistema() or ...` no início.**
 
