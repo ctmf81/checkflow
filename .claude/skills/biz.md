@@ -5,6 +5,39 @@ description: Business rules and product logic for CheckFlow. Consult this skill 
 
 # Business Rules
 
+## Permissões — gate por perfil (o que cada perfil vê) — 2026-08-19
+
+Padrão único: `usuario_tem_permissao(recurso, ação)` no cliente esconde o botão + RLS no banco bloqueia. Se o perfil não tem, **o botão não aparece**. `admin_sistema`/`admin_empresa` recebem tudo via seed automático (is_system).
+
+**Fonte de verdade das permissões disponíveis:** `apps/web/app/gestao/acessos/perfis/permissoes.ts` (recursos + ações mostrados no construtor de perfis).
+
+**Telas totalmente gateadas (18):**
+| Tela | Ações gateadas |
+|---|---|
+| Grupos, Subgrupos | criar / editar / excluir / adicionar_usuario / gerenciar_usuario / gerenciar_funcoes |
+| Unidades | criar / editar / deletar / gerenciar |
+| Documentos | criar / excluir |
+| Catálogos + Valores | criar / editar / excluir |
+| Padrões e variáveis | criar / editar / excluir |
+| Agendamentos | criar / editar / deletar (+ pausar/ativar) |
+| Causa raiz, Motivos de não execução | criar / editar / excluir |
+| Dashboards | criar / deletar |
+| Tickets / Categorias | categorias_gerir (+ cancelar no detalhe) |
+| Checklists | criar / editar / excluir / duplicar / configuracoes |
+| Workflows | criar / editar / publicar / excluir / iniciar |
+| Tarefas | criar / editar / deletar |
+| Relatórios (IA) | criar / editar / excluir / executar (gate adicional pela flag `ia` do plano) |
+| Perfis, Turnos | criar / editar / excluir |
+| Usuários | criar / editar / excluir / importar / aprovar_precadastro |
+
+**Sem gate por decisão (livres):**
+- Planos de Ação — qualquer executor com acesso ao plano faz tudo (aprovar/reprovar/delegar/prorrogar/concluir/cancelar)
+- Tickets — `transferir` e `vincular_duplicado` ficam livres (apenas `cancelar` é gateado)
+
+**Regra dura ao criar nova função:** perguntar antes se ela vai pro perfil. Se sim, aplicar as 3 camadas no mesmo PR (migration `permissoes` + entry em `permissoes.ts` + gate no botão). Ver skill `/security` seção RLS + memória.
+
+**Ferramenta de auditoria:** `scratchpad/check-permissoes-vs-ui.mjs` — varre banco vs construtor de perfis e reporta gaps (recursos/ações no banco sem entry no construtor).
+
 ## Telegram — canal de mensageria alternativo (2026-07-31, EM PRODUÇÃO)
 Fallback do WhatsApp (que pode ser bloqueado). Bots: **dev `@checkflows_bot`**, **prod `@checkflowprd_bot`** (webhooks registrados). Regra dura do Telegram: o bot **só envia para quem deu `/start` nele** — não dá para enviar só com o número. Por isso o vínculo é por deep link (`t.me/<bot>?start=<code>`) → usuário toca "Iniciar" → webhook (`apps/api /telegram/webhook`) casa o `<code>` ao usuário e grava `telegram_chat_id`. UX: **2 toques, zero digitação, sem informar número.**
 - **Onde vincular:** menu do usuário → "Notificações (Telegram)" (link+QR, self-service). Gestor convida operadores pela tela de Usuários (ícone Telegram: azul=conectado/cinza=pendente → abre QR/link).
