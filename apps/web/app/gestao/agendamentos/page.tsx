@@ -350,6 +350,17 @@ export default function AgendamentosPage() {
   const [modalAberto, setModalAberto]   = useState(false)
   const [editando, setEditando]         = useState<Agendamento | null>(null)
   const [alterando, setAlterando]       = useState<string | null>(null)
+  // Gate visual pelo perfil — agendamentos tem criar/editar/deletar como permissões separadas.
+  const [podeCriar, setPodeCriar] = useState(false)
+  const [podeEditar, setPodeEditar] = useState(false)
+  const [podeDeletar, setPodeDeletar] = useState(false)
+  useEffect(() => {
+    if (!empresaAtiva?.id) { setPodeCriar(false); setPodeEditar(false); setPodeDeletar(false); return }
+    const sb = createClient()
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'agendamentos', p_acao: 'criar' }).then(({ data }) => setPodeCriar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'agendamentos', p_acao: 'editar' }).then(({ data }) => setPodeEditar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'agendamentos', p_acao: 'deletar' }).then(({ data }) => setPodeDeletar(!!data))
+  }, [empresaAtiva?.id])
 
   useEffect(() => { carregar() }, [empresaAtiva?.id, unidadeAtiva?.id])
   usePolling(carregar, 45000, !!unidadeAtiva?.id)
@@ -463,12 +474,14 @@ export default function AgendamentosPage() {
           <h1 className="text-xl font-semibold text-gray-800">Agendamentos</h1>
           <p className="hidden sm:block text-xs text-gray-400 mt-0.5">Início programado e recorrente de workflows e checklists</p>
         </div>
-        {!podeCriarConteudo(faseAssinatura) ? (
-          <Button disabled title={MSG_CRIACAO_BLOQUEADA}><Plus size={16} />Novo</Button>
-        ) : (
-          <Button onClick={() => unidadeAtiva ? setModalAberto(true) : toast.info('Selecione uma unidade para criar um agendamento.')}>
-            <Plus size={16} />Novo
-          </Button>
+        {podeCriar && (
+          !podeCriarConteudo(faseAssinatura) ? (
+            <Button disabled title={MSG_CRIACAO_BLOQUEADA}><Plus size={16} />Novo</Button>
+          ) : (
+            <Button onClick={() => unidadeAtiva ? setModalAberto(true) : toast.info('Selecione uma unidade para criar um agendamento.')}>
+              <Plus size={16} />Novo
+            </Button>
+          )
         )}
       </div>
 
@@ -524,27 +537,33 @@ export default function AgendamentosPage() {
               </span>
 
               <div className="flex items-center gap-1 flex-shrink-0">
-                <button
-                  onClick={() => setEditando(a)}
-                  disabled={alterando === a.id}
-                  title="Editar"
-                  className="p-1.5 text-gray-400 hover:text-violet-500 rounded-lg hover:bg-violet-50 transition-colors disabled:opacity-50">
-                  <Pencil size={15} />
-                </button>
-                <button
-                  onClick={() => alternarAtivo(a)}
-                  disabled={alterando === a.id}
-                  title={a.ativo ? 'Pausar' : 'Ativar'}
-                  className="p-1.5 text-gray-400 hover:text-violet-500 rounded-lg hover:bg-violet-50 transition-colors disabled:opacity-50">
-                  {a.ativo ? <PowerOff size={15} /> : <Power size={15} />}
-                </button>
-                <button
-                  onClick={() => excluir(a.id)}
-                  disabled={alterando === a.id}
-                  title="Excluir"
-                  className="p-1.5 text-gray-300 hover:text-red-400 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
-                  <Trash2 size={15} />
-                </button>
+                {podeEditar && (
+                  <button
+                    onClick={() => setEditando(a)}
+                    disabled={alterando === a.id}
+                    title="Editar"
+                    className="p-1.5 text-gray-400 hover:text-violet-500 rounded-lg hover:bg-violet-50 transition-colors disabled:opacity-50">
+                    <Pencil size={15} />
+                  </button>
+                )}
+                {podeEditar && (
+                  <button
+                    onClick={() => alternarAtivo(a)}
+                    disabled={alterando === a.id}
+                    title={a.ativo ? 'Pausar' : 'Ativar'}
+                    className="p-1.5 text-gray-400 hover:text-violet-500 rounded-lg hover:bg-violet-50 transition-colors disabled:opacity-50">
+                    {a.ativo ? <PowerOff size={15} /> : <Power size={15} />}
+                  </button>
+                )}
+                {podeDeletar && (
+                  <button
+                    onClick={() => excluir(a.id)}
+                    disabled={alterando === a.id}
+                    title="Excluir"
+                    className="p-1.5 text-gray-300 hover:text-red-400 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
+                    <Trash2 size={15} />
+                  </button>
+                )}
               </div>
             </div>
           ))}
