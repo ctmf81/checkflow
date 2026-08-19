@@ -60,7 +60,7 @@ function CardMenu({ catalogo, onEditar, onDuplicar, onExcluir }: {
 }
 
 export default function CatalogosPage() {
-  const { unidadeAtiva } = useSession()
+  const { unidadeAtiva, empresaAtiva } = useSession()
   const confirm = useConfirm()
   const toast = useToast()
   const [catalogos, setCatalogos] = useState<CatalogoCard[]>([])
@@ -69,6 +69,13 @@ export default function CatalogosPage() {
   const [editando, setEditando] = useState<Catalogo | undefined>()
   const [valoresCatalogo, setValoresCatalogo] = useState<Catalogo | null>(null)
   const [duplicando, setDuplicando] = useState<Catalogo | null>(null)
+  // Gate visual pelo perfil — RLS já honra catalogos.criar (migration 20260620140000).
+  const [podeCriar, setPodeCriar] = useState(false)
+  useEffect(() => {
+    if (!empresaAtiva?.id) { setPodeCriar(false); return }
+    createClient().rpc('usuario_tem_permissao', { p_recurso: 'catalogos', p_acao: 'criar' })
+      .then(({ data }) => setPodeCriar(!!data))
+  }, [empresaAtiva?.id])
 
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
@@ -145,9 +152,11 @@ export default function CatalogosPage() {
           <p className="hidden sm:block text-sm text-gray-500 mt-0.5">Campos dinâmicos com atributos vinculados a um código</p>
           <p className="text-xs text-gray-400 mt-0.5">Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
-        <Button onClick={() => { setEditando(undefined); setModalNovo(true) }}>
-          <Plus size={16} />Novo
-        </Button>
+        {podeCriar && (
+          <Button onClick={() => { setEditando(undefined); setModalNovo(true) }}>
+            <Plus size={16} />Novo
+          </Button>
+        )}
       </div>
 
       {loading && catalogos.length === 0 ? (
