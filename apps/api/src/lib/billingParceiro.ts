@@ -43,6 +43,48 @@ export function dataCorteCarencia(vencidoEm: string, dias = DIAS_CARENCIA_INADIM
   return d.toISOString().slice(0, 10)
 }
 
+/** Piso pra gerar cobrança de pro-rata em upgrade — abaixo disso, pula
+ * a cobrança e só aplica o plano novo (evita fatura de centavos). */
+export const PISO_PRO_RATA_UPGRADE = 1
+
+/**
+ * Calcula o valor proporcional da diferença de plano no upgrade IMEDIATO,
+ * baseado nos dias restantes do período pago atual.
+ *
+ * Retorna `null` quando:
+ *  - Downgrade ou plano igual (só upgrade real cobra pro-rata)
+ *  - Ciclos diferentes (mensal↔anual — mantém agendado, sem pro-rata)
+ *  - Dias restantes ≤ 0 (período já expirado)
+ *  - Cálculo abaixo do `PISO_PRO_RATA_UPGRADE`
+ *
+ * Fórmula: `diferença × (diasRestantes / diasCicloTotal)`. Ciclo mensal = 30
+ * dias, anual = 365 (Asaas usa a mesma base) — simples e previsível.
+ * Datas ISO `YYYY-MM-DD` (comparação lexicográfica funciona).
+ */
+export function calcularProRata(input: {
+  valorAtual: number
+  valorNovo: number
+  cicloAtual: 'mensal' | 'anual' | string | null | undefined
+  cicloNovo: 'mensal' | 'anual' | string | null | undefined
+  periodoFim: string
+  hoje: string
+  piso?: number
+}): { valor: number; diasRestantes: number; diasCicloTotal: number } | null {
+  const diff = Number(input.valorNovo) - Number(input.valorAtual)
+  if (!Number.isFinite(diff) || diff <= 0) return null
+  if (input.cicloAtual !== input.cicloNovo) return null
+  const diasCicloTotal = input.cicloNovo === 'anual' ? 365 : 30
+  const inicio = new Date(input.hoje + 'T00:00:00Z')
+  const fim = new Date(input.periodoFim + 'T00:00:00Z')
+  const diasRestantes = Math.floor((fim.getTime() - inicio.getTime()) / 86400000)
+  if (diasRestantes <= 0) return null
+  const bruto = diff * (diasRestantes / diasCicloTotal)
+  const valor = Math.round(bruto * 100) / 100
+  const piso = input.piso ?? PISO_PRO_RATA_UPGRADE
+  if (valor < piso) return null
+  return { valor, diasRestantes, diasCicloTotal }
+}
+
 /**
  * Espelha a regra da função de fase no banco (`empresa_fase_assinatura`):
  * pago + inadimplente + passados os dias de tolerância → somente leitura.
