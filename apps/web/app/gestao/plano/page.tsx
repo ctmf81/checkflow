@@ -193,12 +193,42 @@ export default function PlanoPage() {
 
     const trocaEntrePagos = status?.plano_tipo === 'pago' && status.status === 'ativo'
     const metodoPag = billingType === 'CREDIT_CARD' ? 'Cartão de crédito' : 'PIX'
+
+    // Se é troca entre pagos, pede pra API prever o modo (upgrade imediato x agendado)
+    // e usar o VALOR EXATO no confirm. Um round-trip a mais em troca de transparência.
+    let modoTroca: { modo: 'upgrade-imediato'; valorProRata: number; diasRestantes: number }
+                 | { modo: 'agendado'; efetivaEm: string }
+                 | null = null
+    if (trocaEntrePagos) {
+      const t = await token()
+      try {
+        const res = await fetch(`${API_URL}/billing/preview-troca`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+          body: JSON.stringify({ empresaId: empresaAtiva.id, planoId: plano.id }),
+        })
+        const json = await res.json().catch(() => null)
+        if (res.ok && json?.modo) modoTroca = json
+      } catch { /* segue com o texto genérico */ }
+    }
+
+    const cicloTxt = plano.ciclo === 'anual' ? 'ano' : 'mês'
+    const mensagemTroca = (() => {
+      if (!trocaEntrePagos) return `Forma de pagamento: ${metodoPag}. Será gerada uma cobrança recorrente de ${moeda(plano.valor)}/${cicloTxt} no Asaas. O plano é ativado assim que o pagamento for confirmado.`
+      if (modoTroca?.modo === 'upgrade-imediato') {
+        return `Upgrade imediato. Será gerada uma cobrança de ${moeda(modoTroca.valorProRata)} (diferença proporcional aos ${modoTroca.diasRestantes} dias restantes do período atual). A próxima fatura recorrente virá em ${moeda(plano.valor)}/${cicloTxt}.`
+      }
+      // agendado (downgrade, mudança de ciclo, valor abaixo do piso)
+      const dataFim = (modoTroca?.modo === 'agendado' ? modoTroca.efetivaEm : status?.periodo_fim) ?? null
+      return `A troca passa a valer no fim do período atual (${dataBR(dataFim)}). Até lá seu plano atual continua; a próxima cobrança virá em ${moeda(plano.valor)}/${cicloTxt}.`
+    })()
+
     const ok = await confirm({
       titulo: trocaEntrePagos ? `Trocar para o plano "${plano.nome}"?` : `Assinar o plano "${plano.nome}"?`,
-      mensagem: trocaEntrePagos
-        ? `A troca passa a valer no fim do período atual (${dataBR(status?.periodo_fim ?? null)}). Até lá seu plano atual continua; a próxima cobrança virá em ${moeda(plano.valor)}/${plano.ciclo === 'anual' ? 'ano' : 'mês'}.`
-        : `Forma de pagamento: ${metodoPag}. Será gerada uma cobrança recorrente de ${moeda(plano.valor)}/${plano.ciclo === 'anual' ? 'ano' : 'mês'} no Asaas. O plano é ativado assim que o pagamento for confirmado.`,
-      confirmarLabel: trocaEntrePagos ? 'Agendar troca' : 'Assinar',
+      mensagem: mensagemTroca,
+      confirmarLabel: modoTroca?.modo === 'upgrade-imediato'
+        ? 'Confirmar upgrade'
+        : trocaEntrePagos ? 'Agendar troca' : 'Assinar',
     })
     if (!ok) return
 
@@ -212,7 +242,10 @@ export default function PlanoPage() {
       })
       const json = await res.json().catch(() => null)
       if (!res.ok) { toast.error(json?.error ?? 'Falha ao assinar.'); return }
-      if (json?.agendado) {
+      if (json?.upgrade_imediato) {
+        if (json?.invoiceUrl) { setFaturaUrl(json.invoiceUrl); window.open(json.invoiceUrl, '_blank', 'noopener') }
+        toast.success(`Upgrade aplicado. Cobrança de ${moeda(json.valorProRata)} gerada — pague pra confirmar.`)
+      } else if (json?.agendado) {
         toast.success(`Troca agendada para ${dataBR(json.efetivaEm)}. O plano novo passa a valer no fim do período atual.`)
       } else {
         // Reflete o estado "aguardando pagamento" NA HORA (banner + botões Assinar
@@ -283,6 +316,25 @@ export default function PlanoPage() {
       if (!res.ok) { toast.error(json?.error ?? 'Falha ao cancelar.'); return }
       toast.success(`Assinatura cancelada. Acesso garantido até ${dataBR(json?.efetivaEm ?? null)}.`)
       carregar()
+    } catch { toast.error('Erro de conexão.') } finally { setAcaoEmProgresso(null) }
+  }
+
+  // Abre a fatura Asaas onde o cliente troca a forma de pagamento (cartão vencido,
+  // migração PIX→cartão etc.). Se não houver cobrança em aberto (cartão automático
+  // acabou de debitar, próxima só na virada), backend devolve 409 com mensagem.
+  async function atualizarPagamento() {
+    if (!empresaAtiva?.id) return
+    setAcaoEmProgresso('atualizar-pagamento')
+    const t = await token()
+    try {
+      const res = await fetch(`${API_URL}/billing/link-atualizar-pagamento`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify({ empresaId: empresaAtiva.id }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) { toast.info(json?.error ?? 'Não foi possível abrir a fatura.'); return }
+      if (json?.invoiceUrl) window.open(json.invoiceUrl, '_blank', 'noopener')
     } catch { toast.error('Erro de conexão.') } finally { setAcaoEmProgresso(null) }
   }
 
@@ -407,7 +459,12 @@ export default function PlanoPage() {
             <Barra label="Armazenamento" uso={status.armazenamento} />
           </div>
           {estaEmPago && !cancelarEm && (
-            <div className="pt-3 mt-2 border-t border-gray-100">
+            <div className="pt-3 mt-2 border-t border-gray-100 flex flex-wrap items-center gap-2">
+              <button onClick={atualizarPagamento} disabled={acaoEmProgresso === 'atualizar-pagamento'}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-700 border border-gray-200 hover:bg-gray-50 rounded-lg px-3 py-1.5 disabled:opacity-50">
+                {acaoEmProgresso === 'atualizar-pagamento' ? <Loader2 size={13} className="animate-spin" /> : <ExternalLink size={13} />}
+                Atualizar forma de pagamento
+              </button>
               <button onClick={cancelarAssinatura} disabled={acaoEmProgresso === 'cancelar-assinatura'}
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 rounded-lg px-3 py-1.5 disabled:opacity-50">
                 {acaoEmProgresso === 'cancelar-assinatura' && <Loader2 size={13} className="animate-spin" />}
