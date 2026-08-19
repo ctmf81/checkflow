@@ -34,13 +34,16 @@ export default function GruposPage() {
   const [grupoEditando, setGrupoEditando] = useState<Grupo | null>(null)
   const [grupoListaUsuarios, setGrupoListaUsuarios] = useState<Grupo | null>(null)
   // Gate visual pelo perfil — usuario_tem_permissao lê perfil_permissoes.
-  // Admin_sistema e admin_empresa (is_system) recebem a permissão via seed
-  // automaticamente, então o mesmo check funciona pra todo mundo.
+  // Admin_sistema e admin_empresa (is_system) recebem via seed automaticamente.
   const [podeCriar, setPodeCriar] = useState(false)
+  const [podeEditar, setPodeEditar] = useState(false)
+  const [podeGerirUsuarios, setPodeGerirUsuarios] = useState(false)
   useEffect(() => {
-    if (!empresaAtiva?.id) { setPodeCriar(false); return }
-    createClient().rpc('usuario_tem_permissao', { p_recurso: 'grupos', p_acao: 'criar' })
-      .then(({ data }) => setPodeCriar(!!data))
+    if (!empresaAtiva?.id) { setPodeCriar(false); setPodeEditar(false); setPodeGerirUsuarios(false); return }
+    const sb = createClient()
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'grupos', p_acao: 'criar' }).then(({ data }) => setPodeCriar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'grupos', p_acao: 'editar' }).then(({ data }) => setPodeEditar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'grupos', p_acao: 'gerenciar_usuario' }).then(({ data }) => setPodeGerirUsuarios(!!data))
   }, [empresaAtiva?.id])
 
   async function carregar() {
@@ -130,6 +133,8 @@ export default function GruposPage() {
                 <GrupoMenu
                   grupoId={grupo.id}
                   grupoNome={grupo.display_name || grupo.nome}
+                  podeEditar={podeEditar}
+                  podeDesativar={podeEditar}
                   onEditar={() => setGrupoEditando(grupo)}
                   onExcluir={() => desativarGrupo(grupo.id, grupo.display_name || grupo.nome)}
                 />
@@ -147,11 +152,13 @@ export default function GruposPage() {
                   <span className="text-gray-500 text-xs">Usuários</span>
                 </div>
               </Link>
-              <button
-                onClick={() => setGrupoListaUsuarios(grupo)}
-                className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-green-600 hover:border-green-200 transition-colors">
-                <Users size={13} />Gerenciar usuários
-              </button>
+              {podeGerirUsuarios && (
+                <button
+                  onClick={() => setGrupoListaUsuarios(grupo)}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-green-600 hover:border-green-200 transition-colors">
+                  <Users size={13} />Gerenciar usuários
+                </button>
+              )}
             </div>
           ))}
         </div>

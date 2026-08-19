@@ -136,14 +136,18 @@ export default function DashboardsPage() {
                   className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
                   <Tv size={13} />Abrir
                 </a>
-                <Link href={`/gestao/configuracoes/dashboards/${d.id}`} title="Editar"
-                  className="p-1.5 text-gray-400 hover:text-orange-500 rounded-lg hover:bg-orange-50 transition-colors">
-                  <Pencil size={15} />
-                </Link>
-                <button onClick={() => excluir(d)} title="Excluir"
-                  className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
-                  <Trash2 size={15} />
-                </button>
+                {podeCriar && (
+                  <Link href={`/gestao/configuracoes/dashboards/${d.id}`} title="Editar"
+                    className="p-1.5 text-gray-400 hover:text-orange-500 rounded-lg hover:bg-orange-50 transition-colors">
+                    <Pencil size={15} />
+                  </Link>
+                )}
+                {podeCriar && (
+                  <button onClick={() => excluir(d)} title="Excluir"
+                    className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
+                    <Trash2 size={15} />
+                  </button>
+                )}
               </div>
             </div>
           ))}
