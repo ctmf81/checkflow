@@ -45,6 +45,15 @@ export function ValoresModal({ catalogo, onClose }: Props) {
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const csvInputRef = useRef<HTMLInputElement>(null)
 
+  // Gate visual pelo perfil — RLS de catalogo_valores segue catalogos.
+  const [podeEditar, setPodeEditar] = useState(false)
+  const [podeExcluir, setPodeExcluir] = useState(false)
+  useEffect(() => {
+    const sb = createClient()
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'catalogos', p_acao: 'editar' }).then(({ data }) => setPodeEditar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'catalogos', p_acao: 'excluir' }).then(({ data }) => setPodeExcluir(!!data))
+  }, [])
+
   const atributos = [catalogo.atributo_1, catalogo.atributo_2, catalogo.atributo_3, catalogo.atributo_4].filter(Boolean) as string[]
 
   async function carregar() {
@@ -178,13 +187,15 @@ export function ValoresModal({ catalogo, onClose }: Props) {
                   <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Pesquisar valor"
                     className="w-full pl-8 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-200" />
                 </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => abrirForm()}><Plus size={13} />Adicionar</Button>
-                  <button onClick={() => setModo('lote')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors">
-                    <Upload size={13} />Em lote
-                  </button>
-                </div>
+                {podeEditar && (
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => abrirForm()}><Plus size={13} />Adicionar</Button>
+                    <button onClick={() => setModo('lote')}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors">
+                      <Upload size={13} />Em lote
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="flex-1 overflow-y-auto">
@@ -199,10 +210,14 @@ export function ValoresModal({ catalogo, onClose }: Props) {
                       <span className="font-semibold text-gray-800 text-sm">{v.valor_chave}</span>
                       <div className="flex items-center gap-2">
                         {expandido === v.id ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
-                        <button onClick={e => { e.stopPropagation(); abrirForm(v) }}
-                          className="p-1 text-gray-400 hover:text-orange-500"><Plus size={13} /></button>
-                        <button onClick={e => { e.stopPropagation(); deletar(v.id) }}
-                          className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={13} /></button>
+                        {podeEditar && (
+                          <button onClick={e => { e.stopPropagation(); abrirForm(v) }}
+                            className="p-1 text-gray-400 hover:text-orange-500"><Plus size={13} /></button>
+                        )}
+                        {podeExcluir && (
+                          <button onClick={e => { e.stopPropagation(); deletar(v.id) }}
+                            className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={13} /></button>
+                        )}
                       </div>
                     </div>
                     {expandido === v.id && (

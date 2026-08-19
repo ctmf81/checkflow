@@ -34,13 +34,24 @@ const TIPO_COR: Record<string, string> = {
 }
 
 export default function CausaRaizPage() {
-  const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
+  const { unidadeAtiva, empresaAtiva, grupoLabel, subgrupoLabel } = useSession()
   const confirm = useConfirm()
   const toast = useToast()
   const [causas, setCausas] = useState<CausaRaiz[]>([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [editando, setEditando] = useState<CausaRaiz | undefined>()
+  // Gate visual pelo perfil — causa_raiz tem criar/editar/excluir.
+  const [podeCriar, setPodeCriar] = useState(false)
+  const [podeEditar, setPodeEditar] = useState(false)
+  const [podeExcluir, setPodeExcluir] = useState(false)
+  useEffect(() => {
+    if (!empresaAtiva?.id) { setPodeCriar(false); setPodeEditar(false); setPodeExcluir(false); return }
+    const sb = createClient()
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'causa_raiz', p_acao: 'criar' }).then(({ data }) => setPodeCriar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'causa_raiz', p_acao: 'editar' }).then(({ data }) => setPodeEditar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'causa_raiz', p_acao: 'excluir' }).then(({ data }) => setPodeExcluir(!!data))
+  }, [empresaAtiva?.id])
 
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
@@ -110,9 +121,11 @@ export default function CausaRaizPage() {
           <p className="hidden sm:block text-sm text-gray-500 mt-0.5">Causas raiz vinculadas a checklists e atividades</p>
           <p className="text-xs text-gray-400 mt-0.5">Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
-        <Button onClick={() => { setEditando(undefined); setModal(true) }}>
-          <Plus size={16} />Nova
-        </Button>
+        {podeCriar && (
+          <Button onClick={() => { setEditando(undefined); setModal(true) }}>
+            <Plus size={16} />Nova
+          </Button>
+        )}
       </div>
 
       {loading && causas.length === 0 ? (
@@ -166,14 +179,18 @@ export default function CausaRaizPage() {
               </div>
 
               <div className="flex items-center gap-1 flex-shrink-0">
-                <button onClick={() => { setEditando(causa); setModal(true) }}
-                  className="p-1.5 text-gray-400 hover:text-orange-500 rounded-lg hover:bg-orange-50 transition-colors">
-                  <Pencil size={14} />
-                </button>
-                <button onClick={() => excluir(causa.id, causa.nome)}
-                  className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
-                  <Trash2 size={14} />
-                </button>
+                {podeEditar && (
+                  <button onClick={() => { setEditando(causa); setModal(true) }}
+                    className="p-1.5 text-gray-400 hover:text-orange-500 rounded-lg hover:bg-orange-50 transition-colors">
+                    <Pencil size={14} />
+                  </button>
+                )}
+                {podeExcluir && (
+                  <button onClick={() => excluir(causa.id, causa.nome)}
+                    className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </div>
             </div>
           ))}

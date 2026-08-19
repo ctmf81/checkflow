@@ -22,13 +22,24 @@ interface Motivo {
 }
 
 export default function NaoExecucaoPage() {
-  const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
+  const { unidadeAtiva, empresaAtiva, grupoLabel, subgrupoLabel } = useSession()
   const confirm = useConfirm()
   const toast = useToast()
   const [motivos, setMotivos] = useState<Motivo[]>([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [editando, setEditando] = useState<Motivo | undefined>()
+  // Gate visual pelo perfil.
+  const [podeCriar, setPodeCriar] = useState(false)
+  const [podeEditar, setPodeEditar] = useState(false)
+  const [podeExcluir, setPodeExcluir] = useState(false)
+  useEffect(() => {
+    if (!empresaAtiva?.id) { setPodeCriar(false); setPodeEditar(false); setPodeExcluir(false); return }
+    const sb = createClient()
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'nao_execucao', p_acao: 'criar' }).then(({ data }) => setPodeCriar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'nao_execucao', p_acao: 'editar' }).then(({ data }) => setPodeEditar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'nao_execucao', p_acao: 'excluir' }).then(({ data }) => setPodeExcluir(!!data))
+  }, [empresaAtiva?.id])
 
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
@@ -89,9 +100,11 @@ export default function NaoExecucaoPage() {
           <p className="hidden sm:block text-sm text-gray-500 mt-0.5">Motivos para não execução de checklists ou atividades</p>
           <p className="text-xs text-gray-400 mt-0.5">Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
-        <Button onClick={() => { setEditando(undefined); setModal(true) }}>
-          <Plus size={16} />Novo
-        </Button>
+        {podeCriar && (
+          <Button onClick={() => { setEditando(undefined); setModal(true) }}>
+            <Plus size={16} />Novo
+          </Button>
+        )}
       </div>
 
       {loading && motivos.length === 0 ? (
@@ -137,16 +150,20 @@ export default function NaoExecucaoPage() {
               </div>
 
               <div className="flex items-center gap-1 flex-shrink-0">
-                <button
-                  onClick={() => { setEditando(motivo); setModal(true) }}
-                  className="p-1.5 text-gray-400 hover:text-orange-500 rounded-lg hover:bg-orange-50 transition-colors">
-                  <Pencil size={14} />
-                </button>
-                <button
-                  onClick={() => desativar(motivo.id, motivo.descricao)}
-                  className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
-                  <PowerOff size={14} />
-                </button>
+                {podeEditar && (
+                  <button
+                    onClick={() => { setEditando(motivo); setModal(true) }}
+                    className="p-1.5 text-gray-400 hover:text-orange-500 rounded-lg hover:bg-orange-50 transition-colors">
+                    <Pencil size={14} />
+                  </button>
+                )}
+                {podeExcluir && (
+                  <button
+                    onClick={() => desativar(motivo.id, motivo.descricao)}
+                    className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
+                    <PowerOff size={14} />
+                  </button>
+                )}
               </div>
             </div>
           ))}

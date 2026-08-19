@@ -19,11 +19,14 @@ interface Subgrupo {
   totalChecklists: number
 }
 
-function SubgrupoMenu({ subgrupo, onEditar, onDesativar }: {
+function SubgrupoMenu({ subgrupo, podeEditar = true, podeDesativar = true, onEditar, onDesativar }: {
   subgrupo: Subgrupo
+  podeEditar?: boolean
+  podeDesativar?: boolean
   onEditar: () => void
   onDesativar: () => void
 }) {
+  if (!podeEditar && !podeDesativar) return null
   const [aberto, setAberto] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -43,16 +46,20 @@ function SubgrupoMenu({ subgrupo, onEditar, onDesativar }: {
       {aberto && (
         <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
           <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b border-gray-100 truncate">{subgrupo.nome}</div>
-          <button onClick={() => { setAberto(false); onEditar() }}
-            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-            <Pencil size={14} className="text-gray-400" />Editar
-          </button>
-          <div className="border-t border-gray-100 mt-1">
-            <button onClick={() => { setAberto(false); onDesativar() }}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
-              <PowerOff size={14} />Desativar
+          {podeEditar && (
+            <button onClick={() => { setAberto(false); onEditar() }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+              <Pencil size={14} className="text-gray-400" />Editar
             </button>
-          </div>
+          )}
+          {podeDesativar && (
+            <div className={podeEditar ? 'border-t border-gray-100 mt-1' : ''}>
+              <button onClick={() => { setAberto(false); onDesativar() }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                <PowerOff size={14} />Desativar
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -283,7 +290,7 @@ export default function SubgruposPage() {
   // reflete a rota atual — evita gerar links com o grupo/estado de uma navegação
   // anterior (bug: "Ver checklists" caía na área errada).
   const { id } = useParams<{ id: string }>()
-  const { subgrupoLabel } = useSession()
+  const { subgrupoLabel, empresaAtiva } = useSession()
   const confirm = useConfirm()
   const toast = useToast()
   const router = useRouter()
@@ -293,6 +300,17 @@ export default function SubgruposPage() {
   const [loading, setLoading] = useState(true)
   const [editando, setEditando] = useState<Subgrupo | null>(null)
   const [funcoesSubgrupo, setFuncoesSubgrupo] = useState<Subgrupo | null>(null)
+  // Gate visual pelo perfil.
+  const [podeCriar, setPodeCriar] = useState(false)
+  const [podeEditar, setPodeEditar] = useState(false)
+  const [podeGerirFuncoes, setPodeGerirFuncoes] = useState(false)
+  useEffect(() => {
+    if (!empresaAtiva?.id) { setPodeCriar(false); setPodeEditar(false); setPodeGerirFuncoes(false); return }
+    const sb = createClient()
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'subgrupos', p_acao: 'criar' }).then(({ data }) => setPodeCriar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'subgrupos', p_acao: 'editar' }).then(({ data }) => setPodeEditar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'subgrupos', p_acao: 'gerenciar_funcoes' }).then(({ data }) => setPodeGerirFuncoes(!!data))
+  }, [empresaAtiva?.id])
 
   async function carregar() {
     setLoading(true)
@@ -344,9 +362,11 @@ export default function SubgruposPage() {
           <span className="text-gray-400">/</span>
           <span className="text-gray-500">{subgrupoLabel}</span>
         </div>
-        <Button onClick={() => setModal(true)}>
-          <Plus size={16} />Criar novo {subgrupoLabel.toLowerCase()}
-        </Button>
+        {podeCriar && (
+          <Button onClick={() => setModal(true)}>
+            <Plus size={16} />Criar novo {subgrupoLabel.toLowerCase()}
+          </Button>
+        )}
       </div>
 
       {loading && subgrupos.length === 0 ? (
@@ -363,6 +383,8 @@ export default function SubgruposPage() {
                 <h2 className="font-semibold text-gray-800">{sub.nome}</h2>
                 <SubgrupoMenu
                   subgrupo={sub}
+                  podeEditar={podeEditar}
+                  podeDesativar={podeEditar}
                   onEditar={() => setEditando(sub)}
                   onDesativar={() => desativar(sub)}
                 />
@@ -380,11 +402,13 @@ export default function SubgruposPage() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <button
-                  onClick={() => setFuncoesSubgrupo(sub)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                  <ShieldCheck size={13} />Funções
-                </button>
+                {podeGerirFuncoes && (
+                  <button
+                    onClick={() => setFuncoesSubgrupo(sub)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <ShieldCheck size={13} />Funções
+                  </button>
+                )}
                 <button
                   onClick={() => router.push(`/gestao/checklists?subgrupo=${sub.id}&subgrupoNome=${encodeURIComponent(sub.nome)}&grupo=${id}`)}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-orange-500 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors">
