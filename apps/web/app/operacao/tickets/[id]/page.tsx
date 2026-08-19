@@ -344,7 +344,7 @@ export default function TicketDetalheOperacao() {
 
   return (
     <div className="max-w-lg mx-auto p-4 pb-40">
-      <button onClick={() => router.push('/operacao')} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4">
+      <button onClick={() => router.push('/operacao?aba=tickets')} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4">
         <ArrowLeft size={15} /> Voltar para a operação
       </button>
 
