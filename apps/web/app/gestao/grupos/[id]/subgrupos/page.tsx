@@ -319,8 +319,13 @@ export default function SubgruposPage() {
 
   async function desativar(sub: Subgrupo) {
     if (!await confirm({ titulo: `Desativar "${sub.nome}"?`, confirmarLabel: 'Desativar', perigo: true })) return
-    const { error } = await createClient().from('subgrupos').update({ status: 'inativo' }).eq('id', sub.id)
+    // .select() força retorno da linha atualizada — se a RLS bloquear
+    // silenciosamente (data vazio, sem error), pega o silent-fail em vez de
+    // mostrar "sucesso" e deixar o card na tela.
+    const { data, error } = await createClient().from('subgrupos')
+      .update({ status: 'inativo' }).eq('id', sub.id).select()
     if (error) { toast.error('Não foi possível desativar.'); return }
+    if (!data || data.length === 0) { toast.error('Você não tem permissão para desativar este item.'); return }
     toast.success('Item desativado.')
     carregar()
   }
