@@ -78,7 +78,12 @@ export function NovoDocumentoModal({ onClose, onCriado }: Props) {
     }).select('id, nome, tipo').single()
 
     setSalvando(false)
-    if (error || !data) { setErro('Erro ao criar documento.'); return }
+    if (error || !data) {
+      setErro(error?.message?.includes('row-level security')
+        ? 'Você não tem permissão para criar documentos nesta unidade.'
+        : `Erro ao criar documento${error?.message ? `: ${error.message}` : '.'}`)
+      return
+    }
 
     onCriado(data as DocumentoBase)
   }

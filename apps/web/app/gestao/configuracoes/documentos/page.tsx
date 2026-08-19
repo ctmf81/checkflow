@@ -5,6 +5,7 @@ import { Plus, FileText, Search, MoreVertical, AlertCircle, Pencil, Layers, Powe
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { ehAdminDaEmpresa } from '@/lib/admin'
 import { usePolling } from '@/lib/usePolling'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
@@ -93,7 +94,7 @@ function DocMenu({ doc, onEditar, onEtapas, onDuplicar, onExcluir }: {
 }
 
 export default function DocumentosPage() {
-  const { unidadeAtiva, grupoLabel, subgrupoLabel, flagsHabilitadas } = useSession()
+  const { unidadeAtiva, empresaAtiva, grupoLabel, subgrupoLabel, flagsHabilitadas } = useSession()
   // Consulta Inteligente = característica 'ia' do plano (opt-in: null = sem restrição).
   const iaHabilitada = flagsHabilitadas === null || flagsHabilitadas.has('ia')
   const confirm = useConfirm()
@@ -111,6 +112,20 @@ export default function DocumentosPage() {
   const [docDuplicando, setDocDuplicando] = useState<Documento | null>(null)
   const [docEtapas, setDocEtapas] = useState<Documento | null>(null)
   const [docConsulta, setDocConsulta] = useState<Documento | null>(null)
+  // Gate do botão "Novo": admin_sistema | admin_empresa | tem permissão documentos.criar.
+  // A RLS (`documentos_escrita`, migration 20260620160000) já barra o INSERT — o gate visual só
+  // esconde o botão pra quem não pode, seguindo a regra "se não pode, não vê".
+  const [podeCriar, setPodeCriar] = useState(false)
+  useEffect(() => {
+    if (!empresaAtiva?.id) { setPodeCriar(false); return }
+    const supabase = createClient()
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (data?.user?.app_metadata?.role === 'admin_sistema') { setPodeCriar(true); return }
+      if (await ehAdminDaEmpresa(supabase, empresaAtiva.id)) { setPodeCriar(true); return }
+      const { data: tem } = await supabase.rpc('usuario_tem_permissao', { p_recurso: 'documentos', p_acao: 'criar' })
+      setPodeCriar(!!tem)
+    })
+  }, [empresaAtiva?.id])
 
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
@@ -190,7 +205,7 @@ export default function DocumentosPage() {
           <h1 className="text-xl font-semibold text-gray-800">Documentos</h1>
           <p className="hidden sm:block text-xs text-gray-400 mt-0.5">Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
-        <Button onClick={() => setModalNovo(true)}><Plus size={16} />Novo</Button>
+        {podeCriar && <Button onClick={() => setModalNovo(true)}><Plus size={16} />Novo</Button>}
       </div>
 
       <div className="flex items-center gap-3 mb-5 flex-wrap">
