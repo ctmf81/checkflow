@@ -10,7 +10,6 @@ import { EditarGrupoModal } from './EditarGrupoModal'
 import { UsuariosGrupoModal } from './UsuariosGrupoModal'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
-import { ehAdminDaEmpresa } from '@/lib/admin'
 import { usePolling } from '@/lib/usePolling'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
@@ -34,17 +33,14 @@ export default function GruposPage() {
   const [loading, setLoading] = useState(true)
   const [grupoEditando, setGrupoEditando] = useState<Grupo | null>(null)
   const [grupoListaUsuarios, setGrupoListaUsuarios] = useState<Grupo | null>(null)
-  // Só admin_sistema ou admin_empresa pode CRIAR grupo (RLS só permite eles).
-  // Gate visual pra não mostrar botão que o usuário não consegue usar.
+  // Gate visual pelo perfil — usuario_tem_permissao lê perfil_permissoes.
+  // Admin_sistema e admin_empresa (is_system) recebem a permissão via seed
+  // automaticamente, então o mesmo check funciona pra todo mundo.
   const [podeCriar, setPodeCriar] = useState(false)
   useEffect(() => {
     if (!empresaAtiva?.id) { setPodeCriar(false); return }
-    const supabase = createClient()
-    supabase.auth.getUser().then(async ({ data }) => {
-      const isAdminSistema = data?.user?.app_metadata?.role === 'admin_sistema'
-      if (isAdminSistema) { setPodeCriar(true); return }
-      setPodeCriar(await ehAdminDaEmpresa(supabase, empresaAtiva.id))
-    })
+    createClient().rpc('usuario_tem_permissao', { p_recurso: 'grupos', p_acao: 'criar' })
+      .then(({ data }) => setPodeCriar(!!data))
   }, [empresaAtiva?.id])
 
   async function carregar() {
