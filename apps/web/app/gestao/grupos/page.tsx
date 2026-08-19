@@ -10,6 +10,7 @@ import { EditarGrupoModal } from './EditarGrupoModal'
 import { UsuariosGrupoModal } from './UsuariosGrupoModal'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
+import { ehAdminDaEmpresa } from '@/lib/admin'
 import { usePolling } from '@/lib/usePolling'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { getOnboardingConfig } from '@/components/onboarding/registry'
@@ -25,7 +26,7 @@ interface Grupo {
 }
 
 export default function GruposPage() {
-  const { unidadeAtiva, grupoLabel, subgrupoLabel } = useSession()
+  const { unidadeAtiva, empresaAtiva, grupoLabel, subgrupoLabel } = useSession()
   const confirm = useConfirm()
   const toast = useToast()
   const [grupos, setGrupos] = useState<Grupo[]>([])
@@ -33,6 +34,18 @@ export default function GruposPage() {
   const [loading, setLoading] = useState(true)
   const [grupoEditando, setGrupoEditando] = useState<Grupo | null>(null)
   const [grupoListaUsuarios, setGrupoListaUsuarios] = useState<Grupo | null>(null)
+  // Só admin_sistema ou admin_empresa pode CRIAR grupo (RLS só permite eles).
+  // Gate visual pra não mostrar botão que o usuário não consegue usar.
+  const [podeCriar, setPodeCriar] = useState(false)
+  useEffect(() => {
+    if (!empresaAtiva?.id) { setPodeCriar(false); return }
+    const supabase = createClient()
+    supabase.auth.getUser().then(async ({ data }) => {
+      const isAdminSistema = data?.user?.app_metadata?.role === 'admin_sistema'
+      if (isAdminSistema) { setPodeCriar(true); return }
+      setPodeCriar(await ehAdminDaEmpresa(supabase, empresaAtiva.id))
+    })
+  }, [empresaAtiva?.id])
 
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
@@ -97,9 +110,11 @@ export default function GruposPage() {
           <h1 className="text-xl font-semibold text-gray-800">{grupoLabel}</h1>
           <p className="hidden sm:block text-xs text-gray-400 mt-0.5">Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
-        <Button onClick={() => setModal(true)}>
-          <Plus size={16} />Novo
-        </Button>
+        {podeCriar && (
+          <Button onClick={() => setModal(true)}>
+            <Plus size={16} />Novo
+          </Button>
+        )}
       </div>
 
       {loading && grupos.length === 0 ? (
