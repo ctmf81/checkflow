@@ -10,7 +10,7 @@ import { enviarWhatsApp } from '../lib/whatsapp'
 import { enviarEmail } from '../lib/email'
 import { emailFaturaVencida } from '../lib/email-templates'
 import { buscarAdminsEmpresa, notificarAdmins } from '../lib/adminEmpresa'
-import { montarSplit, vencimentoAncora, dataCorteCarencia } from '../lib/billingParceiro'
+import { montarSplit, vencimentoAncora, dataCorteCarencia, calcularProRata } from '../lib/billingParceiro'
 
 const ADMIN_SISTEMA_ID = '00000000-0000-0000-0000-000000000001'
 const ADMIN_EMPRESA_ID = '00000000-0000-0000-0000-000000000002'
@@ -106,17 +106,94 @@ export async function billingRoutes(app: FastifyInstance) {
       const customer = await garantirClienteAsaas(supabase, empresaId)
 
       const { data: assinAtual } = await supabase.from('empresa_assinaturas')
-        .select('asaas_subscription_id, ja_usou_trial, plano_tipo, status, periodo_fim').eq('empresa_id', empresaId).maybeSingle()
+        .select('asaas_subscription_id, asaas_customer_id, ja_usou_trial, plano_tipo, status, periodo_fim, plano_id, valor, ciclo')
+        .eq('empresa_id', empresaId).maybeSingle()
 
-      // ── Troca ENTRE planos pagos: agenda para o fim do período vigente ──
-      // A empresa continua com o plano atual até lá. No Asaas, atualizamos a
-      // assinatura (novo valor vale só na próxima cobrança); os limites trocam
-      // quando o período vira (avancar_periodo_assinatura aplica proximo_plano_id).
+      // ── Troca ENTRE planos pagos ──
+      // - UPGRADE imediato (mesmo ciclo, valor maior, calcularProRata retorna cobrança ≥ piso):
+      //   cobra a diferença proporcional AGORA e aplica o plano novo NA HORA (mantém periodo_fim
+      //   e execucoes_usadas — cliente já pagou até lá).
+      // - Downgrade / mudança de ciclo / valor abaixo do piso / período expirado:
+      //   AGENDA pra virada do período (comportamento antigo — sem crédito/refund).
       if (assinAtual && assinAtual.plano_tipo === 'pago' && assinAtual.status === 'ativo' && assinAtual.asaas_subscription_id) {
+        const proRata = calcularProRata({
+          valorAtual: Number((assinAtual as any).valor ?? 0),
+          valorNovo: Number(plano.valor),
+          cicloAtual: (assinAtual as any).ciclo,
+          cicloNovo: plano.ciclo,
+          periodoFim: assinAtual.periodo_fim!,
+          hoje: new Date().toISOString().slice(0, 10),
+        })
+
+        // ── Caminho 1: UPGRADE IMEDIATO com cobrança avulsa ─────────────────
+        if (proRata) {
+          const customer = (assinAtual as any).asaas_customer_id as string ?? await garantirClienteAsaas(supabase, empresaId)
+          const split = await montarSplitParceiro(supabase, empresaId)
+
+          let cobrancaUpg: any
+          try {
+            cobrancaUpg = await asaasCriarCobranca({
+              customer,
+              billingType: tipoCobranca,
+              value: proRata.valor,
+              dueDate: hojeMais(3),
+              description: `Upgrade para o plano ${plano.nome} — diferença proporcional (${proRata.diasRestantes} dias)`,
+              externalReference: empresaId,
+              ...(split ? { split } : {}),
+            })
+          } catch (e: any) {
+            app.log.error(e)
+            return reply.status(502).send({ error: e?.message ?? 'Falha ao gerar cobrança de upgrade' })
+          }
+
+          // Atualiza a assinatura no Asaas — próximas cobranças no valor novo.
+          // Se falhar, rollback da cobrança avulsa criada (não deixa cobrança órfã).
+          try {
+            await asaasAtualizarAssinatura(assinAtual.asaas_subscription_id, {
+              value: Number(plano.valor), cycle, billingType: tipoCobranca, updatePendingPayments: false,
+              split: split ?? [],
+            })
+          } catch (e: any) {
+            app.log.error(e)
+            try { await asaasDeletarCobranca(cobrancaUpg.id) } catch { /* ignora */ }
+            return reply.status(502).send({ error: e?.message ?? 'Falha ao atualizar a assinatura no Asaas' })
+          }
+
+          // Aplica o plano novo IMEDIATAMENTE. Preserva periodo_inicio/periodo_fim
+          // (cliente pagou até lá) e execucoes_usadas/tokens_ia_usados (já consumidos
+          // no ciclo). Só troca a identidade + limites.
+          await supabase.from('empresa_assinaturas').update({
+            plano_id: plano.id, plano_nome: plano.nome, plano_tipo: plano.tipo,
+            valor: plano.valor, ciclo: plano.ciclo,
+            limite_execucoes_mes: plano.limite_execucoes_mes,
+            limite_armazenamento_bytes: plano.limite_armazenamento_bytes,
+            limite_tokens_ia_mes: plano.limite_tokens_ia_mes,
+            proximo_plano_id: null, troca_efetiva_em: null,
+            atualizado_em: new Date().toISOString(),
+          }).eq('empresa_id', empresaId)
+
+          await supabase.from('empresa_cobrancas').upsert({
+            empresa_id: empresaId,
+            tipo: 'upgrade',
+            asaas_payment_id: cobrancaUpg.id,
+            asaas_subscription_id: assinAtual.asaas_subscription_id,
+            descricao: `Upgrade para ${plano.nome} — diferença proporcional`,
+            valor: cobrancaUpg.value,
+            billing_type: cobrancaUpg.billingType,
+            status: cobrancaUpg.status,
+            vencimento: cobrancaUpg.dueDate,
+            invoice_url: cobrancaUpg.invoiceUrl,
+          }, { onConflict: 'asaas_payment_id' })
+
+          return reply.send({
+            ok: true, upgrade_imediato: true,
+            valorProRata: proRata.valor, diasRestantes: proRata.diasRestantes,
+            invoiceUrl: cobrancaUpg.invoiceUrl,
+          })
+        }
+
+        // ── Caminho 2: agenda a troca pra virada do período (comportamento antigo) ──
         try {
-          // Split autoritativo: manda o estado ATUAL do parceiro. Com parceiro
-          // ativo+wallet, aplica/atualiza; sem parceiro, `[]` limpa um split
-          // antigo. Cobre o caso de parceiro associado DEPOIS da 1ª assinatura.
           const splitTroca = await montarSplitParceiro(supabase, empresaId)
           await asaasAtualizarAssinatura(assinAtual.asaas_subscription_id, {
             value: Number(plano.valor), cycle, billingType: tipoCobranca, updatePendingPayments: false,
@@ -368,6 +445,50 @@ export async function billingRoutes(app: FastifyInstance) {
       app.log.error(e)
       return reply.status(502).send({ error: e?.message ?? 'Falha ao sincronizar o split no Asaas' })
     }
+  })
+
+  // ── POST /billing/preview-troca ───────────────────────────────────────────
+  // Antes do cliente confirmar a troca de plano, devolve o que vai acontecer:
+  // "upgrade_imediato" com valor da cobrança da diferença OU "agendado" pra
+  // virada do período. Sem efeito colateral — só simula. Usado pela UI pra
+  // montar o texto do confirm com o valor exato.
+  app.post('/billing/preview-troca', async (req, reply) => {
+    const { empresaId, planoId } = req.body as { empresaId?: string; planoId?: string }
+    if (!empresaId || !planoId) return reply.status(400).send({ error: 'empresaId e planoId são obrigatórios' })
+
+    const supabase = sb()
+    const auth = await autorizarAdminEmpresa(supabase, req.headers.authorization, empresaId)
+    if (!auth) return reply.status(403).send({ error: 'Não autorizado' })
+
+    const [assinRes, planoRes] = await Promise.all([
+      supabase.from('empresa_assinaturas')
+        .select('plano_tipo, status, valor, ciclo, periodo_fim').eq('empresa_id', empresaId).maybeSingle(),
+      supabase.from('planos').select('valor, ciclo').eq('id', planoId).maybeSingle(),
+    ])
+    const at = assinRes.data as any
+    const pn = planoRes.data as any
+    if (!at || !pn) return reply.status(404).send({ error: 'Assinatura ou plano não encontrado' })
+    if (at.plano_tipo !== 'pago' || at.status !== 'ativo') {
+      return reply.send({ modo: 'primeira-contratacao' })
+    }
+
+    const proRata = calcularProRata({
+      valorAtual: Number(at.valor ?? 0),
+      valorNovo: Number(pn.valor),
+      cicloAtual: at.ciclo, cicloNovo: pn.ciclo,
+      periodoFim: at.periodo_fim,
+      hoje: new Date().toISOString().slice(0, 10),
+    })
+    if (proRata) {
+      return reply.send({
+        modo: 'upgrade-imediato',
+        valorProRata: proRata.valor,
+        diasRestantes: proRata.diasRestantes,
+        valorNovoCiclo: Number(pn.valor),
+        cicloNovo: pn.ciclo,
+      })
+    }
+    return reply.send({ modo: 'agendado', efetivaEm: at.periodo_fim, valorNovoCiclo: Number(pn.valor), cicloNovo: pn.ciclo })
   })
 
   // ── POST /billing/link-atualizar-pagamento ────────────────────────────────
