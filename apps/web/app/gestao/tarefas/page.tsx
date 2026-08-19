@@ -56,6 +56,17 @@ export default function TarefasPage() {
   const [filtro, setFiltro] = useState<StatusTarefa | 'todas'>('todas')
   const [menuAberto, setMenuAberto] = useState<string | null>(null)
 
+  const [podeCriar, setPodeCriar] = useState(false)
+  const [podeEditar, setPodeEditar] = useState(false)
+  const [podeExcluir, setPodeExcluir] = useState(false)
+  useEffect(() => {
+    if (!unidadeAtiva?.id) { setPodeCriar(false); setPodeEditar(false); setPodeExcluir(false); return }
+    const sb = createClient()
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'tarefas', p_acao: 'criar'   }).then(({ data }) => setPodeCriar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'tarefas', p_acao: 'editar'  }).then(({ data }) => setPodeEditar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'tarefas', p_acao: 'deletar' }).then(({ data }) => setPodeExcluir(!!data))
+  }, [unidadeAtiva?.id])
+
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
     setLoading(true)
@@ -153,10 +164,12 @@ export default function TarefasPage() {
           <h1 className="text-xl font-semibold text-gray-800">Tarefas</h1>
           <p className="hidden sm:block text-xs text-gray-400 mt-0.5">Listas de tarefas pontuais distribuídas a grupos/subgrupos · Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
-        <Button onClick={novaLista} disabled={criando || !podeCriarConteudo(faseAssinatura)}
-          title={!podeCriarConteudo(faseAssinatura) ? MSG_CRIACAO_BLOQUEADA : undefined}>
-          {criando ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}Nova
-        </Button>
+        {podeCriar && (
+          <Button onClick={novaLista} disabled={criando || !podeCriarConteudo(faseAssinatura)}
+            title={!podeCriarConteudo(faseAssinatura) ? MSG_CRIACAO_BLOQUEADA : undefined}>
+            {criando ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}Nova
+          </Button>
+        )}
       </div>
 
       {/* Filtro por status */}
@@ -210,32 +223,40 @@ export default function TarefasPage() {
                   className="p-1.5 text-gray-400 hover:text-orange-500 rounded-lg hover:bg-orange-50 transition-colors">
                   <BarChart2 size={15} />
                 </Link>
-                <Link href={`/gestao/tarefas/${l.id}`} title="Editar"
-                  className="p-1.5 text-gray-400 hover:text-orange-500 rounded-lg hover:bg-orange-50 transition-colors">
-                  <Pencil size={15} />
-                </Link>
+                {podeEditar && (
+                  <Link href={`/gestao/tarefas/${l.id}`} title="Editar"
+                    className="p-1.5 text-gray-400 hover:text-orange-500 rounded-lg hover:bg-orange-50 transition-colors">
+                    <Pencil size={15} />
+                  </Link>
+                )}
                 {/* Menu ⋮ — duplicar / excluir */}
-                <div className="relative">
-                  <button onClick={() => setMenuAberto(menuAberto === l.id ? null : l.id)} title="Mais ações"
-                    className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
-                    <MoreVertical size={15} />
-                  </button>
-                  {menuAberto === l.id && (
-                    <>
-                      <div className="fixed inset-0 z-10" onClick={() => setMenuAberto(null)} />
-                      <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-20">
-                        <button onClick={() => duplicar(l)}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                          <Copy size={14} className="text-gray-400" />Duplicar
-                        </button>
-                        <button onClick={() => excluir(l)}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">
-                          <Trash2 size={14} />Excluir
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
+                {(podeCriar || podeExcluir) && (
+                  <div className="relative">
+                    <button onClick={() => setMenuAberto(menuAberto === l.id ? null : l.id)} title="Mais ações"
+                      className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+                      <MoreVertical size={15} />
+                    </button>
+                    {menuAberto === l.id && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setMenuAberto(null)} />
+                        <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-20">
+                          {podeCriar && (
+                            <button onClick={() => duplicar(l)}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                              <Copy size={14} className="text-gray-400" />Duplicar
+                            </button>
+                          )}
+                          {podeExcluir && (
+                            <button onClick={() => excluir(l)}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                              <Trash2 size={14} />Excluir
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )})}

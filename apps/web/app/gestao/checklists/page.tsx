@@ -71,6 +71,18 @@ function ChecklistsContent() {
   // Modal gerar com IA
   const [gerandoIA, setGerandoIA] = useState(false)
 
+  // Permissões (gate no cliente — RLS reforça no banco)
+  const [podeCriar, setPodeCriar] = useState(false)
+  const [podeDuplicar, setPodeDuplicar] = useState(false)
+  const [podeExcluir, setPodeExcluir] = useState(false)
+  useEffect(() => {
+    if (!empresaAtiva?.id) { setPodeCriar(false); setPodeDuplicar(false); setPodeExcluir(false); return }
+    const sb = createClient()
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'checklists', p_acao: 'criar'    }).then(({ data }) => setPodeCriar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'checklists', p_acao: 'duplicar' }).then(({ data }) => setPodeDuplicar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'checklists', p_acao: 'excluir'  }).then(({ data }) => setPodeExcluir(!!data))
+  }, [empresaAtiva?.id])
+
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
     setLoading(true)
@@ -243,18 +255,20 @@ function ChecklistsContent() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {!podeCriarConteudo(faseAssinatura) ? (
-            <Button disabled title={MSG_CRIACAO_BLOQUEADA}><Plus size={16} />Novo</Button>
-          ) : (
-            <>
-              <Button variant="outline" onClick={() => setGerandoIA(true)}><Sparkles size={16} />Gerar com IA</Button>
-              <Link href="/gestao/checklists/modelos">
-                <Button variant="outline"><LayoutGrid size={16} />Usar um modelo</Button>
-              </Link>
-              <Link href={filtroSubgrupoId ? `/gestao/checklists/novo/montar?subgrupo=${filtroSubgrupoId}` : '/gestao/checklists/novo'}>
-                <Button><Plus size={16} />Novo</Button>
-              </Link>
-            </>
+          {podeCriar && (
+            !podeCriarConteudo(faseAssinatura) ? (
+              <Button disabled title={MSG_CRIACAO_BLOQUEADA}><Plus size={16} />Novo</Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setGerandoIA(true)}><Sparkles size={16} />Gerar com IA</Button>
+                <Link href="/gestao/checklists/modelos">
+                  <Button variant="outline"><LayoutGrid size={16} />Usar um modelo</Button>
+                </Link>
+                <Link href={filtroSubgrupoId ? `/gestao/checklists/novo/montar?subgrupo=${filtroSubgrupoId}` : '/gestao/checklists/novo'}>
+                  <Button><Plus size={16} />Novo</Button>
+                </Link>
+              </>
+            )
           )}
         </div>
       </div>
@@ -333,48 +347,54 @@ function ChecklistsContent() {
                     <Eye size={15} />
                   </Link>
 
-                  {/* Dropdown menu */}
-                  <div className="relative">
-                    <button
-                      onClick={() => setMenuAberto(menuAberto === cl.id ? null : cl.id)}
-                      className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-                      disabled={inativando === cl.id}
-                    >
-                      {inativando === cl.id
-                        ? <Loader2 size={15} className="animate-spin" />
-                        : <MoreVertical size={15} />
-                      }
-                    </button>
+                  {/* Dropdown menu — só aparece se tiver alguma ação disponível */}
+                  {(podeDuplicar || podeExcluir) && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setMenuAberto(menuAberto === cl.id ? null : cl.id)}
+                        className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+                        disabled={inativando === cl.id}
+                      >
+                        {inativando === cl.id
+                          ? <Loader2 size={15} className="animate-spin" />
+                          : <MoreVertical size={15} />
+                        }
+                      </button>
 
-                    {menuAberto === cl.id && (
-                      <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-44">
-                        <button
-                          onClick={() => { setMenuAberto(null); setDuplicando(cl) }}
-                          className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                          <Copy size={14} className="text-gray-400" />
-                          Duplicar
-                        </button>
-                        {cl.status === 'inativo' ? (
-                          <button
-                            onClick={() => reativar(cl.id, cl.nome)}
-                            className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-green-700 hover:bg-green-50 transition-colors"
-                          >
-                            <RotateCcw size={14} className="text-green-500" />
-                            Reativar
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => inativar(cl.id, cl.nome)}
-                            className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                          >
-                            <EyeOff size={14} className="text-red-400" />
-                            Inativar
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                      {menuAberto === cl.id && (
+                        <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-44">
+                          {podeDuplicar && (
+                            <button
+                              onClick={() => { setMenuAberto(null); setDuplicando(cl) }}
+                              className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                              <Copy size={14} className="text-gray-400" />
+                              Duplicar
+                            </button>
+                          )}
+                          {podeExcluir && (
+                            cl.status === 'inativo' ? (
+                              <button
+                                onClick={() => reativar(cl.id, cl.nome)}
+                                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-green-700 hover:bg-green-50 transition-colors"
+                              >
+                                <RotateCcw size={14} className="text-green-500" />
+                                Reativar
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => inativar(cl.id, cl.nome)}
+                                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                              >
+                                <EyeOff size={14} className="text-red-400" />
+                                Inativar
+                              </button>
+                            )
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )

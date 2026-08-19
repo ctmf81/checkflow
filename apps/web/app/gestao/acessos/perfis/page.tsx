@@ -32,6 +32,17 @@ export default function PerfisPage() {
   const [modalAberto, setModalAberto] = useState(false)
   const [perfilEditando, setPerfilEditando] = useState<Perfil | undefined>()
 
+  const [podeCriar, setPodeCriar] = useState(false)
+  const [podeEditar, setPodeEditar] = useState(false)
+  const [podeExcluir, setPodeExcluir] = useState(false)
+  useEffect(() => {
+    if (!empresaAtiva?.id) { setPodeCriar(false); setPodeEditar(false); setPodeExcluir(false); return }
+    const sb = createClient()
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'perfis', p_acao: 'criar'  }).then(({ data }) => setPodeCriar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'perfis', p_acao: 'editar' }).then(({ data }) => setPodeEditar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'perfis', p_acao: 'excluir'}).then(({ data }) => setPodeExcluir(!!data))
+  }, [empresaAtiva?.id])
+
   async function carregar() {
     if (!empresaAtiva?.id) { setLoading(false); return }
     setLoading(true)
@@ -97,9 +108,11 @@ export default function PerfisPage() {
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Perfis de acesso</span>
             <p className="text-xs text-gray-400 mt-0.5">Empresa: <span className="text-orange-500 font-medium">{empresaAtiva.nome}</span></p>
           </div>
-          <Button onClick={() => { setPerfilEditando(undefined); setModalAberto(true) }}>
-            <Plus size={16} />Novo
-          </Button>
+          {podeCriar && (
+            <Button onClick={() => { setPerfilEditando(undefined); setModalAberto(true) }}>
+              <Plus size={16} />Novo
+            </Button>
+          )}
         </div>
 
         {loading && perfis.length === 0 ? (
@@ -109,17 +122,21 @@ export default function PerfisPage() {
         ) : perfis.map(perfil => (
           <div key={perfil.id} className="flex items-center justify-between px-6 py-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
             <div>
-              <button onClick={() => { setPerfilEditando(perfil); setModalAberto(true) }}
-                className="text-sm font-medium text-gray-800 hover:text-orange-500 transition-colors text-left">
-                {perfil.nome}
-              </button>
+              {podeEditar ? (
+                <button onClick={() => { setPerfilEditando(perfil); setModalAberto(true) }}
+                  className="text-sm font-medium text-gray-800 hover:text-orange-500 transition-colors text-left">
+                  {perfil.nome}
+                </button>
+              ) : (
+                <span className="text-sm font-medium text-gray-800">{perfil.nome}</span>
+              )}
               {perfil.is_system && (
                 <span className="ml-2 text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">sistema</span>
               )}
             </div>
             <div className="flex items-center gap-3">
               <UserCount total={perfil.totalUsuarios} />
-              {!perfil.is_system && (
+              {!perfil.is_system && podeExcluir && (
                 <button onClick={() => excluir(perfil)}
                   className="text-gray-300 hover:text-red-400 transition-colors p-1 ml-1">
                   <Trash2 size={16} />

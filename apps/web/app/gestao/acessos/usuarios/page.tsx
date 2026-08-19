@@ -54,6 +54,9 @@ export default function UsuariosPage() {
   const [reativandoId, setReativandoId] = useState<string | null>(null)
   const [podeImportar, setPodeImportar] = useState(false)
   const [podeAprovarPre, setPodeAprovarPre] = useState(false)
+  const [podeCriar, setPodeCriar] = useState(false)
+  const [podeEditar, setPodeEditar] = useState(false)
+  const [podeExcluir, setPodeExcluir] = useState(false)
 
   // Verifica se usuário logado é admin_sistema + permissões granulares dos botões
   useEffect(() => {
@@ -66,6 +69,12 @@ export default function UsuariosPage() {
       .then(({ data }) => setPodeImportar(!!data))
     sb.rpc('usuario_tem_permissao', { p_recurso: 'usuarios', p_acao: 'aprovar_precadastro' })
       .then(({ data }) => setPodeAprovarPre(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'usuarios', p_acao: 'criar' })
+      .then(({ data }) => setPodeCriar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'usuarios', p_acao: 'editar' })
+      .then(({ data }) => setPodeEditar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'usuarios', p_acao: 'excluir' })
+      .then(({ data }) => setPodeExcluir(!!data))
   }, [])
 
   async function loginComo(email: string, usuarioId: string) {
@@ -267,9 +276,11 @@ export default function UsuariosPage() {
                 <Upload size={14} />Importar
               </button>
             )}
-            <Button onClick={() => { setUsuarioEditando(undefined); setModalAberto(true) }}>
-              <Plus size={16} />Novo
-            </Button>
+            {(isAdminSistema || podeCriar) && (
+              <Button onClick={() => { setUsuarioEditando(undefined); setModalAberto(true) }}>
+                <Plus size={16} />Novo
+              </Button>
+            )}
           </div>
         </div>
 
@@ -303,10 +314,16 @@ export default function UsuariosPage() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <button onClick={() => { if (usuario.status !== 'inativo') { setUsuarioEditando(usuario); setModalAberto(true) } }}
-                  className={`font-medium text-sm transition-colors text-left ${usuario.status === 'inativo' ? 'text-gray-400 cursor-default' : 'text-gray-800 hover:text-orange-500'}`}>
-                  {usuario.nome}
-                </button>
+                {(isAdminSistema || podeEditar) && usuario.status !== 'inativo' ? (
+                  <button onClick={() => { setUsuarioEditando(usuario); setModalAberto(true) }}
+                    className="font-medium text-sm transition-colors text-left text-gray-800 hover:text-orange-500">
+                    {usuario.nome}
+                  </button>
+                ) : (
+                  <span className={`font-medium text-sm text-left ${usuario.status === 'inativo' ? 'text-gray-400' : 'text-gray-800'}`}>
+                    {usuario.nome}
+                  </span>
+                )}
                 {usuario.status === 'inativo' && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-500 font-medium">Inativo</span>
                 )}
@@ -314,64 +331,74 @@ export default function UsuariosPage() {
               <p className="text-xs text-gray-500 truncate">{usuario.email}</p>
             </div>
             <div className="flex items-center gap-3">
-              {/* Perfil com dropdown */}
-              <div className="relative">
-                <button
-                  onClick={() => setPerfilDropdown(perfilDropdown === usuario.id ? null : usuario.id)}
-                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-orange-500 border border-gray-200 hover:border-orange-300 px-2 py-1 rounded-lg transition-colors"
-                >
-                  {(usuario as any).perfilId ? usuario.perfil || 'Perfil' : 'Perfil'}
-                  <ChevronDown size={11} />
-                </button>
-                {perfilDropdown === usuario.id && (
-                  <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
-                    {perfis.map(p => (
-                      <button key={p.id} onClick={() => alterarPerfil(usuario.id, p.id)}
-                        className={`w-full text-left px-4 py-2 text-xs transition-colors ${
-                          (usuario as any).perfilId === p.id ? 'text-orange-500 font-medium bg-orange-50' : 'text-gray-700 hover:bg-gray-50'
-                        }`}>
-                        {p.nome}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {/* Perfil com dropdown — só quem pode editar troca */}
+              {(isAdminSistema || podeEditar) ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setPerfilDropdown(perfilDropdown === usuario.id ? null : usuario.id)}
+                    className="flex items-center gap-1 text-xs text-gray-500 hover:text-orange-500 border border-gray-200 hover:border-orange-300 px-2 py-1 rounded-lg transition-colors"
+                  >
+                    {(usuario as any).perfilId ? usuario.perfil || 'Perfil' : 'Perfil'}
+                    <ChevronDown size={11} />
+                  </button>
+                  {perfilDropdown === usuario.id && (
+                    <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                      {perfis.map(p => (
+                        <button key={p.id} onClick={() => alterarPerfil(usuario.id, p.id)}
+                          className={`w-full text-left px-4 py-2 text-xs transition-colors ${
+                            (usuario as any).perfilId === p.id ? 'text-orange-500 font-medium bg-orange-50' : 'text-gray-700 hover:bg-gray-50'
+                          }`}>
+                          {p.nome}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <span className="text-xs text-gray-400 px-2 py-1">{usuario.perfil || '—'}</span>
+              )}
 
               {/* Login como (desativado temporariamente — problema de redirect no Railway) */}
 
               {/* Inativar / Reativar */}
-              {usuario.status === 'inativo' ? (
-                <button onClick={() => reativar(usuario.id)} disabled={reativandoId === usuario.id}
-                  className="text-gray-300 hover:text-green-500 transition-colors p-1 disabled:opacity-50" title="Reativar usuário">
-                  {reativandoId === usuario.id ? <Loader2 size={15} className="animate-spin" /> : <RotateCcw size={15} />}
-                </button>
-              ) : (
-                <button onClick={() => inativar(usuario.id)}
-                  className="text-gray-300 hover:text-red-400 transition-colors p-1" title="Inativar usuário">
-                  <PowerOff size={15} />
-                </button>
+              {(isAdminSistema || podeExcluir) && (
+                usuario.status === 'inativo' ? (
+                  <button onClick={() => reativar(usuario.id)} disabled={reativandoId === usuario.id}
+                    className="text-gray-300 hover:text-green-500 transition-colors p-1 disabled:opacity-50" title="Reativar usuário">
+                    {reativandoId === usuario.id ? <Loader2 size={15} className="animate-spin" /> : <RotateCcw size={15} />}
+                  </button>
+                ) : (
+                  <button onClick={() => inativar(usuario.id)}
+                    className="text-gray-300 hover:text-red-400 transition-colors p-1" title="Inativar usuário">
+                    <PowerOff size={15} />
+                  </button>
+                )
               )}
 
               {/* Telegram: verde = conectado, cinza = pendente (clique convida) */}
-              <button
-                onClick={() => setConviteTelegram(usuario)}
-                className={`transition-colors p-1 ${usuario.telegramConectado ? 'text-sky-500 hover:text-sky-600' : 'text-gray-300 hover:text-sky-400'}`}
-                title={usuario.telegramConectado ? 'Telegram conectado' : 'Telegram pendente — convidar'}
-              >
-                <Send size={15} />
-              </button>
+              {(isAdminSistema || podeEditar) && (
+                <button
+                  onClick={() => setConviteTelegram(usuario)}
+                  className={`transition-colors p-1 ${usuario.telegramConectado ? 'text-sky-500 hover:text-sky-600' : 'text-gray-300 hover:text-sky-400'}`}
+                  title={usuario.telegramConectado ? 'Telegram conectado' : 'Telegram pendente — convidar'}
+                >
+                  <Send size={15} />
+                </button>
+              )}
 
               {/* Reset senha */}
-              <button
-                onClick={() => resetarSenha(usuario)}
-                disabled={resetandoId === usuario.id}
-                className="text-gray-300 hover:text-orange-400 transition-colors p-1 disabled:opacity-50"
-                title="Resetar senha (envia código por WhatsApp)"
-              >
-                {resetandoId === usuario.id
-                  ? <Loader2 size={15} className="animate-spin" />
-                  : <KeyRound size={15} />}
-              </button>
+              {(isAdminSistema || podeEditar) && (
+                <button
+                  onClick={() => resetarSenha(usuario)}
+                  disabled={resetandoId === usuario.id}
+                  className="text-gray-300 hover:text-orange-400 transition-colors p-1 disabled:opacity-50"
+                  title="Resetar senha (envia código por WhatsApp)"
+                >
+                  {resetandoId === usuario.id
+                    ? <Loader2 size={15} className="animate-spin" />
+                    : <KeyRound size={15} />}
+                </button>
+              )}
             </div>
           </div>
         ))}

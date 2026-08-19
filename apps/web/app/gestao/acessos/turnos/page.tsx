@@ -70,6 +70,17 @@ export default function TurnosPage() {
   const [modal, setModal] = useState(false)
   const [editando, setEditando] = useState<Turno | undefined>()
 
+  const [podeCriar, setPodeCriar] = useState(false)
+  const [podeEditar, setPodeEditar] = useState(false)
+  const [podeExcluir, setPodeExcluir] = useState(false)
+  useEffect(() => {
+    if (!empresaAtiva?.id) { setPodeCriar(false); setPodeEditar(false); setPodeExcluir(false); return }
+    const sb = createClient()
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'turnos', p_acao: 'criar'   }).then(({ data }) => setPodeCriar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'turnos', p_acao: 'editar'  }).then(({ data }) => setPodeEditar(!!data))
+    sb.rpc('usuario_tem_permissao', { p_recurso: 'turnos', p_acao: 'excluir' }).then(({ data }) => setPodeExcluir(!!data))
+  }, [empresaAtiva?.id])
+
   async function carregar() {
     if (!empresaAtiva?.id) { setLoading(false); return }
     setLoading(true)
@@ -113,9 +124,11 @@ export default function TurnosPage() {
             Janelas de trabalho (administrativas ou em escala) usadas para restringir o envio de mensagens de moderação (WhatsApp) fora do expediente do usuário.
           </p>
         </div>
-        <Button onClick={() => { setEditando(undefined); setModal(true) }}>
-          <Plus size={16} />Novo
-        </Button>
+        {podeCriar && (
+          <Button onClick={() => { setEditando(undefined); setModal(true) }}>
+            <Plus size={16} />Novo
+          </Button>
+        )}
       </div>
 
       {loading && turnos.length === 0 ? (
@@ -148,14 +161,18 @@ export default function TurnosPage() {
               </div>
 
               <div className="flex items-center gap-1 flex-shrink-0">
-                <button onClick={() => { setEditando(turno); setModal(true) }}
-                  className="p-1.5 text-gray-400 hover:text-orange-500 rounded-lg hover:bg-orange-50 transition-colors">
-                  <Pencil size={14} />
-                </button>
-                <button onClick={() => excluir(turno.id, turno.nome)}
-                  className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
-                  <Trash2 size={14} />
-                </button>
+                {podeEditar && (
+                  <button onClick={() => { setEditando(turno); setModal(true) }}
+                    className="p-1.5 text-gray-400 hover:text-orange-500 rounded-lg hover:bg-orange-50 transition-colors">
+                    <Pencil size={14} />
+                  </button>
+                )}
+                {podeExcluir && (
+                  <button onClick={() => excluir(turno.id, turno.nome)}
+                    className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </div>
             </div>
           ))}
