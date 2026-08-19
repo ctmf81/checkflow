@@ -53,6 +53,13 @@ export default function EmpresaPage() {
   // Modal unidade
   const [modalUnidade, setModalUnidade] = useState(false)
   const [unidadeEditando, setUnidadeEditando] = useState<Unidade | undefined>()
+  // Gate visual pelo perfil — quem tem unidades.gerenciar vê Nova/Editar/Inativar.
+  const [podeGerirUnidade, setPodeGerirUnidade] = useState(false)
+  useEffect(() => {
+    if (!empresaAtiva?.id) { setPodeGerirUnidade(false); return }
+    createClient().rpc('usuario_tem_permissao', { p_recurso: 'unidades', p_acao: 'gerenciar' })
+      .then(({ data }) => setPodeGerirUnidade(!!data))
+  }, [empresaAtiva?.id])
 
   // Gerador de dados de demonstração (só empresa demo)
   const [gerandoDemo, setGerandoDemo] = useState(false)
@@ -370,9 +377,11 @@ export default function EmpresaPage() {
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Unidades</span>
-            <Button size="sm" onClick={() => { setUnidadeEditando(undefined); setModalUnidade(true) }}>
-              <Plus size={14} />Nova
-            </Button>
+            {podeGerirUnidade && (
+              <Button size="sm" onClick={() => { setUnidadeEditando(undefined); setModalUnidade(true) }}>
+                <Plus size={14} />Nova
+              </Button>
+            )}
           </div>
 
           {unidades.length === 0 ? (
@@ -389,15 +398,19 @@ export default function EmpresaPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => { setUnidadeEditando(u); setModalUnidade(true) }}
-                    className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors">
-                    <Pencil size={14} />
-                  </button>
-                  {u.status === 'ativo' && (
-                    <button onClick={() => inativarUnidade(u.id)} title="Inativar unidade"
-                      className="p-1.5 text-gray-400 hover:text-red-500 transition-colors">
-                      <PowerOff size={14} />
-                    </button>
+                  {podeGerirUnidade && (
+                    <>
+                      <button onClick={() => { setUnidadeEditando(u); setModalUnidade(true) }}
+                        className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors">
+                        <Pencil size={14} />
+                      </button>
+                      {u.status === 'ativo' && (
+                        <button onClick={() => inativarUnidade(u.id)} title="Inativar unidade"
+                          className="p-1.5 text-gray-400 hover:text-red-500 transition-colors">
+                          <PowerOff size={14} />
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
