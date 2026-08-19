@@ -18,7 +18,7 @@ interface Dashboard {
 }
 
 export default function DashboardsPage() {
-  const { unidadeAtiva } = useSession()
+  const { unidadeAtiva, empresaAtiva } = useSession()
   const router = useRouter()
   const toast = useToast()
   const confirm = useConfirm()
@@ -26,6 +26,13 @@ export default function DashboardsPage() {
   const [loading, setLoading] = useState(true)
   const [criando, setCriando] = useState(false)
   const [copiado, setCopiado] = useState<string | null>(null)
+  // Gate visual pelo perfil — RLS já honra dashboards.criar (20260709030000/060000).
+  const [podeCriar, setPodeCriar] = useState(false)
+  useEffect(() => {
+    if (!empresaAtiva?.id) { setPodeCriar(false); return }
+    createClient().rpc('usuario_tem_permissao', { p_recurso: 'dashboards', p_acao: 'criar' })
+      .then(({ data }) => setPodeCriar(!!data))
+  }, [empresaAtiva?.id])
 
   async function carregar() {
     if (!unidadeAtiva?.id) { setLoading(false); return }
@@ -92,9 +99,11 @@ export default function DashboardsPage() {
           <h1 className="text-xl font-semibold text-gray-800">Dashboards</h1>
           <p className="hidden sm:block text-xs text-gray-400 mt-0.5">Painéis de monitoramento com link público (TV) · Unidade: <span className="font-medium text-orange-500">{unidadeAtiva.nome}</span></p>
         </div>
-        <Button onClick={novo} disabled={criando}>
-          {criando ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}Novo
-        </Button>
+        {podeCriar && (
+          <Button onClick={novo} disabled={criando}>
+            {criando ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}Novo
+          </Button>
+        )}
       </div>
 
       {loading && dashboards.length === 0 ? (
