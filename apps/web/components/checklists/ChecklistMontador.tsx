@@ -113,7 +113,27 @@ export default function ChecklistMontador({ checklistId, modoTemplate = false, b
       confirmarLabel: 'Liberar edição',
       perigo: true,
     })
-    if (ok) setEdicaoLiberada(true)
+    if (!ok) return
+    // Audit 2026-08-20: antes de destravar as mutações in-place no publicado,
+    // grava um snapshot do estado ATUAL em checklist_versoes. Sem isso, quem
+    // muta e nunca publica de novo apagaria o rastro da última versão liberada.
+    if (id) {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: cl } = await supabase.from('checklists').select('versao_atual').eq('id', id).single()
+      const versaoBase = cl?.versao_atual ?? 0
+      const snapshot = { nome, descricao, subgrupo_id: subgrupoId, secoes }
+      // Idempotente: se já existir snapshot pra esta versão, não duplica.
+      const { data: jaTem } = await supabase.from('checklist_versoes')
+        .select('id').eq('checklist_id', id).eq('numero_versao', versaoBase).maybeSingle()
+      if (!jaTem) {
+        await supabase.from('checklist_versoes').insert({
+          checklist_id: id, numero_versao: versaoBase,
+          snapshot, publicado_por: user?.id,
+        })
+      }
+    }
+    setEdicaoLiberada(true)
   }
 
   // Modal de atividade
@@ -698,6 +718,7 @@ export default function ChecklistMontador({ checklistId, modoTemplate = false, b
           paiId={atividadeModal.paiId}
           valorGatilho={atividadeModal.valorGatilho}
           ordemAtual={secoes.find(s => s.id === atividadeModal.secaoId)?.atividades.length ?? 0}
+          permiteOffline={permiteOffline}
           onClose={() => setAtividadeModal(null)}
           onSalva={onAtividadeSalva}
         />

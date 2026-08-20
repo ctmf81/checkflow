@@ -2071,7 +2071,10 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       if (!session) { setSalvando(false); setErroFinalizar('Sessão expirada. Faça login novamente.'); return }
 
       const agora = new Date()
-      const expiracao = new Date(Date.UTC(agora.getFullYear(), agora.getMonth() + (checklist.tempo_guarda_meses ?? 12), agora.getDate()))
+      // Default 1 mês (migration 20260630120000). O `?? 1` só dispara se a
+      // coluna vier null — não deveria acontecer, mas mantém o cliente coerente
+      // com o servidor. Antes era `?? 12` (era o default antigo, drift).
+      const expiracao = new Date(Date.UTC(agora.getFullYear(), agora.getMonth() + (checklist.tempo_guarda_meses ?? 1), agora.getDate()))
       const dataExpiracao = `${expiracao.getUTCFullYear()}-${String(expiracao.getUTCMonth() + 1).padStart(2, '0')}-${String(expiracao.getUTCDate()).padStart(2, '0')}`
       const naoConformesOff = visiveis.filter(a => calcularValidacao({ ...a, resposta: respostas[a.id] }) === false)
       const resultadoOff: 'aprovado' | 'reprovado' = naoConformesOff.length > 0 ? 'reprovado' : 'aprovado'
@@ -2258,8 +2261,13 @@ export default function ExecucaoPage({ params }: { params: Promise<{ id: string 
       .select('id, atividade_id')
 
     if (respErr || !respostasInseridas) {
-      // Execução já foi criada — marca como incompleta para não perder o registro
-      await sb.from('checklist_execucoes').update({ status: 'nao_executado' }).eq('id', execId)
+      // Execução já foi criada — marca como incompleta para não perder o registro.
+      // Auditoria 2026-08-20: `nao_executado` sem motivo violava a regra "não-
+      // execução exige motivo". Usa motivo "sistema" (erro no salvamento).
+      await sb.from('checklist_execucoes').update({
+        status: 'nao_executado',
+        motivo_nao_execucao_obs: `Erro no salvamento das respostas: ${respErr?.message ?? 'insert falhou'}`,
+      }).eq('id', execId)
       // Workflow: devolve o item para 'liberado', senão o estágio trava para sempre
       if (wfItemId) {
         await sb.from('workflow_item_execucoes').update({
