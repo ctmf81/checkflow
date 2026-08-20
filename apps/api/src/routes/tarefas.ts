@@ -5,6 +5,7 @@ import { exigirAutorizacao } from '../lib/apiAuth'
 import { enviarComFallback } from '../lib/mensageria'
 import { enviarPush } from '../lib/push'
 import { buscarTemplate, renderizar, empresaDeUnidade } from '../lib/notificacao-templates'
+import { formatarNumeroBR } from '../lib/adminEmpresa'
 
 // ─── Rota ────────────────────────────────────────────────────────────────────
 
@@ -104,7 +105,7 @@ export async function tarefasRoutes(app: FastifyInstance) {
       if (emFerias.has(uid) || foraDoTurno.has(uid)) return
       const { nome, telefone, telegramChatId, preferirTelegram } = destinatarios.get(uid)!
       if (!telefone && !telegramChatId) return
-      const numero = telefone ? (() => { const n = telefone.replace(/\D/g, '').replace(/^0/, ''); return n.startsWith('55') ? n : `55${n}` })() : null
+      const numero = telefone ? formatarNumeroBR(telefone) : null
       const mensagem = tmplWa
         ? renderizar(tmplWa.corpo, { destinatario: nome, titulo: lista.titulo, link })
         : `📋 *Nova lista de tarefas*\n\n` +

@@ -33,10 +33,7 @@ const EVENTO_LABEL: Record<string, string> = {
   comentario:         'Novo comentário',
 }
 
-function formatarNumero(tel: string): string {
-  const n = tel.replace(/\D/g, '').replace(/^0/, '')
-  return n.startsWith('55') ? n : `55${n}`
-}
+import { formatarNumeroBR } from '../lib/adminEmpresa'
 
 const PERFIL_ADMIN_EMPRESA = '00000000-0000-0000-0000-000000000002'
 
@@ -168,14 +165,14 @@ export async function ticketsRoutes(app: FastifyInstance) {
       return `${baseUrl}/${area}/tickets/${ticket_id}`
     }
 
-    // 5. Turno (só para WA/push no evento 'aberto'): suprime modo 'notificacao' fora do horário
+    // 5. Turno: suprime WA/push (e-mail passa) — regra /biz "Turno × Férias".
+    // Antes checava só no evento 'aberto'; movimentações passavam livre. Corrigido
+    // no audit mensageria 2026-08-20: qualquer evento respeita turno.
     const foraDoTurno = new Set<string>()
-    if (evento === 'aberto') {
-      await Promise.all(destinatarios.map(async (u) => {
-        const { data: recebe } = await sb.rpc('usuario_recebe_notificacao', { p_usuario_id: u.id })
-        if (recebe === false) foraDoTurno.add(u.id)
-      }))
-    }
+    await Promise.all(destinatarios.map(async (u) => {
+      const { data: recebe } = await sb.rpc('usuario_recebe_notificacao', { p_usuario_id: u.id })
+      if (recebe === false) foraDoTurno.add(u.id)
+    }))
 
     // Férias: suprime TODOS os canais (WA, e-mail, push), em TODOS os eventos.
     const deFerias = new Set<string>()
@@ -233,7 +230,7 @@ export async function ticketsRoutes(app: FastifyInstance) {
 
       // ── WhatsApp (com fallback p/ Telegram) ──
       if ((u.telefone || u.telegram_chat_id) && !foraDoTurno.has(u.id)) {
-        const numero = u.telefone ? formatarNumero(u.telefone) : null
+        const numero = u.telefone ? formatarNumeroBR(u.telefone) : null
         const telegramChatId = u.telegram_chat_id ?? null
 
         // Usa template do banco se disponível e ativo; senão, hardcoded
@@ -270,8 +267,6 @@ export async function ticketsRoutes(app: FastifyInstance) {
           // Converte plain text em HTML simples (mantém quebras de linha)
           const corpoHtml = renderizar(tmplEmail.corpo, vars)
             .split('\n').map(l => `<p style="margin:0 0 8px;font-size:14px;color:#374151;line-height:1.6">${l || '&nbsp;'}</p>`).join('')
-          // Monta email com o template base existente
-          const { emailTicketAberto: _ea, emailTicketMovimentado: _em, ..._ } = await import('../lib/email-templates')
           // Usa template genérico da empresa — constrói o html inline
           htmlBody = buildEmailHtml(assunto, corpoHtml, link, cor, evento === 'aberto' ? primeiraFoto : null)
         } else if (!tmplEmail) {

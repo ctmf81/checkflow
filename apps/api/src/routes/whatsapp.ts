@@ -6,6 +6,7 @@ import { enviarComFallback } from '../lib/mensageria'
 import { enviarEmail } from '../lib/email'
 import { buscarTemplate, renderizar } from '../lib/notificacao-templates'
 import { exigirAutorizacao } from '../lib/apiAuth'
+import { formatarNumeroBR } from '../lib/adminEmpresa'
 import { adicionarAlerta } from './alerts'
 import { supabase } from '../lib/supabase'
 import { decidirAlertaWhatsapp } from '../lib/whatsappHealth'
@@ -251,88 +252,12 @@ export async function whatsappRoutes(app: FastifyInstance) {
     return reply.send(result)
   })
 
-  // POST /whatsapp/recuperar-senha — envia link de recuperação via WhatsApp + Email
-  app.post('/whatsapp/recuperar-senha', async (req, reply) => {
-    if (!await exigirAutorizacao(req, reply)) return
-    const { numero, nome, link, email, empresa_id } = req.body as {
-      numero?: string; nome: string; link: string; email?: string; empresa_id?: string
-    }
-    if (!link) return reply.status(400).send({ error: 'link é obrigatório' })
-
-    const vars = {
-      nome,
-      linha_nome: nome ? ` ${nome}` : '',
-      link,
-    }
-
-    const sb = empresa_id
-      ? createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!,
-          { realtime: { transport: ws as any } })
-      : null
-
-    const [tmplWa, tmplEmail] = sb && empresa_id
-      ? await Promise.all([
-          buscarTemplate(sb, empresa_id, 'reset_senha', 'whatsapp'),
-          buscarTemplate(sb, empresa_id, 'reset_senha', 'email'),
-        ])
-      : [null, null]
-
-    const resultados: any = {}
-
-    // WhatsApp
-    if (numero) {
-      let mensagem: string
-      if (tmplWa && tmplWa.ativo) {
-        mensagem = renderizar(tmplWa.corpo, vars)
-      } else {
-        mensagem = `Olá${nome ? ` ${nome}` : ''}! 👋\n\nVocê solicitou a recuperação de senha do *CheckFlow*.\n\nClique no link abaixo para criar uma nova senha:\n${link}\n\n_Este link expira em 1 hora._`
-      }
-      if (!tmplWa || tmplWa.ativo) {
-        resultados.whatsapp = await enviarWhatsApp({ numero, mensagem })
-      }
-    }
-
-    // Email (ignora o e-mail técnico não-entregável <cpf>@checkflow.local)
-    if (email && !email.endsWith('@checkflow.local')) {
-      let assunto = 'Recuperação de senha — CheckFlow'
-      let html: string
-
-      if (tmplEmail && tmplEmail.ativo) {
-        assunto = renderizar(tmplEmail.assunto ?? assunto, vars)
-        const corpoHtml = renderizar(tmplEmail.corpo, vars)
-          .split('\n').map(l => `<p style="margin:0 0 8px;font-size:14px;color:#374151;line-height:1.6">${l || '&nbsp;'}</p>`).join('')
-        html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#f5f5f5;font-family:Inter,Arial,sans-serif">
-  <table width="100%"><tr><td align="center" style="padding:32px 16px">
-    <table width="100%" style="max-width:520px;background:#fff;border-radius:16px;border:1px solid #e5e7eb">
-      <tr><td style="background:#f97316;padding:20px 28px"><p style="margin:0;color:#fff;font-size:20px;font-weight:700">CheckFlow</p></td></tr>
-      <tr><td style="padding:28px">${corpoHtml}
-        <a href="${link}" style="display:inline-block;margin-top:20px;padding:12px 24px;background:#f97316;color:#fff;font-size:14px;font-weight:600;text-decoration:none;border-radius:10px">Criar nova senha →</a>
-      </td></tr>
-      <tr><td style="padding:16px 28px;border-top:1px solid #f3f4f6;background:#fafafa"><p style="margin:0;font-size:11px;color:#9ca3af">Email automático — não responda.</p></td></tr>
-    </table>
-  </td></tr></table>
-</body></html>`
-      } else if (!tmplEmail) {
-        html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;padding:32px">
-<h2 style="color:#f97316">CheckFlow</h2>
-<p>Olá${nome ? ` ${nome}` : ''}!</p>
-<p>Você solicitou a recuperação de senha. Clique no link para criar uma nova senha:</p>
-<a href="${link}" style="display:inline-block;padding:12px 24px;background:#f97316;color:#fff;text-decoration:none;border-radius:8px">Criar nova senha</a>
-<p style="color:#999;font-size:12px;margin-top:24px">Este link expira em 1 hora.</p>
-</body></html>`
-      } else {
-        // tmplEmail.ativo === false — não envia email
-        html = ''
-      }
-
-      if (html) {
-        resultados.email = await enviarEmail({ para: email, assunto, html })
-      }
-    }
-
-    return reply.send(resultados)
-  })
+  // ⚠️ POST /whatsapp/recuperar-senha REMOVIDO (audit mensageria 2026-08-20):
+  // Rota legacy sem call sites (grep confirmou; apps/web/lib/passwordReset.ts
+  // usa `/whatsapp/enviar-codigo`). Enviava WA sem fallback pra Telegram —
+  // usuário com `telegram_primario=true` não receberia o link. Se algum código
+  // externo chamar, agora retorna 404. Substituto: `/whatsapp/enviar-codigo`
+  // (com fallback via `enviarComFallback`).
 
   // POST /whatsapp/enviar-codigo — envia código numérico (OTP) via WhatsApp + Email
   app.post('/whatsapp/enviar-codigo', async (req, reply) => {
@@ -393,8 +318,12 @@ export async function whatsappRoutes(app: FastifyInstance) {
         mensagem = fallbackTexto
       }
       if (!tmplWa || tmplWa.ativo) {
+        // Normaliza DDI antes de enviar (defesa em profundidade — Evolution já
+        // normaliza, mas evita quebrar se trocarmos de provedor). Audit
+        // mensageria 2026-08-20.
         resultados.whatsapp = await enviarComFallback({
-          numero, telegramChatId: telegram_chat_id, mensagem, preferirTelegram: telegram_primario,
+          numero: numero ? formatarNumeroBR(numero) : null,
+          telegramChatId: telegram_chat_id, mensagem, preferirTelegram: telegram_primario,
         })
       }
     }
