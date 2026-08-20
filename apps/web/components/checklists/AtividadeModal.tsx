@@ -30,6 +30,9 @@ interface Props {
   paiId?: string
   valorGatilho?: string
   ordemAtual: number
+  /** Checklist marcado como offline — IA-foto exige internet, logo o toggle
+   *  não deve aparecer aqui. Regra do /biz "IA por foto no campo". */
+  permiteOffline?: boolean
   onClose: () => void
   onSalva: (atividade: Atividade) => void
 }
@@ -62,12 +65,14 @@ interface Catalogo {
   nome: string
 }
 
-export default function AtividadeModal({ checklistId, secaoId, atividade, paiId, valorGatilho, ordemAtual, onClose, onSalva }: Props) {
+export default function AtividadeModal({ checklistId, secaoId, atividade, paiId, valorGatilho, ordemAtual, permiteOffline = false, onClose, onSalva }: Props) {
   const isEdicao = !!atividade
   const isDependente = !!paiId
   const { unidadeAtiva, flagsHabilitadas, recursosHabilitados } = useSession()
-  // IA por foto depende da característica 'ia' do plano (opt-in: null = sem restrição).
-  const iaHabilitada = flagsHabilitadas === null || flagsHabilitadas.has('ia')
+  // IA por foto depende da característica 'ia' do plano (opt-in: null = sem restrição)
+  // E do checklist NÃO ser offline — IA exige internet, então em checklist marcado
+  // como offline o toggle não aparece (regra do /biz).
+  const iaHabilitada = (flagsHabilitadas === null || flagsHabilitadas.has('ia')) && !permiteOffline
 
   const [nome, setNome] = useState(atividade?.nome ?? '')
   const [descricao, setDescricao] = useState(atividade?.descricao ?? '')

@@ -5,7 +5,10 @@ describe('podeCriarConteudo', () => {
   it('libera só na fase ativa', () => {
     expect(podeCriarConteudo('ativa')).toBe(true)
     expect(podeCriarConteudo('carencia')).toBe(false)
-    expect(podeCriarConteudo('bloqueada')).toBe(false)
+  })
+
+  it('fase legada "bloqueada" também bloqueia (fail-closed / compat)', () => {
+    expect(podeCriarConteudo('bloqueada' as any)).toBe(false)
   })
 
   it('fase desconhecida bloqueia (fail-closed)', () => {
@@ -20,7 +23,7 @@ describe('podeCriarConteudo', () => {
 
 describe('estadoAssinaturaGate', () => {
   it('nada se ainda não pronto', () => {
-    expect(estadoAssinaturaGate('bloqueada', false, false)).toEqual({ tipo: 'nada' })
+    expect(estadoAssinaturaGate('carencia', false, false)).toEqual({ tipo: 'nada' })
   })
 
   it('nada se fase ativa (independe de admin)', () => {
@@ -28,16 +31,12 @@ describe('estadoAssinaturaGate', () => {
     expect(estadoAssinaturaGate('ativa', true, true)).toEqual({ tipo: 'nada' })
   })
 
-  it('bloqueada + não-admin → tela cheia', () => {
-    expect(estadoAssinaturaGate('bloqueada', false, true)).toEqual({ tipo: 'bloqueio_total' })
-  })
-
-  it('bloqueada + admin → só banner (permite ir a /gestao/plano regularizar)', () => {
-    expect(estadoAssinaturaGate('bloqueada', true, true)).toEqual({ tipo: 'banner', bloqueada: true })
-  })
-
-  it('carencia → banner amarelo pra todos', () => {
+  it('carencia → banner amarelo pra todos (independe de admin)', () => {
     expect(estadoAssinaturaGate('carencia', false, true)).toEqual({ tipo: 'banner', bloqueada: false })
     expect(estadoAssinaturaGate('carencia', true, true)).toEqual({ tipo: 'banner', bloqueada: false })
+  })
+
+  it('fase legada "bloqueada" também vira banner (compat)', () => {
+    expect(estadoAssinaturaGate('bloqueada' as any, false, true)).toEqual({ tipo: 'banner', bloqueada: false })
   })
 })

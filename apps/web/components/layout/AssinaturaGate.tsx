@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Lock, AlertTriangle } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
 import { ehAdminDaEmpresa } from '@/lib/admin'
@@ -38,33 +38,17 @@ export function AssinaturaGate() {
   const estado = estadoAssinaturaGate(fase, isAdmin, pronto)
   if (estado.tipo === 'nada') return null
 
-  // Bloqueio total: usuário comum não acessa (admin passa e vê só o banner).
-  if (estado.tipo === 'bloqueio_total') {
-    return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/95 p-6">
-        <div className="max-w-md text-center">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-slate-800">
-            <Lock size={30} className="text-slate-300" />
-          </div>
-          <h1 className="text-lg font-semibold text-white">Sistema bloqueado</h1>
-          <p className="mt-2 text-sm leading-relaxed text-slate-300">
-            O sistema se encontra bloqueado, procure o administrador do sistema da sua
-            empresa para mais informações.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  // Carência (todos) ou bloqueada para admin → banner no topo.
-  const bloqueada = estado.bloqueada
+  // Carência (para todos): banner amarelo permanente. A UI de tela cheia
+  // ('bloqueio_total') foi removida quando o SQL deixou de retornar a fase
+  // 'bloqueada' (2026-07-22, migration 20260722120000) — hoje a somente-leitura
+  // é vivida como banner + criação bloqueada nas telas.
   return (
-    <div className={`flex items-center gap-2 px-4 py-2.5 text-sm ${bloqueada ? 'bg-red-50 text-red-700 border-b border-red-100' : 'bg-amber-50 text-amber-800 border-b border-amber-100'}`}>
+    <div className="flex items-center gap-2 px-4 py-2.5 text-sm bg-amber-50 text-amber-800 border-b border-amber-100">
       <AlertTriangle size={15} className="shrink-0" />
       <span className="min-w-0">
-        {bloqueada
-          ? 'Acesso da empresa bloqueado — o período gratuito e a carência terminaram. '
-          : 'Seu período de teste terminou — o sistema está em modo somente-leitura: não é possível criar checklists, tarefas, tickets, agendamentos ou workflows. Contrate um plano para reativar a criação. '}
+        Seu período de teste terminou — o sistema está em modo somente-leitura:
+        não é possível criar checklists, tarefas, tickets, agendamentos ou
+        workflows. Contrate um plano para reativar a criação.{' '}
         {isAdmin && (
           <a href="/gestao/plano" className="font-medium underline underline-offset-2">Ver plano</a>
         )}

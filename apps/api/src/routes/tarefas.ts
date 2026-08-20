@@ -78,11 +78,19 @@ export async function tarefasRoutes(app: FastifyInstance) {
       return reply.send({ enviados: 0, motivo: 'Nenhum destinatário' })
     }
 
-    // 4. Turno: só suprime envio para quem tem turno modo 'notificacao' e está fora agora
+    // 4. Filtro por férias + turno.
+    // Férias: suprime TUDO (WA + telegram + push). Rota tickets/planos-acao já
+    // fazem isso; tarefas escapou até o audit de 2026-08-20.
+    // Turno (`usuario_recebe_notificacao`): só suprime WA/push (e-mail passa).
     const ids = Array.from(destinatarios.keys())
+    const emFerias = new Set<string>()
     const foraDoTurno = new Set<string>()
     await Promise.all(ids.map(async (uid) => {
-      const { data: recebe } = await sb.rpc('usuario_recebe_notificacao', { p_usuario_id: uid })
+      const [{ data: ferias }, { data: recebe }] = await Promise.all([
+        sb.rpc('usuario_esta_de_ferias', { p_usuario_id: uid }),
+        sb.rpc('usuario_recebe_notificacao', { p_usuario_id: uid }),
+      ])
+      if (ferias === true) emFerias.add(uid)
       if (recebe === false) foraDoTurno.add(uid)
     }))
 
@@ -93,7 +101,7 @@ export async function tarefasRoutes(app: FastifyInstance) {
     let enviados = 0
     const erros: string[] = []
     await Promise.all(ids.map(async (uid) => {
-      if (foraDoTurno.has(uid)) return
+      if (emFerias.has(uid) || foraDoTurno.has(uid)) return
       const { nome, telefone, telegramChatId, preferirTelegram } = destinatarios.get(uid)!
       if (!telefone && !telegramChatId) return
       const numero = telefone ? (() => { const n = telefone.replace(/\D/g, '').replace(/^0/, ''); return n.startsWith('55') ? n : `55${n}` })() : null
@@ -107,8 +115,8 @@ export async function tarefasRoutes(app: FastifyInstance) {
       else erros.push(`${nome}: ${erro}`)
     }))
 
-    // 6. Push (PWA) — independe de telefone; mesmo público (respeita turno)
-    const idsPush = ids.filter(uid => !foraDoTurno.has(uid))
+    // 6. Push (PWA) — independe de telefone; respeita férias + turno.
+    const idsPush = ids.filter(uid => !emFerias.has(uid) && !foraDoTurno.has(uid))
     const push_enviados = (await enviarPush(sb, idsPush, {
       titulo: 'Nova lista de tarefas',
       corpo: lista.titulo,
