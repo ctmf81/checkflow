@@ -7,6 +7,7 @@ import { enviarEmail } from '../lib/email'
 import { enviarPush } from '../lib/push'
 import { emailPlanoAberto, emailPlanoEnviadoN2 } from '../lib/email-templates'
 import { buscarTemplate, renderizar, empresaDeSubgrupo } from '../lib/notificacao-templates'
+import { formatarNumeroBR } from '../lib/adminEmpresa'
 
 // ─── Mensagens WhatsApp ───────────────────────────────────────────────────────
 
@@ -215,9 +216,7 @@ async function dispararNotificacaoPlano(
 
     // ── WhatsApp (com fallback p/ Telegram) ──
     if ((telefone || telegramChatId) && !foraDoTurno.has(m.usuario_id)) {
-      const numeroFinal = telefone
-        ? (() => { const n = telefone.replace(/\D/g, '').replace(/^0/, ''); return n.startsWith('55') ? n : `55${n}` })()
-        : null
+      const numeroFinal = telefone ? formatarNumeroBR(telefone) : null
 
       let mensagemWa: string | null = null
       if (tmplWa && tmplWa.ativo) {
@@ -368,15 +367,15 @@ export async function planosAcaoRoutes(app: FastifyInstance) {
 
     const sb = svcClient()
 
-    // Janela de 2 dias: além disso considera-se perdido (evita retry infinito de
-    // número inválido). Lote limitado; o cron drena o acúmulo aos poucos.
-    const desde = new Date(Date.now() - 2 * 86_400_000).toISOString()
-    const { data: pendentes } = await sb.from('planos_acao')
-      .select('id, observacao_abertura, criado_por')
-      .is('aberto_notificado_em', null)
-      .gt('created_at', desde)
-      .order('created_at', { ascending: true })
-      .limit(100)
+    // Reserva atômica: `for update skip locked` no SELECT + UPDATE...RETURNING
+    // marca o lote como "em processamento" (sentinela 1970-01-01) numa única
+    // transação. Duas réplicas em corrida pegam conjuntos disjuntos — nunca
+    // reenviam a mesma notificação. Se o envio falhar, `desfazer_reserva_*`
+    // volta pra NULL pra reprocessar na próxima rodada.
+    // Audit mensageria 2026-08-20 identificou race.
+    const { data: pendentes } = await sb.rpc('reservar_planos_pendentes_notificacao', {
+      p_limite: 100, p_janela_dias: 2,
+    })
 
     if (!pendentes || pendentes.length === 0) {
       return reply.send({ ok: true, verificados: 0, reenviados: 0, ainda_pendentes: 0 })
@@ -401,6 +400,10 @@ export async function planosAcaoRoutes(app: FastifyInstance) {
       if (r.plano_encontrado && r.erros.length === 0) {
         await marcarAbertoNotificado(sb, p.id)
         reenviados++
+      } else {
+        // Envio falhou/plano sumiu: devolve pra fila (só desmarca se ainda
+        // está com o sentinela — não sobrescreve envio concluído).
+        await sb.rpc('desfazer_reserva_plano_notificacao', { p_plano_id: p.id })
       }
     }
 
