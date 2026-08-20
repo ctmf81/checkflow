@@ -2,9 +2,9 @@ import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import { enviarWhatsApp } from '../lib/whatsapp'
-import { enviarTelegram } from '../lib/telegram'
 import { enviarEmail } from '../lib/email'
 import { emailLimiteUso } from '../lib/email-templates'
+import { buscarAdminsEmpresa, notificarAdmins } from '../lib/adminEmpresa'
 import {
   avisosPendentes, fraseLimite, orientacaoRecurso, rotuloRecurso,
   type RecursoUso, type FaixaAviso, type UsoRecurso,
@@ -15,13 +15,6 @@ import {
 // e armazenamento. Disparado por cron diário (cron-job.org → x-cron-secret).
 // Idempotente por período de cobrança via tabela `empresa_avisos_uso`.
 // Mensagens hardcoded (aviso de plataforma, sempre ligado).
-
-const PERFIL_ADMIN_EMPRESA = '00000000-0000-0000-0000-000000000002'
-
-function formatarNumero(tel: string): string {
-  const n = tel.replace(/\D/g, '').replace(/^0/, '')
-  return n.startsWith('55') ? n : `55${n}`
-}
 
 function mensagemWa(nomeEmpresa: string, recurso: RecursoUso, faixa: FaixaAviso, pct: number, link: string): string {
   const cabecalho = faixa === '100'
@@ -92,33 +85,16 @@ export async function avisosUsoRoutes(app: FastifyInstance) {
       const { data: empresa } = await supabase.from('empresas').select('nome').eq('id', a.empresa_id).maybeSingle()
       const nomeEmpresa = (empresa as any)?.nome ?? 'sua empresa'
 
-      const { data: vinc } = await supabase.from('usuario_empresa')
-        .select('usuarios(nome, email, telefone, telegram_chat_id, telegram_primario)')
-        .eq('empresa_id', a.empresa_id).eq('perfil_id', PERFIL_ADMIN_EMPRESA)
-      const admins = (vinc ?? []).map((v: any) => v.usuarios).filter(Boolean)
+      const admins = await buscarAdminsEmpresa(supabase, a.empresa_id)
 
       const enviados: string[] = []
       for (const p of pendentes) {
-        let algumEnviado = false
-        let tinhaContato = false
-        for (const adm of admins) {
-          if (adm.telefone || adm.telegram_chat_id) {
-            tinhaContato = true
-            const msg = mensagemWa(nomeEmpresa, p.recurso, p.faixa, p.pct, link)
-            const wa = async () => adm.telefone ? (await enviarWhatsApp({ numero: formatarNumero(adm.telefone), mensagem: msg })).ok : false
-            const tg = async () => adm.telegram_chat_id ? (await enviarTelegram(adm.telegram_chat_id, msg)).ok : false
-            const ordem = adm.telegram_primario ? [tg, wa] : [wa, tg]
-            let ok = false
-            for (const envia of ordem) { if (!ok) ok = await envia() }
-            if (ok) algumEnviado = true
-          }
-          if (adm.email && !adm.email.endsWith('@checkflow.local')) {
-            tinhaContato = true
-            const { assunto, html } = emailLimiteUso({ nomeDestinatario: adm.nome, nomeEmpresa, recurso: p.recurso, faixa: p.faixa, pct: p.pct, link })
-            const { ok } = await enviarEmail({ para: adm.email, assunto, html })
-            if (ok) algumEnviado = true
-          }
-        }
+        const { algumEnviado, tinhaContato } = await notificarAdmins(
+          admins,
+          () => mensagemWa(nomeEmpresa, p.recurso, p.faixa, p.pct, link),
+          (adm) => emailLimiteUso({ nomeDestinatario: adm.nome, nomeEmpresa, recurso: p.recurso, faixa: p.faixa, pct: p.pct, link }),
+          enviarWhatsApp, enviarEmail,
+        )
         // Marca a idempotência quando avisou alguém OU quando não havia contato
         // (evita reprocessar todo dia empresa sem admin com telefone/e-mail).
         if (algumEnviado || !tinhaContato) {

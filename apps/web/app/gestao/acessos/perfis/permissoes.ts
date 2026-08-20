@@ -143,11 +143,13 @@ const recursosTodos: Recurso[] = [
     ],
   },
   {
+    // 'criar' cobre criar+editar (não há ação 'editar' separada — a policy
+    // dashboards_write só testa criar). Rótulo explícito pra evitar confusão.
     key: 'dashboards',
     label: 'Dashboards',
     acoes: [
       { key: 'ver',     label: 'Visualizar dashboards' },
-      { key: 'criar',   label: 'Criar/editar dashboards' },
+      { key: 'criar',   label: 'Criar e editar dashboards' },
       { key: 'deletar', label: 'Excluir dashboards' },
     ],
   },
