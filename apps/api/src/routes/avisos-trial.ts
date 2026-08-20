@@ -2,21 +2,14 @@ import { FastifyInstance } from 'fastify'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import { enviarWhatsApp } from '../lib/whatsapp'
-import { enviarTelegram } from '../lib/telegram'
 import { enviarEmail } from '../lib/email'
 import { emailTrialExpirando } from '../lib/email-templates'
+import { buscarAdminsEmpresa, notificarAdmins } from '../lib/adminEmpresa'
 
 // Avisa o admin da empresa (e-mail + WhatsApp) que o teste está acabando, antes
 // de a conta cair em somente-leitura. Idempotente por empresa (colunas
 // aviso_trial_5d_em / aviso_trial_1d_em). Disparado por cron diário
 // (cron-job.org → x-cron-secret). Mensagens hardcoded (aviso de plataforma).
-
-const PERFIL_ADMIN_EMPRESA = '00000000-0000-0000-0000-000000000002'
-
-function formatarNumero(tel: string): string {
-  const n = tel.replace(/\D/g, '').replace(/^0/, '')
-  return n.startsWith('55') ? n : `55${n}`
-}
 
 function mensagemWa(nomeEmpresa: string, dias: number, link: string): string {
   const quando = dias <= 0 ? 'termina *hoje*' : dias === 1 ? 'termina *amanhã*' : `termina em *${dias} dias*`
@@ -72,36 +65,15 @@ export async function avisosTrialRoutes(app: FastifyInstance) {
       const { data: empresa } = await supabase.from('empresas').select('nome').eq('id', a.empresa_id).maybeSingle()
       const nomeEmpresa = (empresa as any)?.nome ?? 'sua empresa'
 
-      // Admins da empresa (perfil ...002)
-      const { data: vinc } = await supabase.from('usuario_empresa')
-        .select('usuarios(nome, email, telefone, telegram_chat_id, telegram_primario)')
-        .eq('empresa_id', a.empresa_id).eq('perfil_id', PERFIL_ADMIN_EMPRESA)
-      const admins = (vinc ?? []).map((v: any) => v.usuarios).filter(Boolean)
-
+      const admins = await buscarAdminsEmpresa(supabase, a.empresa_id)
       if (!admins.length) { resultados.push({ empresaId: a.empresa_id, status: 'sem_admin' }); continue }
 
-      let algumEnviado = false
-      let tinhaContato = false
-      for (const adm of admins) {
-        // WhatsApp/Telegram (ordem conforme a preferência do admin)
-        if (adm.telefone || adm.telegram_chat_id) {
-          tinhaContato = true
-          const msg = mensagemWa(nomeEmpresa, dias, link)
-          const wa = async () => adm.telefone ? (await enviarWhatsApp({ numero: formatarNumero(adm.telefone), mensagem: msg })).ok : false
-          const tg = async () => adm.telegram_chat_id ? (await enviarTelegram(adm.telegram_chat_id, msg)).ok : false
-          const ordem = adm.telegram_primario ? [tg, wa] : [wa, tg]
-          let ok = false
-          for (const envia of ordem) { if (!ok) ok = await envia() }
-          if (ok) algumEnviado = true
-        }
-        // E-mail (ignora o técnico não-entregável <cpf>@checkflow.local)
-        if (adm.email && !adm.email.endsWith('@checkflow.local')) {
-          tinhaContato = true
-          const { assunto, html } = emailTrialExpirando({ nomeDestinatario: adm.nome, nomeEmpresa, diasRestantes: dias, link })
-          const { ok } = await enviarEmail({ para: adm.email, assunto, html })
-          if (ok) algumEnviado = true
-        }
-      }
+      const { algumEnviado, tinhaContato } = await notificarAdmins(
+        admins,
+        () => mensagemWa(nomeEmpresa, dias, link),
+        (adm) => emailTrialExpirando({ nomeDestinatario: adm.nome, nomeEmpresa, diasRestantes: dias, link }),
+        enviarWhatsApp, enviarEmail,
+      )
 
       // Marca a idempotência se conseguiu avisar alguém, OU se não havia contato
       // (evita retry infinito de empresa sem admin com telefone/e-mail).
