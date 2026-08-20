@@ -5,6 +5,7 @@ import { enviarEmail } from '../lib/email'
 import { emailParceiroBoasVindas, emailParceiroResumoMensal } from '../lib/email-templates'
 import { asaasCriarSubconta } from '../lib/asaas'
 import { validarInteresseParceiro } from '../lib/interesseParceiro'
+import { criarRateLimiter } from '../lib/rateLimit'
 
 const MESES = [
   'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -43,11 +44,18 @@ export async function parceiroRoutes(app: FastifyInstance) {
   const sb = () => createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!,
     { realtime: { transport: ws as any } })
 
+  // Rate limit por IP no endpoint público (pentest 2026-08-20 identificou:
+  // sem isso, spam 200 req/s). 10 req/60s por IP; fail-open sem IP.
+  const rlInteresse = criarRateLimiter({ janelaMs: 60_000, max: 10 })
+
   // POST /parceiros/interesse — formulário público da apresentação de parceiros.
   // SEM auth (chamado da página aberta /apresentacao_parceiro). Validação +
   // honeypot contra spam; ao passar, GRAVA um pré-cadastro PENDENTE (mesmo inbox
   // do /seja-parceiro) → aparece em /sistema/parceiros para o admin validar.
   app.post('/parceiros/interesse', async (req, reply) => {
+    const ip = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ?? req.ip
+    if (!rlInteresse.ok(ip)) return reply.status(429).send({ error: 'Muitas tentativas. Aguarde alguns instantes e tente novamente.' })
+
     const v = validarInteresseParceiro(req.body as any)
     if (!v.ok) {
       // Honeypot: responde ok e descarta (não sinaliza ao bot que foi barrado).
