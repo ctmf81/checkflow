@@ -100,6 +100,8 @@ Cobre: headers de segurança (HSTS/X-Frame-Options/nosniff), CORS, cookies de se
 
 Último resultado (2026-06-08, pós-correções): 25/26 pass — único warn residual é o banner `Server: railway-hikari` (infra Railway, aceito como risco residual). Relatório completo em `docs/seguranca/RELATORIO_SEGURANCA_2026-06-08.md`.
 
+**Auditoria mais recente: 2026-08-20 — [RELATORIO_SEGURANCA_2026-08-20.md](../../docs/seguranca/RELATORIO_SEGURANCA_2026-08-20.md).** 72 checks (25 probe custom externo + 26 http_probe oficial + 21 auth RLS multi-tenant direto no DB) · 62 PASS · **0 críticos**. 3 findings acionáveis corrigidos e em prod no mesmo dia (PRs #161/#162): CSP no web, rate limit no `POST /parceiros/interesse` (10 req/60s por IP), cache 10s + coalesce no `/health` (que esgotava pool Supabase sob burst do healthcheck). Extraída lib pura `apps/api/src/lib/rateLimit.ts` + 6 testes. Adicionados 32 testes p/ `entitlements/{assinaturaFase,gating}` que estavam sem cobertura. Suite total: 732 unit passando.
+
 ## Vulnerabilidades Corrigidas
 | Data | Issue | Migration |
 |------|-------|-----------|
