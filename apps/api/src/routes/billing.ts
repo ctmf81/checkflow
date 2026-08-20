@@ -557,7 +557,11 @@ export async function billingRoutes(app: FastifyInstance) {
         externalReference: empresaId,
       })
 
-      await supabase.from('empresa_cobrancas').insert({
+      // UPSERT em vez de INSERT — audit financeiro 2026-08-20 identificou race
+      // com PAYMENT_CREATED do webhook, que se chega ANTES do POST retornar
+      // insere linha sem `pacote_id`/`meta` → crédito nunca aplicado. Com
+      // upsert por asaas_payment_id, a linha final SEMPRE tem meta correto.
+      await supabase.from('empresa_cobrancas').upsert({
         empresa_id: empresaId,
         tipo: 'pacote',
         asaas_payment_id: cobranca.id,
@@ -569,7 +573,7 @@ export async function billingRoutes(app: FastifyInstance) {
         vencimento: cobranca.dueDate,
         invoice_url: cobranca.invoiceUrl,
         meta: { tipo_recurso: pacote.tipo, quantidade: pacote.quantidade, creditado: false },
-      })
+      }, { onConflict: 'asaas_payment_id' })
 
       return reply.send({ ok: true, paymentId: cobranca.id, invoiceUrl: cobranca.invoiceUrl })
     } catch (e: any) {
@@ -625,10 +629,24 @@ export async function billingRoutes(app: FastifyInstance) {
       // Tenta atualizar uma cobrança existente; se não houver (ex: cobrança de
       // assinatura criada pelo Asaas), cria o registro.
       const { data: existente } = await supabase.from('empresa_cobrancas')
-        .select('id, tipo, pacote_id, meta').eq('asaas_payment_id', pagamento.id).maybeSingle()
+        .select('id, tipo, pacote_id, meta, status, pago_em').eq('asaas_payment_id', pagamento.id).maybeSingle()
 
       if (existente) {
-        await supabase.from('empresa_cobrancas').update(patch).eq('id', existente.id)
+        // Guard anti-regressão de status — audit financeiro 2026-08-20:
+        // Asaas não garante ordem dos eventos. Se CONFIRMED chegou antes de
+        // CREATED, o CREATED atrasado NÃO deve regredir status pra PENDING.
+        // Se a linha já foi paga (pago_em não-null ou status pago), preserva.
+        const jaEstavaPago = !!(existente as any).pago_em
+          || ['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'].includes((existente as any).status)
+        const eventoRegride = ['PENDING', 'AWAITING_RISK_ANALYSIS', 'AWAITING_CHARGEBACK_REVERSAL'].includes(pagamento.status)
+        if (jaEstavaPago && eventoRegride) {
+          // Ignora update de status — só atualiza campos "seguros" (url/desc).
+          const patchSeguro: Record<string, any> = { atualizado_em: new Date().toISOString() }
+          if (pagamento.invoiceUrl) patchSeguro.invoice_url = pagamento.invoiceUrl
+          await supabase.from('empresa_cobrancas').update(patchSeguro).eq('id', existente.id)
+        } else {
+          await supabase.from('empresa_cobrancas').update(patch).eq('id', existente.id)
+        }
       } else if (empresaId) {
         await supabase.from('empresa_cobrancas').insert({
           empresa_id: empresaId,
@@ -657,6 +675,31 @@ export async function billingRoutes(app: FastifyInstance) {
         }
         await supabase.from('empresa_cobrancas')
           .update({ meta: { ...existente.meta, creditado: true } }).eq('id', existente.id)
+      }
+
+      // Estorno/refund/deletion — audit financeiro 2026-08-20:
+      // reverte crédito de pacote (se aplicado) e marca cobrança. Aceita ambos
+      // PAYMENT_REFUNDED (dinheiro devolvido ao cliente) e PAYMENT_DELETED
+      // (Asaas apagou a cobrança). Idempotente: só reverte se `creditado=true`.
+      if (['PAYMENT_REFUNDED', 'PAYMENT_DELETED', 'PAYMENT_REFUND_IN_PROGRESS'].includes(evento) && existente?.tipo === 'pacote' && existente?.meta?.creditado && empresaId) {
+        const recurso = existente.meta.tipo_recurso as string
+        const qtd = Number(existente.meta.quantidade ?? 0)
+        try {
+          if (recurso === 'execucoes') {
+            // Debita o mesmo qtd (idempotente pela flag creditado)
+            await supabase.rpc('billing_creditar_execucoes', { p_empresa_id: empresaId, p_qtd: -qtd })
+          } else if (recurso === 'tokens_ia') {
+            await supabase.rpc('billing_creditar_tokens', { p_empresa_id: empresaId, p_qtd: -qtd })
+          } else if (recurso === 'armazenamento') {
+            await supabase.from('empresa_pacotes_comprados')
+              .delete().eq('empresa_id', empresaId).eq('pacote_id', existente.pacote_id).eq('tipo', 'armazenamento')
+          }
+          await supabase.from('empresa_cobrancas')
+            .update({ meta: { ...existente.meta, creditado: false, estornado_em: new Date().toISOString() } })
+            .eq('id', existente.id)
+        } catch (revErr: any) {
+          app.log.error(`[billing] falha ao reverter crédito de pacote (${pagamento.id}): ${revErr?.message}`)
+        }
       }
 
       // Estado da assinatura conforme o pagamento
@@ -708,7 +751,17 @@ export async function billingRoutes(app: FastifyInstance) {
               .eq('id', (assin as any).pendente_plano_id).maybeSingle()
             if (plano) {
               const p = plano as any
-              const hoje = new Date(); const fim = new Date(hoje); fim.setMonth(fim.getMonth() + 1)
+              // Período respeita o ciclo do plano — audit financeiro 2026-08-20
+              // identificou que ativação anual fixava periodo_fim=+1 mês,
+              // deixando cliente com 30 dias contratuais mesmo pagando anuidade.
+              const hoje = new Date()
+              const fim = new Date(hoje)
+              if (p.ciclo === 'anual') fim.setFullYear(fim.getFullYear() + 1)
+              else fim.setMonth(fim.getMonth() + 1)
+              // Update atômico com guard: só aplica se pendente_plano_id ainda
+              // é o que a gente leu. Se outro worker (CONFIRMED + RECEIVED do
+              // mesmo pagamento) já ativou, o WHERE não bate e o UPDATE vira
+              // no-op. Evita dupla ativação com recálculo de período.
               await supabase.from('empresa_assinaturas').update({
                 plano_id: p.id, plano_nome: p.nome, plano_tipo: p.tipo,
                 valor: p.valor, ciclo: p.ciclo,
@@ -723,6 +776,7 @@ export async function billingRoutes(app: FastifyInstance) {
                 pendente_plano_id: null, vencido_em: null,
                 atualizado_em: new Date().toISOString(),
               }).eq('empresa_id', empresaId)
+                .eq('pendente_plano_id', (assin as any).pendente_plano_id)
             }
           } else {
             // Pagamento recorrente → garante ativo (recupera de 'inadimplente')

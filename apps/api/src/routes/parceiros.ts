@@ -6,6 +6,7 @@ import { emailParceiroBoasVindas, emailParceiroResumoMensal } from '../lib/email
 import { asaasCriarSubconta } from '../lib/asaas'
 import { validarInteresseParceiro } from '../lib/interesseParceiro'
 import { criarRateLimiter } from '../lib/rateLimit'
+import { exigirAutorizacao } from '../lib/apiAuth'
 
 const MESES = [
   'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -78,8 +79,11 @@ export async function parceiroRoutes(app: FastifyInstance) {
     return reply.send({ ok: true })
   })
 
-  // POST /parceiros/boas-vindas — dispara o email de boas-vindas (1x por parceiro)
+  // POST /parceiros/boas-vindas — dispara o email de boas-vindas (1x por parceiro).
+  // Audit financeiro 2026-08-20: era anônima → permitia enumeração de parceiroId
+  // (200 vs 404) e disparo do 1º e-mail. Agora exige usuário autenticado.
   app.post('/parceiros/boas-vindas', async (req, reply) => {
+    if (!await exigirAutorizacao(req, reply)) return
     const { parceiroId, empresaId } = req.body as { parceiroId?: string; empresaId?: string }
     if (!parceiroId) return reply.status(400).send({ error: 'parceiroId é obrigatório' })
 
