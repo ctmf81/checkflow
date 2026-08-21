@@ -98,7 +98,18 @@ export async function validarCodigoOtp(
     return { ok: false, erro: 'Código incorreto.' }
   }
 
-  await sb.from('password_reset_tokens').update({ usado: true }).eq('id', token.id)
+  // UPDATE atômico com guard `usado=false` — audit auth 2026-08-20 identificou
+  // race: 2 requisições concorrentes com o mesmo código passariam ambas na
+  // validação antes de qualquer marcar `usado=true`. Agora só o 1º UPDATE
+  // retorna linha; o 2º pega 0 rows e falha.
+  const { data: marcado, error: mErr } = await sb.from('password_reset_tokens')
+    .update({ usado: true })
+    .eq('id', token.id)
+    .eq('usado', false)
+    .select('id')
+  if (mErr || !marcado || marcado.length === 0) {
+    return { ok: false, erro: 'Código já foi utilizado.' }
+  }
 
   const sessaoToken = gerarTokenSessao()
   await sb.from('password_reset_tokens').insert({
@@ -131,7 +142,13 @@ export async function validarSessaoSenha(
   if (new Date(token.expira_em).getTime() < Date.now()) return false
   if (token.codigo_hash !== hashValor(sessaoToken)) return false
 
-  await sb.from('password_reset_tokens').update({ usado: true }).eq('id', token.id)
+  // UPDATE atômico — audit auth 2026-08-20 (mesmo padrão de validarCodigoOtp).
+  const { data: marcado, error: mErr } = await sb.from('password_reset_tokens')
+    .update({ usado: true })
+    .eq('id', token.id)
+    .eq('usado', false)
+    .select('id')
+  if (mErr || !marcado || marcado.length === 0) return false
   return true
 }
 
