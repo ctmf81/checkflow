@@ -16,10 +16,21 @@ const supa = SUPA_URL && SUPA_KEY
   ? createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: false }, realtime: { transport: ws as any } })
   : null
 
+// Fail-loud no boot: audit 2026-08-20 identificou risco de comparação com
+// string vazia se INTERNAL_API_SECRET não estivesse setado em ambos os lados.
+// Aqui só emite warning; o guard abaixo já rejeita secret vazio (length < 16).
+if (!process.env.INTERNAL_API_SECRET || process.env.INTERNAL_API_SECRET.length < 16) {
+  console.warn('[apiAuth] AVISO: INTERNAL_API_SECRET ausente ou curto (<16 chars). Rotas internas exigirão apenas JWT.')
+}
+
 export async function requisicaoAutorizada(req: FastifyRequest): Promise<boolean> {
-  // 1) Segredo interno (servidor-a-servidor)
+  // 1) Segredo interno (servidor-a-servidor). Rejeita explicitamente string
+  // vazia/curta pra evitar aceitar bypass acidental por config errada.
   const secret = process.env.INTERNAL_API_SECRET
-  if (secret && req.headers['x-internal-secret'] === secret) return true
+  const header = req.headers['x-internal-secret']
+  if (secret && secret.length >= 16 && typeof header === 'string' && header.length >= 16 && header === secret) {
+    return true
+  }
 
   // 2) JWT de usuário autenticado (navegador)
   const token = String(req.headers['authorization'] ?? '').replace(/^Bearer\s+/i, '').trim()

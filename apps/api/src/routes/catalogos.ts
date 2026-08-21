@@ -33,8 +33,18 @@ export async function catalogoRoutes(app: FastifyInstance) {
     }
   })
 
-  // POST /catalogos/:id/sync — sincroniza valores via API externa
+  // POST /catalogos/:id/sync — sincroniza valores via API externa.
+  // Auditoria cron 2026-08-20 (CRIT): rota estava ABERTA — qualquer visitante
+  // disparava sync (fetch externo + upsert + DELETE de valores fora do payload)
+  // contra catálogo de qualquer empresa. Agora exige x-cron-secret (mesmo do
+  // /catalogos/sync-all) OU sessão autenticada (para uso pela UI da gestão).
   app.post<{ Params: { id: string } }>('/catalogos/:id/sync', async (req, reply) => {
+    const cronSecret = process.env.CRON_SECRET
+    const headerSecret = req.headers['x-cron-secret']
+    const viaCron = !!cronSecret && headerSecret === cronSecret
+    if (!viaCron) {
+      if (!await exigirAutorizacao(req, reply)) return
+    }
     try {
     const { id } = req.params
 
@@ -166,10 +176,12 @@ export async function catalogoRoutes(app: FastifyInstance) {
     const resultados = []
     for (const cat of catalogos) {
       try {
+        // Propaga o CRON_SECRET (agora exigido pela rota individual —
+        // audit cron 2026-08-20). Sem isso o sync-all quebraria.
         const apiBase = process.env.API_URL ?? `http://localhost:${process.env.PORT ?? 8080}`
         const res = await fetch(
           `${apiBase}/catalogos/${cat.id}/sync`,
-          { method: 'POST' }
+          { method: 'POST', headers: { 'x-cron-secret': process.env.CRON_SECRET ?? '' } }
         )
         const json: any = await res.json()
         resultados.push({ id: cat.id, nome: cat.nome, ...json })
