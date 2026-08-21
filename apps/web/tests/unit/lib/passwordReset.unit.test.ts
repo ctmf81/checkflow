@@ -231,7 +231,7 @@ describe('validarCodigoOtp()', () => {
           },
         ],
       },
-      { data: null, error: null }, // resultado do update usado=true
+      { data: [{ id: 'tok-1' }], error: null }, // update usado=true (RETURNING id — audit 2026-08-20 UPDATE atômico)
       { data: null, error: null }, // resultado do insert sessao_senha
     ])
     const r = await validarCodigoOtp(sb, 'user-1', '123456')
@@ -309,7 +309,7 @@ describe('validarSessaoSenha()', () => {
           },
         ],
       },
-      { data: null, error: null }, // resultado do update usado=true
+      { data: [{ id: 'sess-1' }], error: null }, // update usado=true (RETURNING id — audit 2026-08-20 atômico)
     ])
     const ok = await validarSessaoSenha(sb, 'user-1', 'abc123')
     expect(ok).toBe(true)
