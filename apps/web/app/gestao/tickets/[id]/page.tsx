@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
-import { notificarTicket, vincularTicketDuplicado, desvincularTicketDuplicado } from '@/lib/notificacoes'
+import { notificarTicket, vincularTicketDuplicado, desvincularTicketDuplicado, transferirTicket } from '@/lib/notificacoes'
 import { registrarUsoArmazenamento, armazenamentoDisponivel, somaBytes, MSG_ARMAZENAMENTO_CHEIO } from '@/lib/uso'
 import { acoesDisponiveis as calcularAcoes, podeVincular, STATUS_ABERTOS, type Acao, type TicketStatus as TStatus } from '@/lib/tickets'
 import { ehAdminDaEmpresa } from '@/lib/admin'
@@ -295,14 +295,17 @@ export default function TicketDetalhe() {
 
     setTransferindo(true); setErroTransfer(null)
 
-    const { data: atualizado, error: upErr } = await supabase
-      .from('tickets')
-      .update({ grupo_id: grupoSel, subgrupo_id: subgrupoSel, assignee_id: null, status: 'aberto' })
-      .eq('id', id).select('id')
-
-    if (upErr || !atualizado || atualizado.length === 0) {
+    // Via API (service role) — evita bug de combinação RLS que barrava UPDATE
+    // ao trocar assignee (fix 2026-08-21). Ver /tickets/transferir.
+    if (!userId) { setTransferindo(false); setErroTransfer('Sessão expirada.'); return }
+    const r = await transferirTicket({
+      ticket_id: id, ator_id: userId,
+      grupo_id: grupoSel, subgrupo_id: subgrupoSel,
+      assignee_id: null, status: 'aberto',
+    })
+    if (!r.ok) {
       setTransferindo(false)
-      setErroTransfer(upErr ? 'Não foi possível transferir o ticket.' : 'Você não tem permissão para transferir este ticket.')
+      setErroTransfer(r.error ?? 'Não foi possível transferir o ticket.')
       return
     }
 
