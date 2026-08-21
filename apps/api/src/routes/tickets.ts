@@ -303,6 +303,81 @@ export async function ticketsRoutes(app: FastifyInstance) {
     })
   })
 
+  // POST /tickets/transferir — muda grupo/subgrupo/assignee do ticket.
+  // Feito server-side (service role) pra desviar a interação surpresa entre as
+  // policies RLS `tickets_atualizar` (FOR UPDATE) e `tickets_admin_empresa`
+  // (FOR ALL) que barrava o UPDATE quando o novo `assignee_id` não era o
+  // próprio auth.uid (bug 2026-08-21 relatado por Gestor VM transferindo pra
+  // Wellington). Autorização em código: assignee atual, abridor, admin_sistema,
+  // admin da empresa, OU permissão `ticket.tratar` na empresa.
+  app.post('/tickets/transferir', async (req, reply) => {
+    if (!await exigirAutorizacao(req, reply)) return
+    const { ticket_id, ator_id, grupo_id, subgrupo_id, assignee_id, status } = req.body as {
+      ticket_id: string; ator_id: string
+      grupo_id?: string | null; subgrupo_id?: string | null
+      assignee_id?: string | null; status?: 'aberto' | 'em_tratamento'
+    }
+    if (!ticket_id || !ator_id) return reply.status(400).send({ error: 'ticket_id e ator_id são obrigatórios' })
+
+    const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!,
+      { realtime: { transport: ws as any } })
+
+    const { data: ticket } = await sb.from('tickets')
+      .select('id, unidade_id, assignee_id, aberto_por_id, status')
+      .eq('id', ticket_id).maybeSingle()
+    if (!ticket) return reply.status(404).send({ error: 'Ticket não encontrado' })
+
+    // Autorização: mesmas condições da policy `tickets_atualizar` (USING).
+    let autorizado = false
+    if (ator_id === (ticket as any).assignee_id) autorizado = true
+    else if (ator_id === (ticket as any).aberto_por_id) autorizado = true
+    else {
+      const { data: u } = await sb.auth.admin.getUserById(ator_id)
+      if ((u?.user?.app_metadata as any)?.role === 'admin_sistema') autorizado = true
+    }
+    if (!autorizado) {
+      const empresaId = await empresaDeUnidade(sb, (ticket as any).unidade_id)
+      if (empresaId) {
+        // admin_empresa OU perfil com ticket.tratar
+        const { data: ue } = await sb.from('usuario_empresa')
+          .select('perfil_id').eq('empresa_id', empresaId).eq('usuario_id', ator_id).maybeSingle()
+        if ((ue as any)?.perfil_id === PERFIL_ADMIN_EMPRESA) autorizado = true
+        else if ((ue as any)?.perfil_id) {
+          const { data: pp } = await sb.from('perfil_permissoes')
+            .select('permissoes(recurso, acao)').eq('perfil_id', (ue as any).perfil_id)
+          const tem = (pp ?? []).some((r: any) => {
+            const p = Array.isArray(r.permissoes) ? r.permissoes[0] : r.permissoes
+            return p?.recurso === 'ticket' && p?.acao === 'tratar'
+          })
+          if (tem) autorizado = true
+        }
+      }
+    }
+    if (!autorizado) return reply.status(403).send({ error: 'Você não tem permissão para transferir este ticket' })
+
+    // Sanity: se veio grupo/subgrupo, precisa ser da MESMA unidade do ticket
+    if (subgrupo_id) {
+      const { data: sg } = await sb.from('subgrupos').select('id, grupo:grupos(unidade_id)').eq('id', subgrupo_id).maybeSingle()
+      const un = (sg as any)?.grupo?.unidade_id ?? (Array.isArray((sg as any)?.grupo) ? (sg as any).grupo[0]?.unidade_id : null)
+      if (!sg || un !== (ticket as any).unidade_id) {
+        return reply.status(400).send({ error: 'Subgrupo destino não pertence à unidade do ticket' })
+      }
+    }
+
+    const patch: Record<string, any> = {}
+    if (grupo_id !== undefined) patch.grupo_id = grupo_id
+    if (subgrupo_id !== undefined) patch.subgrupo_id = subgrupo_id
+    if (assignee_id !== undefined) patch.assignee_id = assignee_id
+    if (status) patch.status = status
+
+    const { data: upd, error: upErr } = await sb.from('tickets')
+      .update(patch).eq('id', ticket_id).select('id, status, assignee_id, grupo_id, subgrupo_id')
+    if (upErr || !upd?.length) {
+      return reply.status(500).send({ error: upErr?.message ?? 'Falha ao transferir' })
+    }
+    return reply.send({ ok: true, ticket: upd[0] })
+  })
+
   // POST /tickets/vincular — marca `duplicado_id` como duplicado de `principal_id`.
   // Feito server-side (service role) porque quem vincula é o RESPONSÁVEL do
   // principal, que pode não ter permissão de UPDATE no duplicado pela RLS.

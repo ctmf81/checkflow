@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useSession } from '@/contexts/SessionContext'
-import { notificarTicket } from '@/lib/notificacoes'
+import { notificarTicket, transferirTicket } from '@/lib/notificacoes'
 import { registrarUsoArmazenamento, armazenamentoDisponivel, somaBytes, MSG_ARMAZENAMENTO_CHEIO } from '@/lib/uso'
 import { acoesDisponiveis as calcularAcoes, type Acao } from '@/lib/tickets'
 import { EvidenciaPicker } from '@/components/tickets/EvidenciaPicker'
@@ -263,16 +263,13 @@ export default function TicketDetalheOperacao() {
 
     // Com usuário específico: atribui direto a ele (em tratamento) → ele é notificado.
     // Sem usuário: volta para "aberto" sem responsável, para o subgrupo assumir.
-    const patch: Record<string, any> = usuarioSel
-      ? { grupo_id: grupoSel, subgrupo_id: subgrupoSel, assignee_id: usuarioSel, status: 'em_tratamento' }
-      : { grupo_id: grupoSel, subgrupo_id: subgrupoSel, assignee_id: null, status: 'aberto' }
-
-    const { data: atualizado, error: upErr } = await supabase
-      .from('tickets').update(patch).eq('id', id).select('id')
-
-    if (upErr || !atualizado || atualizado.length === 0) {
+    // Via API (service role) — bug 2026-08-21 (ver /tickets/transferir).
+    const r = await transferirTicket(usuarioSel
+      ? { ticket_id: id, ator_id: userId!, grupo_id: grupoSel, subgrupo_id: subgrupoSel, assignee_id: usuarioSel, status: 'em_tratamento' }
+      : { ticket_id: id, ator_id: userId!, grupo_id: grupoSel, subgrupo_id: subgrupoSel, assignee_id: null, status: 'aberto' })
+    if (!r.ok) {
       setTransferindo(false)
-      setErroTransfer(upErr ? 'Não foi possível transferir o ticket.' : 'Você não tem permissão para transferir este ticket.')
+      setErroTransfer(r.error ?? 'Não foi possível transferir o ticket.')
       return
     }
 
