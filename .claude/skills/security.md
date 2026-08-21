@@ -10,6 +10,7 @@ description: Cyber security rules and DevOps hardening for CheckFlow. Use whenev
 - **Nunca** commitar `.env.local` ou qualquer arquivo com secrets — verificar `.gitignore` antes
 - GitHub Push Protection está ativo — qualquer secret no commit será bloqueado
 - RLS obrigatório em **todas** as tabelas de dados de usuário, sem exceção
+- **Hardening de auth/login NUNCA vai pra prod sem smoke E2E do caminho feliz.** Se a mudança mexe em função/RPC/policy que anon toca (login, OTP, reset senha, cadastro público), **rodar o fluxo real em web-dev antes do PR — sem exceção**. Bug 2026-08-21: revogar anon de `buscar_email_por_cpf` quebrou login em prod porque nenhum agente cruzou "quem chama isso?" com "quem é o caller no login?". Grep de call sites + fluxo real em navegador são obrigatórios, não opcionais.
 
 ## Gating de entitlement (menu/perfil) é UX, NÃO segurança
 `lib/entitlements/gating.ts` decide o que aparece no menu/tela/perfil — é **UX**. A barreira real segue no **RLS + checagem de permissão nas ações/rotas**.
